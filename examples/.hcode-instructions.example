@@ -1,0 +1,42 @@
+# Project-Specific AI Instructions
+# This file contains custom instructions for Hcode when working on this project.
+
+## Project Context
+This is a web application built with React and Node.js. It uses TypeScript for type safety.
+
+## Code Style Guidelines
+- Use functional components with hooks
+- Prefer async/await over promises
+- Follow Airbnb style guide
+- Use meaningful variable names
+- Add JSDoc comments for public functions
+
+## Architecture Patterns
+- Use Redux for state management
+- Keep components under 200 lines
+- Separate business logic into custom hooks
+- Use React Query for server state
+
+## Testing Requirements
+- Write unit tests for all utilities
+- Integration tests for API endpoints
+- Minimum 80% code coverage
+- Use React Testing Library for component tests
+
+## Security Considerations
+- Never commit API keys or secrets
+- Validate all user inputs
+- Use parameterized queries for database access
+- Implement rate limiting on API endpoints
+
+## Common Tasks
+When refactoring:
+- Ensure backward compatibility
+- Update related tests
+- Update documentation
+
+When adding features:
+- Create feature branch
+- Write tests first (TDD)
+- Update API documentation
+- Add migration if needed

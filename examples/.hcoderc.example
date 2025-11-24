@@ -1,0 +1,33 @@
+# Hcode Configuration Example
+# Copy this file to .hcoderc in your project root or ~/.hcode/config.yaml
+
+providers:
+  anthropic:
+    api_key_env: ANTHROPIC_API_KEY
+    default_model: claude-3-5-sonnet-20241022  # Options: claude-3-opus-20240229, claude-3-5-sonnet-20241022, claude-3-haiku-20240307
+    max_tokens: 4000
+    temperature: 0.3
+
+  openai:
+    api_key_env: OPENAI_API_KEY
+    base_url_env: OPENAI_BASE_URL  # For Azure OpenAI, Cerebras, or other compatible APIs
+    default_model: gpt-4o  # Options: gpt-4-turbo, gpt-4o, gpt-4o-mini, gpt-3.5-turbo, llama3.1-70b (Cerebras), etc.
+    max_tokens: 4000
+    temperature: 0.3
+
+preferences:
+  primary_provider: auto  # Options: auto, anthropic, openai
+  fallback_enabled: true
+  cost_optimization: balanced  # Options: aggressive, balanced, quality
+  prefer_streaming: true
+  max_cost_per_request: 1.0
+
+tools:
+  linter: auto  # Options: auto, pylint, eslint, etc.
+  formatter: auto  # Options: auto, black, prettier, etc.
+  test_runner: auto  # Options: auto, pytest, jest, etc.
+
+safety:
+  confirm_destructive: true
+  auto_backup: true
+  backup_retention_days: 7

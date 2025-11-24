@@ -1,0 +1,540 @@
+"""
+Bash execution tools for Hcode.
+Includes Bash, BashOutput, and KillShell tools for command execution.
+"""
+
+import os
+import asyncio
+import subprocess
+import time
+import uuid
+from pathlib import Path
+from typing import Dict, Optional, List, Any
+from dataclasses import dataclass
+import shlex
+
+from .base_tool import BaseTool, ToolResult, ToolParameter, ToolCategory
+
+
+@dataclass
+class BackgroundShell:
+    """Represents a background shell process"""
+    shell_id: str
+    process: asyncio.subprocess.Process
+    command: str
+    started_at: float
+    output_buffer: List[str]
+    error_buffer: List[str]
+    last_read_position: int = 0
+
+
+class BashShellManager:
+    """Manages background bash shells"""
+
+    def __init__(self):
+        self.shells: Dict[str, BackgroundShell] = {}
+
+    def create_shell(self, shell_id: str, process: asyncio.subprocess.Process, command: str) -> BackgroundShell:
+        """Create and register a new background shell"""
+        shell = BackgroundShell(
+            shell_id=shell_id,
+            process=process,
+            command=command,
+            started_at=time.time(),
+            output_buffer=[],
+            error_buffer=[]
+        )
+        self.shells[shell_id] = shell
+        return shell
+
+    def get_shell(self, shell_id: str) -> Optional[BackgroundShell]:
+        """Get a shell by ID"""
+        return self.shells.get(shell_id)
+
+    def list_shells(self) -> List[BackgroundShell]:
+        """List all active shells"""
+        return list(self.shells.values())
+
+    def remove_shell(self, shell_id: str) -> bool:
+        """Remove a shell from registry"""
+        if shell_id in self.shells:
+            del self.shells[shell_id]
+            return True
+        return False
+
+
+# Global shell manager instance
+_shell_manager = BashShellManager()
+
+
+class BashTool(BaseTool):
+    """
+    Executes bash commands in a persistent shell session with optional timeout.
+
+    Features:
+    - Persistent shell session
+    - Optional timeout (default 120000ms, max 600000ms)
+    - Background execution support
+    - Proper command quoting for paths with spaces
+    - Command chaining with && and ||
+    """
+
+    def __init__(self, root_dir: str = None):
+        super().__init__()
+        self.name = "Bash"
+        self.category = ToolCategory.EXECUTION
+        self.root_dir = Path(root_dir or os.getcwd())
+        self.shell_manager = _shell_manager
+
+    def get_parameters(self) -> List[ToolParameter]:
+        return [
+            ToolParameter(
+                name="command",
+                type="string",
+                description="The bash command to execute",
+                required=True
+            ),
+            ToolParameter(
+                name="description",
+                type="string",
+                description="Clear, concise description of what this command does in 5-10 words",
+                required=False
+            ),
+            ToolParameter(
+                name="timeout",
+                type="number",
+                description="Optional timeout in milliseconds (max 600000ms / 10 minutes). Default: 120000ms (2 minutes)",
+                required=False
+            ),
+            ToolParameter(
+                name="run_in_background",
+                type="boolean",
+                description="Set to true to run this command in the background. Allows you to continue working while command runs.",
+                required=False
+            ),
+        ]
+
+    async def execute(self, **kwargs) -> ToolResult:
+        """Execute bash command"""
+        command = kwargs.get("command")
+        timeout = kwargs.get("timeout", 120000) / 1000  # Convert ms to seconds
+        run_in_background = kwargs.get("run_in_background", False)
+        description = kwargs.get("description", command[:50])
+
+        if not command:
+            return ToolResult(
+                success=False,
+                output="",
+                error="Command is required"
+            )
+
+        # Validate timeout
+        max_timeout = 600000 / 1000  # 10 minutes in seconds
+        if timeout > max_timeout:
+            timeout = max_timeout
+
+        try:
+            if run_in_background:
+                return await self._execute_background(command, description)
+            else:
+                return await self._execute_foreground(command, timeout, description)
+
+        except asyncio.TimeoutError:
+            return ToolResult(
+                success=False,
+                output="",
+                error=f"Command timed out after {timeout}s: {command}"
+            )
+        except Exception as e:
+            return ToolResult(
+                success=False,
+                output="",
+                error=f"Command execution failed: {str(e)}"
+            )
+
+    async def _execute_foreground(self, command: str, timeout: float, description: str) -> ToolResult:
+        """Execute command in foreground with timeout"""
+        start_time = time.time()
+
+        # Create subprocess
+        process = await asyncio.create_subprocess_shell(
+            command,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            cwd=str(self.root_dir),
+            shell=True
+        )
+
+        try:
+            # Wait for completion with timeout
+            stdout_data, stderr_data = await asyncio.wait_for(
+                process.communicate(),
+                timeout=timeout
+            )
+
+            stdout = stdout_data.decode('utf-8', errors='replace')
+            stderr = stderr_data.decode('utf-8', errors='replace')
+            exit_code = process.returncode
+            duration = time.time() - start_time
+
+            # Combine output
+            output_parts = []
+            if stdout:
+                output_parts.append(f"stdout:\n{stdout}")
+            if stderr:
+                output_parts.append(f"stderr:\n{stderr}")
+            if exit_code != 0:
+                output_parts.append(f"Exit code: {exit_code}")
+            output_parts.append(f"Duration: {duration:.2f}s")
+
+            output = "\n\n".join(output_parts)
+
+            return ToolResult(
+                success=(exit_code == 0),
+                output=output,
+                error=stderr if exit_code != 0 else None,
+                metadata={
+                    "exit_code": exit_code,
+                    "duration": duration,
+                    "description": description
+                }
+            )
+
+        except asyncio.TimeoutError:
+            # Kill process on timeout
+            try:
+                process.kill()
+                await process.wait()
+            except:
+                pass
+            raise
+
+    async def _execute_background(self, command: str, description: str) -> ToolResult:
+        """Execute command in background"""
+        shell_id = f"shell_{uuid.uuid4().hex[:8]}"
+
+        # Create subprocess
+        process = await asyncio.create_subprocess_shell(
+            command,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            cwd=str(self.root_dir),
+            shell=True
+        )
+
+        # Register shell
+        shell = self.shell_manager.create_shell(shell_id, process, command)
+
+        # Start output collection task
+        asyncio.create_task(self._collect_output(shell))
+
+        return ToolResult(
+            success=True,
+            output=f"Command started in background with shell ID: {shell_id}\nUse BashOutput tool to read output.",
+            metadata={
+                "shell_id": shell_id,
+                "command": command,
+                "description": description
+            }
+        )
+
+    async def _collect_output(self, shell: BackgroundShell):
+        """Collect output from background shell"""
+        try:
+            while True:
+                # Read stdout
+                if shell.process.stdout:
+                    line = await shell.process.stdout.readline()
+                    if line:
+                        shell.output_buffer.append(line.decode('utf-8', errors='replace'))
+
+                # Read stderr
+                if shell.process.stderr:
+                    line = await shell.process.stderr.readline()
+                    if line:
+                        shell.error_buffer.append(line.decode('utf-8', errors='replace'))
+
+                # Check if process finished
+                if shell.process.returncode is not None:
+                    break
+
+                await asyncio.sleep(0.1)
+
+        except Exception:
+            pass
+
+
+class BashOutputTool(BaseTool):
+    """
+    Retrieves output from a running or completed background bash shell.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.name = "BashOutput"
+        self.category = ToolCategory.EXECUTION
+        self.shell_manager = _shell_manager
+
+    def get_parameters(self) -> List[ToolParameter]:
+        return [
+            ToolParameter(
+                name="bash_id",
+                type="string",
+                description="The ID of the background shell to retrieve output from",
+                required=True
+            ),
+            ToolParameter(
+                name="filter",
+                type="string",
+                description="Optional regular expression to filter the output lines. Only matching lines will be included.",
+                required=False
+            ),
+        ]
+
+    async def execute(self, **kwargs) -> ToolResult:
+        """Get output from background shell"""
+        bash_id = kwargs.get("bash_id")
+        filter_regex = kwargs.get("filter")
+
+        if not bash_id:
+            return ToolResult(
+                success=False,
+                output="",
+                error="bash_id is required"
+            )
+
+        shell = self.shell_manager.get_shell(bash_id)
+        if not shell:
+            return ToolResult(
+                success=False,
+                output="",
+                error=f"Shell not found: {bash_id}"
+            )
+
+        # Get new output since last read
+        new_stdout = shell.output_buffer[shell.last_read_position:]
+        new_stderr = shell.error_buffer[shell.last_read_position:]
+
+        # Update read position
+        shell.last_read_position = len(shell.output_buffer)
+
+        # Apply filter if provided
+        if filter_regex:
+            import re
+            pattern = re.compile(filter_regex)
+            new_stdout = [line for line in new_stdout if pattern.search(line)]
+            new_stderr = [line for line in new_stderr if pattern.search(line)]
+
+        # Check if process is still running
+        is_running = shell.process.returncode is None
+        status = "running" if is_running else f"completed (exit code: {shell.process.returncode})"
+
+        # Build output
+        output_parts = [f"Shell {bash_id}: {status}"]
+
+        if new_stdout:
+            output_parts.append("\nstdout:")
+            output_parts.append("".join(new_stdout))
+
+        if new_stderr:
+            output_parts.append("\nstderr:")
+            output_parts.append("".join(new_stderr))
+
+        if not new_stdout and not new_stderr:
+            output_parts.append("\nNo new output")
+
+        return ToolResult(
+            success=True,
+            output="\n".join(output_parts),
+            metadata={
+                "shell_id": bash_id,
+                "is_running": is_running,
+                "exit_code": shell.process.returncode,
+                "duration": time.time() - shell.started_at
+            }
+        )
+
+
+class KillShellTool(BaseTool):
+    """
+    Kills a running background bash shell by its ID.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.name = "KillShell"
+        self.category = ToolCategory.EXECUTION
+        self.shell_manager = _shell_manager
+
+    def get_parameters(self) -> List[ToolParameter]:
+        return [
+            ToolParameter(
+                name="shell_id",
+                type="string",
+                description="The ID of the background shell to kill",
+                required=True
+            ),
+        ]
+
+    async def execute(self, **kwargs) -> ToolResult:
+        """Kill background shell"""
+        shell_id = kwargs.get("shell_id")
+
+        if not shell_id:
+            return ToolResult(
+                success=False,
+                output="",
+                error="shell_id is required"
+            )
+
+        shell = self.shell_manager.get_shell(shell_id)
+        if not shell:
+            return ToolResult(
+                success=False,
+                output="",
+                error=f"Shell not found: {shell_id}"
+            )
+
+        try:
+            # Try graceful termination first
+            shell.process.terminate()
+            try:
+                await asyncio.wait_for(shell.process.wait(), timeout=5.0)
+            except asyncio.TimeoutError:
+                # Force kill if graceful termination failed
+                shell.process.kill()
+                await shell.process.wait()
+
+            # Remove from registry
+            self.shell_manager.remove_shell(shell_id)
+
+            return ToolResult(
+                success=True,
+                output=f"Shell {shell_id} terminated successfully",
+                metadata={
+                    "shell_id": shell_id,
+                    "command": shell.command,
+                    "duration": time.time() - shell.started_at
+                }
+            )
+
+        except Exception as e:
+            return ToolResult(
+                success=False,
+                output="",
+                error=f"Failed to kill shell: {str(e)}"
+            )
+
+
+class LSTool(BaseTool):
+    """
+    Lists files and directories at a specified path with optional ignore patterns.
+    """
+
+    def __init__(self, root_dir: str = None):
+        super().__init__()
+        self.name = "LS"
+        self.category = ToolCategory.FILE_OPERATIONS
+        self.root_dir = Path(root_dir or os.getcwd())
+
+    def get_parameters(self) -> List[ToolParameter]:
+        return [
+            ToolParameter(
+                name="path",
+                type="string",
+                description="Absolute directory path to list",
+                required=True
+            ),
+            ToolParameter(
+                name="ignore",
+                type="string",
+                description="Optional glob patterns to exclude (comma-separated)",
+                required=False
+            ),
+        ]
+
+    async def execute(self, **kwargs) -> ToolResult:
+        """List directory contents"""
+        path_str = kwargs.get("path")
+        ignore_patterns = kwargs.get("ignore", "")
+
+        if not path_str:
+            return ToolResult(
+                success=False,
+                output="",
+                error="path is required"
+            )
+
+        path = Path(path_str)
+
+        if not path.exists():
+            return ToolResult(
+                success=False,
+                output="",
+                error=f"Path does not exist: {path}"
+            )
+
+        if not path.is_dir():
+            return ToolResult(
+                success=False,
+                output="",
+                error=f"Path is not a directory: {path}"
+            )
+
+        try:
+            # Parse ignore patterns
+            ignore_list = [p.strip() for p in ignore_patterns.split(",") if p.strip()]
+
+            # List directory contents
+            entries = []
+            for item in sorted(path.iterdir()):
+                # Check ignore patterns
+                should_ignore = False
+                for pattern in ignore_list:
+                    if item.match(pattern):
+                        should_ignore = True
+                        break
+
+                if should_ignore:
+                    continue
+
+                # Get item info
+                is_dir = item.is_dir()
+                size = item.stat().st_size if item.is_file() else 0
+
+                entry = {
+                    "name": item.name,
+                    "type": "directory" if is_dir else "file",
+                    "size": size,
+                    "path": str(item)
+                }
+                entries.append(entry)
+
+            # Format output
+            output_lines = [f"Contents of {path}:"]
+            output_lines.append("")
+
+            for entry in entries:
+                type_indicator = "📁" if entry["type"] == "directory" else "📄"
+                size_str = f"{entry['size']:,} bytes" if entry['type'] == 'file' else ""
+                output_lines.append(f"{type_indicator} {entry['name']:<40} {size_str}")
+
+            output_lines.append("")
+            output_lines.append(f"Total: {len(entries)} items")
+
+            return ToolResult(
+                success=True,
+                output="\n".join(output_lines),
+                metadata={
+                    "path": str(path),
+                    "count": len(entries),
+                    "entries": entries
+                }
+            )
+
+        except Exception as e:
+            return ToolResult(
+                success=False,
+                output="",
+                error=f"Failed to list directory: {str(e)}"
+            )

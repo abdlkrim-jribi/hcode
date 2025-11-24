@@ -1,0 +1,31 @@
+# Include documentation
+include README.md
+include LICENSE
+include CHANGELOG.md
+include CONTRIBUTING.md
+
+# Include configuration examples
+include .env.example
+include src/hcode/examples/.hcoderc.example
+
+# Include example files
+recursive-include src/hcode/examples *.py
+recursive-include src/hcode/examples *.example
+
+# Include documentation files
+include TOOLS.md
+include SHORTCUTS.md
+include PERFORMANCE.md
+include VALIDATION_CHECKLIST.md
+include FINAL_STATUS.md
+
+# Exclude test files
+recursive-exclude tests *
+recursive-exclude src/hcode/tests *
+
+# Exclude build artifacts
+global-exclude *.pyc
+global-exclude *.pyo
+global-exclude __pycache__
+global-exclude *.so
+global-exclude *.egg-info
