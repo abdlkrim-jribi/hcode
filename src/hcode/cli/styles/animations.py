@@ -62,7 +62,7 @@ class AnimatedSpinner:
             "simple": Spinners.SIMPLE,
             "growing": Spinners.GROWING,
         }
-        return spinners.get(spinner_type, Spinners.DEFAULT)
+        return spinners.get(self.spinner_type, Spinners.DEFAULT)
 
     def start(self):
         """Start spinner animation"""

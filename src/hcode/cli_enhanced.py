@@ -591,6 +591,495 @@ def quick_reference():
     console.print("\n", patterns)
 
 
+@cli.command(name='init', short_help='Initialize project config')
+@click.option('--force', '-f', is_flag=True, help='Overwrite existing config')
+def init_project(force):
+    """
+    Initialize HCode configuration in current directory.
+
+    Creates a .hcode/ directory with default configuration files.
+
+    \b
+    Examples:
+      hcode init           Initialize with defaults
+      hcode init --force   Overwrite existing config
+    """
+    from pathlib import Path
+    from .config.defaults import DEFAULT_CONFIG_YAML
+
+    project_dir = Path.cwd()
+    hcode_dir = project_dir / ".hcode"
+    config_file = hcode_dir / "config.yaml"
+
+    if config_file.exists() and not force:
+        console.print(Panel(
+            f"[yellow]{EMOJI['warning']} Configuration already exists[/yellow]\n\n"
+            f"Location: {config_file}\n\n"
+            "Use [bold]--force[/bold] to overwrite",
+            title="[yellow]Already Initialized[/yellow]",
+            border_style="yellow"
+        ))
+        return
+
+    try:
+        # Create .hcode directory
+        hcode_dir.mkdir(exist_ok=True)
+
+        # Create config file
+        with open(config_file, 'w', encoding='utf-8') as f:
+            f.write(DEFAULT_CONFIG_YAML)
+
+        # Create logs directory
+        (hcode_dir / "logs").mkdir(exist_ok=True)
+
+        # Create .gitignore for .hcode
+        gitignore_file = hcode_dir / ".gitignore"
+        with open(gitignore_file, 'w', encoding='utf-8') as f:
+            f.write("# HCode local files\nlogs/\nmemory.db\n*.log\n")
+
+        console.print(Panel(
+            f"[green]{EMOJI['success']} HCode initialized successfully![/green]\n\n"
+            f"[dim]Created:[/dim]\n"
+            f"  {EMOJI['check']} .hcode/config.yaml\n"
+            f"  {EMOJI['check']} .hcode/logs/\n"
+            f"  {EMOJI['check']} .hcode/.gitignore\n\n"
+            "[dim]Next steps:[/dim]\n"
+            "  1. Edit .hcode/config.yaml to customize settings\n"
+            "  2. Set API keys in environment or config\n"
+            "  3. Run [bold]hcode chat[/bold] to start",
+            title=f"[green]{EMOJI['rocket']} Project Initialized[/green]",
+            border_style="green"
+        ))
+
+    except Exception as e:
+        console.print(f"[red]{EMOJI['cross']} Error: {e}[/red]")
+        sys.exit(1)
+
+
+@cli.group(name='config', short_help='Manage configuration')
+def config_group():
+    """
+    Manage HCode configuration settings.
+
+    \b
+    Commands:
+      hcode config set KEY VALUE   Set a configuration value
+      hcode config get KEY         Get a configuration value
+      hcode config list            List all configurations
+      hcode config path            Show config file locations
+    """
+    pass
+
+
+@config_group.command(name='set')
+@click.argument('key')
+@click.argument('value')
+@click.option('--global', '-g', 'is_global', is_flag=True, help='Set in global config')
+def config_set(key, value, is_global):
+    """
+    Set a configuration value.
+
+    \b
+    Examples:
+      hcode config set llm.provider anthropic
+      hcode config set llm.temperature 0.5
+      hcode config set ui.theme dark
+      hcode config set -g llm.anthropic_api_key sk-ant-...
+    """
+    from pathlib import Path
+    import yaml
+
+    # Determine config file location
+    if is_global:
+        config_dir = Path.home() / ".hcode"
+    else:
+        config_dir = Path.cwd() / ".hcode"
+
+    config_file = config_dir / "config.yaml"
+
+    # Load existing config or create empty
+    if config_file.exists():
+        with open(config_file, 'r', encoding='utf-8') as f:
+            config = yaml.safe_load(f) or {}
+    else:
+        config_dir.mkdir(parents=True, exist_ok=True)
+        config = {}
+
+    # Parse key path (e.g., "llm.provider" -> ["llm", "provider"])
+    keys = key.split('.')
+    current = config
+
+    # Navigate/create nested structure
+    for k in keys[:-1]:
+        if k not in current:
+            current[k] = {}
+        current = current[k]
+
+    # Convert value to appropriate type
+    if value.lower() == 'true':
+        value = True
+    elif value.lower() == 'false':
+        value = False
+    elif value.isdigit():
+        value = int(value)
+    else:
+        try:
+            value = float(value)
+        except ValueError:
+            pass  # Keep as string
+
+    # Set the value
+    current[keys[-1]] = value
+
+    # Save config
+    with open(config_file, 'w', encoding='utf-8') as f:
+        yaml.dump(config, f, default_flow_style=False, sort_keys=False)
+
+    console.print(f"[green]{EMOJI['success']} Set {key} = {value}[/green]")
+    console.print(f"[dim]Config file: {config_file}[/dim]")
+
+
+@config_group.command(name='get')
+@click.argument('key', required=False)
+def config_get(key):
+    """
+    Get a configuration value.
+
+    \b
+    Examples:
+      hcode config get llm.provider
+      hcode config get llm
+      hcode config get              # Show all
+    """
+    from pathlib import Path
+    import yaml
+
+    # Check both local and global configs
+    local_config = Path.cwd() / ".hcode" / "config.yaml"
+    global_config = Path.home() / ".hcode" / "config.yaml"
+
+    config = {}
+
+    # Load global config first
+    if global_config.exists():
+        with open(global_config, 'r', encoding='utf-8') as f:
+            config = yaml.safe_load(f) or {}
+
+    # Override with local config
+    if local_config.exists():
+        with open(local_config, 'r', encoding='utf-8') as f:
+            local = yaml.safe_load(f) or {}
+            # Deep merge
+            def merge(base, override):
+                for k, v in override.items():
+                    if k in base and isinstance(base[k], dict) and isinstance(v, dict):
+                        merge(base[k], v)
+                    else:
+                        base[k] = v
+            merge(config, local)
+
+    if not key:
+        # Show all config
+        console.print(Panel(
+            Syntax(yaml.dump(config, default_flow_style=False), "yaml", theme="monokai"),
+            title="[bold]Configuration[/bold]",
+            border_style="blue"
+        ))
+        return
+
+    # Navigate to key
+    keys = key.split('.')
+    current = config
+
+    try:
+        for k in keys:
+            current = current[k]
+
+        if isinstance(current, dict):
+            console.print(Panel(
+                Syntax(yaml.dump(current, default_flow_style=False), "yaml", theme="monokai"),
+                title=f"[bold]{key}[/bold]",
+                border_style="blue"
+            ))
+        else:
+            console.print(f"[cyan]{key}[/cyan] = [green]{current}[/green]")
+
+    except (KeyError, TypeError):
+        console.print(f"[yellow]{EMOJI['warning']} Key not found: {key}[/yellow]")
+
+
+@config_group.command(name='list')
+def config_list():
+    """List all configuration values."""
+    from pathlib import Path
+    import yaml
+
+    table = Table(title="Configuration", box=box.ROUNDED)
+    table.add_column("Key", style="cyan")
+    table.add_column("Value", style="green")
+    table.add_column("Source", style="dim")
+
+    # Check configs
+    local_config = Path.cwd() / ".hcode" / "config.yaml"
+    global_config = Path.home() / ".hcode" / "config.yaml"
+
+    def flatten_dict(d, prefix=''):
+        items = []
+        for k, v in d.items():
+            key = f"{prefix}.{k}" if prefix else k
+            if isinstance(v, dict):
+                items.extend(flatten_dict(v, key))
+            else:
+                items.append((key, v))
+        return items
+
+    # Load and display global config
+    if global_config.exists():
+        with open(global_config, 'r', encoding='utf-8') as f:
+            config = yaml.safe_load(f) or {}
+            for key, value in flatten_dict(config):
+                table.add_row(key, str(value), "global")
+
+    # Load and display local config
+    if local_config.exists():
+        with open(local_config, 'r', encoding='utf-8') as f:
+            config = yaml.safe_load(f) or {}
+            for key, value in flatten_dict(config):
+                table.add_row(key, str(value), "local")
+
+    console.print(table)
+
+
+@config_group.command(name='path')
+def config_path():
+    """Show configuration file locations."""
+    from pathlib import Path
+
+    local_config = Path.cwd() / ".hcode" / "config.yaml"
+    global_config = Path.home() / ".hcode" / "config.yaml"
+
+    table = Table(title="Config Locations", box=box.ROUNDED)
+    table.add_column("Type", style="cyan")
+    table.add_column("Path")
+    table.add_column("Exists", style="green")
+
+    table.add_row(
+        "Global",
+        str(global_config),
+        EMOJI['check'] if global_config.exists() else EMOJI['cross']
+    )
+    table.add_row(
+        "Local",
+        str(local_config),
+        EMOJI['check'] if local_config.exists() else EMOJI['cross']
+    )
+
+    console.print(table)
+
+
+@cli.command(name='history', short_help='Show conversation history')
+@click.option('-n', '--limit', default=10, help='Number of entries to show')
+@click.option('--session', '-s', help='Filter by session ID')
+def show_history(limit, session):
+    """
+    Show conversation history.
+
+    \b
+    Examples:
+      hcode history             Show last 10 entries
+      hcode history -n 20       Show last 20 entries
+      hcode history -s abc123   Show history for session
+    """
+    from pathlib import Path
+    import sqlite3
+    import json
+
+    db_path = Path.home() / ".hcode" / "memory.db"
+
+    if not db_path.exists():
+        console.print(f"[yellow]{EMOJI['warning']} No history found[/yellow]")
+        console.print("[dim]Start a chat session to create history[/dim]")
+        return
+
+    try:
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+
+        # Check if table exists
+        cursor.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='conversations'"
+        )
+        if not cursor.fetchone():
+            console.print(f"[yellow]{EMOJI['warning']} No conversations found[/yellow]")
+            conn.close()
+            return
+
+        # Query history
+        if session:
+            cursor.execute(
+                "SELECT session_id, role, content, timestamp FROM conversations "
+                "WHERE session_id = ? ORDER BY timestamp DESC LIMIT ?",
+                (session, limit)
+            )
+        else:
+            cursor.execute(
+                "SELECT session_id, role, content, timestamp FROM conversations "
+                "ORDER BY timestamp DESC LIMIT ?",
+                (limit,)
+            )
+
+        rows = cursor.fetchall()
+        conn.close()
+
+        if not rows:
+            console.print(f"[yellow]{EMOJI['warning']} No history found[/yellow]")
+            return
+
+        table = Table(title="Conversation History", box=box.ROUNDED)
+        table.add_column("Session", style="dim", max_width=12)
+        table.add_column("Role", style="cyan", max_width=10)
+        table.add_column("Content", max_width=60)
+        table.add_column("Time", style="dim")
+
+        for session_id, role, content, timestamp in rows:
+            # Truncate content
+            content_preview = content[:100] + "..." if len(content) > 100 else content
+            content_preview = content_preview.replace('\n', ' ')
+
+            table.add_row(
+                session_id[:10] + "...",
+                role,
+                content_preview,
+                timestamp
+            )
+
+        console.print(table)
+
+    except Exception as e:
+        console.print(f"[red]{EMOJI['cross']} Error reading history: {e}[/red]")
+
+
+@cli.command(name='clear', short_help='Clear conversation history')
+@click.option('--session', '-s', help='Clear specific session')
+@click.option('--all', '-a', 'clear_all', is_flag=True, help='Clear all history')
+@click.option('--force', '-f', is_flag=True, help='Skip confirmation')
+def clear_history(session, clear_all, force):
+    """
+    Clear conversation history.
+
+    \b
+    Examples:
+      hcode clear                 Clear current context
+      hcode clear -s abc123       Clear specific session
+      hcode clear --all           Clear all history
+      hcode clear --all --force   Clear all without confirmation
+    """
+    from pathlib import Path
+    import sqlite3
+
+    db_path = Path.home() / ".hcode" / "memory.db"
+
+    if not db_path.exists():
+        console.print(f"[green]{EMOJI['success']} No history to clear[/green]")
+        return
+
+    # Confirmation
+    if clear_all and not force:
+        if not Confirm.ask("[yellow]Clear ALL conversation history?[/yellow]", default=False):
+            console.print("[dim]Cancelled[/dim]")
+            return
+
+    try:
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+
+        # Check if table exists
+        cursor.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='conversations'"
+        )
+        if not cursor.fetchone():
+            console.print(f"[green]{EMOJI['success']} No history to clear[/green]")
+            conn.close()
+            return
+
+        if clear_all:
+            cursor.execute("DELETE FROM conversations")
+            deleted = cursor.rowcount
+        elif session:
+            cursor.execute(
+                "DELETE FROM conversations WHERE session_id = ?",
+                (session,)
+            )
+            deleted = cursor.rowcount
+        else:
+            # Clear most recent session
+            cursor.execute(
+                "SELECT session_id FROM conversations ORDER BY timestamp DESC LIMIT 1"
+            )
+            row = cursor.fetchone()
+            if row:
+                cursor.execute(
+                    "DELETE FROM conversations WHERE session_id = ?",
+                    (row[0],)
+                )
+                deleted = cursor.rowcount
+            else:
+                deleted = 0
+
+        conn.commit()
+        conn.close()
+
+        console.print(f"[green]{EMOJI['success']} Cleared {deleted} entries[/green]")
+
+    except Exception as e:
+        console.print(f"[red]{EMOJI['cross']} Error clearing history: {e}[/red]")
+
+
+@cli.command(name='debug', short_help='Debug an issue')
+@click.argument('error_description')
+@click.option('-p', '--provider', type=click.Choice(['auto', 'anthropic', 'openai']), default='auto')
+def debug_issue(error_description, provider):
+    """
+    Debug an issue with AI assistance.
+
+    \b
+    Examples:
+      hcode debug "TypeError: NoneType has no attribute 'get'"
+      hcode debug "Tests failing on line 42"
+    """
+    config = load_config()
+    anthropic_key = os.getenv("ANTHROPIC_API_KEY") or config.get("providers", {}).get("anthropic", {}).get("api_key")
+    openai_key = os.getenv("OPENAI_API_KEY") or config.get("providers", {}).get("openai", {}).get("api_key")
+
+    if not anthropic_key and not openai_key:
+        console.print("[red]No API keys found[/red]")
+        sys.exit(1)
+
+    preferences = ProviderPreferences(primary_provider=provider)
+    agent = EnhancedHcodeAgent(
+        anthropic_key=anthropic_key,
+        openai_key=openai_key,
+        preferences=preferences
+    )
+
+    console.print(Panel(
+        f"[bold blue]Debugging:[/bold blue] {error_description}",
+        border_style="blue"
+    ))
+
+    console.print("\n[bold cyan]Analysis:[/bold cyan]\n")
+
+    result = asyncio.run(agent.execute_task(
+        f"Debug this issue: {error_description}\n\n"
+        "Please:\n"
+        "1. Identify the root cause\n"
+        "2. Explain why it's happening\n"
+        "3. Propose a fix\n"
+        "4. Suggest how to prevent similar issues",
+        stream=True
+    ))
+
+
 def main():
     """Main entry point"""
     try:

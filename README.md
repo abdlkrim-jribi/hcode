@@ -1,10 +1,11 @@
-# Hcode - Universal AI Coding Assistant
+# HCode - Universal AI Coding Assistant
 
 **The most powerful AI coding assistant supporting both Anthropic Claude and OpenAI GPT with 100% Claude Code feature parity.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![Version](https://img.shields.io/badge/version-0.1.0-green.svg)](https://github.com/yourusername/hcode)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![Version](https://img.shields.io/badge/version-1.0.0-green.svg)](https://github.com/hcode-dev/hcode)
+[![PyPI](https://img.shields.io/pypi/v/hcode.svg)](https://pypi.org/project/hcode/)
 
 ---
 
@@ -101,66 +102,79 @@ Hcode is a **universal AI coding assistant** that combines the best of both worl
 
 ### Prerequisites
 
-- Python 3.8 or higher
-- pip or Poetry package manager
+- Python 3.10 or higher
+- pip package manager
 - API key from Anthropic or OpenAI (or both)
 
-### Method 1: Quick Install (Recommended)
+### Method 1: Install from PyPI (Recommended)
 
-**Linux/macOS:**
 ```bash
-git clone https://github.com/yourusername/hcode.git
-cd hcode
-chmod +x quick_start.sh
-./quick_start.sh
+# Install HCode
+pip install hcode
+
+# Or use pipx for isolated installation
+pipx install hcode
+
+# Verify installation
+hcode --version
 ```
 
-**Windows (PowerShell):**
+### Method 2: Standalone Executable (No Python required)
+
+Download the pre-built executable for your platform from [GitHub Releases](https://github.com/hcode-dev/hcode/releases):
+
+**Linux:**
+```bash
+wget https://github.com/hcode-dev/hcode/releases/latest/download/hcode-linux-x64.tar.gz
+tar -xzf hcode-linux-x64.tar.gz
+chmod +x hcode
+sudo mv hcode /usr/local/bin/
+```
+
+**macOS:**
+```bash
+# Intel Mac
+wget https://github.com/hcode-dev/hcode/releases/latest/download/hcode-macos-x64.tar.gz
+
+# Apple Silicon
+wget https://github.com/hcode-dev/hcode/releases/latest/download/hcode-macos-arm64.tar.gz
+
+tar -xzf hcode-macos-*.tar.gz
+chmod +x hcode
+mv hcode /usr/local/bin/
+```
+
+**Windows:**
 ```powershell
-git clone https://github.com/yourusername/hcode.git
-cd hcode
-.\quick_start.ps1
+# Download and extract hcode-windows-x64.zip
+# Add the extracted folder to your PATH
 ```
 
-The quick start scripts will:
-- Check system prerequisites
-- Install dependencies
-- Set up configuration files
-- Verify installation
-- Run a test query
-
-### Method 2: Manual Installation with pip
+### Method 3: Install from Source
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/hcode.git
+git clone https://github.com/hcode-dev/hcode.git
 cd hcode
 
 # Install in development mode
-pip install -e .
+pip install -e ".[dev]"
 
 # Verify installation
 hcode --version
 ```
 
-### Method 3: Using Poetry
+### Method 4: Run as Module
 
 ```bash
-# Clone repository
-git clone https://github.com/yourusername/hcode.git
+# Without installing
+python -m hcode --version
+
+# Or clone and run
+git clone https://github.com/hcode-dev/hcode.git
 cd hcode
-
-# Install Poetry if needed
-curl -sSL https://install.python-poetry.org | python3 -
-
-# Install dependencies
-poetry install
-
-# Activate virtual environment
-poetry shell
-
-# Verify installation
-hcode --version
+pip install -e .
+python -m hcode chat
 ```
 
 ---
@@ -907,6 +921,87 @@ hcode explore "Find all database models"
 #   --thoroughness: quick, medium, very thorough
 ```
 
+#### `hcode init`
+Initialize HCode configuration in current directory.
+
+```bash
+# Initialize with defaults
+hcode init
+
+# Overwrite existing config
+hcode init --force
+```
+
+This creates:
+- `.hcode/config.yaml` - Configuration file
+- `.hcode/logs/` - Log directory
+- `.hcode/.gitignore` - Git ignore for local files
+
+#### `hcode config`
+Manage configuration settings.
+
+```bash
+# Set a configuration value
+hcode config set llm.provider anthropic
+hcode config set llm.temperature 0.5
+hcode config set ui.theme dark
+
+# Set in global config (~/.hcode/config.yaml)
+hcode config set -g llm.anthropic_api_key sk-ant-...
+
+# Get a configuration value
+hcode config get llm.provider
+hcode config get llm  # Show entire section
+
+# List all configurations
+hcode config list
+
+# Show config file locations
+hcode config path
+```
+
+#### `hcode history`
+Show conversation history.
+
+```bash
+# Show last 10 entries
+hcode history
+
+# Show last 20 entries
+hcode history -n 20
+
+# Filter by session
+hcode history -s abc123
+```
+
+#### `hcode clear`
+Clear conversation history.
+
+```bash
+# Clear most recent session
+hcode clear
+
+# Clear specific session
+hcode clear -s abc123
+
+# Clear all history (with confirmation)
+hcode clear --all
+
+# Clear all without confirmation
+hcode clear --all --force
+```
+
+#### `hcode debug`
+Debug an issue with AI assistance.
+
+```bash
+# Debug an error
+hcode debug "TypeError: NoneType has no attribute 'get'"
+
+# Debug test failures
+hcode debug "Tests failing on line 42"
+```
+
 ### Advanced Commands
 
 #### `hcode --version`
@@ -1554,15 +1649,21 @@ Works with Ollama, LM Studio, vLLM, etc.
 
 ## Roadmap
 
-### Phase 1 (Current - v0.1.0) ✅
+### Phase 1 (Released - v1.0.0) ✅
 - ✅ Dual provider support (Anthropic + OpenAI)
 - ✅ 26+ comprehensive tools
 - ✅ 100% Claude Code feature parity
 - ✅ Cross-platform support (Windows, macOS, Linux)
-- ✅ Beautiful terminal UI
+- ✅ Beautiful terminal UI with Rich
 - ✅ Cost optimization
+- ✅ Standalone executables (.exe)
+- ✅ PyPI distribution
+- ✅ Pydantic-based configuration
+- ✅ Comprehensive CLI commands (init, config, history, clear)
+- ✅ Custom exception hierarchy
+- ✅ GitHub Actions CI/CD
 
-### Phase 2 (Coming Soon - v0.2.0)
+### Phase 2 (Coming Soon - v1.1.0)
 - 🔄 VS Code Extension
 - 🔄 JetBrains Plugin
 - 🔄 Enhanced web scraping
@@ -1570,7 +1671,7 @@ Works with Ollama, LM Studio, vLLM, etc.
 - 🔄 Git workflow automation
 - 🔄 Docker/Kubernetes support
 
-### Phase 3 (Future - v0.3.0)
+### Phase 3 (Future - v2.0.0)
 - 📋 Plugin system
 - 📋 Complete hooks system
 - 📋 Checkpoint system

@@ -67,3 +67,15 @@ nul
 # Backups
 *.bak
 *.backup
+
+# Cython build artifacts
+*.c
+!**/c/**  # Keep files in directories named 'c'
+*.pyd
+*.so
+*.pyx.c
+setup_cython.py
+.pyximport/
+
+# PyInstaller
+*.spec

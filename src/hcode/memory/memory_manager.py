@@ -365,11 +365,11 @@ class MemoryManager:
         return self.semantic_memory.forget(memory_id)
 
     def __del__(self):
-        """Ensure semantic memory resources are released when the manager is garbage‑collected."""
+        """Ensure semantic memory resources are released when the manager is garbage-collected."""
         try:
             self.semantic_memory.close()
         except Exception:
-            passmemory.delete(memory_id)
+            pass
 
     def update_file_memory(
         self,

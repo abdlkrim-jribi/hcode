@@ -35,7 +35,8 @@
       "Bash(git reset:*)",
       "Bash(git add:*)",
       "Bash(timeout 120 python -m pytest:*)",
-      "Bash(timeout 30 python:*)"
+      "Bash(timeout 30 python:*)",
+      "Bash(pyarmor:*)"
     ],
     "deny": [],
     "ask": []

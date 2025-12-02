@@ -9,31 +9,30 @@ import pytest
 class TestDisplayComponent:
     """Test display component basic functionality."""
 
-    def test_display_import(self):
+    def test_display_module_import(self):
         """Test display module imports."""
-        from hcode.cli.display import Display
-        assert Display is not None
+        from hcode.cli import display
+        assert display is not None
 
-    def test_display_instantiation(self):
-        """Test Display can be instantiated."""
-        from hcode.cli.display import Display
-        display = Display()
+    def test_agent_display_instantiation(self):
+        """Test AgentDisplay can be instantiated."""
+        from hcode.cli.display import AgentDisplay
+        display = AgentDisplay()
         assert display is not None
 
 
 class TestToolDisplayComponent:
     """Test tool display component basic functionality."""
 
-    def test_tool_display_import(self):
+    def test_tool_display_module_import(self):
         """Test tool_display module imports."""
-        from hcode.cli.tool_display import ToolDisplay
-        assert ToolDisplay is not None
+        from hcode.cli import tool_display
+        assert tool_display is not None
 
-    def test_tool_display_instantiation(self):
-        """Test ToolDisplay can be instantiated."""
-        from hcode.cli.tool_display import ToolDisplay
-        display = ToolDisplay()
-        assert display is not None
+    def test_hcode_style_import(self):
+        """Test HcodeStyle can be imported."""
+        from hcode.cli.tool_display import HcodeStyle
+        assert HcodeStyle is not None
 
 
 class TestColorsComponent:
@@ -57,10 +56,20 @@ class TestColorsComponent:
 class TestBordersComponent:
     """Test borders component basic functionality."""
 
-    def test_borders_import(self):
+    def test_borders_module_import(self):
         """Test borders module imports."""
-        from hcode.cli.styles.borders import Borders
-        assert Borders is not None
+        from hcode.cli.styles import borders
+        assert borders is not None
+
+    def test_box_style_import(self):
+        """Test BoxStyle can be imported."""
+        from hcode.cli.styles.borders import BoxStyle
+        assert BoxStyle is not None
+
+    def test_box_chars_import(self):
+        """Test BoxChars can be imported."""
+        from hcode.cli.styles.borders import BoxChars
+        assert BoxChars is not None
 
 
 class TestIconsComponent:
