@@ -5,7 +5,7 @@ Supports Anthropic Claude and OpenAI GPT models.
 
 from .base import AIProvider, Message, Usage, CompletionResponse, ModelType
 from .anthropic_provider import AnthropicProvider
-from .openai_provider import OpenAIProvider
+from .openai_provider import OpenAIProvider, LLMConnectionError
 from .provider_selector import (
     ProviderSelector,
     ProviderPreferences,
@@ -21,6 +21,7 @@ __all__ = [
     "ModelType",
     "AnthropicProvider",
     "OpenAIProvider",
+    "LLMConnectionError",
     "ProviderSelector",
     "ProviderPreferences",
     "TaskComplexity",

@@ -425,13 +425,22 @@ class Prompt:
         return text
 
     @staticmethod
-    def render_confirm(message: str) -> Text:
-        """Render confirmation prompt"""
+    def render_confirm(message: str, default_yes: bool = True) -> Text:
+        """Render confirmation prompt with default option highlighted"""
         icons = Icons()
         text = Text()
         text.append(f" {icons.WARNING} ", style=f"bold {Colors.WARNING}")
         text.append(message, style=Colors.TEXT_PRIMARY)
-        text.append(" [y/N] ", style=Colors.TEXT_MUTED)
+        if default_yes:
+            # Default is Yes - [Ok/n]
+            text.append(" [", style=Colors.TEXT_MUTED)
+            text.append("Ok", style=f"bold {Colors.SUCCESS}")
+            text.append("/n] ", style=Colors.TEXT_MUTED)
+        else:
+            # Default is No - [y/N]
+            text.append(" [y/", style=Colors.TEXT_MUTED)
+            text.append("N", style=f"bold {Colors.ERROR}")
+            text.append("] ", style=Colors.TEXT_MUTED)
         return text
 
 
@@ -481,20 +490,237 @@ class MessageDisplay:
 
 
 # ============================================================
-# DIFF DISPLAY
+# DIFF DISPLAY - Claude Code Style
 # ============================================================
 
+@dataclass
+class DiffLine:
+    """A single line in a diff"""
+    line_number_old: Optional[int]  # Line number in old file (None for additions)
+    line_number_new: Optional[int]  # Line number in new file (None for deletions)
+    content: str
+    change_type: str  # 'context', 'addition', 'deletion', 'modification'
+
+
 class DiffDisplay:
-    """Display for file diffs"""
+    """
+    Claude Code-style diff display.
+
+    Shows file changes with:
+    - Line numbers for both old and new versions
+    - Colored additions (green) and deletions (red)
+    - Context lines around changes
+    - Syntax highlighting for code
+    - Statistics summary (lines added/removed)
+    """
+
+    CONTEXT_LINES = 3  # Lines of context around changes
+
+    @staticmethod
+    def compute_diff(
+        old_content: str,
+        new_content: str,
+        context_lines: int = 3
+    ) -> List[DiffLine]:
+        """
+        Compute diff between old and new content.
+
+        Returns list of DiffLine objects representing the changes.
+        """
+        import difflib
+
+        old_lines = old_content.splitlines(keepends=True)
+        new_lines = new_content.splitlines(keepends=True)
+
+        # Use unified diff for better output
+        diff = list(difflib.unified_diff(
+            old_lines,
+            new_lines,
+            lineterm='',
+            n=context_lines
+        ))
+
+        result = []
+        old_line_num = 0
+        new_line_num = 0
+
+        # Skip the header lines (---, +++, @@)
+        i = 0
+        while i < len(diff):
+            line = diff[i]
+
+            # Parse hunk header @@ -start,count +start,count @@
+            if line.startswith('@@'):
+                import re
+                match = re.match(r'@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@', line)
+                if match:
+                    old_line_num = int(match.group(1)) - 1
+                    new_line_num = int(match.group(2)) - 1
+
+                # Add separator for hunks (except first)
+                if result:
+                    result.append(DiffLine(None, None, "...", "separator"))
+
+            elif line.startswith('---') or line.startswith('+++'):
+                # Skip file headers
+                pass
+            elif line.startswith('-'):
+                old_line_num += 1
+                result.append(DiffLine(
+                    old_line_num, None,
+                    line[1:].rstrip('\n\r'),
+                    'deletion'
+                ))
+            elif line.startswith('+'):
+                new_line_num += 1
+                result.append(DiffLine(
+                    None, new_line_num,
+                    line[1:].rstrip('\n\r'),
+                    'addition'
+                ))
+            elif line.startswith(' '):
+                old_line_num += 1
+                new_line_num += 1
+                result.append(DiffLine(
+                    old_line_num, new_line_num,
+                    line[1:].rstrip('\n\r'),
+                    'context'
+                ))
+
+            i += 1
+
+        return result
 
     @staticmethod
     def render(
+        filename: str,
+        old_content: str,
+        new_content: str,
+        context_lines: int = 3,
+        show_stats: bool = True,
+        language: str = None
+    ) -> Panel:
+        """
+        Render a Claude Code-style diff panel.
+
+        Args:
+            filename: Name of the file being edited
+            old_content: Original file content
+            new_content: New file content after edit
+            context_lines: Number of context lines to show
+            show_stats: Whether to show addition/deletion statistics
+            language: Language for syntax highlighting (auto-detected from filename if None)
+        """
+        icons = Icons()
+
+        # Auto-detect language from filename
+        if language is None:
+            ext_map = {
+                '.py': 'python', '.js': 'javascript', '.ts': 'typescript',
+                '.jsx': 'jsx', '.tsx': 'tsx', '.html': 'html', '.css': 'css',
+                '.json': 'json', '.yaml': 'yaml', '.yml': 'yaml', '.md': 'markdown',
+                '.rs': 'rust', '.go': 'go', '.java': 'java', '.c': 'c',
+                '.cpp': 'cpp', '.h': 'c', '.hpp': 'cpp', '.rb': 'ruby',
+                '.php': 'php', '.sh': 'bash', '.sql': 'sql', '.xml': 'xml',
+            }
+            import os
+            ext = os.path.splitext(filename)[1].lower()
+            language = ext_map.get(ext, 'text')
+
+        # Compute diff
+        diff_lines = DiffDisplay.compute_diff(old_content, new_content, context_lines)
+
+        if not diff_lines:
+            return Panel(
+                Text("No changes", style=Colors.TEXT_MUTED),
+                title=f"[{Colors.TEXT_SECONDARY}]{get_file_icon(filename)} {filename}[/]",
+                border_style=Colors.BORDER_DEFAULT,
+                box=get_default_box(),
+                padding=(0, 1)
+            )
+
+        # Calculate statistics
+        additions = sum(1 for d in diff_lines if d.change_type == 'addition')
+        deletions = sum(1 for d in diff_lines if d.change_type == 'deletion')
+
+        # Build the diff display
+        lines = []
+
+        # Stats header
+        if show_stats:
+            stats_text = Text()
+            stats_text.append(f" {icons.DIFF_ADDED if hasattr(icons, 'DIFF_ADDED') else '+'}", style=Colors.DIFF_ADDED)
+            stats_text.append(f" {additions} ", style=Colors.DIFF_ADDED)
+            stats_text.append(f" {icons.DIFF_REMOVED if hasattr(icons, 'DIFF_REMOVED') else '-'}", style=Colors.DIFF_REMOVED)
+            stats_text.append(f" {deletions} ", style=Colors.DIFF_REMOVED)
+            lines.append(stats_text)
+            lines.append(Text(""))  # Empty line after stats
+
+        # Calculate max line number width for alignment
+        max_old = max((d.line_number_old or 0) for d in diff_lines)
+        max_new = max((d.line_number_new or 0) for d in diff_lines)
+        ln_width = max(len(str(max_old)), len(str(max_new)), 3)
+
+        # Render each diff line
+        for diff_line in diff_lines:
+            line_text = Text()
+
+            if diff_line.change_type == 'separator':
+                # Separator between hunks
+                line_text.append(f"{'─' * (ln_width * 2 + 5)}", style=Colors.TEXT_MUTED)
+            elif diff_line.change_type == 'deletion':
+                # Deleted line - red background
+                old_ln = str(diff_line.line_number_old).rjust(ln_width)
+                new_ln = ' ' * ln_width
+                line_text.append(f" {old_ln} ", style=f"{Colors.TEXT_MUTED}")
+                line_text.append(f" {new_ln} ", style=f"dim {Colors.TEXT_MUTED}")
+                line_text.append(" - ", style=f"bold {Colors.DIFF_REMOVED}")
+                line_text.append(diff_line.content, style=Colors.DIFF_REMOVED)
+            elif diff_line.change_type == 'addition':
+                # Added line - green background
+                old_ln = ' ' * ln_width
+                new_ln = str(diff_line.line_number_new).rjust(ln_width)
+                line_text.append(f" {old_ln} ", style=f"dim {Colors.TEXT_MUTED}")
+                line_text.append(f" {new_ln} ", style=f"{Colors.TEXT_MUTED}")
+                line_text.append(" + ", style=f"bold {Colors.DIFF_ADDED}")
+                line_text.append(diff_line.content, style=Colors.DIFF_ADDED)
+            else:
+                # Context line
+                old_ln = str(diff_line.line_number_old).rjust(ln_width) if diff_line.line_number_old else ' ' * ln_width
+                new_ln = str(diff_line.line_number_new).rjust(ln_width) if diff_line.line_number_new else ' ' * ln_width
+                line_text.append(f" {old_ln} ", style=Colors.TEXT_MUTED)
+                line_text.append(f" {new_ln} ", style=Colors.TEXT_MUTED)
+                line_text.append("   ", style=Colors.TEXT_MUTED)
+                line_text.append(diff_line.content, style=Colors.TEXT_SECONDARY)
+
+            lines.append(line_text)
+
+        content = Group(*lines)
+
+        # Build title with file icon and stats
+        file_icon = get_file_icon(filename)
+        title_text = f"[{Colors.TEXT_SECONDARY}]{file_icon} {filename}[/]"
+
+        return Panel(
+            content,
+            title=title_text,
+            border_style=Colors.BORDER_DEFAULT,
+            box=get_default_box(),
+            padding=(0, 1)
+        )
+
+    @staticmethod
+    def render_simple(
         filename: str,
         additions: List[str] = None,
         deletions: List[str] = None,
         context: List[str] = None
     ) -> Panel:
-        """Render diff display"""
+        """
+        Render simple diff display (legacy format).
+
+        For simple cases where you just have lists of added/deleted lines.
+        """
         icons = Icons()
         lines = []
 
@@ -526,6 +752,22 @@ class DiffDisplay:
             box=get_default_box(),
             padding=(0, 1)
         )
+
+    @staticmethod
+    def render_inline(
+        old_string: str,
+        new_string: str
+    ) -> Text:
+        """
+        Render inline diff for small changes.
+
+        Shows old text struck through and new text highlighted.
+        """
+        text = Text()
+        text.append(old_string, style=f"strike {Colors.DIFF_REMOVED}")
+        text.append(" → ", style=Colors.TEXT_MUTED)
+        text.append(new_string, style=f"bold {Colors.DIFF_ADDED}")
+        return text
 
 
 # ============================================================

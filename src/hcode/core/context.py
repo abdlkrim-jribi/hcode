@@ -34,26 +34,35 @@ class ContextEntry:
 class ContextManager:
     """Manages conversation context and history"""
 
-    def __init__(self, root_dir: Optional[str] = None, session_id: Optional[str] = None):
+    def __init__(self, root_dir: Optional[str] = None, session_id: Optional[str] = None, fresh_session: bool = True):
         """
         Initialize ContextManager.
 
         Args:
             root_dir: Root directory for storing sessions
             session_id: Session identifier (creates new if None)
+            fresh_session: If True, start with empty context (default). If False, load previous messages.
         """
         self.root_dir = Path(root_dir or os.getcwd())
         self.session_dir = self.root_dir / ".hcode" / "sessions"
         self.session_dir.mkdir(parents=True, exist_ok=True)
 
-        self.session_id = session_id or self._create_session_id()
+        # ALWAYS create a new session ID for fresh sessions to avoid context pollution
+        if fresh_session or session_id is None:
+            self.session_id = self._create_session_id()
+        else:
+            self.session_id = session_id
+
         self.session_file = self.session_dir / f"{self.session_id}.db"
 
         self.context: List[ContextEntry] = []
         self.system_prompt: Optional[str] = None
 
         self._init_database()
-        self._load_session()
+
+        # Only load previous session if explicitly requested
+        if not fresh_session and session_id:
+            self._load_session()
 
     def _create_session_id(self) -> str:
         """Create a new session ID"""

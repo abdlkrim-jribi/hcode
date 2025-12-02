@@ -1,0 +1,34 @@
+# Provider Configuration
+providers:
+  anthropic:
+    api_key_env: ANTHROPIC_API_KEY
+    default_model: claude-3-5-sonnet-20241022
+    max_tokens: 4000
+    temperature: 0.3
+
+  openai:
+    api_key_env: sk-c11019a650da479da35ed7f6a19c77e5
+    base_url_env: https://gpt.technica-engineering.net/api/v1
+    default_model: gpt-oss
+    max_tokens: 60000
+    temperature: 0.3
+
+# Preferences
+preferences:
+  primary_provider: auto
+  fallback_enabled: true
+  cost_optimization: balanced
+  prefer_streaming: true
+  max_cost_per_request: 1.0
+
+# Tool Configuration
+tools:
+  linter: auto
+  formatter: auto
+  test_runner: auto
+
+# Safety Settings
+safety:
+  confirm_destructive: true
+  auto_backup: true
+  backup_retention_days: 7

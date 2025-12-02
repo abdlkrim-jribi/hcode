@@ -7,6 +7,15 @@ from .enhanced_agent import EnhancedHcodeAgent
 from .filesystem import FileSystemManager, FileWatcher
 from .safety import SafetyGuard, DryRunContext
 from .context import ContextManager, ContextEntry
+from .interaction_logger import (
+    InteractionLogger,
+    get_logger,
+    start_logging,
+    log_interaction,
+    log_tool_call,
+    log_error,
+    end_logging
+)
 
 __all__ = [
     "HcodeAgent",
@@ -17,4 +26,12 @@ __all__ = [
     "DryRunContext",
     "ContextManager",
     "ContextEntry",
+    # Logging
+    "InteractionLogger",
+    "get_logger",
+    "start_logging",
+    "log_interaction",
+    "log_tool_call",
+    "log_error",
+    "end_logging",
 ]

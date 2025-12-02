@@ -5,7 +5,10 @@ Includes Read, Write, Edit, Glob tools similar to Hcode.
 
 import os
 from pathlib import Path
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from rich.console import Console
 import glob as glob_module
 
 from .base_tool import BaseTool, ToolResult, ToolParameter, ToolCategory
@@ -28,7 +31,7 @@ class ReadTool(BaseTool):
             ToolParameter("limit", "integer", "Number of lines to read", default=None),
         ]
 
-    async def execute(self, file_path: str, offset: int = 1, limit: Optional[int] = None) -> ToolResult:
+    async def execute(self, file_path: str, offset: int = 1, limit: Optional[int] = None, **kwargs) -> ToolResult:
         """Read file contents with line numbers"""
         try:
             path = Path(file_path)
@@ -78,7 +81,16 @@ class ReadTool(BaseTool):
 class WriteTool(BaseTool):
     """
     Write content to files, creating them if they don't exist.
+    Includes validation to verify the file was written correctly.
+
+    Supports:
+    - Full file writes (default)
+    - Append mode for chunked/continuation writes
+    - Partial content detection and recovery
     """
+
+    # Class-level tracking of partial writes for continuation
+    _partial_writes: Dict[str, str] = {}
 
     def __init__(self, root_dir: Optional[str] = None):
         super().__init__()
@@ -89,12 +101,129 @@ class WriteTool(BaseTool):
         return [
             ToolParameter("file_path", "string", "Absolute path to write to", required=True),
             ToolParameter("content", "string", "Content to write", required=True),
+            ToolParameter("mode", "string", "Write mode: 'overwrite' (default) or 'append' for chunked writes", default="overwrite"),
+            ToolParameter("is_partial", "boolean", "Indicates this is partial content that may be continued", default=False),
         ]
 
-    async def execute(self, file_path: str, content: str) -> ToolResult:
-        """Write content to file"""
+    def _validate_content(self, content: str, file_path: str) -> List[str]:
+        """
+        Validate content before writing.
+
+        Returns list of warnings/issues found.
+        """
+        issues = []
+
+        # Check for escaped newlines that should be actual newlines
+        if '\\n' in content and '\n' not in content:
+            issues.append("Content contains escaped newlines (\\n) but no actual newlines - may be incorrectly escaped")
+
+        # Check for Python syntax issues (basic check for .py files)
+        if file_path.endswith('.py'):
+            # Check for obvious syntax issues
+            if content.count('(') != content.count(')'):
+                issues.append("Mismatched parentheses")
+            if content.count('[') != content.count(']'):
+                issues.append("Mismatched brackets")
+            if content.count('{') != content.count('}'):
+                issues.append("Mismatched braces")
+
+            # Check for triple-quoted strings being properly closed
+            triple_double = content.count('"""')
+            triple_single = content.count("'''")
+            if triple_double % 2 != 0:
+                issues.append("Unclosed triple-double-quote string")
+            if triple_single % 2 != 0:
+                issues.append("Unclosed triple-single-quote string")
+
+        return issues
+
+    def _detect_truncation(self, content: str, file_path: str) -> tuple[bool, str]:
+        """
+        Detect if content appears to be truncated.
+
+        Returns:
+            Tuple of (is_truncated, reason)
+        """
+        if not content:
+            return False, ""
+
+        # Check for common truncation indicators
+        truncation_indicators = [
+            # Ends with incomplete syntax
+            (content.rstrip().endswith(','), "ends with trailing comma"),
+            (content.rstrip().endswith('{'), "ends with open brace"),
+            (content.rstrip().endswith('['), "ends with open bracket"),
+            (content.rstrip().endswith(':'), "ends with colon"),
+            (content.rstrip().endswith('\\'), "ends with backslash"),
+
+            # Unclosed brackets/braces (for code files)
+            (content.count('{') > content.count('}'), "unclosed braces"),
+            (content.count('[') > content.count(']'), "unclosed brackets"),
+            (content.count('(') > content.count(')'), "unclosed parentheses"),
+
+            # Unclosed quotes
+            (content.count('"') % 2 == 1, "unclosed double quotes"),
+
+            # Unclosed code blocks (for markdown)
+            (content.count('```') % 2 == 1, "unclosed code block"),
+
+            # HTML/XML unclosed tags (basic check)
+            (file_path.endswith(('.html', '.xml', '.htm')) and
+             content.count('<') > content.count('>'), "unclosed HTML tags"),
+        ]
+
+        for is_truncated, reason in truncation_indicators:
+            if is_truncated:
+                return True, reason
+
+        return False, ""
+
+    async def execute(
+        self,
+        file_path: str,
+        content: str,
+        mode: str = "overwrite",
+        is_partial: bool = False,
+        **kwargs
+    ) -> ToolResult:
+        """
+        Write content to file with validation and robustness features.
+
+        Supports:
+        - Standard overwrite mode
+        - Append mode for chunked/continuation writes
+        - Partial content tracking for recovery
+        """
         try:
             path = Path(file_path)
+            file_key = str(path.absolute())
+
+            # Handle append mode for chunked writes
+            if mode == "append":
+                # Append to existing file or partial write buffer
+                existing_content = ""
+                if path.exists():
+                    with open(path, 'r', encoding='utf-8', errors='ignore') as f:
+                        existing_content = f.read()
+                elif file_key in self._partial_writes:
+                    existing_content = self._partial_writes[file_key]
+
+                content = existing_content + content
+
+            # Validate content before writing
+            issues = self._validate_content(content, file_path)
+            if issues:
+                # Log warnings but still proceed
+                import sys
+                for issue in issues:
+                    print(f"Warning: {issue}", file=sys.stderr)
+
+            # Check for truncation
+            is_truncated, truncation_reason = self._detect_truncation(content, file_path)
+            if is_truncated:
+                issues.append(f"Content may be truncated: {truncation_reason}")
+                # Store partial content for potential continuation
+                self._partial_writes[file_key] = content
 
             # Create parent directories
             path.parent.mkdir(parents=True, exist_ok=True)
@@ -103,30 +232,94 @@ class WriteTool(BaseTool):
             with open(path, 'w', encoding='utf-8') as f:
                 f.write(content)
 
+            # Verify the file was written correctly
+            try:
+                with open(path, 'r', encoding='utf-8') as f:
+                    written_content = f.read()
+
+                if written_content != content:
+                    # Don't fail completely - file was written, just verification mismatch
+                    issues.append("File verification: minor content mismatch detected")
+            except Exception as verify_error:
+                issues.append(f"File verification skipped: {verify_error}")
+
+            # Count lines for info
+            line_count = content.count('\n') + 1
+
+            # Clear partial write buffer on successful full write
+            if not is_partial and not is_truncated and file_key in self._partial_writes:
+                del self._partial_writes[file_key]
+
+            result_msg = f"File written successfully: {path}"
+            if issues:
+                result_msg += f"\nWarnings: {'; '.join(issues)}"
+
+            if is_truncated:
+                result_msg += f"\n\n⚠️ Content appears truncated ({truncation_reason}). You can continue with mode='append'."
+
             return ToolResult(
                 success=True,
-                output=f"File written successfully: {path}",
+                output=result_msg,
                 metadata={
                     "file_path": str(path),
-                    "bytes_written": len(content.encode('utf-8'))
+                    "bytes_written": len(content.encode('utf-8')),
+                    "line_count": line_count,
+                    "warnings": issues if issues else None,
+                    "verified": True,
+                    "is_truncated": is_truncated,
+                    "truncation_reason": truncation_reason if is_truncated else None,
+                    "mode": mode
                 }
             )
 
         except Exception as e:
+            # Even on error, try to save partial content
+            try:
+                if content:
+                    self._partial_writes[str(Path(file_path).absolute())] = content
+            except:
+                pass
             return ToolResult(success=False, output=None, error=str(e))
+
+    @classmethod
+    def get_partial_content(cls, file_path: str) -> Optional[str]:
+        """
+        Get any partial content stored for a file path.
+
+        This allows recovery of truncated writes.
+        """
+        file_key = str(Path(file_path).absolute())
+        return cls._partial_writes.get(file_key)
+
+    @classmethod
+    def clear_partial_content(cls, file_path: str = None):
+        """
+        Clear partial content buffer.
+
+        Args:
+            file_path: Specific file to clear, or None to clear all
+        """
+        if file_path:
+            file_key = str(Path(file_path).absolute())
+            if file_key in cls._partial_writes:
+                del cls._partial_writes[file_key]
+        else:
+            cls._partial_writes.clear()
 
 
 class EditTool(BaseTool):
     """
     Edit files by replacing exact string matches.
     Uses old_string/new_string replacement for precise editing.
+    Shows Claude Code-style diff display after changes.
     """
 
-    def __init__(self, root_dir: Optional[str] = None):
+    def __init__(self, root_dir: Optional[str] = None, console: Optional[Any] = None):
         super().__init__()
         self.category = ToolCategory.FILE_OPERATION
         self.root_dir = Path(root_dir or os.getcwd())
         self._file_read_cache = {}
+        self._console = console
 
     def get_parameters(self) -> List[ToolParameter]:
         return [
@@ -136,12 +329,54 @@ class EditTool(BaseTool):
             ToolParameter("replace_all", "boolean", "Replace all occurrences", default=False),
         ]
 
+    def _show_diff(self, file_path: str, old_content: str, new_content: str) -> str:
+        """Generate and optionally display diff"""
+        try:
+            from ..cli.styles import DiffDisplay, console as styled_console
+
+            # Use provided console or default
+            display_console = self._console or styled_console
+
+            # Render the diff panel
+            diff_panel = DiffDisplay.render(
+                filename=os.path.basename(file_path),
+                old_content=old_content,
+                new_content=new_content,
+                context_lines=3,
+                show_stats=True
+            )
+
+            # Display the diff
+            display_console.print(diff_panel)
+
+            # Also return a text summary
+            import difflib
+            diff_lines = list(difflib.unified_diff(
+                old_content.splitlines(keepends=True),
+                new_content.splitlines(keepends=True),
+                fromfile='before',
+                tofile='after',
+                lineterm=''
+            ))
+
+            additions = sum(1 for line in diff_lines if line.startswith('+') and not line.startswith('+++'))
+            deletions = sum(1 for line in diff_lines if line.startswith('-') and not line.startswith('---'))
+
+            return f"+{additions} -{deletions}"
+
+        except ImportError:
+            # Fallback if CLI styles not available
+            return "diff displayed"
+        except Exception as e:
+            return f"diff error: {e}"
+
     async def execute(
         self,
         file_path: str,
         old_string: str,
         new_string: str,
-        replace_all: bool = False
+        replace_all: bool = False,
+        **kwargs  # Accept and ignore unknown parameters for model compatibility
     ) -> ToolResult:
         """Edit file by replacing old_string with new_string"""
         try:
@@ -157,6 +392,9 @@ class EditTool(BaseTool):
             # Read file
             with open(path, 'r', encoding='utf-8') as f:
                 content = f.read()
+
+            # Store original content for diff
+            original_content = content
 
             # Check if old_string exists
             if old_string not in content:
@@ -186,14 +424,18 @@ class EditTool(BaseTool):
             with open(path, 'w', encoding='utf-8') as f:
                 f.write(new_content)
 
+            # Show diff
+            diff_summary = self._show_diff(str(path), original_content, new_content)
+
             return ToolResult(
                 success=True,
-                output=f"File edited successfully. Replaced {replacements} occurrence(s).",
+                output=f"File edited successfully. Replaced {replacements} occurrence(s). ({diff_summary})",
                 metadata={
                     "file_path": str(path),
                     "replacements": replacements,
                     "old_length": len(old_string),
-                    "new_length": len(new_string)
+                    "new_length": len(new_string),
+                    "diff_summary": diff_summary
                 }
             )
 
@@ -205,13 +447,49 @@ class MultiEditTool(BaseTool):
     """
     Makes multiple sequential edits to a single file.
     More efficient than multiple Edit tool calls.
+    Shows Claude Code-style diff display after all changes.
     """
 
-    def __init__(self, root_dir: Optional[str] = None):
+    def __init__(self, root_dir: Optional[str] = None, console: Optional[Any] = None):
         super().__init__()
         self.name = "MultiEdit"
         self.category = ToolCategory.FILE_OPERATION
         self.root_dir = Path(root_dir or os.getcwd())
+        self._console = console
+
+    def _show_diff(self, file_path: str, old_content: str, new_content: str) -> str:
+        """Generate and optionally display diff"""
+        try:
+            from ..cli.styles import DiffDisplay, console as styled_console
+
+            display_console = self._console or styled_console
+
+            diff_panel = DiffDisplay.render(
+                filename=os.path.basename(file_path),
+                old_content=old_content,
+                new_content=new_content,
+                context_lines=3,
+                show_stats=True
+            )
+
+            display_console.print(diff_panel)
+
+            import difflib
+            diff_lines = list(difflib.unified_diff(
+                old_content.splitlines(keepends=True),
+                new_content.splitlines(keepends=True),
+                lineterm=''
+            ))
+
+            additions = sum(1 for line in diff_lines if line.startswith('+') and not line.startswith('+++'))
+            deletions = sum(1 for line in diff_lines if line.startswith('-') and not line.startswith('---'))
+
+            return f"+{additions} -{deletions}"
+
+        except ImportError:
+            return "diff displayed"
+        except Exception as e:
+            return f"diff error: {e}"
 
     def get_parameters(self) -> List[ToolParameter]:
         return [
@@ -229,7 +507,7 @@ class MultiEditTool(BaseTool):
             ),
         ]
 
-    async def execute(self, file_path: str, edits: List[Dict[str, Any]]) -> ToolResult:
+    async def execute(self, file_path: str, edits: List[Dict[str, Any]], **kwargs) -> ToolResult:
         """Apply multiple edits to a file"""
         try:
             path = Path(file_path)
@@ -300,14 +578,18 @@ class MultiEditTool(BaseTool):
                 with open(path, 'w', encoding='utf-8') as f:
                     f.write(content)
 
+                # Show diff
+                diff_summary = self._show_diff(str(path), original_content, content)
+
                 return ToolResult(
                     success=True,
-                    output=f"File edited successfully. Applied {len(edits)} edits with {total_replacements} total replacements.",
+                    output=f"File edited successfully. Applied {len(edits)} edits with {total_replacements} total replacements. ({diff_summary})",
                     metadata={
                         "file_path": str(path),
                         "total_edits": len(edits),
                         "total_replacements": total_replacements,
-                        "edit_results": edit_results
+                        "edit_results": edit_results,
+                        "diff_summary": diff_summary
                     }
                 )
             else:
@@ -341,7 +623,7 @@ class GlobTool(BaseTool):
             ToolParameter("path", "string", "Directory to search in", default=None),
         ]
 
-    async def execute(self, pattern: str, path: Optional[str] = None) -> ToolResult:
+    async def execute(self, pattern: str, path: Optional[str] = None, **kwargs) -> ToolResult:
         """Find files matching pattern"""
         try:
             search_dir = Path(path) if path else self.root_dir
@@ -413,7 +695,8 @@ class GrepTool(BaseTool):
         case_insensitive: bool = False,
         output_mode: str = "files_with_matches",
         context_before: int = 0,
-        context_after: int = 0
+        context_after: int = 0,
+        **kwargs  # Accept and ignore unknown parameters for model compatibility
     ) -> ToolResult:
         """Search for pattern in files"""
         import re

@@ -4,7 +4,7 @@ Coding agent with integrated ReAct loop and reasoning.
 Combines thinking, planning, action, and observation in a continuous loop.
 """
 
-from typing import Any, Dict, List, Optional, AsyncGenerator
+from typing import Any, Dict, List, Optional, AsyncGenerator, TYPE_CHECKING
 import json
 
 from .thinking_manager import ThinkingManager
@@ -12,7 +12,10 @@ from .thinking import ThinkingPhase, ThinkingSession
 from .todo import TodoManager, TodoItem, TodoStatus
 from ..config.thinking import ThinkingConfig, ThinkingVisibility
 from ..tools.tool_manager import ToolManager
-from ..tools.todo_write import TodoWriteTool
+
+# Avoid circular import - TodoWriteTool is imported lazily when needed
+if TYPE_CHECKING:
+    from ..tools.todo_write import TodoWriteTool
 
 
 class ExecutionContext:
@@ -117,7 +120,8 @@ Remember: Think → Plan → Act → Observe → Update → Repeat"""
         )
         self.todo_manager = todo_manager or TodoManager()
 
-        # Register TodoWrite tool
+        # Register TodoWrite tool (lazy import to avoid circular dependency)
+        from ..tools.todo_write import TodoWriteTool
         todo_tool = TodoWriteTool(self.todo_manager)
         self.tool_manager.register_tool(todo_tool)
 

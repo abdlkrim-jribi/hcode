@@ -69,12 +69,14 @@ class SubAgent:
         raise NotImplementedError
 
     def _get_system_prompt(self) -> str:
-        """Get agent-specific system prompt"""
-        base_prompt = """You are a specialized AI agent with access to tools for code operations.
+        """Get agent-specific system prompt from external config"""
+        from ..config.prompts import get_system_prompt
 
-Available tools:
-"""
-        # List available tools
+        # Get base prompt from config
+        base_prompt = get_system_prompt("sub_agent")
+
+        # Add available tools list
+        base_prompt += "\n\nAvailable tools:\n"
         for tool in self.tool_registry.list_tools():
             base_prompt += f"\n- {tool.name}: {tool.get_description()}"
 
@@ -93,22 +95,9 @@ class ExploreAgent(SubAgent):
         super().__init__(AgentType.EXPLORE, provider, tool_registry)
 
     def _get_system_prompt(self) -> str:
-        return """You are an Explore agent specialized in quickly finding information in codebases.
-
-Your capabilities:
-- Find files by patterns (use Glob tool)
-- Search code for keywords (use Grep tool)
-- Understand project structure
-- Locate specific implementations
-
-Focus on:
-1. Speed and efficiency
-2. Thoroughness based on user's request
-3. Clear, organized results
-4. Multiple search strategies if needed
-
-Available thoroughness levels: quick, medium, very thorough
-""" + super()._get_system_prompt()
+        """Get explore agent prompt from external config"""
+        from ..config.prompts import get_system_prompt
+        return get_system_prompt("explore_agent") + super()._get_system_prompt()
 
     async def execute(
         self,
@@ -169,27 +158,9 @@ class PlanAgent(SubAgent):
         super().__init__(AgentType.PLAN, provider, tool_registry)
 
     def _get_system_prompt(self) -> str:
-        return """You are a Plan agent specialized in creating implementation plans.
-
-Your capabilities:
-- Break down complex tasks into steps
-- Identify dependencies and risks
-- Create actionable plans
-- Consider architecture and design
-
-Focus on:
-1. Clarity and specificity
-2. Logical ordering of steps
-3. Identifying potential issues
-4. Resource requirements
-
-Provide structured plans with:
-- Overview
-- Step-by-step breakdown
-- Dependencies
-- Risks and considerations
-- Testing strategy
-""" + super()._get_system_prompt()
+        """Get plan agent prompt from external config"""
+        from ..config.prompts import get_system_prompt
+        return get_system_prompt("plan_agent") + super()._get_system_prompt()
 
     async def execute(
         self,
@@ -262,22 +233,9 @@ class ImplementAgent(SubAgent):
         super().__init__(AgentType.IMPLEMENT, provider, tool_registry)
 
     def _get_system_prompt(self) -> str:
-        return """You are an Implement agent specialized in writing production-quality code.
-
-Your capabilities:
-- Write clean, well-documented code
-- Follow best practices and patterns
-- Handle edge cases
-- Create comprehensive tests
-- Use Write and Edit tools effectively
-
-Focus on:
-1. Code quality and readability
-2. Proper error handling
-3. Documentation
-4. Testing
-5. Following project conventions
-""" + super()._get_system_prompt()
+        """Get code agent prompt from external config"""
+        from ..config.prompts import get_system_prompt
+        return get_system_prompt("code_agent") + super()._get_system_prompt()
 
     async def execute(
         self,

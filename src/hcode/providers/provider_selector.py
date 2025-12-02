@@ -28,6 +28,7 @@ class TaskType(Enum):
     DOCUMENTATION = "documentation"
     TESTING = "testing"
     ARCHITECTURE = "architecture"
+    CODE_REVIEW = "reviewing"
 
 
 @dataclass
@@ -96,7 +97,8 @@ class ProviderSelector:
         return OpenAIProvider(
             api_key=api_key,
             model=model,
-            base_url=self.openai_base_url
+            base_url=self.openai_base_url,
+            max_tokens=8192  # Increased to allow longer code generation without truncation
         )
 
     def _select_anthropic_model(self) -> str:

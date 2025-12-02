@@ -1,0 +1,243 @@
+# Hcode Model Configuration
+# This file contains all model parameters and settings.
+# Adjust these values to fine-tune model behavior.
+
+# =============================================================================
+# GENERATION PARAMETERS
+# =============================================================================
+
+generation:
+  # Temperature controls randomness (0.0 = deterministic, 1.0 = creative)
+  temperature: 0.3
+
+  # Top-p (nucleus sampling) - alternative to temperature
+  # Set to 1.0 to disable, or 0.1-0.9 for more focused outputs
+  top_p: 1.0
+
+  # Top-k sampling - limits vocabulary to top k tokens
+  # Set to 0 to disable
+  top_k: 0
+
+  # Maximum tokens in response
+  max_tokens: 4096
+
+  # Frequency penalty - reduces repetition of tokens (-2.0 to 2.0)
+  frequency_penalty: 0.0
+
+  # Presence penalty - encourages new topics (-2.0 to 2.0)
+  presence_penalty: 0.0
+
+  # Stop sequences - generation stops when these are encountered
+  stop_sequences: []
+
+# =============================================================================
+# TASK-SPECIFIC PARAMETERS
+# =============================================================================
+
+# Override parameters for specific task types
+task_overrides:
+  # Code generation - more deterministic
+  code_generation:
+    temperature: 0.2
+    top_p: 0.95
+    max_tokens: 8192
+
+  # Code explanation - slightly more creative
+  code_explanation:
+    temperature: 0.4
+    top_p: 1.0
+    max_tokens: 4096
+
+  # Bug fixing - very deterministic
+  bug_fixing:
+    temperature: 0.1
+    top_p: 0.9
+    max_tokens: 4096
+
+  # Creative writing - more creative
+  creative:
+    temperature: 0.8
+    top_p: 0.95
+    max_tokens: 4096
+
+  # Refactoring - balanced
+  refactoring:
+    temperature: 0.3
+    top_p: 0.95
+    max_tokens: 8192
+
+  # Documentation - clear and consistent
+  documentation:
+    temperature: 0.3
+    top_p: 1.0
+    max_tokens: 4096
+
+  # Testing - deterministic
+  testing:
+    temperature: 0.2
+    top_p: 0.9
+    max_tokens: 4096
+
+  # Planning - thoughtful
+  planning:
+    temperature: 0.4
+    top_p: 0.95
+    max_tokens: 4096
+
+# =============================================================================
+# MODEL SELECTION
+# =============================================================================
+
+models:
+  # Default models by provider
+  defaults:
+    anthropic: "claude-3-5-sonnet-20241022"
+    openai: "gpt-4o"
+
+  # Model aliases for easy selection
+  aliases:
+    # Size-based aliases
+    small:
+      anthropic: "claude-3-haiku-20240307"
+      openai: "gpt-4o-mini"
+    medium:
+      anthropic: "claude-3-5-sonnet-20241022"
+      openai: "gpt-4o"
+    large:
+      anthropic: "claude-3-opus-20240229"
+      openai: "gpt-4-turbo"
+
+    # Quality-based aliases
+    fast:
+      anthropic: "claude-3-haiku-20240307"
+      openai: "gpt-4o-mini"
+    balanced:
+      anthropic: "claude-3-5-sonnet-20241022"
+      openai: "gpt-4o"
+    quality:
+      anthropic: "claude-3-opus-20240229"
+      openai: "gpt-4-turbo"
+
+  # OpenAI-compatible providers (for custom base URLs)
+  compatible:
+    cerebras:
+      small: "llama3.1-8b"
+      medium: "llama-3.3-70b"
+      large: "llama-3.3-70b"
+    ollama:
+      small: "llama3:8b"
+      medium: "llama3:70b"
+      large: "llama3:70b"
+    together:
+      small: "meta-llama/Llama-3-8b-chat-hf"
+      medium: "meta-llama/Llama-3-70b-chat-hf"
+      large: "meta-llama/Llama-3-70b-chat-hf"
+
+# =============================================================================
+# CONTEXT MANAGEMENT
+# =============================================================================
+
+context:
+  # Maximum context window tokens (leave headroom for response)
+  max_context_tokens: 128000
+
+  # Reserve tokens for output
+  reserve_output_tokens: 8192
+
+  # Trigger summarization at this percentage of context usage
+  summarization_threshold: 0.8
+
+  # Maximum conversation history turns to keep
+  max_history_turns: 50
+
+  # Token budget allocation
+  budget:
+    system_prompt: 2000
+    tools: 4000
+    history: 100000
+    current_message: 10000
+
+# =============================================================================
+# CONTINUATION SETTINGS
+# =============================================================================
+
+continuation:
+  # Enable automatic continuation for long outputs
+  enabled: true
+
+  # Maximum number of continuation attempts
+  max_continuations: 10
+
+  # Maximum total tokens across all continuations
+  max_total_tokens: 100000
+
+  # Patterns that indicate truncation (trigger continuation)
+  truncation_patterns:
+    - ","
+    - " and"
+    - " or"
+    - " the"
+    - " a"
+    - " an"
+    - " to"
+    - " is"
+    - " are"
+    - " was"
+    - " were"
+    - " will"
+    - " be"
+    - ":"
+
+# =============================================================================
+# RETRY AND TIMEOUT SETTINGS
+# =============================================================================
+
+reliability:
+  # Request timeout in seconds
+  timeout: 120
+
+  # Connection timeout in seconds
+  connect_timeout: 30
+
+  # Maximum retry attempts
+  max_retries: 5
+
+  # Retry delay multiplier (exponential backoff)
+  retry_multiplier: 2
+
+  # Minimum retry delay in seconds
+  retry_min: 2
+
+  # Maximum retry delay in seconds
+  retry_max: 30
+
+# =============================================================================
+# STREAMING SETTINGS
+# =============================================================================
+
+streaming:
+  # Enable streaming by default
+  enabled: true
+
+  # Buffer size for streaming output
+  buffer_size: 1
+
+  # Show typing indicator during streaming
+  show_typing: true
+
+# =============================================================================
+# SAFETY AND LIMITS
+# =============================================================================
+
+safety:
+  # Maximum cost per request in USD
+  max_cost_per_request: 1.0
+
+  # Maximum tokens per request
+  max_tokens_per_request: 16000
+
+  # Rate limit (requests per minute)
+  rate_limit: 60
+
+  # Enable content filtering
+  content_filter: true

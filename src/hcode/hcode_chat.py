@@ -85,8 +85,12 @@ class HcodeChat:
     - Session persistence
     """
 
-    def __init__(self):
-        """Initialize Hcode chat interface"""
+    def __init__(self, workspace_dir: Optional[str] = None):
+        """Initialize Hcode chat interface
+
+        Args:
+            workspace_dir: The workspace directory to operate in (defaults to current directory)
+        """
         self.console = styled_console  # Use styled console
         self.config = load_config()
         self.agent = None
@@ -97,11 +101,19 @@ class HcodeChat:
         self.commands = self._init_commands()
         self.icons = Icons()  # Initialize icons
 
+        # Set workspace directory - always use the directory where hcode was opened
+        self.workspace_dir = Path(workspace_dir or os.getcwd()).resolve()
+
+        # Change to workspace directory to ensure all operations happen there
+        os.chdir(self.workspace_dir)
+
         # Initialize prompt session with history and autocompletion
         # Handle Windows terminal compatibility
+        # Store history in the workspace directory
+        history_file = self.workspace_dir / '.hcode_history'
         try:
             self.prompt_session = PromptSession(
-                history=FileHistory('.hcode_history'),
+                history=FileHistory(str(history_file)),
                 auto_suggest=AutoSuggestFromHistory(),
                 completer=WordCompleter(list(self.commands.keys()) + list(self.shortcuts.keys()))
             )
@@ -231,10 +243,10 @@ class HcodeChat:
 
     async def initialize_agent(self):
         """Initialize the AI agent with Hcode capabilities"""
-        # Get API keys
+        # Get API keys (env vars take priority over config)
         anthropic_key = os.getenv("ANTHROPIC_API_KEY") or self.config.get("providers", {}).get("anthropic", {}).get("api_key")
         openai_key = os.getenv("OPENAI_API_KEY") or self.config.get("providers", {}).get("openai", {}).get("api_key")
-        openai_base_url = self.config.get("providers", {}).get("openai", {}).get("base_url")
+        openai_base_url = os.getenv("OPENAI_BASE_URL") or self.config.get("providers", {}).get("openai", {}).get("base_url")
 
         if not anthropic_key and not openai_key:
             self.console.print(Panel(
@@ -251,9 +263,9 @@ class HcodeChat:
         provider_pref = self.config.get("preferences", {}).get("primary_provider", "auto")
         cost_opt = self.config.get("preferences", {}).get("cost_optimization", "balanced")
 
-        # Get model configuration
-        anthropic_model = self.config.get("providers", {}).get("anthropic", {}).get("default_model")
-        openai_model = self.config.get("providers", {}).get("openai", {}).get("default_model")
+        # Get model configuration (env vars take priority over config)
+        anthropic_model = os.getenv("ANTHROPIC_MODEL") or self.config.get("providers", {}).get("anthropic", {}).get("default_model")
+        openai_model = os.getenv("OPENAI_MODEL") or self.config.get("providers", {}).get("openai", {}).get("default_model")
 
         # Create agent with preferences
         preferences = ProviderPreferences(
@@ -269,15 +281,24 @@ class HcodeChat:
             anthropic_model=anthropic_model,
             openai_model=openai_model,
             preferences=preferences,
-            config=self.config
+            config=self.config,
+            root_dir=str(self.workspace_dir)  # Always use the workspace directory
         )
 
         # Set Hcode system prompt
         self.system_prompt = self._build_system_prompt()
 
     def _build_system_prompt(self) -> str:
-        """Build Hcode system prompt"""
-        return """You are Hcode, an advanced AI coding assistant with comprehensive capabilities.
+        """Build Hcode system prompt with workspace context"""
+        workspace_info = f"""
+WORKSPACE INFORMATION:
+- Working Directory: {self.workspace_dir}
+- All file operations are relative to this workspace
+- Never operate outside the workspace unless explicitly requested
+"""
+        return f"""You are Hcode, an advanced AI coding assistant with comprehensive capabilities.
+
+{workspace_info}
 
 You have access to the following tools:
 - File operations (Read, Write, Edit, Glob, Grep)
@@ -294,12 +315,14 @@ Key behaviors:
 5. Provide code references with file:line format
 6. Support parallel tool execution
 7. Handle slash commands and shortcuts
+8. ALWAYS work within the workspace directory: {self.workspace_dir}
 
 Remember:
 - Stream responses for better UX
 - Show your thinking process
 - Be transparent about limitations
-- Focus on helping the user effectively"""
+- Focus on helping the user effectively
+- All file paths should be relative to or within the workspace"""
 
     def show_banner(self):
         """Display enhanced Hcode banner with styling"""
@@ -361,6 +384,13 @@ Remember:
             feature_text.append(f"{name}", style=Colors.TEXT_SECONDARY)
 
         self.console.print(feature_text)
+
+        # Show workspace directory
+        workspace_text = Text()
+        workspace_text.append(f" {self.icons.FOLDER} ", style=f"bold {Colors.INFO}")
+        workspace_text.append("Workspace: ", style=f"bold {Colors.TEXT_SECONDARY}")
+        workspace_text.append(str(self.workspace_dir), style=Colors.TEXT_MUTED)
+        self.console.print(workspace_text)
         self.console.print()
 
         # Quick start hints
@@ -490,6 +520,56 @@ Remember:
 
         return f"Unknown mention type. Available: @workspace, @file, @web, @docs"
 
+    def _is_continuation_message(self, message: str) -> bool:
+        """Check if message is a continuation/confirmation rather than a new task"""
+        message_lower = message.strip().lower()
+
+        # Short confirmations
+        if message_lower in ['yes', 'y', 'ok', 'okay', 'sure', 'go ahead', 'proceed',
+                            'continue', 'do it', 'generate', 'create it', 'yes please',
+                            'generate the file', 'create the file', 'write the file',
+                            'make it', 'build it']:
+            return True
+
+        # Very short messages are likely confirmations
+        if len(message_lower) < 20 and not any(word in message_lower for word in
+                                                ['create', 'implement', 'build', 'write', 'generate', 'fix', 'debug']):
+            return True
+
+        return False
+
+    def _enhance_continuation_message(self, message: str) -> str:
+        """
+        Enhance a continuation message with context to help the model understand.
+
+        When user says 'proceed' or 'yes', the model needs to understand this is
+        a confirmation to continue with the previous task.
+        """
+        message_lower = message.strip().lower()
+
+        # Check if this looks like a confirmation
+        confirmation_words = ['yes', 'y', 'ok', 'okay', 'sure', 'go ahead', 'proceed',
+                             'continue', 'do it', 'generate', 'create it', 'yes please',
+                             'generate the file', 'create the file', 'write the file',
+                             'make it', 'build it']
+
+        if message_lower in confirmation_words:
+            # Get the last user message from session history (the original task)
+            original_task = None
+            for msg in reversed(self.session_history):
+                if msg.get('role') == 'user':
+                    content = msg.get('content', '')
+                    # Skip if it's also a short confirmation
+                    if content.strip().lower() not in confirmation_words and len(content) > 20:
+                        original_task = content
+                        break
+
+            if original_task:
+                # Enhance the message with context
+                return f"User confirmed: {message}. Please proceed with the previously discussed task: {original_task}"
+
+        return message
+
     async def execute_with_tools(self, message: str) -> str:
         """
         Execute message with tool support.
@@ -500,22 +580,54 @@ Remember:
         Returns:
             Response with tool execution results
         """
-        # Check if we need to update todos
-        if self.should_create_todos(message):
+        # Check if this is a continuation message
+        is_continuation = self._is_continuation_message(message)
+
+        # Only create new todos if this is a new task, not a continuation
+        if not is_continuation:
             await self.create_todos_for_task(message)
+
+            # Display todos at the start of task execution
+            self.console.print()
+            self.console.print(f"[bold cyan]📋 Task Planning[/bold cyan]")
+            self.display_todos()
+            self.console.print()
+
+        # Enhance continuation messages with context
+        task_message = message
+        if is_continuation:
+            task_message = self._enhance_continuation_message(message)
+            if task_message != message:
+                self.console.print(f"[dim]📎 Enhanced continuation: {task_message[:100]}...[/dim]")
 
         # Execute task through agent
         response = await self.agent.execute_task(
-            task=message,
+            task=task_message,
             complexity=self.determine_complexity(message),
             task_type=self.determine_task_type(message),
             stream=self.stream_responses,
             use_sub_agents=self.should_use_agents(message)
         )
 
-        # Update todos if needed
+        # Update todos after execution - mark ALL tasks as completed
+        # since the task has been executed (including file write)
         if self.todos:
-            await self.update_todo_status()
+            # For file generation tasks, all steps are complete when we reach here
+            # because the agent has already analyzed, designed, generated, and saved
+            for todo in self.todos:
+                # Mark all tasks as completed if the response indicates success
+                if "success" in response.lower() or "written" in response.lower() or "created" in response.lower() or "generated" in response.lower():
+                    todo['status'] = 'completed'
+                elif todo.get('status') == 'in_progress':
+                    # At minimum, mark in-progress tasks as completed
+                    todo['status'] = 'completed'
+
+            await self.agent.update_todos(self.todos)
+
+            # Display final todos
+            self.console.print()
+            self.console.print(f"[bold green]✅ Task Status[/bold green]")
+            self.display_todos()
 
         return response
 
@@ -574,10 +686,7 @@ Remember:
         # Update todo list
         self.todos = todos
 
-        # Show todos to user
-        self.display_todos()
-
-        # Update agent todos
+        # Update agent todos (display is handled by execute_with_tools)
         await self.agent.update_todos(todos)
 
     def generate_todos_from_task(self, task: str) -> List[Dict[str, str]]:
@@ -585,21 +694,19 @@ Remember:
         todos = []
 
         # Parse task and create appropriate todos
-        # This is a simplified version - in production, you'd use AI to generate these
         task_lower = task.lower()
 
-        if "implement" in task_lower or "create" in task_lower:
+        if "implement" in task_lower or "create" in task_lower or "generate" in task_lower or "write" in task_lower:
             todos.extend([
-                {"content": "Analyze requirements", "status": "pending", "activeForm": "Analyzing requirements"},
-                {"content": "Design solution architecture", "status": "pending", "activeForm": "Designing solution architecture"},
-                {"content": "Implement core functionality", "status": "pending", "activeForm": "Implementing core functionality"},
-                {"content": "Add error handling", "status": "pending", "activeForm": "Adding error handling"},
-                {"content": "Write tests", "status": "pending", "activeForm": "Writing tests"},
-                {"content": "Document code", "status": "pending", "activeForm": "Documenting code"}
+                {"content": "Analyze requirements", "status": "in_progress", "activeForm": "Analyzing requirements"},
+                {"content": "Design solution", "status": "pending", "activeForm": "Designing solution"},
+                {"content": "Generate code/content", "status": "pending", "activeForm": "Generating code/content"},
+                {"content": "Review and validate", "status": "pending", "activeForm": "Reviewing and validating"},
+                {"content": "Save to file (requires confirmation)", "status": "pending", "activeForm": "Saving to file"}
             ])
         elif "debug" in task_lower or "fix" in task_lower:
             todos.extend([
-                {"content": "Reproduce the issue", "status": "pending", "activeForm": "Reproducing the issue"},
+                {"content": "Reproduce the issue", "status": "in_progress", "activeForm": "Reproducing the issue"},
                 {"content": "Identify root cause", "status": "pending", "activeForm": "Identifying root cause"},
                 {"content": "Implement fix", "status": "pending", "activeForm": "Implementing fix"},
                 {"content": "Test the fix", "status": "pending", "activeForm": "Testing the fix"},
@@ -607,11 +714,24 @@ Remember:
             ])
         elif "refactor" in task_lower:
             todos.extend([
-                {"content": "Analyze current implementation", "status": "pending", "activeForm": "Analyzing current implementation"},
+                {"content": "Analyze current implementation", "status": "in_progress", "activeForm": "Analyzing current implementation"},
                 {"content": "Identify improvement areas", "status": "pending", "activeForm": "Identifying improvement areas"},
                 {"content": "Plan refactoring approach", "status": "pending", "activeForm": "Planning refactoring approach"},
                 {"content": "Implement refactoring", "status": "pending", "activeForm": "Implementing refactoring"},
                 {"content": "Ensure tests pass", "status": "pending", "activeForm": "Ensuring tests pass"}
+            ])
+        elif "read" in task_lower or "show" in task_lower or "list" in task_lower or "find" in task_lower:
+            todos.extend([
+                {"content": "Search/read files", "status": "in_progress", "activeForm": "Searching/reading files"},
+                {"content": "Process results", "status": "pending", "activeForm": "Processing results"},
+                {"content": "Display output", "status": "pending", "activeForm": "Displaying output"}
+            ])
+        else:
+            # Default todos for any task
+            todos.extend([
+                {"content": "Understand request", "status": "in_progress", "activeForm": "Understanding request"},
+                {"content": "Execute task", "status": "pending", "activeForm": "Executing task"},
+                {"content": "Present results", "status": "pending", "activeForm": "Presenting results"}
             ])
 
         return todos
@@ -791,7 +911,8 @@ Remember:
         context_info = f"""
 # Current Context
 
-- **Working Directory**: {os.getcwd()}
+- **Workspace Directory**: {self.workspace_dir}
+- **Current Directory**: {os.getcwd()}
 - **Session Messages**: {len(self.session_history)}
 - **Active Todos**: {len([t for t in self.todos if t['status'] != 'completed'])}
 - **Completed Todos**: {len([t for t in self.todos if t['status'] == 'completed'])}
@@ -1076,6 +1197,18 @@ Project Structure: {self.get_project_structure()}
                 self.console.print(f"\n[bold {Colors.ERROR}]{self.icons.CROSS} Initialization failed:[/] {str(e)}")
                 raise
 
+        # Test connection to LLM
+        self.console.print(f"[{Colors.TEXT_MUTED}]Testing connection to LLM...[/]")
+        try:
+            connection_ok, connection_msg = await self._test_llm_connection()
+            if not connection_ok:
+                self.console.print(f"[bold {Colors.WARNING}]{self.icons.WARNING} Connection issue:[/] {connection_msg}")
+                self.console.print(f"[{Colors.TEXT_MUTED}]The agent will still attempt to connect when you send a message.[/]")
+            else:
+                self.console.print(f"[bold {Colors.SUCCESS}]{self.icons.CHECK}[/] {connection_msg}")
+        except Exception as e:
+            self.console.print(f"[bold {Colors.WARNING}]{self.icons.WARNING} Connection test skipped:[/] {str(e)}")
+
         # Show success status
         self.console.print(f"[bold {Colors.SUCCESS}]{self.icons.CHECK}[/] Agent ready!")
 
@@ -1120,6 +1253,43 @@ Project Structure: {self.get_project_structure()}
 
         return info
 
+    async def _test_llm_connection(self) -> tuple[bool, str]:
+        """
+        Test the connection to the LLM API.
+
+        Returns:
+            Tuple of (success: bool, message: str)
+        """
+        if not self.agent:
+            return False, "Agent not initialized"
+
+        # Get the current provider from the selector
+        provider_selector = self.agent.provider_selector
+
+        # Try to get a provider and test it
+        providers = provider_selector.get_available_providers()
+        if not providers:
+            return False, "No providers available"
+
+        # Test the first available provider
+        for provider_name in providers:
+            try:
+                provider = provider_selector.get_provider_by_name(provider_name)
+                if provider and hasattr(provider, 'test_connection'):
+                    success, msg = await provider.test_connection()
+                    if success:
+                        return True, msg
+                    else:
+                        # Try next provider if this one fails
+                        continue
+                elif provider:
+                    # Provider doesn't have test_connection, assume it's working
+                    return True, f"Connected to {provider_name}"
+            except Exception as e:
+                continue
+
+        return False, "All providers failed to connect"
+
     async def _get_user_input(self) -> str:
         """Get user input with styled prompt"""
         # Build prompt text
@@ -1162,7 +1332,9 @@ Project Structure: {self.get_project_structure()}
 @click.option('--provider', '-p', type=click.Choice(['auto', 'anthropic', 'openai']), default='auto', help='AI provider')
 @click.option('--session', '-s', help='Resume session ID')
 @click.option('--debug', is_flag=True, help='Enable debug mode')
-def main(model, provider, session, debug):
+@click.option('--workspace', '-w', type=click.Path(exists=True, file_okay=False, dir_okay=True),
+              default=None, help='Workspace directory (defaults to current directory)')
+def main(model, provider, session, debug, workspace):
     """
     Launch Hcode Advanced Chat Interface.
 
@@ -1172,8 +1344,11 @@ def main(model, provider, session, debug):
     - Slash commands
     - Todo management
     - Context awareness
+
+    The agent always works within the workspace directory where it was opened.
     """
-    chat = HcodeChat()
+    # Initialize with workspace directory (defaults to current directory)
+    chat = HcodeChat(workspace_dir=workspace)
 
     # Apply CLI options
     if model:

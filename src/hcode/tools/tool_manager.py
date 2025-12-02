@@ -239,30 +239,118 @@ class ToolExecutionContext:
     Context manager for tool execution with safety checks.
     """
 
-    def __init__(self, tool_manager: ToolManager, safety_enabled: bool = True):
+    def __init__(
+        self,
+        tool_manager: ToolManager,
+        safety_enabled: bool = True,
+        require_confirmation: bool = True,
+        console=None
+    ):
         """
         Initialize execution context.
 
         Args:
             tool_manager: Tool manager instance
             safety_enabled: Enable safety checks
+            require_confirmation: Require user confirmation for write operations
+            console: Rich console for user interaction
         """
         self.tool_manager = tool_manager
         self.safety_enabled = safety_enabled
+        self.require_confirmation = require_confirmation
+        self.console = console
         self.execution_log: List[Dict[str, Any]] = []
+        self.pending_operations: List[Dict[str, Any]] = []
 
-    async def execute(self, tool_name: str, **kwargs) -> ToolResult:
-        """Execute tool with logging"""
+    def add_pending_operation(self, tool_name: str, **kwargs):
+        """Add operation to pending queue for batch confirmation"""
+        self.pending_operations.append({
+            "tool": tool_name,
+            "params": kwargs
+        })
+
+    async def confirm_and_execute_pending(self) -> List[ToolResult]:
+        """Show pending operations to user, get confirmation, and execute"""
+        if not self.pending_operations:
+            return []
+
+        # Display pending operations
+        if self.console:
+            from rich.panel import Panel
+            from rich.text import Text
+
+            ops_text = Text()
+            ops_text.append("📋 Pending Operations:\n\n", style="bold yellow")
+
+            for i, op in enumerate(self.pending_operations, 1):
+                tool = op["tool"]
+                params = op["params"]
+
+                ops_text.append(f"  {i}. ", style="bold")
+                ops_text.append(f"{tool}\n", style="bold cyan")
+
+                if tool.lower() == "writetool":
+                    file_path = params.get("file_path", "unknown")
+                    content_preview = params.get("content", "")[:100]
+                    ops_text.append(f"     File: {file_path}\n", style="dim")
+                    ops_text.append(f"     Content preview: {content_preview}...\n", style="dim")
+                elif tool.lower() == "edittool":
+                    file_path = params.get("file_path", "unknown")
+                    old_preview = params.get("old_string", "")[:50]
+                    new_preview = params.get("new_string", "")[:50]
+                    ops_text.append(f"     File: {file_path}\n", style="dim")
+                    ops_text.append(f"     Replace: {old_preview}...\n", style="red dim")
+                    ops_text.append(f"     With: {new_preview}...\n", style="green dim")
+                else:
+                    for k, v in params.items():
+                        preview = str(v)[:50]
+                        ops_text.append(f"     {k}: {preview}\n", style="dim")
+
+                ops_text.append("\n")
+
+            self.console.print(Panel(ops_text, title="[bold]Confirm Operations[/bold]", border_style="yellow"))
+
+            # Ask for confirmation (default is Yes - press Enter to accept)
+            self.console.print("[bold yellow]Execute these operations?[/bold yellow] [[green]Ok[/green]/n]: ", end="")
+            try:
+                response = input().strip().lower()
+            except (EOFError, KeyboardInterrupt):
+                response = "n"
+
+            # Default to "yes" if user just presses Enter
+            if response == "":
+                response = "y"
+
+            if response not in ["y", "yes", "ok"]:
+                self.console.print("[bold red]❌ Operations cancelled by user[/bold red]")
+                self.pending_operations = []
+                return []
+
+        # Execute all pending operations
+        results = []
+        for op in self.pending_operations:
+            result = await self.execute(op["tool"], skip_confirmation=True, **op["params"])
+            results.append(result)
+
+        self.pending_operations = []
+        return results
+
+    async def execute(self, tool_name: str, skip_confirmation: bool = False, **kwargs) -> ToolResult:
+        """Execute tool with logging and optional confirmation"""
         import time
 
         start_time = time.time()
 
-        # Safety checks
-        if self.safety_enabled:
-            # Check for destructive operations
-            if tool_name.lower() in ["writetool", "edittool"]:
-                # Could add confirmation here
-                pass
+        # Safety checks and confirmation for write operations
+        if self.safety_enabled and self.require_confirmation and not skip_confirmation:
+            if tool_name.lower() in ["writetool", "edittool", "multiedittool"]:
+                # Add to pending operations instead of executing immediately
+                self.add_pending_operation(tool_name, **kwargs)
+                return ToolResult(
+                    success=True,
+                    output=f"Operation queued for confirmation: {tool_name}",
+                    metadata={"queued": True, "tool": tool_name}
+                )
 
         # Execute tool
         result = await self.tool_manager.execute_tool(tool_name, **kwargs)
@@ -289,5 +377,6 @@ class ToolExecutionContext:
             "successful": sum(1 for log in self.execution_log if log["success"]),
             "failed": sum(1 for log in self.execution_log if not log["success"]),
             "total_duration": sum(log["duration"] for log in self.execution_log),
-            "tools_used": list(set(log["tool"] for log in self.execution_log))
+            "tools_used": list(set(log["tool"] for log in self.execution_log)),
+            "pending_operations": len(self.pending_operations)
         }

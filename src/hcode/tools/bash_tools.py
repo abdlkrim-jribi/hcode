@@ -154,49 +154,79 @@ class BashTool(BaseTool):
 
     async def _execute_foreground(self, command: str, timeout: float, description: str) -> ToolResult:
         """Execute command in foreground with timeout"""
+        import sys
         start_time = time.time()
 
-        # Create subprocess
-        process = await asyncio.create_subprocess_shell(
-            command,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-            cwd=str(self.root_dir),
-            shell=True
-        )
+        # Platform-specific shell handling
+        is_windows = sys.platform == "win32"
 
         try:
+            if is_windows:
+                # On Windows, use cmd.exe explicitly for better compatibility
+                process = await asyncio.create_subprocess_shell(
+                    command,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                    cwd=str(self.root_dir),
+                    shell=True
+                )
+            else:
+                # On Unix, use bash
+                process = await asyncio.create_subprocess_shell(
+                    command,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                    cwd=str(self.root_dir),
+                    shell=True
+                )
+
             # Wait for completion with timeout
             stdout_data, stderr_data = await asyncio.wait_for(
                 process.communicate(),
                 timeout=timeout
             )
 
-            stdout = stdout_data.decode('utf-8', errors='replace')
-            stderr = stderr_data.decode('utf-8', errors='replace')
+            # Decode output with fallback encodings
+            stdout = self._decode_output(stdout_data)
+            stderr = self._decode_output(stderr_data)
             exit_code = process.returncode
             duration = time.time() - start_time
 
-            # Combine output
+            # Build output - always include something meaningful
             output_parts = []
-            if stdout:
-                output_parts.append(f"stdout:\n{stdout}")
-            if stderr:
-                output_parts.append(f"stderr:\n{stderr}")
-            if exit_code != 0:
-                output_parts.append(f"Exit code: {exit_code}")
-            output_parts.append(f"Duration: {duration:.2f}s")
+            if stdout.strip():
+                output_parts.append(f"stdout:\n{stdout.strip()}")
+            if stderr.strip():
+                output_parts.append(f"stderr:\n{stderr.strip()}")
 
+            # If no output at all, indicate that
+            if not output_parts:
+                if exit_code == 0:
+                    output_parts.append("(command completed with no output)")
+                else:
+                    output_parts.append(f"(command failed with exit code {exit_code}, no output captured)")
+
+            output_parts.append(f"\nDuration: {duration:.2f}s")
             output = "\n\n".join(output_parts)
+
+            # Determine error message for failures
+            error_msg = None
+            if exit_code != 0:
+                if stderr.strip():
+                    error_msg = stderr.strip()
+                else:
+                    error_msg = f"Command failed with exit code {exit_code}"
 
             return ToolResult(
                 success=(exit_code == 0),
                 output=output,
-                error=stderr if exit_code != 0 else None,
+                error=error_msg,
                 metadata={
                     "exit_code": exit_code,
                     "duration": duration,
-                    "description": description
+                    "description": description,
+                    "stdout": stdout,
+                    "stderr": stderr
                 }
             )
 
@@ -207,7 +237,35 @@ class BashTool(BaseTool):
                 await process.wait()
             except:
                 pass
-            raise
+            return ToolResult(
+                success=False,
+                output="",
+                error=f"Command timed out after {timeout}s",
+                metadata={"timeout": True, "description": description}
+            )
+        except Exception as e:
+            return ToolResult(
+                success=False,
+                output="",
+                error=f"Failed to execute command: {str(e)}",
+                metadata={"exception": str(e), "description": description}
+            )
+
+    def _decode_output(self, data: bytes) -> str:
+        """Decode bytes with multiple encoding fallbacks for Windows compatibility"""
+        if not data:
+            return ""
+
+        # Try multiple encodings
+        encodings = ['utf-8', 'cp1252', 'latin-1', 'cp437']
+        for encoding in encodings:
+            try:
+                return data.decode(encoding)
+            except (UnicodeDecodeError, LookupError):
+                continue
+
+        # Last resort: decode with errors replaced
+        return data.decode('utf-8', errors='replace')
 
     async def _execute_background(self, command: str, description: str) -> ToolResult:
         """Execute command in background"""
@@ -455,6 +513,7 @@ class LSTool(BaseTool):
 
     async def execute(self, **kwargs) -> ToolResult:
         """List directory contents"""
+        import sys
         path_str = kwargs.get("path")
         ignore_patterns = kwargs.get("ignore", "")
 
@@ -465,7 +524,19 @@ class LSTool(BaseTool):
                 error="path is required"
             )
 
+        # Handle "/" on Windows - convert to current working directory
+        if sys.platform == "win32" and path_str == "/":
+            path_str = str(self.root_dir)
+
+        # Handle "." as current directory
+        if path_str == ".":
+            path_str = str(self.root_dir)
+
         path = Path(path_str)
+
+        # If path is relative, resolve it against root_dir
+        if not path.is_absolute():
+            path = self.root_dir / path
 
         if not path.exists():
             return ToolResult(
