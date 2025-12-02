@@ -33,7 +33,9 @@
       "Bash(timeout 90 python:*)",
       "Bash(dir:*)",
       "Bash(git reset:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(timeout 120 python -m pytest:*)",
+      "Bash(timeout 30 python:*)"
     ],
     "deny": [],
     "ask": []

@@ -7,7 +7,7 @@ Includes thinking, todo management, ReAct loop, and autonomous operation.
 from .thinking import ThinkingBlock, ThinkingSession, ThinkingPhase
 from .thinking_manager import ThinkingManager
 from .todo import TodoItem, TodoManager, TodoStatus
-from .coding_agent import CodingAgent, ExecutionContext
+from .coding_agent import HcodeCodingAgent, ExecutionContext
 
 # Autonomous operation components
 from .modes import (
@@ -31,7 +31,7 @@ from .autonomous import (
     create_bash_action,
     create_search_action
 )
-from .autonomous_agent import AutonomousCodingAgent, AutonomousExecutionContext
+from .autonomous_agent import HcodeAutonomousCodingAgent, HcodeAutonomousExecutionContext
 from .autonomous_prompt import (
     get_autonomous_prompt,
     get_mode_transition_prompt,
@@ -50,7 +50,7 @@ __all__ = [
     'TodoManager',
     'TodoStatus',
     # Base agent
-    'CodingAgent',
+    'HcodeCodingAgent',
     'ExecutionContext',
     # Modes
     'AgentMode',
@@ -72,8 +72,8 @@ __all__ = [
     'create_bash_action',
     'create_search_action',
     # Autonomous agent
-    'AutonomousCodingAgent',
-    'AutonomousExecutionContext',
+    'HcodeAutonomousCodingAgent',
+    'HcodeAutonomousExecutionContext',
     # Prompts
     'get_autonomous_prompt',
     'get_mode_transition_prompt',

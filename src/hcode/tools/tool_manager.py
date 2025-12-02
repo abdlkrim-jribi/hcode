@@ -9,7 +9,7 @@ from typing import Optional, Dict, Any, List
 
 from .base_tool import ToolRegistry, BaseTool, ToolResult
 from .file_tools import ReadTool, WriteTool, EditTool, MultiEditTool, GlobTool, GrepTool
-from .bash_tools import BashTool, BashOutputTool, KillShellTool, LSTool
+from .bash_tools import BashTool, BashOutputTool, KillShellTool, LSTool, SearchOutputTool
 from .agent_tools import TaskTool, ExitPlanModeTool, TodoReadTool
 from .web_tools import WebFetchTool, WebSearchTool, WebScrapeTool
 from .interactive_tools import (
@@ -67,6 +67,7 @@ class ToolManager:
         self.tool_registry.register(BashTool(root_dir=str(self.root_dir)))
         self.tool_registry.register(BashOutputTool())
         self.tool_registry.register(KillShellTool())
+        self.tool_registry.register(SearchOutputTool())
 
         # Web tools
         self.tool_registry.register(WebFetchTool())

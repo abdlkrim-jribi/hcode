@@ -20,7 +20,7 @@ class GenerationParams:
     temperature: float = 0.3
     top_p: float = 1.0
     top_k: int = 0
-    max_tokens: int = 4096
+    max_tokens: int = 16384  # Maximum for most modern models
     frequency_penalty: float = 0.0
     presence_penalty: float = 0.0
     stop_sequences: List[str] = field(default_factory=list)
@@ -47,18 +47,18 @@ class GenerationParams:
 @dataclass
 class ContextConfig:
     """Context window configuration"""
-    max_context_tokens: int = 128000
-    reserve_output_tokens: int = 8192
-    summarization_threshold: float = 0.8
-    max_history_turns: int = 50
+    max_context_tokens: int = 200000  # Claude 3.5 Sonnet max
+    reserve_output_tokens: int = 16384  # Max output tokens
+    summarization_threshold: float = 0.85
+    max_history_turns: int = 100
 
 
 @dataclass
 class ContinuationConfig:
     """Continuation settings for long outputs"""
     enabled: bool = True
-    max_continuations: int = 10
-    max_total_tokens: int = 100000
+    max_continuations: int = 20
+    max_total_tokens: int = 200000
     truncation_patterns: List[str] = field(default_factory=list)
 
 
@@ -232,10 +232,27 @@ Stay focused on your assigned task and avoid scope creep."""
             prompt_type: Type of prompt (coding_agent, openai_coding, enhanced_agent, sub_agent, planning, code_review)
 
         Returns:
-            The system prompt string
+            The system prompt string, with optional memory file content prepended for OpenAI coding prompts.
         """
         prompts = self._prompts_data.get("system_prompts", {})
-        return prompts.get(prompt_type, self._default_coding_prompt())
+        prompt = prompts.get(prompt_type, self._default_coding_prompt())
+
+        # If this is the OpenAI coding prompt, prepend the memory file content (e.g., CLAUDE.md)
+        if prompt_type == "openai_coding":
+            try:
+                # Retrieve memory configuration (defaults to CLAUDE.md)
+                mem_cfg = self.get_memory_config()
+                mem_file_name = mem_cfg.get("memory_file", "CLAUDE.md")
+                mem_path = Path.cwd() / mem_file_name
+                if mem_path.is_file():
+                    mem_content = mem_path.read_text()
+                    # Ensure there is a clear separation between memory content and the prompt
+                    prompt = f"{mem_content}\n\n{prompt}"
+            except Exception:
+                # If any issue occurs (e.g., file not found), fall back to the original prompt
+                pass
+
+        return prompt
 
     def get_continuation_prompts(self) -> List[str]:
         """Get list of continuation prompts"""
@@ -398,7 +415,7 @@ class ModelsConfig:
             temperature=gen_config.get("temperature", 0.3),
             top_p=gen_config.get("top_p", 1.0),
             top_k=gen_config.get("top_k", 0),
-            max_tokens=gen_config.get("max_tokens", 4096),
+            max_tokens=gen_config.get("max_tokens", 16384),  # Maximum for most models
             frequency_penalty=gen_config.get("frequency_penalty", 0.0),
             presence_penalty=gen_config.get("presence_penalty", 0.0),
             stop_sequences=gen_config.get("stop_sequences", []),

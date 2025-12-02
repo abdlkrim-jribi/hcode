@@ -36,7 +36,7 @@ class ExecutionContext:
         self.metadata: Dict[str, Any] = {}
 
 
-class CodingAgent:
+class HcodeCodingAgent:
     """
     Coding agent with ReAct loop.
 
@@ -156,10 +156,10 @@ Remember: Think → Plan → Act → Observe → Update → Repeat"""
         # This happens through LLM interaction
 
         # PHASE 3-6: ACT → OBSERVE → UPDATE → REPEAT
-        max_iterations = 20
+        # NO HARD LIMIT - continue until task completion
         iteration = 0
 
-        while iteration < max_iterations:
+        while True:
             iteration += 1
 
             # Check if we're done
@@ -226,10 +226,10 @@ Remember: Think → Plan → Act → Observe → Update → Repeat"""
                 }
 
         # Execute with streaming
-        max_iterations = 20
+        # NO HARD LIMIT - continue until task completion
         iteration = 0
 
-        while iteration < max_iterations:
+        while True:
             iteration += 1
 
             if self._is_complete(ctx):

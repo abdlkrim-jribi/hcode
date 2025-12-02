@@ -1,12 +1,18 @@
 """
-Claude Code-style tool execution display.
+Hcode-style tool execution display.
 
-Matches the exact output format of Claude Code CLI for tool calls:
+Matches the exact output format of Hcode CLI for tool calls:
 - Read: Shows file path and line count
 - Write: Shows file path only (no content preview)
 - Edit: Shows file path with diff (old -> new)
-- Bash: Shows command and full output
+- Bash: Shows command and full output with smart truncation
 - Glob/Grep: Shows pattern and results
+
+Features:
+- Smart output truncation (head + tail with important lines preserved)
+- Error extraction and highlighting
+- Pattern search in outputs
+- Always shows latest 5 lines of command output
 """
 
 import os
@@ -20,16 +26,33 @@ from rich.syntax import Syntax
 from rich.rule import Rule
 from rich import box
 
+# Import output handler for smart truncation
+from ..core.output_handler import (
+    OutputHandler,
+    TruncatedOutput,
+    ExtractedError,
+    ErrorSeverity,
+    OutputType,
+)
+
 # Platform detection
 IS_WINDOWS = sys.platform == "win32"
 
+# Global output handler instance
+_output_handler = OutputHandler(
+    head_lines=15,       # Show first 15 lines
+    tail_lines=5,        # ALWAYS show last 5 lines
+    max_lines=50,        # Max lines before truncation
+    max_line_length=200, # Max chars per line
+)
+
 
 # ============================================================
-# CLAUDE CODE STYLE CONSTANTS
+# HCODE STYLE CONSTANTS
 # ============================================================
 
-class ClaudeCodeStyle:
-    """Claude Code CLI styling constants"""
+class HcodeStyle:
+    """Hcode CLI styling constants"""
 
     # Colors (ANSI compatible)
     DIM = "dim"
@@ -74,17 +97,17 @@ class ClaudeCodeStyle:
 # TOOL DISPLAY CLASS
 # ============================================================
 
-class ToolDisplay:
+class HcodeToolDisplay:
     """
-    Claude Code-style tool execution display.
+    Hcode-style tool execution display.
 
     Provides consistent, clean output for all tool executions
-    matching the Claude Code CLI format.
+    matching the Hcode CLI format.
     """
 
     def __init__(self, console: Optional[Console] = None):
         self.console = console or Console()
-        self.style = ClaudeCodeStyle()
+        self.style = HcodeStyle()
 
     # ─────────────────────────────────────────────────────────
     # MAIN DISPLAY METHOD
@@ -98,7 +121,7 @@ class ToolDisplay:
         show_thinking: bool = False
     ):
         """
-        Display tool execution in Claude Code style.
+        Display tool execution in Hcode style.
 
         Args:
             tool_name: Name of the tool (e.g., 'read', 'write', 'bash')
@@ -131,19 +154,24 @@ class ToolDisplay:
     # ─────────────────────────────────────────────────────────
 
     def _display_read(self, arguments: Dict[str, Any], result: Any):
-        """Display Read tool execution - Claude Code style"""
+        """Display Read tool execution - Hcode style with smart truncation for large files"""
         file_path = arguments.get('file_path', 'unknown')
 
         if result.success:
-            lines = result.output.split('\n') if result.output else []
+            content = result.output or ""
+            lines = content.split('\n') if content else []
             line_count = len(lines)
 
-            # Claude Code format: "Read file_path (X lines)"
+            # Hcode format: "Read file_path (X lines)"
             self.console.print(
                 f"  {self.style.ICON_READ} [bold]Read[/bold] "
                 f"[{self.style.FILE_PATH}]{file_path}[/] "
                 f"[{self.style.DIM}]({line_count} lines)[/]"
             )
+
+            # For very large files, show a preview with smart truncation
+            if line_count > 100:
+                self._show_file_preview(content, file_path)
         else:
             self.console.print(
                 f"  [{self.style.TOOL_ERROR}]{self.style.ICON_ERROR}[/] "
@@ -151,17 +179,59 @@ class ToolDisplay:
                 f"[{self.style.TOOL_ERROR}]failed: {result.error}[/]"
             )
 
+    def _show_file_preview(self, content: str, file_path: str, max_lines: int = 30):
+        """
+        Show preview of large file with smart truncation.
+
+        Features:
+        - Shows first and last lines
+        - Extracts any errors/warnings
+        - Detects file type for syntax highlighting hints
+        """
+        truncated = _output_handler.process_output(
+            content,
+            output_type=OutputType.FILE_CONTENT,
+            extract_errors=True,
+            preserve_important=True,
+        )
+
+        # Only show preview if file was truncated
+        if not truncated.truncated:
+            return
+
+        self.console.print(f"    [{self.style.DIM}][Large file - showing preview][/]")
+
+        # Show any errors found in file
+        if truncated.errors_found:
+            error_count = len([e for e in truncated.errors_found
+                             if e.severity in (ErrorSeverity.CRITICAL, ErrorSeverity.ERROR)])
+            if error_count > 0:
+                self.console.print(f"    [{self.style.TOOL_ERROR}][{error_count} potential issues found][/]")
+
+        # Draw file preview box
+        self.console.print(f"    {self.style.BOX_TL}{self.style.BOX_H * 60}{self.style.BOX_TR}")
+
+        preview_lines = truncated.content.split('\n')[:20]  # Limit preview
+        for line in preview_lines:
+            display_line = line[:58] if len(line) <= 58 else line[:55] + "..."
+            self.console.print(f"    {self.style.BOX_V} [{self.style.DIM}]{display_line:<58}[/] {self.style.BOX_V}")
+
+        if len(truncated.content.split('\n')) > 20:
+            self.console.print(f"    {self.style.BOX_V} [{self.style.DIM}]{'... (preview truncated)':<58}[/] {self.style.BOX_V}")
+
+        self.console.print(f"    {self.style.BOX_BL}{self.style.BOX_H * 60}{self.style.BOX_BR}")
+
     # ─────────────────────────────────────────────────────────
     # WRITE TOOL DISPLAY
     # ─────────────────────────────────────────────────────────
 
     def _display_write(self, arguments: Dict[str, Any], result: Any):
-        """Display Write tool execution - Claude Code style (no content shown)"""
+        """Display Write tool execution - Hcode style (no content shown)"""
         file_path = arguments.get('file_path', 'unknown')
         content = arguments.get('content', '')
 
         if result.success:
-            # Claude Code format: "Wrote file_path (X bytes)"
+            # Hcode format: "Wrote file_path (X bytes)"
             byte_count = len(content.encode('utf-8'))
             self.console.print(
                 f"  {self.style.ICON_WRITE} [bold]Wrote[/bold] "
@@ -180,7 +250,7 @@ class ToolDisplay:
     # ─────────────────────────────────────────────────────────
 
     def _display_edit(self, arguments: Dict[str, Any], result: Any):
-        """Display Edit tool execution - Claude Code style with diff"""
+        """Display Edit tool execution - Hcode style with diff"""
         file_path = arguments.get('file_path', 'unknown')
         old_string = arguments.get('old_string', '')
         new_string = arguments.get('new_string', '')
@@ -202,7 +272,7 @@ class ToolDisplay:
             )
 
     def _show_diff(self, old_string: str, new_string: str, max_lines: int = 10):
-        """Show diff in Claude Code style"""
+        """Show diff in Hcode style"""
         old_lines = old_string.split('\n')
         new_lines = new_string.split('\n')
 
@@ -237,7 +307,7 @@ class ToolDisplay:
     # ─────────────────────────────────────────────────────────
 
     def _display_bash(self, arguments: Dict[str, Any], result: Any):
-        """Display Bash tool execution - Claude Code style with output"""
+        """Display Bash tool execution - Hcode style with output"""
         command = arguments.get('command', '')
 
         # Truncate long commands for display
@@ -279,32 +349,81 @@ class ToolDisplay:
                 self.console.print(f"    [{self.style.DIM}]Output before failure:[/]")
                 self._show_bash_output(result.output, max_lines=10)
 
-    def _show_bash_output(self, output: str, max_lines: int = 30):
-        """Show bash output in Claude Code style"""
-        lines = output.strip().split('\n')
+    def _show_bash_output(self, output: str, max_lines: int = 50, show_errors: bool = True):
+        """
+        Show bash output with smart truncation.
+
+        Features:
+        - Always shows last 5 lines (latest output)
+        - Extracts and highlights errors
+        - Preserves important lines (errors, stack traces)
+        - Intelligent middle truncation
+        """
+        # Use smart output handler
+        truncated = _output_handler.process_output(
+            output,
+            output_type=OutputType.STDOUT,
+            extract_errors=show_errors,
+            preserve_important=True,
+        )
+
+        # Show error summary if errors found
+        if show_errors and truncated.errors_found:
+            critical_errors = [e for e in truncated.errors_found
+                             if e.severity in (ErrorSeverity.CRITICAL, ErrorSeverity.ERROR)]
+            if critical_errors:
+                self.console.print(f"    [{self.style.TOOL_ERROR}]=== {len(critical_errors)} Error(s) Detected ===[/]")
+                for error in critical_errors[:3]:
+                    error_line = str(error)[:70]
+                    self.console.print(f"    [{self.style.TOOL_ERROR}]  {error_line}[/]")
+                    if error.suggestion:
+                        self.console.print(f"    [{self.style.DIM}]    -> {error.suggestion[:60]}[/]")
+                if len(critical_errors) > 3:
+                    self.console.print(f"    [{self.style.DIM}]  ... and {len(critical_errors) - 3} more errors[/]")
+                self.console.print("")
 
         # Draw output box
-        self.console.print(f"    {self.style.BOX_TL}{self.style.BOX_H * 60}{self.style.BOX_TR}")
+        self.console.print(f"    {self.style.BOX_TL}{self.style.BOX_H * 70}{self.style.BOX_TR}")
 
-        for i, line in enumerate(lines[:max_lines]):
-            # Truncate long lines
-            if len(line) > 58:
-                line = line[:55] + "..."
-            self.console.print(f"    {self.style.BOX_V} [{self.style.DIM}]{line:<58}[/] {self.style.BOX_V}")
+        # Show truncation stats if truncated
+        if truncated.truncated:
+            stats_line = f"[{truncated.original_lines} lines total, showing {truncated.displayed_lines}]"
+            self.console.print(f"    {self.style.BOX_V} [{self.style.DIM}]{stats_line:<68}[/] {self.style.BOX_V}")
+            self.console.print(f"    {self.style.BOX_V}{' ' * 70}{self.style.BOX_V}")
 
-        if len(lines) > max_lines:
-            self.console.print(
-                f"    {self.style.BOX_V} [{self.style.DIM}]... ({len(lines) - max_lines} more lines){' ' * 40}[/] {self.style.BOX_V}"
-            )
+        # Display the processed content
+        content_lines = truncated.content.split('\n')
+        for line in content_lines:
+            # Determine line style based on content
+            line_style = self.style.DIM
 
-        self.console.print(f"    {self.style.BOX_BL}{self.style.BOX_H * 60}{self.style.BOX_BR}")
+            # Highlight error lines
+            if any(word in line.lower() for word in ['error', 'exception', 'failed', 'traceback']):
+                line_style = self.style.TOOL_ERROR
+            # Highlight "latest lines" section header
+            elif line.startswith('--- Latest'):
+                line_style = "bold cyan"
+            # Highlight omission indicator
+            elif line.startswith('...') and 'omitted' in line:
+                line_style = "yellow"
+
+            # Truncate long lines for display
+            display_line = line[:68] if len(line) <= 68 else line[:65] + "..."
+
+            self.console.print(f"    {self.style.BOX_V} [{line_style}]{display_line:<68}[/] {self.style.BOX_V}")
+
+        self.console.print(f"    {self.style.BOX_BL}{self.style.BOX_H * 70}{self.style.BOX_BR}")
+
+        # Show stack trace indicator
+        if truncated.has_stack_trace:
+            self.console.print(f"    [{self.style.DIM}][Stack trace detected in output][/]")
 
     # ─────────────────────────────────────────────────────────
     # GLOB TOOL DISPLAY
     # ─────────────────────────────────────────────────────────
 
     def _display_glob(self, arguments: Dict[str, Any], result: Any):
-        """Display Glob tool execution - Claude Code style"""
+        """Display Glob tool execution - Hcode style"""
         pattern = arguments.get('pattern', '*')
         path = arguments.get('path', '.')
 
@@ -338,12 +457,13 @@ class ToolDisplay:
     # ─────────────────────────────────────────────────────────
 
     def _display_grep(self, arguments: Dict[str, Any], result: Any):
-        """Display Grep tool execution - Claude Code style"""
+        """Display Grep tool execution - Hcode style with smart output handling"""
         pattern = arguments.get('pattern', '')
         path = arguments.get('path', '.')
 
         if result.success:
-            matches = result.output.strip().split('\n') if result.output else []
+            output = result.output.strip() if result.output else ""
+            matches = output.split('\n') if output else []
             match_count = len([m for m in matches if m.strip()])
 
             self.console.print(
@@ -352,15 +472,17 @@ class ToolDisplay:
                 f"[{self.style.DIM}]({match_count} matches)[/]"
             )
 
-            # Show first few matches
-            if matches and match_count > 0:
-                for m in matches[:5]:
+            # Use smart truncation for large results
+            if match_count > 20:
+                self._show_grep_output(output, pattern, match_count)
+            elif matches and match_count > 0:
+                # Show first few matches for smaller results
+                for m in matches[:10]:
                     if m.strip():
-                        # Truncate long matches
                         display = m[:80] + "..." if len(m) > 80 else m
                         self.console.print(f"    [{self.style.DIM}]{display}[/]")
-                if match_count > 5:
-                    self.console.print(f"    [{self.style.DIM}]... and {match_count - 5} more[/]")
+                if match_count > 10:
+                    self.console.print(f"    [{self.style.DIM}]... and {match_count - 10} more[/]")
         else:
             self.console.print(
                 f"  [{self.style.TOOL_ERROR}]{self.style.ICON_ERROR}[/] "
@@ -368,12 +490,51 @@ class ToolDisplay:
                 f"[{self.style.TOOL_ERROR}]failed: {result.error}[/]"
             )
 
+    def _show_grep_output(self, output: str, pattern: str, total_matches: int):
+        """
+        Show grep output with smart truncation.
+
+        Features:
+        - Shows first matches
+        - Shows last 5 matches (latest)
+        - Highlights matched pattern
+        """
+        truncated = _output_handler.process_output(
+            output,
+            output_type=OutputType.STDOUT,
+            extract_errors=False,
+            preserve_important=False,
+        )
+
+        self.console.print(f"    [{self.style.DIM}][{total_matches} matches - showing preview][/]")
+
+        # Draw results box
+        self.console.print(f"    {self.style.BOX_TL}{self.style.BOX_H * 70}{self.style.BOX_TR}")
+
+        result_lines = truncated.content.split('\n')
+        for line in result_lines[:25]:  # Limit display
+            # Highlight pattern matches
+            if pattern.lower() in line.lower():
+                line_style = "bold"
+            elif line.startswith('---') or line.startswith('...'):
+                line_style = "yellow"
+            else:
+                line_style = self.style.DIM
+
+            display_line = line[:68] if len(line) <= 68 else line[:65] + "..."
+            self.console.print(f"    {self.style.BOX_V} [{line_style}]{display_line:<68}[/] {self.style.BOX_V}")
+
+        if len(result_lines) > 25:
+            self.console.print(f"    {self.style.BOX_V} [{self.style.DIM}]{'... (more matches available)':<68}[/] {self.style.BOX_V}")
+
+        self.console.print(f"    {self.style.BOX_BL}{self.style.BOX_H * 70}{self.style.BOX_BR}")
+
     # ─────────────────────────────────────────────────────────
     # LS TOOL DISPLAY
     # ─────────────────────────────────────────────────────────
 
     def _display_ls(self, arguments: Dict[str, Any], result: Any):
-        """Display LS tool execution - Claude Code style"""
+        """Display LS tool execution - Hcode style"""
         path = arguments.get('path', '.')
 
         if result.success:
@@ -449,7 +610,7 @@ class ToolDisplay:
 
 class StreamingDisplay:
     """
-    Claude Code-style streaming text display.
+    Hcode-style streaming text display.
 
     Shows AI response streaming character by character
     with thinking indicator.
@@ -491,7 +652,7 @@ class StreamingDisplay:
 
 class StatusLineDisplay:
     """
-    Claude Code-style status line.
+    Hcode-style status line.
 
     Shows model, tokens, cost, and current status at bottom.
     """
@@ -551,6 +712,6 @@ class StatusLineDisplay:
 # ============================================================
 
 # Global tool display instance
-tool_display = ToolDisplay()
+tool_display = HcodeToolDisplay()
 streaming_display = StreamingDisplay()
 status_line = StatusLineDisplay()

@@ -1,7 +1,7 @@
 """
 Autonomous Coding Agent.
 
-Extends CodingAgent with autonomous execution capabilities,
+Extends HcodeCodingAgent with autonomous execution capabilities,
 matching Claude Code's behavior for auto, plan, and interactive modes.
 """
 
@@ -9,7 +9,7 @@ import asyncio
 from typing import Any, Dict, List, Optional, AsyncGenerator, Callable, Tuple
 from dataclasses import dataclass
 
-from .coding_agent import CodingAgent, ExecutionContext
+from .coding_agent import HcodeCodingAgent, ExecutionContext
 from .modes import AgentMode, SafetyConfig, RiskLevel, get_mode_config
 from .autonomous import (
     AutonomousEngine,
@@ -25,7 +25,7 @@ from .autonomous import (
 
 
 @dataclass
-class AutonomousExecutionContext(ExecutionContext):
+class HcodeAutonomousExecutionContext(ExecutionContext):
     """Extended context for autonomous execution"""
     mode: AgentMode = AgentMode.INTERACTIVE
     actions_executed: int = 0
@@ -35,9 +35,9 @@ class AutonomousExecutionContext(ExecutionContext):
     plan_approved: bool = False
 
 
-class AutonomousCodingAgent(CodingAgent):
+class HcodeAutonomousCodingAgent(HcodeCodingAgent):
     """
-    CodingAgent with autonomous execution capabilities.
+    HcodeCodingAgent with autonomous execution capabilities.
 
     Features:
     - Multiple operation modes (interactive, auto, plan, review)
@@ -105,10 +105,10 @@ Remember: Be efficient in auto mode, but never sacrifice safety."""
         Initialize autonomous coding agent.
 
         Args:
-            *args: Arguments for CodingAgent
+            *args: Arguments for HcodeCodingAgent
             mode: Initial operation mode
             safety_config: Safety configuration
-            **kwargs: Keyword arguments for CodingAgent
+            **kwargs: Keyword arguments for HcodeCodingAgent
         """
         super().__init__(*args, **kwargs)
 
@@ -192,8 +192,8 @@ Remember: Be efficient in auto mode, but never sacrifice safety."""
     async def execute_autonomous(
         self,
         user_message: str,
-        context: Optional[AutonomousExecutionContext] = None
-    ) -> AutonomousExecutionContext:
+        context: Optional[HcodeAutonomousExecutionContext] = None
+    ) -> HcodeAutonomousExecutionContext:
         """
         Execute with autonomous capabilities.
 
@@ -205,7 +205,7 @@ Remember: Be efficient in auto mode, but never sacrifice safety."""
             Execution context with results
         """
         # Initialize context
-        ctx = context or AutonomousExecutionContext(mode=self.mode)
+        ctx = context or HcodeAutonomousExecutionContext(mode=self.mode)
         ctx.user_message = user_message
 
         # Reset engine for new task
@@ -232,10 +232,10 @@ Remember: Be efficient in auto mode, but never sacrifice safety."""
                     return ctx
 
         # PHASE 3-6: EXECUTE with autonomous decision-making
-        max_iterations = 50  # Higher limit for auto mode
+        # NO HARD LIMIT - continue until task completion
         iteration = 0
 
-        while iteration < max_iterations:
+        while True:
             iteration += 1
 
             # Check completion
@@ -321,7 +321,7 @@ Remember: Be efficient in auto mode, but never sacrifice safety."""
         Yields:
             Execution events
         """
-        ctx = AutonomousExecutionContext(mode=self.mode)
+        ctx = HcodeAutonomousExecutionContext(mode=self.mode)
         ctx.user_message = user_message
 
         # Yield mode info
@@ -375,10 +375,10 @@ Remember: Be efficient in auto mode, but never sacrifice safety."""
                     return
 
         # Execute with streaming
-        max_iterations = 50
+        # NO HARD LIMIT - continue until task completion
         iteration = 0
 
-        while iteration < max_iterations:
+        while True:
             iteration += 1
 
             if self._is_complete(ctx):
@@ -559,7 +559,7 @@ Remember: Be efficient in auto mode, but never sacrifice safety."""
         # Should not reach here
         return ExecutionResult(success=False, output="", error="Unknown error")
 
-    async def _create_and_show_plan(self, ctx: AutonomousExecutionContext):
+    async def _create_and_show_plan(self, ctx: HcodeAutonomousExecutionContext):
         """Create execution plan"""
         # Use LLM to generate plan
         plan_prompt = f"""Create an execution plan for this task:
@@ -591,7 +591,7 @@ Use TodoWrite to create the plan."""
 
         ctx.plan_displayed = True
 
-    def _update_progress(self, ctx: AutonomousExecutionContext):
+    def _update_progress(self, ctx: HcodeAutonomousExecutionContext):
         """Update progress callback"""
         if self._progress_callback:
             total = ctx.actions_executed + ctx.actions_skipped

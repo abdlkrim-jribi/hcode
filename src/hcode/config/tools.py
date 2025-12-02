@@ -2,7 +2,7 @@
 Tool Configuration Loader for Hcode.
 
 Loads tool definitions from external YAML configuration (config/tools.yaml)
-to match Claude Code tool specifications exactly.
+to match Hcode tool specifications exactly.
 """
 
 import os
@@ -24,7 +24,7 @@ class ToolParameter:
 
 @dataclass
 class ToolDefinition:
-    """Tool definition matching Claude Code format"""
+    """Tool definition matching Hcode format"""
     name: str
     description: str
     parameters: List[ToolParameter]

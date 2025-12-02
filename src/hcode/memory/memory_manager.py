@@ -362,7 +362,14 @@ class MemoryManager:
 
     def forget(self, memory_id: int) -> bool:
         """Delete a specific memory."""
-        return self.semantic_memory.delete(memory_id)
+        return self.semantic_memory.forget(memory_id)
+
+    def __del__(self):
+        """Ensure semantic memory resources are released when the manager is garbage‑collected."""
+        try:
+            self.semantic_memory.close()
+        except Exception:
+            passmemory.delete(memory_id)
 
     def update_file_memory(
         self,

@@ -125,7 +125,7 @@ class TestConfiguration:
 
         # Check required sections
         assert "maliciously" in prompt, "Missing malware warning"
-        assert "CLAUDE.md" in prompt, "Missing memory section"
+        assert "hcode.md" in prompt, "Missing memory section"
         assert "Tone and style" in prompt or "concise" in prompt, "Missing tone section"
         assert "NEVER commit" in prompt, "Missing commit warning"
 
@@ -135,7 +135,7 @@ class TestConfiguration:
 
         reload_configs()
         prompt = get_system_prompt("openai_coding")
-        assert "CLAUDE.md" in prompt, "OpenAI prompt missing CLAUDE.md"
+        assert "hcode.md" in prompt, "OpenAI prompt missing CLAUDE.md"
 
     def test_tools_config_loads(self):
         """Test that tools config loads correctly"""

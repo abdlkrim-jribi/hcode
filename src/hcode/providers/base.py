@@ -55,7 +55,7 @@ class CompletionResponse:
 class AIProvider(ABC):
     """Abstract base class for AI providers"""
 
-    def __init__(self, api_key: str, model: str, max_tokens: int = 4000, temperature: float = 0.3):
+    def __init__(self, api_key: str, model: str, max_tokens: int = 16384, temperature: float = 0.3):
         """
         Initialize the AI provider.
 

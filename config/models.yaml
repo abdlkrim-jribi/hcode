@@ -18,8 +18,9 @@ generation:
   # Set to 0 to disable
   top_k: 0
 
-  # Maximum tokens in response
-  max_tokens: 4096
+  # Maximum tokens in response (set to max supported by most models)
+  # GPT-4o: 16384, Claude 3.5: 8192, GPT-4-turbo: 4096
+  max_tokens: 16384
 
   # Frequency penalty - reduces repetition of tokens (-2.0 to 2.0)
   frequency_penalty: 0.0
@@ -36,53 +37,53 @@ generation:
 
 # Override parameters for specific task types
 task_overrides:
-  # Code generation - more deterministic
+  # Code generation - more deterministic, large output for complex code
   code_generation:
     temperature: 0.2
     top_p: 0.95
-    max_tokens: 8192
+    max_tokens: 16384
 
   # Code explanation - slightly more creative
   code_explanation:
     temperature: 0.4
     top_p: 1.0
-    max_tokens: 4096
+    max_tokens: 16384
 
   # Bug fixing - very deterministic
   bug_fixing:
     temperature: 0.1
     top_p: 0.9
-    max_tokens: 4096
+    max_tokens: 16384
 
   # Creative writing - more creative
   creative:
     temperature: 0.8
     top_p: 0.95
-    max_tokens: 4096
+    max_tokens: 16384
 
-  # Refactoring - balanced
+  # Refactoring - balanced, large output for complex refactoring
   refactoring:
     temperature: 0.3
     top_p: 0.95
-    max_tokens: 8192
+    max_tokens: 16384
 
   # Documentation - clear and consistent
   documentation:
     temperature: 0.3
     top_p: 1.0
-    max_tokens: 4096
+    max_tokens: 16384
 
   # Testing - deterministic
   testing:
     temperature: 0.2
     top_p: 0.9
-    max_tokens: 4096
+    max_tokens: 16384
 
   # Planning - thoughtful
   planning:
     temperature: 0.4
     top_p: 0.95
-    max_tokens: 4096
+    max_tokens: 16384
 
 # =============================================================================
 # MODEL SELECTION
@@ -138,24 +139,25 @@ models:
 # =============================================================================
 
 context:
-  # Maximum context window tokens (leave headroom for response)
-  max_context_tokens: 128000
+  # Maximum context window tokens
+  # GPT-4o: 128K, Claude 3.5 Sonnet: 200K, GPT-4-turbo: 128K
+  max_context_tokens: 200000
 
-  # Reserve tokens for output
-  reserve_output_tokens: 8192
+  # Reserve tokens for output (max output supported)
+  reserve_output_tokens: 16384
 
   # Trigger summarization at this percentage of context usage
-  summarization_threshold: 0.8
+  summarization_threshold: 0.85
 
   # Maximum conversation history turns to keep
-  max_history_turns: 50
+  max_history_turns: 100
 
-  # Token budget allocation
+  # Token budget allocation (increased for larger context)
   budget:
-    system_prompt: 2000
-    tools: 4000
-    history: 100000
-    current_message: 10000
+    system_prompt: 4000
+    tools: 8000
+    history: 170000
+    current_message: 16000
 
 # =============================================================================
 # CONTINUATION SETTINGS
@@ -166,10 +168,10 @@ continuation:
   enabled: true
 
   # Maximum number of continuation attempts
-  max_continuations: 10
+  max_continuations: 20
 
   # Maximum total tokens across all continuations
-  max_total_tokens: 100000
+  max_total_tokens: 200000
 
   # Patterns that indicate truncation (trigger continuation)
   truncation_patterns:
@@ -231,10 +233,10 @@ streaming:
 
 safety:
   # Maximum cost per request in USD
-  max_cost_per_request: 1.0
+  max_cost_per_request: 5.0
 
-  # Maximum tokens per request
-  max_tokens_per_request: 16000
+  # Maximum tokens per request (increased for large outputs)
+  max_tokens_per_request: 32000
 
   # Rate limit (requests per minute)
   rate_limit: 60

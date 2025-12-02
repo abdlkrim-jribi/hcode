@@ -12,7 +12,7 @@ from .base_tool import (
     ToolCategory
 )
 from .file_tools import ReadTool, WriteTool, EditTool, MultiEditTool, GlobTool, GrepTool
-from .bash_tools import BashTool, BashOutputTool, KillShellTool, LSTool
+from .bash_tools import BashTool, BashOutputTool, KillShellTool, LSTool, SearchOutputTool
 from .agent_tools import TaskTool, ExitPlanModeTool, TodoReadTool
 from .web_tools import WebFetchTool, WebSearchTool, WebScrapeTool
 from .interactive_tools import (
@@ -56,6 +56,7 @@ __all__ = [
     "BashOutputTool",
     "KillShellTool",
     "LSTool",
+    "SearchOutputTool",
 
     # Agent Tools
     "TaskTool",

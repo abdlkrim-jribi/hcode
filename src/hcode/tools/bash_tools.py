@@ -160,6 +160,16 @@ class BashTool(BaseTool):
         # Platform-specific shell handling
         is_windows = sys.platform == "win32"
 
+        # Handle simple commands like 'pwd' in a cross‑platform way
+        if command.strip() == "pwd":
+            cwd = str(self.root_dir)
+            return ToolResult(
+                success=True,
+                output=f"stdout:\n{cwd}",
+                error=None,
+                metadata={"exit_code": 0, "duration": 0.0, "description": description, "stdout": cwd, "stderr": ""}
+            )
+
         try:
             if is_windows:
                 # On Windows, use cmd.exe explicitly for better compatibility
@@ -191,6 +201,10 @@ class BashTool(BaseTool):
             stderr = self._decode_output(stderr_data)
             exit_code = process.returncode
             duration = time.time() - start_time
+
+            # Store full output for SearchOutput tool
+            full_output = stdout + "\n" + stderr if stderr else stdout
+            store_last_output(full_output, command)
 
             # Build output - always include something meaningful
             output_parts = []
@@ -325,6 +339,7 @@ class BashTool(BaseTool):
 class BashOutputTool(BaseTool):
     """
     Retrieves output from a running or completed background bash shell.
+    Supports filtering and searching for specific patterns.
     """
 
     def __init__(self):
@@ -345,6 +360,18 @@ class BashOutputTool(BaseTool):
                 name="filter",
                 type="string",
                 description="Optional regular expression to filter the output lines. Only matching lines will be included.",
+                required=False
+            ),
+            ToolParameter(
+                name="tail",
+                type="number",
+                description="Only return the last N lines of output",
+                required=False
+            ),
+            ToolParameter(
+                name="head",
+                type="number",
+                description="Only return the first N lines of output",
                 required=False
             ),
         ]
@@ -609,3 +636,138 @@ class LSTool(BaseTool):
                 output="",
                 error=f"Failed to list directory: {str(e)}"
             )
+
+
+# Global storage for last command output (for search capability)
+_last_command_output: Dict[str, str] = {}
+
+
+def store_last_output(output: str, command: str = ""):
+    """Store the last command output for search capability"""
+    global _last_command_output
+    _last_command_output['output'] = output
+    _last_command_output['command'] = command
+
+
+def get_last_output() -> str:
+    """Get the last command output"""
+    return _last_command_output.get('output', '')
+
+
+class SearchOutputTool(BaseTool):
+    """
+    Search within the last command output for specific patterns.
+
+    This is useful when a long command output was truncated and you need
+    to find specific lines (like "TOTAL" in coverage reports).
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.name = "SearchOutput"
+        self.category = ToolCategory.EXECUTION
+
+    def get_parameters(self) -> List[ToolParameter]:
+        return [
+            ToolParameter(
+                name="pattern",
+                type="string",
+                description="Pattern to search for (regex supported)",
+                required=True
+            ),
+            ToolParameter(
+                name="context_lines",
+                type="number",
+                description="Number of lines to show before and after each match (default: 2)",
+                required=False
+            ),
+            ToolParameter(
+                name="case_sensitive",
+                type="boolean",
+                description="Whether search is case-sensitive (default: false)",
+                required=False
+            ),
+        ]
+
+    async def execute(self, **kwargs) -> ToolResult:
+        """Search in the last command output"""
+        import re
+
+        pattern = kwargs.get("pattern", "")
+        context_lines = kwargs.get("context_lines", 2)
+        case_sensitive = kwargs.get("case_sensitive", False)
+
+        if not pattern:
+            return ToolResult(
+                success=False,
+                output="",
+                error="pattern is required"
+            )
+
+        output = get_last_output()
+        if not output:
+            return ToolResult(
+                success=False,
+                output="",
+                error="No previous command output available. Run a Bash command first."
+            )
+
+        # Compile pattern
+        flags = 0 if case_sensitive else re.IGNORECASE
+        try:
+            regex = re.compile(pattern, flags)
+        except re.error as e:
+            return ToolResult(
+                success=False,
+                output="",
+                error=f"Invalid regex pattern: {e}"
+            )
+
+        # Search through lines
+        lines = output.split('\n')
+        matches = []
+
+        for i, line in enumerate(lines):
+            if regex.search(line):
+                # Collect context
+                start = max(0, i - context_lines)
+                end = min(len(lines), i + context_lines + 1)
+
+                match_block = []
+                for j in range(start, end):
+                    prefix = ">>> " if j == i else "    "
+                    match_block.append(f"{j + 1:4}: {prefix}{lines[j]}")
+
+                matches.append({
+                    "line_number": i + 1,
+                    "line": line,
+                    "context": "\n".join(match_block)
+                })
+
+        if not matches:
+            return ToolResult(
+                success=True,
+                output=f"No matches found for pattern: {pattern}\n(Searched {len(lines)} lines)",
+                metadata={"matches": 0, "total_lines": len(lines)}
+            )
+
+        # Format output
+        output_parts = [f"Found {len(matches)} match(es) for pattern: {pattern}\n"]
+
+        for i, match in enumerate(matches[:20]):  # Limit to first 20 matches
+            output_parts.append(f"--- Match {i + 1} (line {match['line_number']}) ---")
+            output_parts.append(match['context'])
+            output_parts.append("")
+
+        if len(matches) > 20:
+            output_parts.append(f"... and {len(matches) - 20} more matches")
+
+        return ToolResult(
+            success=True,
+            output="\n".join(output_parts),
+            metadata={
+                "matches": len(matches),
+                "total_lines": len(lines),
+                "pattern": pattern
+            }
+        )

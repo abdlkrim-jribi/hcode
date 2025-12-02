@@ -98,7 +98,7 @@ class ProviderSelector:
             api_key=api_key,
             model=model,
             base_url=self.openai_base_url,
-            max_tokens=8192  # Increased to allow longer code generation without truncation
+            max_tokens=16384  # Maximum output tokens for GPT-4o
         )
 
     def _select_anthropic_model(self) -> str:

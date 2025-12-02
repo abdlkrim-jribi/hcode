@@ -1,12 +1,6 @@
 """
 Layer 1: File-based memory using markdown files.
-Mirrors Claude Code's CLAUDE.md approach with hierarchical loading.
-
-Hierarchy (all loaded, in order):
-1. ~/.hcode/AGENT.md          - Global preferences (always loaded)
-2. /project/AGENT.md          - Project-specific context (version controlled)
-3. /project/AGENT.local.md    - Personal project prefs (gitignored)
-4. /project/subdir/AGENT.md   - Subdirectory context (loaded when working there)
+Mirrors Claude Code's hcode.md approach with hierarchical loading.
 """
 from pathlib import Path
 from typing import Optional, List, Dict
@@ -178,7 +172,7 @@ class FileMemory:
 
             sections.append(f"{header}\n\n{f.content}")
 
-        return "\n\n---\n\n".join(sections)
+        return "\n---\n\n".join(sections)
 
     def update_memory(
         self,
@@ -280,9 +274,14 @@ class FileMemory:
             content = gitignore.read_text(encoding='utf-8')
             if pattern not in content:
                 with gitignore.open("a", encoding='utf-8') as f:
-                    f.write(f"\n# HCODE agent local memory\n{pattern}\n")
+                    f.write(
+                        f"# HCODE agent local memory\n{pattern}\n"
+                    )
         else:
-            gitignore.write_text(f"# HCODE agent local memory\n{pattern}\n", encoding='utf-8')
+            gitignore.write_text(
+                f"# HCODE agent local memory\n{pattern}\n",
+                encoding='utf-8'
+            )
 
     def create_template(self, scope: str = "project") -> str:
         """
@@ -367,33 +366,12 @@ class FileMemory:
         """
         Search memory files for a query string.
 
-        Args:
-            query: Search string
-            current_dir: Current directory for context
-
-        Returns:
-            List of matches with file, line number, and content
         """
-        files = self.get_memory_files(current_dir)
         results = []
-        query_lower = query.lower()
-
-        for f in files:
-            lines = f.content.split('\n')
-            for i, line in enumerate(lines, 1):
-                if query_lower in line.lower():
-                    results.append({
-                        "file": str(f.path),
-                        "scope": f.scope,
-                        "line": i,
-                        "content": line.strip(),
-                        "context": self._get_line_context(lines, i - 1)
-                    })
-
+        for mem in self.get_memory_files(current_dir):
+            if query.lower() in mem.content.lower():
+                results.append({
+                    "path": str(mem.path),
+                    "snippet": mem.content[:200]
+                })
         return results
-
-    def _get_line_context(self, lines: List[str], index: int, context_lines: int = 2) -> str:
-        """Get surrounding lines for context."""
-        start = max(0, index - context_lines)
-        end = min(len(lines), index + context_lines + 1)
-        return '\n'.join(lines[start:end])

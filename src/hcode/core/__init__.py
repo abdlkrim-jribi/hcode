@@ -16,6 +16,18 @@ from .interaction_logger import (
     log_error,
     end_logging
 )
+from .output_handler import (
+    OutputHandler,
+    TruncatedOutput,
+    ExtractedError,
+    SearchMatch,
+    ErrorSeverity,
+    OutputType,
+    truncate_output,
+    extract_errors,
+    search_in_output,
+    get_latest_lines,
+)
 
 __all__ = [
     "HcodeAgent",
@@ -34,4 +46,15 @@ __all__ = [
     "log_tool_call",
     "log_error",
     "end_logging",
+    # Output handling
+    "OutputHandler",
+    "TruncatedOutput",
+    "ExtractedError",
+    "SearchMatch",
+    "ErrorSeverity",
+    "OutputType",
+    "truncate_output",
+    "extract_errors",
+    "search_in_output",
+    "get_latest_lines",
 ]

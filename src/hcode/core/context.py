@@ -47,11 +47,13 @@ class ContextManager:
         self.session_dir = self.root_dir / ".hcode" / "sessions"
         self.session_dir.mkdir(parents=True, exist_ok=True)
 
-        # ALWAYS create a new session ID for fresh sessions to avoid context pollution
-        if fresh_session or session_id is None:
-            self.session_id = self._create_session_id()
-        else:
+        # Determine session handling
+        if session_id:
+            # Use the provided session ID (explicit persistence)
             self.session_id = session_id
+        else:
+            # No explicit ID – generate a new one
+            self.session_id = self._create_session_id()
 
         self.session_file = self.session_dir / f"{self.session_id}.db"
 
@@ -60,8 +62,8 @@ class ContextManager:
 
         self._init_database()
 
-        # Only load previous session if explicitly requested
-        if not fresh_session and session_id:
+        # Load existing session if a session ID was provided (or if the DB already exists)
+        if session_id:
             self._load_session()
 
     def _create_session_id(self) -> str:

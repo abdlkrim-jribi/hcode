@@ -17,7 +17,7 @@ from ..providers import (
     AIProvider
 )
 from ..tools import ToolManager, ToolExecutionContext
-from ..agents import AgentOrchestrator, AgentType
+from ..agents import HcodeAgentOrchestrator, HcodeAgentType
 from .context import ContextManager
 from .safety import SafetyGuard
 
@@ -39,17 +39,76 @@ from typing import Tuple
 
 @dataclass
 class ThinkingBlock:
-    """Represents a parsed thinking block from model output"""
-    understand: str = ""
-    context: str = ""
-    options: str = ""
-    decision: str = ""
-    risk_check: str = ""
+    """
+    Enhanced thinking block with multi-dimensional reasoning capabilities.
+
+    Supports advanced cognitive patterns:
+    - Analytical decomposition
+    - Hypothesis generation and testing
+    - Meta-cognitive reflection
+    - Adversarial self-critique
+    - Confidence calibration
+    """
+    # === PHASE 1: PERCEPTION ===
+    observe: str = ""           # What do I literally see/read?
+    interpret: str = ""         # What does this mean?
+
+    # === PHASE 2: COMPREHENSION ===
+    understand: str = ""        # Core understanding of the request
+    context: str = ""           # Relevant context and constraints
+    assumptions: str = ""       # What am I assuming? (NEW)
+
+    # === PHASE 3: ANALYSIS ===
+    decompose: str = ""         # Break into sub-problems (NEW)
+    dependencies: str = ""      # What depends on what? (NEW)
+    options: str = ""           # Possible approaches
+
+    # === PHASE 4: REASONING ===
+    hypothesis: str = ""        # My best hypothesis (NEW)
+    evidence: str = ""          # Evidence for/against (NEW)
+    counterargument: str = ""   # Devil's advocate - why might I be wrong? (NEW)
+
+    # === PHASE 5: DECISION ===
+    decision: str = ""          # Final decision
+    confidence: str = ""        # How confident am I? (NEW)
+    fallback: str = ""          # What if this fails? (NEW)
+
+    # === PHASE 6: VERIFICATION ===
+    risk_check: str = ""        # Safety and risk assessment
+    verify: str = ""            # How will I verify success? (NEW)
+
+    # === META ===
+    reflection: str = ""        # What did I learn? (NEW)
     raw_content: str = ""
 
     def is_valid(self) -> bool:
         """Check if thinking block has meaningful content"""
-        return bool(self.understand or self.decision)
+        # Valid if we have core understanding or decision
+        return bool(self.understand or self.decision or self.observe)
+
+    def get_confidence_level(self) -> str:
+        """Extract confidence level from thinking"""
+        if self.confidence:
+            confidence_lower = self.confidence.lower()
+            if any(word in confidence_lower for word in ['very high', 'certain', '95%', '100%', 'absolutely']):
+                return "very_high"
+            elif any(word in confidence_lower for word in ['high', 'confident', '80%', '85%', '90%']):
+                return "high"
+            elif any(word in confidence_lower for word in ['medium', 'moderate', '60%', '70%', 'likely']):
+                return "medium"
+            elif any(word in confidence_lower for word in ['low', 'uncertain', 'unsure', '40%', '50%']):
+                return "low"
+            else:
+                return "unknown"
+        return "unknown"
+
+    def has_fallback(self) -> bool:
+        """Check if a fallback plan exists"""
+        return bool(self.fallback and len(self.fallback.strip()) > 10)
+
+    def is_self_critical(self) -> bool:
+        """Check if thinking includes self-critique"""
+        return bool(self.counterargument and len(self.counterargument.strip()) > 10)
 
     def summary(self) -> str:
         """Get a short summary of the decision"""
@@ -57,15 +116,40 @@ class ThinkingBlock:
             # Extract the key decision
             lines = self.decision.strip().split('\n')
             for line in lines:
-                if 'best choice' in line.lower() or 'reason' in line.lower():
+                if 'best choice' in line.lower() or 'reason' in line.lower() or 'choose' in line.lower():
                     return line.strip()
             return lines[0] if lines else ""
+        if self.hypothesis:
+            return f"Hypothesis: {self.hypothesis.split(chr(10))[0][:60]}"
         return ""
+
+    def quality_score(self) -> float:
+        """Calculate thinking quality score (0-1)"""
+        score = 0.0
+        weights = {
+            'understand': 0.15,
+            'context': 0.10,
+            'assumptions': 0.10,
+            'decompose': 0.10,
+            'options': 0.10,
+            'hypothesis': 0.10,
+            'counterargument': 0.10,
+            'decision': 0.15,
+            'confidence': 0.05,
+            'risk_check': 0.05,
+        }
+        for field, weight in weights.items():
+            value = getattr(self, field, "")
+            if value and len(value.strip()) > 10:
+                score += weight
+        return min(score, 1.0)
 
 
 def parse_thinking_block(text: str) -> Tuple[Optional[ThinkingBlock], str]:
     """
-    Parse a thinking block from model output.
+    Parse an enhanced thinking block from model output.
+
+    Supports both simple (5-step) and advanced (multi-phase) thinking formats.
 
     Args:
         text: The model's response text
@@ -87,26 +171,120 @@ def parse_thinking_block(text: str) -> Tuple[Optional[ThinkingBlock], str]:
     # Parse sections within thinking block
     block = ThinkingBlock(raw_content=thinking_content)
 
-    # Extract each section
-    sections = {
-        'understand': r'1\.\s*UNDERSTAND:?(.*?)(?=2\.\s*CONTEXT|$)',
-        'context': r'2\.\s*CONTEXT:?(.*?)(?=3\.\s*OPTIONS|$)',
-        'options': r'3\.\s*OPTIONS:?(.*?)(?=4\.\s*DECISION|$)',
-        'decision': r'4\.\s*DECISION:?(.*?)(?=5\.\s*RISK|$)',
-        'risk_check': r'5\.\s*RISK\s*CHECK:?(.*?)$',
+    # === ENHANCED MULTI-PHASE PARSING ===
+    # Supports flexible section headers with various formats
+
+    # Phase 1: Perception
+    section_patterns = {
+        # Perception phase
+        'observe': [
+            r'(?:OBSERVE|PERCEPTION|SEE|INPUT):?\s*(.*?)(?=(?:INTERPRET|UNDERSTAND|CONTEXT|ANALYZE|$))',
+            r'\[OBSERVE\]:?\s*(.*?)(?=\[|$)',
+        ],
+        'interpret': [
+            r'(?:INTERPRET|MEANING|IMPLIES):?\s*(.*?)(?=(?:UNDERSTAND|CONTEXT|ANALYZE|$))',
+        ],
+        # Comprehension phase
+        'understand': [
+            r'(?:\d+\.\s*)?UNDERSTAND(?:ING)?:?\s*(.*?)(?=(?:\d+\.\s*)?(?:CONTEXT|ASSUMPTIONS|ANALYZE|DECOMPOSE|OPTIONS|$))',
+            r'\[UNDERSTAND\]:?\s*(.*?)(?=\[|$)',
+            r'GOAL:?\s*(.*?)(?=(?:CONTEXT|$))',
+        ],
+        'context': [
+            r'(?:\d+\.\s*)?CONTEXT:?\s*(.*?)(?=(?:\d+\.\s*)?(?:ASSUMPTIONS|ANALYZE|DECOMPOSE|OPTIONS|$))',
+            r'\[CONTEXT\]:?\s*(.*?)(?=\[|$)',
+            r'KNOWN:?\s*(.*?)(?=(?:ASSUMPTIONS|OPTIONS|$))',
+        ],
+        'assumptions': [
+            r'(?:\d+\.\s*)?ASSUMPTIONS?:?\s*(.*?)(?=(?:\d+\.\s*)?(?:ANALYZE|DECOMPOSE|OPTIONS|HYPOTHESIS|$))',
+            r'\[ASSUMPTIONS?\]:?\s*(.*?)(?=\[|$)',
+            r'ASSUMING:?\s*(.*?)(?=(?:OPTIONS|$))',
+        ],
+        # Analysis phase
+        'decompose': [
+            r'(?:\d+\.\s*)?(?:DECOMPOSE|BREAKDOWN|SUB.?PROBLEMS?|STEPS?):?\s*(.*?)(?=(?:\d+\.\s*)?(?:DEPENDENCIES|OPTIONS|HYPOTHESIS|$))',
+            r'\[DECOMPOSE\]:?\s*(.*?)(?=\[|$)',
+        ],
+        'dependencies': [
+            r'(?:\d+\.\s*)?(?:DEPENDENCIES|DEPENDS|ORDER|SEQUENCE):?\s*(.*?)(?=(?:\d+\.\s*)?(?:OPTIONS|HYPOTHESIS|$))',
+            r'\[DEPENDENCIES\]:?\s*(.*?)(?=\[|$)',
+        ],
+        'options': [
+            r'(?:\d+\.\s*)?OPTIONS?:?\s*(.*?)(?=(?:\d+\.\s*)?(?:HYPOTHESIS|EVIDENCE|DECISION|CHOOSE|$))',
+            r'\[OPTIONS?\]:?\s*(.*?)(?=\[|$)',
+            r'ALTERNATIVES?:?\s*(.*?)(?=(?:DECISION|$))',
+        ],
+        # Reasoning phase
+        'hypothesis': [
+            r'(?:\d+\.\s*)?HYPOTHESIS:?\s*(.*?)(?=(?:\d+\.\s*)?(?:EVIDENCE|COUNTER|DECISION|$))',
+            r'\[HYPOTHESIS\]:?\s*(.*?)(?=\[|$)',
+            r'THEORY:?\s*(.*?)(?=(?:EVIDENCE|$))',
+        ],
+        'evidence': [
+            r'(?:\d+\.\s*)?EVIDENCE:?\s*(.*?)(?=(?:\d+\.\s*)?(?:COUNTER|DECISION|$))',
+            r'\[EVIDENCE\]:?\s*(.*?)(?=\[|$)',
+            r'SUPPORT(?:ING)?:?\s*(.*?)(?=(?:COUNTER|$))',
+        ],
+        'counterargument': [
+            r'(?:\d+\.\s*)?(?:COUNTER.?ARGUMENT|COUNTER|CHALLENGE|DEVIL.?S?.?ADVOCATE|WHY.?WRONG|CRITIQUE):?\s*(.*?)(?=(?:\d+\.\s*)?(?:DECISION|CONFIDENCE|$))',
+            r'\[COUNTER\]:?\s*(.*?)(?=\[|$)',
+            r'(?:BUT|HOWEVER|ALTERNATIVELY):?\s*(.*?)(?=(?:DECISION|$))',
+        ],
+        # Decision phase
+        'decision': [
+            r'(?:\d+\.\s*)?DECISION:?\s*(.*?)(?=(?:\d+\.\s*)?(?:CONFIDENCE|FALLBACK|RISK|VERIFY|$))',
+            r'\[DECISION\]:?\s*(.*?)(?=\[|$)',
+            r'(?:CHOOSE|SELECTED?|FINAL):?\s*(.*?)(?=(?:CONFIDENCE|RISK|$))',
+            r'BEST\s*CHOICE:?\s*(.*?)(?=(?:REASON|CONFIDENCE|$))',
+        ],
+        'confidence': [
+            r'(?:\d+\.\s*)?CONFIDENCE:?\s*(.*?)(?=(?:\d+\.\s*)?(?:FALLBACK|RISK|VERIFY|$))',
+            r'\[CONFIDENCE\]:?\s*(.*?)(?=\[|$)',
+            r'CERTAINTY:?\s*(.*?)(?=(?:FALLBACK|RISK|$))',
+        ],
+        'fallback': [
+            r'(?:\d+\.\s*)?(?:FALLBACK|BACKUP|PLAN.?B|IF.?FAILS?|ALTERNATIVE):?\s*(.*?)(?=(?:\d+\.\s*)?(?:RISK|VERIFY|$))',
+            r'\[FALLBACK\]:?\s*(.*?)(?=\[|$)',
+        ],
+        # Verification phase
+        'risk_check': [
+            r'(?:\d+\.\s*)?RISK(?:\s*CHECK)?:?\s*(.*?)(?=(?:\d+\.\s*)?(?:VERIFY|REFLECTION|$))',
+            r'\[RISK\]:?\s*(.*?)(?=\[|$)',
+            r'SAFETY:?\s*(.*?)(?=(?:VERIFY|$))',
+        ],
+        'verify': [
+            r'(?:\d+\.\s*)?(?:VERIFY|VALIDATION?|CHECK|TEST|CONFIRM):?\s*(.*?)(?=(?:\d+\.\s*)?(?:REFLECTION|$))',
+            r'\[VERIFY\]:?\s*(.*?)(?=\[|$)',
+        ],
+        # Meta phase
+        'reflection': [
+            r'(?:\d+\.\s*)?(?:REFLECTION?|LEARN(?:ED)?|INSIGHT|META):?\s*(.*?)$',
+            r'\[REFLECT(?:ION)?\]:?\s*(.*?)(?=\[|$)',
+        ],
     }
 
-    for attr, section_pattern in sections.items():
-        section_match = re.search(section_pattern, thinking_content, re.DOTALL | re.IGNORECASE)
-        if section_match:
-            setattr(block, attr, section_match.group(1).strip())
+    # Try each pattern for each section
+    for attr, patterns in section_patterns.items():
+        for pattern in patterns:
+            section_match = re.search(pattern, thinking_content, re.DOTALL | re.IGNORECASE)
+            if section_match:
+                value = section_match.group(1).strip()
+                if value and len(value) > 2:  # Ignore empty or trivial matches
+                    setattr(block, attr, value)
+                    break  # Use first matching pattern
 
     return block, remaining_text
 
 
 def format_thinking_display(block: ThinkingBlock, console: Console) -> None:
     """
-    Display a thinking block in a visually appealing way.
+    Display an enhanced thinking block with quality indicators.
+
+    Shows key reasoning phases with visual indicators for:
+    - Thinking quality score
+    - Confidence level
+    - Self-critique presence
+    - Fallback availability
 
     Args:
         block: The parsed thinking block
@@ -114,29 +292,63 @@ def format_thinking_display(block: ThinkingBlock, console: Console) -> None:
     """
     from rich.panel import Panel
     from rich.text import Text
+    from rich.table import Table
 
     # Build the thinking display
     content = Text()
 
+    # === QUALITY INDICATOR ===
+    quality = block.quality_score()
+    confidence = block.get_confidence_level()
+    quality_bar = "[" + ("=" * int(quality * 10)) + ("-" * (10 - int(quality * 10))) + "]"
+    quality_color = "green" if quality > 0.7 else "yellow" if quality > 0.4 else "red"
+
+    content.append(f"Quality: {quality_bar} {quality:.0%}", style=f"dim {quality_color}")
+    if confidence != "unknown":
+        conf_color = {"very_high": "green", "high": "cyan", "medium": "yellow", "low": "red"}.get(confidence, "dim")
+        content.append(f" | Confidence: {confidence}", style=f"dim {conf_color}")
+    content.append("\n")
+
+    # === KEY UNDERSTANDING ===
     if block.understand:
-        content.append("UNDERSTAND: ", style="bold cyan")
-        # Get first meaningful line
+        content.append("GOAL: ", style="bold cyan")
         first_line = block.understand.split('\n')[0].strip()
         if first_line.startswith('-'):
             first_line = first_line[1:].strip()
-        content.append(first_line[:80] + "\n", style="dim")
+        content.append(first_line[:80] + "\n", style="white")
 
+    # === HYPOTHESIS (if advanced thinking) ===
+    if block.hypothesis:
+        content.append("HYPOTHESIS: ", style="bold magenta")
+        hyp_line = block.hypothesis.split('\n')[0].strip()
+        content.append(hyp_line[:70] + "\n", style="dim magenta")
+
+    # === SELF-CRITIQUE (shows depth of reasoning) ===
+    if block.counterargument:
+        content.append("CHALLENGE: ", style="bold red")
+        counter_line = block.counterargument.split('\n')[0].strip()
+        if counter_line.startswith('-'):
+            counter_line = counter_line[1:].strip()
+        content.append(counter_line[:60] + "\n", style="dim red")
+
+    # === DECISION ===
     if block.decision:
         content.append("DECISION: ", style="bold green")
-        # Extract the tool being used
         decision_lines = block.decision.strip().split('\n')
         for line in decision_lines:
-            if 'best choice' in line.lower():
+            if any(word in line.lower() for word in ['best choice', 'choose', 'selected', 'will use']):
                 content.append(line.strip() + "\n", style="white")
                 break
         else:
             content.append(decision_lines[0][:60] + "\n", style="white")
 
+    # === FALLBACK (if exists) ===
+    if block.fallback:
+        content.append("FALLBACK: ", style="bold yellow")
+        fallback_line = block.fallback.split('\n')[0].strip()
+        content.append(fallback_line[:50] + "\n", style="dim yellow")
+
+    # === RISK CHECK ===
     if block.risk_check:
         content.append("RISK: ", style="bold yellow")
         risk_line = block.risk_check.split('\n')[0].strip()
@@ -144,9 +356,22 @@ def format_thinking_display(block: ThinkingBlock, console: Console) -> None:
             risk_line = risk_line[1:].strip()
         content.append(risk_line[:60], style="dim")
 
+    # Add indicators for thinking quality
+    indicators = []
+    if block.is_self_critical():
+        indicators.append("[cyan]Self-Critical[/cyan]")
+    if block.has_fallback():
+        indicators.append("[yellow]Has Fallback[/yellow]")
+    if block.assumptions:
+        indicators.append("[magenta]Explicit Assumptions[/magenta]")
+
+    title = "[bold blue]Deep Thinking[/bold blue]"
+    if indicators:
+        title += " " + " ".join(indicators)
+
     console.print(Panel(
         content,
-        title="[bold blue]Thinking[/bold blue]",
+        title=title,
         border_style="blue",
         padding=(0, 1)
     ))
@@ -215,7 +440,7 @@ class EnhancedHcodeAgent:
         )
 
         # Initialize agent orchestrator
-        self.agent_orchestrator = AgentOrchestrator(
+        self.agent_orchestrator = HcodeAgentOrchestrator(
             provider_selector=self.provider_selector,
             tool_registry=self.tool_manager.tool_registry
         )
@@ -311,6 +536,10 @@ class EnhancedHcodeAgent:
                 model=model_name,
                 metadata={"complexity": complexity.value if hasattr(complexity, 'value') else str(complexity)}
             )
+
+            # IMPORTANT: Clear context for new unrelated tasks to prevent context pollution
+            # This ensures old test runs don't influence new exploration tasks
+            self._maybe_clear_context_for_new_task(task)
 
             # Set system prompt with tool descriptions and memory context
             system_prompt = self._build_system_prompt(query=task)
@@ -509,7 +738,7 @@ When the user says things like "yes", "proceed", "continue", "do it", "ok", or s
 4. Look at the conversation history to understand what task the user is confirming
 5. Execute the task immediately using the appropriate tools"""
 
-    async def _execute_with_tools(self, stream: bool = False, max_iterations: int = 50) -> str:
+    async def _execute_with_tools(self, stream: bool = False) -> str:
         """
         Execute task with tool calling support, automatic tool execution loop,
         and automatic continuation for long outputs.
@@ -519,15 +748,19 @@ When the user says things like "yes", "proceed", "continue", "do it", "ok", or s
         2. Automatically continuing generation
         3. Merging responses seamlessly
         4. Checking todo list for incomplete tasks and continuing
+        5. STOPPING ONLY when the task is truly complete
 
         ROBUSTNESS FEATURES:
         - Graceful error recovery - never crashes, always returns something
         - Automatic retry on transient errors
         - Truncated content detection and continuation
         - Partial results saved on failure
+        - NO HARD ITERATION LIMIT - continues until task completion
 
-        Note: max_iterations increased to 50 (from 20) to support complex
-        multi-step tasks with gpt-oss-120b and similar large models.
+        The agent will continue until:
+        - Task is explicitly completed (model says done/complete)
+        - Too many consecutive errors occur (circuit breaker)
+        - Model is stuck in a loop (same response repeated)
         """
         import json
         import traceback
@@ -556,17 +789,28 @@ When the user says things like "yes", "proceed", "continue", "do it", "ok", or s
         failed_commands: Dict[str, int] = {}  # command -> failure count
         max_command_retries = 2  # Maximum times to retry the same failing command
 
-        while iteration < max_iterations:
+        # LOOP DETECTION: Track recent responses to detect stuck loops
+        recent_responses: List[str] = []
+        max_recent_responses = 5
+        stuck_threshold = 3  # If same response appears this many times, we're stuck
+
+        # NO HARD LIMIT - continue until task completion
+        while True:
             try:  # ROBUSTNESS: Wrap each iteration in try-except
                 iteration += 1
 
                 # Progress feedback every 10 iterations
                 if iteration > 1 and iteration % 10 == 0:
-                    self.console.print(f"[dim][...] Processing... (iteration {iteration}/{max_iterations})[/dim]")
+                    self.console.print(f"[dim][...] Processing... (iteration {iteration})[/dim]")
 
-                # Warning at 80% of limit
-                if iteration == int(max_iterations * 0.8):
-                    self.console.print(f"[yellow][!] Approaching iteration limit ({iteration}/{max_iterations}). Complex task may need to be split.[/yellow]")
+                # LOOP DETECTION: Check if we're stuck repeating the same response
+                if len(recent_responses) >= stuck_threshold:
+                    # Check for repeated responses
+                    last_response_hash = hash(recent_responses[-1][:500]) if recent_responses else 0
+                    repeat_count = sum(1 for r in recent_responses if hash(r[:500]) == last_response_hash)
+                    if repeat_count >= stuck_threshold:
+                        self.console.print(f"[yellow][!] Detected stuck loop (same response {repeat_count} times). Breaking out.[/yellow]")
+                        break
 
                 # Get messages with context - ensure we leave room for output
                 context_window = self.current_provider.get_context_window()
@@ -673,6 +917,11 @@ When the user says things like "yes", "proceed", "continue", "do it", "ok", or s
 
                 all_response_parts.append(response_text)
                 accumulated_results.append({"iteration": iteration, "response": response_text})
+
+                # LOOP DETECTION: Track recent responses
+                recent_responses.append(response_text)
+                if len(recent_responses) > max_recent_responses:
+                    recent_responses.pop(0)  # Remove oldest
 
                 # DEEP THINKING: Parse and display thinking blocks
                 thinking_block, response_without_thinking = parse_thinking_block(response_text)
@@ -803,15 +1052,22 @@ IMPORTANT: Continue from EXACTLY where the content was cut off. Do not restart t
 Continue generating the remaining content now:"""
                             else:
                                 # Limit output size to prevent context overflow
+                                # Use SMART truncation: keep head + tail to preserve important info
                                 MAX_OUTPUT_CHARS = 15000  # ~4k tokens
                                 output_text = result.output
                                 output_truncated = False
 
                                 if len(output_text) > MAX_OUTPUT_CHARS:
-                                    output_text = output_text[:MAX_OUTPUT_CHARS]
                                     output_truncated = True
-                                    # Add truncation note
-                                    output_text += f"\n\n... [OUTPUT TRUNCATED - {len(result.output) - MAX_OUTPUT_CHARS} more chars]\nFull output logged to session log file."
+                                    # Smart truncation: keep first part AND last part
+                                    # This ensures we see both the start and end of output
+                                    # (e.g., for test results, we need the TOTAL line at the end)
+                                    HEAD_CHARS = int(MAX_OUTPUT_CHARS * 0.6)  # 60% for head
+                                    TAIL_CHARS = int(MAX_OUTPUT_CHARS * 0.35)  # 35% for tail
+                                    head = output_text[:HEAD_CHARS]
+                                    tail = output_text[-TAIL_CHARS:]
+                                    truncated_count = len(output_text) - HEAD_CHARS - TAIL_CHARS
+                                    output_text = f"{head}\n\n... [{truncated_count} characters omitted] ...\n\n{tail}"
 
                                 result_content = f"""Tool '{tool_name}' executed successfully.
 
@@ -894,6 +1150,12 @@ What specific action will you take to address this error?"""
                 # This helps when the model stops mid-task
                 has_pending_work = self._has_pending_work(response_text)
 
+                # TASK COMPLETION CHECK: Detect when the task is truly done
+                task_completed = self._is_task_completed(response_text)
+                if task_completed:
+                    self.console.print(f"[bold green][*] Task completed![/bold green]")
+                    break
+
                 # CRITICAL: Check for empty or minimal responses - model failed to engage
                 response_stripped = response_text.strip()
                 is_empty_response = len(response_stripped) < 10
@@ -904,7 +1166,7 @@ What specific action will you take to address this error?"""
                     has_pending_work = True  # Force continuation
 
                 # Debug logging
-                self.console.print(f"[dim][?] Iteration {iteration}: tool_calls={len(tool_calls) if tool_calls else 0}, should_continue={should_continue}, has_pending_work={has_pending_work}, finish={finish_reason}, response_len={len(response_stripped)}[/dim]")
+                self.console.print(f"[dim][?] Iteration {iteration}: tool_calls={len(tool_calls) if tool_calls else 0}, should_continue={should_continue}, has_pending_work={has_pending_work}, finish={finish_reason}, response_len={len(response_stripped)}, completed={task_completed}[/dim]")
                 if response_stripped:
                     self.console.print(f"[dim][N] Response preview: {response_stripped[:100].replace(chr(10), ' ')}...[/dim]")
                 else:
@@ -970,11 +1232,12 @@ What specific action will you take to address this error?"""
                 await asyncio.sleep(1)
                 continue
 
-        # Return accumulated results - never return empty
+        # Return accumulated results - clean up and never return empty
         result = "\n".join(all_response_parts)
+        result = self._clean_final_response(result)
         if not result.strip():
             if last_successful_response:
-                return last_successful_response
+                return self._clean_final_response(last_successful_response)
             return "Task completed but no output was generated. Please try again."
         return result
 
@@ -1066,32 +1329,45 @@ What specific action will you take to address this error?"""
                 self.console.print(f"[dim yellow][!] Detected visual todo list - model needs to execute tools[/dim yellow]")
                 return True
 
+        # Check if the response appears to be a COMPLETE answer (should NOT continue)
+        # This prevents the model from continuing when it has already answered the user
+        completion_indicators = [
+            "here is the",
+            "here's the",
+            "the repository contains",
+            "the project contains",
+            "the codebase contains",
+            "this is a",
+            "this project is",
+            "summary:",
+            "in summary",
+            "to summarize",
+            "as you can see",
+            "based on my analysis",
+            "i found that",
+            "the structure is",
+            "the content includes",
+        ]
+
+        if any(indicator in response_lower for indicator in completion_indicators):
+            # Model has provided a substantive answer - don't continue
+            return False
+
         # Check for explicit indicators of pending work
+        # IMPORTANT: These should be STRONG indicators that the model is mid-task
+        # Avoid phrases that appear in TODO list output or general descriptions
         pending_indicators = [
             "next, i will",
-            "next step",
-            "i'll now",
-            "let me",
-            "i need to",
             "now i'll",
             "first, let me",
-            "step 1",
-            "step 2",
-            "continuing",
-            "todo:",
-            "remaining tasks",
-            "pending:",
-            "then i",
-            "after that",
-            "following",
-            "understanding request",
-            "execute task",
-            "present results",
+            "continuing with",
+            "remaining tasks:",
+            "then i will",
         ]
 
         if any(indicator in response_lower for indicator in pending_indicators):
             # Check if response ends abruptly (no conclusion)
-            endings = [".", "!", "?", "```", "done", "complete", "finished", "success"]
+            endings = [".", "!", "?", "```", "done", "complete", "finished", "success", "found", "contains"]
             stripped = response_text.rstrip()
             if not any(stripped.lower().endswith(end) for end in endings):
                 return True
@@ -1113,8 +1389,160 @@ What specific action will you take to address this error?"""
             return True
 
         # Check for pending todos in the tool manager
+        # IMPORTANT: Skip this check for read-only tasks to prevent unwanted continuations
+        if hasattr(self, '_current_task_is_readonly') and self._current_task_is_readonly:
+            # For read-only tasks, don't force continuation based on todos
+            return False
+
         if self._has_pending_todos():
             return True
+
+        return False
+
+    def _clean_final_response(self, response: str) -> str:
+        """
+        Clean the final response before showing to user.
+
+        Removes:
+        - <thinking> blocks (internal reasoning)
+        - Raw JSON tool calls that weren't executed
+        - Duplicate content
+        - Internal prompts and continuations
+
+        Args:
+            response: The raw accumulated response
+
+        Returns:
+            Cleaned response for user display
+        """
+        import re
+
+        if not response:
+            return response
+
+        cleaned = response
+
+        # 1. Remove all <thinking>...</thinking> blocks
+        cleaned = re.sub(r'<thinking>.*?</thinking>', '', cleaned, flags=re.DOTALL | re.IGNORECASE)
+
+        # 2. Remove raw JSON tool calls (already executed, shown in tool display)
+        # Pattern: {"tool": "...", "parameters": {...}}
+        cleaned = re.sub(r'\{\s*"tool"\s*:\s*"[^"]+"\s*,\s*"parameters"\s*:\s*\{[^}]*\}\s*\}', '', cleaned, flags=re.DOTALL)
+
+        # 3. Remove incomplete/fragment JSON that looks like tool calls
+        cleaned = re.sub(r'\{\s*"(?:tool|path|file_path|command)"\s*:\s*"[^"]*"\s*(?:,\s*"[^"]+"\s*:\s*[^}]*)?\}?', '', cleaned, flags=re.DOTALL)
+
+        # 4. Remove internal continuation prompts
+        internal_phrases = [
+            r'\[UNDERSTAND\].*?(?=\n\n|\[|$)',
+            r'\[CONTEXT\].*?(?=\n\n|\[|$)',
+            r'\[ASSUMPTIONS?\].*?(?=\n\n|\[|$)',
+            r'\[OPTIONS?\].*?(?=\n\n|\[|$)',
+            r'\[DECISION\].*?(?=\n\n|\[|$)',
+            r'\[RISK\].*?(?=\n\n|\[|$)',
+            r'\[PLAN\].*?(?=\n\n|\[|$)',
+            r'UNDERSTAND:.*?(?=\n\n|CONTEXT:|ASSUMPTIONS:|OPTIONS:|DECISION:|$)',
+            r'CONTEXT:.*?(?=\n\n|ASSUMPTIONS:|OPTIONS:|DECISION:|RISK:|$)',
+        ]
+
+        for pattern in internal_phrases:
+            cleaned = re.sub(pattern, '', cleaned, flags=re.DOTALL | re.IGNORECASE)
+
+        # 5. Clean up multiple consecutive newlines
+        cleaned = re.sub(r'\n{4,}', '\n\n\n', cleaned)
+
+        # 6. Clean up whitespace at start/end
+        cleaned = cleaned.strip()
+
+        # 7. If cleaning removed everything meaningful, try to extract just the answer
+        if not cleaned or len(cleaned) < 10:
+            # Try to find any useful content
+            lines = response.split('\n')
+            useful_lines = []
+            for line in lines:
+                line = line.strip()
+                # Skip internal reasoning markers
+                if line.startswith('[') and ']' in line[:50]:
+                    continue
+                if line.startswith('<thinking') or line.startswith('</thinking'):
+                    continue
+                if line.startswith('{"tool"'):
+                    continue
+                if line:
+                    useful_lines.append(line)
+
+            if useful_lines:
+                cleaned = '\n'.join(useful_lines[-5:])  # Take last 5 useful lines
+
+        return cleaned
+
+    def _is_task_completed(self, response_text: str) -> bool:
+        """
+        Check if the task has been completed based on the model's response.
+
+        This is the primary stopping condition for the agent loop.
+        The agent will continue until this returns True.
+
+        Args:
+            response_text: The model's response
+
+        Returns:
+            True if the task appears to be completed
+        """
+        response_lower = response_text.lower()
+
+        # Strong completion indicators - these signal the task is done
+        completion_phrases = [
+            "task completed",
+            "task is complete",
+            "task has been completed",
+            "all done",
+            "i have completed",
+            "i've completed",
+            "successfully completed",
+            "finished the task",
+            "that completes",
+            "this completes",
+            "all tasks are complete",
+            "all tasks completed",
+            "nothing more to do",
+            "no further action",
+            "let me know if you need",
+            "feel free to ask",
+            "is there anything else",
+            "hope this helps",
+            "here's the summary",
+            "here is the summary",
+            "in conclusion",
+            "to summarize",
+            "summary:",
+        ]
+
+        if any(phrase in response_lower for phrase in completion_phrases):
+            return True
+
+        # Check if all todos are marked as completed
+        try:
+            todo_tool = self.tool_manager.get_tool('todowrite')
+            if todo_tool and hasattr(todo_tool, 'todos') and todo_tool.todos:
+                all_completed = all(
+                    (hasattr(t, 'status') and t.status == 'completed') or
+                    (isinstance(t, dict) and t.get('status') == 'completed')
+                    for t in todo_tool.todos
+                )
+                if all_completed and len(todo_tool.todos) > 0:
+                    return True
+        except Exception:
+            pass
+
+        # For read-only tasks, check if a substantive answer was provided
+        if hasattr(self, '_current_task_is_readonly') and self._current_task_is_readonly:
+            # Read-only tasks are complete if we have a summary-like response
+            if len(response_text) > 200 and any(word in response_lower for word in [
+                'contains', 'includes', 'structure', 'files', 'directories',
+                'repository', 'project', 'codebase', 'found', 'here is', 'here are'
+            ]):
+                return True
 
         return False
 
@@ -1163,17 +1591,36 @@ What specific action will you take to address this error?"""
             is_read_only = any(word in task_lower for word in [
                 'what is', 'what are', 'show', 'list', 'display', 'content',
                 'explain', 'describe', 'find', 'search', 'where', 'how many',
-                'tell me', 'check', 'view', 'see'
+                'tell me', 'check', 'view', 'see', 'repo', 'structure', 'folder'
             ])
 
-            if is_read_only:
+            # Also check for negative indicators that suggest NOT read-only
+            is_action_task = any(word in task_lower for word in [
+                'run', 'test', 'pytest', 'execute', 'fix', 'modify', 'change',
+                'update', 'create', 'write', 'delete', 'install', 'build'
+            ])
+
+            # Store this flag so continuation logic can use it
+            self._current_task_is_readonly = is_read_only and not is_action_task
+
+            if self._current_task_is_readonly:
                 return f"""USER TASK: {task}
 
-IMPORTANT: This is a READ-ONLY task. Do NOT modify any files.
+CRITICAL CONSTRAINTS:
+- This is a READ-ONLY task
+- Do NOT run tests (pytest, unittest, etc.)
+- Do NOT execute any code
+- Do NOT modify any files
+- ONLY use: LS, Glob, Grep, Read
 
 MANDATORY RESPONSE FORMAT:
 1. First, output a <thinking> block with your reasoning
 2. Then call a READ-ONLY tool (LS, Glob, Grep, or Read)
+3. After exploring, provide a SUMMARY to the user
+
+WHEN TO STOP:
+- Once you have gathered enough information, provide a summary
+- Do NOT continue indefinitely - summarize your findings
 
 Example:
 <thinking>
@@ -1186,7 +1633,7 @@ Example:
 
 {{"tool": "LS", "parameters": {{"path": "."}}}}
 
-START NOW - think first, then act:"""
+START NOW - think first, then explore:"""
             else:
                 return f"""USER TASK: {task}
 
@@ -1212,6 +1659,51 @@ START NOW - think first, then act:"""
         # For Claude/Anthropic, just return the task as-is
         return task
 
+    def _maybe_clear_context_for_new_task(self, task: str) -> None:
+        """
+        Determine if the context should be cleared for a new task.
+
+        This prevents context pollution where old test runs or other
+        unrelated commands influence new tasks (e.g., exploration queries
+        being confused by old pytest executions).
+
+        Args:
+            task: The new task being executed
+        """
+        # Get current context size
+        current_context = self.context_manager.context
+        if not current_context:
+            return  # No context to clear
+
+        task_lower = task.lower()
+
+        # Detect read-only/exploration tasks
+        is_exploration_task = any(word in task_lower for word in [
+            'what is', 'what are', 'show', 'list', 'display', 'content',
+            'explain', 'describe', 'structure', 'repo', 'folder', 'files',
+            'tell me', 'check', 'view', 'see', 'explore'
+        ])
+
+        # Check if previous context contains action commands that might pollute
+        context_has_action_commands = False
+        for entry in current_context:
+            content_lower = entry.content.lower()
+            if any(cmd in content_lower for cmd in [
+                'pytest', 'python -m pytest', 'npm test', 'npm run',
+                'make test', 'cargo test', 'go test', 'jest',
+                'git commit', 'git push', 'pip install'
+            ]):
+                context_has_action_commands = True
+                break
+
+        # Clear context if we're switching from action commands to exploration
+        if is_exploration_task and context_has_action_commands:
+            self.console.print(f"[dim yellow][!] Clearing old context to prevent pollution (switching to exploration task)[/dim yellow]")
+            self.context_manager.clear_context(keep_system=True)
+
+            # Reset the readonly flag
+            self._current_task_is_readonly = True
+
     def _get_empty_response_prompt(self) -> str:
         """
         Get a prompt for when the model returns an empty or minimal response.
@@ -1221,6 +1713,21 @@ START NOW - think first, then act:"""
         Returns:
             Prompt string to force engagement
         """
+        # Check if this is a read-only task
+        if hasattr(self, '_current_task_is_readonly') and self._current_task_is_readonly:
+            return """ERROR: You returned an empty response.
+
+You MUST respond with BOTH:
+1. A brief explanation of what you're doing (1-2 sentences)
+2. A READ-ONLY tool call in JSON format
+
+Example correct response:
+"I'll explore the repository structure first.
+
+{"tool": "LS", "parameters": {"path": "."}}"
+
+NOW respond with text explanation + tool call:"""
+
         return """ERROR: You returned an empty response.
 
 You MUST respond with BOTH:
@@ -1228,9 +1735,9 @@ You MUST respond with BOTH:
 2. A tool call in JSON format
 
 Example correct response:
-"I'll run the tests to check the current state.
+"I'll explore the codebase to understand the structure.
 
-{"tool": "Bash", "parameters": {"command": "python -m pytest -v"}}"
+{"tool": "LS", "parameters": {"path": "."}}"
 
 NOW respond with text explanation + tool call:"""
 
@@ -1260,9 +1767,17 @@ The "tool" key is REQUIRED. Examples:
 
 Fix your response and output a VALID tool call now:"""
 
-        return """You need to take action. Output a tool call to proceed.
+        # Check if this appears to be a read-only/exploration task
+        if hasattr(self, '_current_task_is_readonly') and self._current_task_is_readonly:
+            return """You have pending work. Continue with READ-ONLY tools to complete the exploration.
 
-Example: {"tool": "Bash", "parameters": {"command": "python -m pytest -v"}}
+Example: {"tool": "Read", "parameters": {"file_path": "README.md"}}
+
+What will you read or explore next?"""
+
+        return """You have pending work. Continue with the appropriate tool.
+
+Example: {"tool": "LS", "parameters": {"path": "."}}
 
 What tool will you call?"""
 
@@ -2093,17 +2608,17 @@ What tool will you call?"""
         """
         Display tool execution result in Claude Code style.
 
-        Uses the ToolDisplay class for consistent formatting:
+        Uses the HcodeToolDisplay class for consistent formatting:
         - WriteTool: Only show file path and byte count (no content)
         - EditTool: Show file path with diff (old -> new)
         - BashTool: Show command and full output in box
         - ReadTool: Show file path and line count
         - Other tools: Show appropriate preview
         """
-        from ..cli.tool_display import ToolDisplay
+        from ..cli.tool_display import HcodeToolDisplay
 
-        # Use Claude Code-style tool display
-        display = ToolDisplay(self.console)
+        # Use Hcode-style tool display
+        display = HcodeToolDisplay(self.console)
         display.display_tool_call(tool_name, arguments, result)
 
     async def explore_codebase(self, query: str, thoroughness: str = "medium") -> str:
@@ -2119,7 +2634,7 @@ What tool will you call?"""
         """
         result = await self.agent_orchestrator.execute_with_agents(
             task=query,
-            agent_types=[AgentType.EXPLORE],
+            agent_types=[HcodeAgentType.EXPLORE],
             parallel=False
         )
 
@@ -2136,9 +2651,9 @@ What tool will you call?"""
         Returns:
             Implementation plan
         """
-        agent_types = [AgentType.PLAN]
+        agent_types = [HcodeAgentType.PLAN]
         if explore_first:
-            agent_types.insert(0, AgentType.EXPLORE)
+            agent_types.insert(0, HcodeAgentType.EXPLORE)
 
         results = await self.agent_orchestrator.execute_with_agents(
             task=task,
@@ -2160,7 +2675,7 @@ What tool will you call?"""
         """
         results = await self.agent_orchestrator.execute_with_agents(
             task=task,
-            agent_types=[AgentType.EXPLORE, AgentType.PLAN, AgentType.IMPLEMENT],
+            agent_types=[HcodeAgentType.EXPLORE, HcodeAgentType.PLAN, HcodeAgentType.IMPLEMENT],
             parallel=False
         )
 

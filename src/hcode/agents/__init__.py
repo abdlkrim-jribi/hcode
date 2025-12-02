@@ -3,21 +3,21 @@ Sub-agent system for Hcode.
 """
 
 from .sub_agent import (
-    SubAgent,
-    ExploreAgent,
-    PlanAgent,
-    ImplementAgent,
-    AgentOrchestrator,
-    AgentType,
-    AgentResult
+    HcodeSubAgent,
+    HcodeExploreAgent,
+    HcodePlanAgent,
+    HcodeImplementAgent,
+    HcodeAgentOrchestrator,
+    HcodeAgentType,
+    HcodeAgentResult
 )
 
 __all__ = [
-    "SubAgent",
-    "ExploreAgent",
-    "PlanAgent",
-    "ImplementAgent",
-    "AgentOrchestrator",
-    "AgentType",
-    "AgentResult",
+    "HcodeSubAgent",
+    "HcodeExploreAgent",
+    "HcodePlanAgent",
+    "HcodeImplementAgent",
+    "HcodeAgentOrchestrator",
+    "HcodeAgentType",
+    "HcodeAgentResult",
 ]
