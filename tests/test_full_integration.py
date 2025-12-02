@@ -222,7 +222,7 @@ class TestConfiguration:
         config = get_models_config()
         cont = config.get_continuation_config()
 
-        assert cont.max_continuations == 10
+        assert cont.max_continuations == 20
 
 
 # =============================================================================
@@ -767,7 +767,7 @@ class TestContinuation:
         manager = ContinuationManager()
 
         assert manager is not None
-        assert manager.max_continuations == 10
+        assert manager.max_continuations == 20
 
     def test_should_continue_on_length(self):
         """Test continuation detection on length finish reason"""

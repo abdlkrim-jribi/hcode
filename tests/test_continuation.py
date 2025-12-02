@@ -23,8 +23,8 @@ class TestContinuationManager:
     def test_initialization(self):
         """Test basic initialization"""
         manager = ContinuationManager()
-        assert manager.max_continuations == 10
-        assert manager.max_total_tokens == 100000
+        assert manager.max_continuations == 20
+        assert manager.max_total_tokens == 200000
         assert manager.state is None
 
     def test_should_continue_on_length(self):

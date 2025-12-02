@@ -794,8 +794,14 @@ When the user says things like "yes", "proceed", "continue", "do it", "ok", or s
         max_recent_responses = 5
         stuck_threshold = 3  # If same response appears this many times, we're stuck
 
-        # NO HARD LIMIT - continue until task completion
-        while True:
+        # MAX ITERATION SAFETY: Prevent runaway loops
+        max_iterations = 50  # Safety limit - should complete most tasks
+
+        # TASK TRACKING: Track completed actions for summary
+        completed_actions: List[Dict[str, Any]] = []
+
+        # Continue until task completion or max iterations
+        while iteration < max_iterations:
             try:  # ROBUSTNESS: Wrap each iteration in try-except
                 iteration += 1
 
@@ -988,6 +994,14 @@ Then repeat your tool call.""",
                     # Execute tool calls and add results to context
                     try:
                         tool_results = await self._execute_tool_calls(tool_calls)
+                        # Track completed actions for summary
+                        for tool_name, result, arguments in tool_results:
+                            completed_actions.append({
+                                'tool': tool_name,
+                                'success': result.success,
+                                'args': arguments,
+                                'iteration': iteration
+                            })
                     except Exception as tool_error:
                         self.console.print(f"[bold red][!] Tool execution error: {tool_error}[/bold red]")
                         tool_results = []
@@ -1151,9 +1165,13 @@ What specific action will you take to address this error?"""
                 has_pending_work = self._has_pending_work(response_text)
 
                 # TASK COMPLETION CHECK: Detect when the task is truly done
-                task_completed = self._is_task_completed(response_text)
+                task_completed = self._is_task_completed(response_text, completed_actions, iteration)
                 if task_completed:
                     self.console.print(f"[bold green][*] Task completed![/bold green]")
+                    # Generate and display summary
+                    summary = self._generate_task_summary(completed_actions, response_text)
+                    if summary:
+                        self.console.print(summary)
                     break
 
                 # CRITICAL: Check for empty or minimal responses - model failed to engage
@@ -1216,6 +1234,10 @@ What specific action will you take to address this error?"""
                     continue  # Continue to generate more
 
                 # Natural completion - we're done
+                self.console.print(f"[bold green][*] Task completed![/bold green]")
+                summary = self._generate_task_summary(completed_actions, response_text)
+                if summary:
+                    self.console.print(summary)
                 break
 
             except Exception as iteration_error:
@@ -1231,6 +1253,13 @@ What specific action will you take to address this error?"""
                 # Try to recover by continuing
                 await asyncio.sleep(1)
                 continue
+
+        # Check if we hit max iterations (safety limit)
+        if iteration >= max_iterations:
+            self.console.print(f"[bold yellow][!] Reached maximum iterations ({max_iterations}). Stopping.[/bold yellow]")
+            summary = self._generate_task_summary(completed_actions, response_text)
+            if summary:
+                self.console.print(summary)
 
         # Return accumulated results - clean up and never return empty
         result = "\n".join(all_response_parts)
@@ -1476,20 +1505,23 @@ What specific action will you take to address this error?"""
 
         return cleaned
 
-    def _is_task_completed(self, response_text: str) -> bool:
+    def _is_task_completed(self, response_text: str, completed_actions: List[Dict[str, Any]] = None, iteration: int = 0) -> bool:
         """
         Check if the task has been completed based on the model's response.
 
         This is the primary stopping condition for the agent loop.
-        The agent will continue until this returns True.
+        Uses multiple signals to determine task completion.
 
         Args:
             response_text: The model's response
+            completed_actions: List of completed tool actions
+            iteration: Current iteration number
 
         Returns:
             True if the task appears to be completed
         """
         response_lower = response_text.lower()
+        response_stripped = response_text.strip()
 
         # Strong completion indicators - these signal the task is done
         completion_phrases = [
@@ -1516,6 +1548,12 @@ What specific action will you take to address this error?"""
             "in conclusion",
             "to summarize",
             "summary:",
+            "changes have been made",
+            "changes are complete",
+            "implementation is complete",
+            "done!",
+            "that's it",
+            "everything is",
         ]
 
         if any(phrase in response_lower for phrase in completion_phrases):
@@ -1544,7 +1582,122 @@ What specific action will you take to address this error?"""
             ]):
                 return True
 
+        # HEURISTIC: If we've done some actions and response looks like a conclusion
+        if completed_actions and len(completed_actions) >= 1:
+            # Check if response looks like it's wrapping up
+            conclusion_indicators = [
+                response_stripped.endswith('.'),
+                response_stripped.endswith('!'),
+                'completed' in response_lower,
+                'finished' in response_lower,
+                'done' in response_lower,
+                'successful' in response_lower,
+            ]
+            # If response has substantive content and looks conclusive
+            if len(response_stripped) > 50 and sum(conclusion_indicators) >= 2:
+                return True
+
+        # HEURISTIC: If model gives a long response without tool calls, it's probably done
+        if len(response_stripped) > 300 and not self._looks_like_tool_call(response_text):
+            # Long natural language response without tool calls = likely complete
+            return True
+
+        # SAFETY: After many iterations with tool calls, if model stops calling tools, it's done
+        if iteration > 5 and completed_actions and len(completed_actions) > 3:
+            # If the last response doesn't look like it needs more work
+            continuing_indicators = [
+                'next' in response_lower,
+                'now i' in response_lower,
+                'let me' in response_lower,
+                'will' in response_lower and 'i will' in response_lower,
+            ]
+            if not any(continuing_indicators):
+                return True
+
         return False
+
+    def _looks_like_tool_call(self, text: str) -> bool:
+        """Check if text looks like it contains a tool call"""
+        import re
+        # Check for JSON-like tool call patterns
+        patterns = [
+            r'\{"tool"',
+            r'\{"name"',
+            r'"parameters"\s*:',
+            r'"function"\s*:',
+        ]
+        return any(re.search(p, text) for p in patterns)
+
+    def _generate_task_summary(self, completed_actions: List[Dict[str, Any]], final_response: str) -> str:
+        """
+        Generate a clean summary of the completed task.
+
+        Args:
+            completed_actions: List of tool actions that were executed
+            final_response: The final response from the model
+
+        Returns:
+            Formatted summary string
+        """
+        from rich.panel import Panel
+        from rich.text import Text
+        from io import StringIO
+
+        if not completed_actions:
+            return ""
+
+        # Build summary
+        summary_parts = []
+
+        # Count actions by type
+        action_counts = {}
+        successful = 0
+        failed = 0
+        for action in completed_actions:
+            tool = action.get('tool', 'Unknown')
+            action_counts[tool] = action_counts.get(tool, 0) + 1
+            if action.get('success', False):
+                successful += 1
+            else:
+                failed += 1
+
+        # Header
+        summary_parts.append(f"[bold cyan]=== Task Summary ===[/bold cyan]")
+
+        # Stats
+        total = len(completed_actions)
+        stats = f"[dim]Actions: {total} total ({successful} successful"
+        if failed > 0:
+            stats += f", {failed} failed"
+        stats += ")[/dim]"
+        summary_parts.append(stats)
+
+        # Action breakdown (only if more than 1 type)
+        if len(action_counts) > 1:
+            breakdown = []
+            for tool, count in sorted(action_counts.items(), key=lambda x: -x[1]):
+                breakdown.append(f"{tool}: {count}")
+            summary_parts.append(f"[dim]Tools used: {', '.join(breakdown)}[/dim]")
+
+        # Files modified (if any write/edit actions)
+        modified_files = set()
+        for action in completed_actions:
+            tool = action.get('tool', '').lower()
+            args = action.get('args', {})
+            if tool in ['write', 'writetool', 'edit', 'edittool'] and action.get('success'):
+                file_path = args.get('file_path', args.get('path', ''))
+                if file_path:
+                    # Show just filename, not full path
+                    modified_files.add(file_path.split('/')[-1].split('\\')[-1])
+
+        if modified_files and len(modified_files) <= 5:
+            summary_parts.append(f"[dim]Files modified: {', '.join(modified_files)}[/dim]")
+        elif modified_files:
+            summary_parts.append(f"[dim]Files modified: {len(modified_files)} files[/dim]")
+
+        summary_parts.append(f"[bold cyan]====================[/bold cyan]")
+
+        return "\n".join(summary_parts)
 
     def _has_pending_todos(self) -> bool:
         """
