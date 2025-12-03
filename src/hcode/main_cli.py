@@ -49,6 +49,12 @@ from hcode.ui.panels import (
     SuccessPanel,
     InfoPanel,
 )
+from hcode.cli.autocomplete import (
+    HCodePrompt,
+    create_hcode_prompt,
+    get_command_help,
+    get_all_commands,
+)
 
 # Get themed console
 console = get_console()
@@ -377,19 +383,28 @@ def chat_mode(provider, session):
         content=(
             f"{icons.INFO} Tips:\n"
             "  • Type naturally, Hcode understands context\n"
-            "  • Use /commands for special actions\n"
+            "  • Use /commands for special actions (Tab to autocomplete)\n"
             "  • Press Ctrl+C to interrupt, /exit to quit\n"
-            "  • Responses stream in real-time"
+            "  • Responses stream in real-time\n\n"
+            f"{icons.LIGHTNING} Shortcuts:\n"
+            "  • Tab: Autocomplete commands & suggestions\n"
+            "  • Ctrl+Space: Show all suggestions\n"
+            "  • ↑/↓: Navigate history & suggestions"
         )
     )
     console.print(info_panel.render())
+
+    # Create smart prompt with autocomplete
+    hcode_prompt = create_hcode_prompt()
+    hcode_prompt.create_session()
 
     message_count = 0
 
     while True:
         try:
-            # Modern styled prompt
-            user_input = console.input(f"\n[bold {palette.primary}]{icons.USER} You [{message_count}]:[/bold {palette.primary}] ")
+            # Smart prompt with autocomplete
+            console.print()  # Add spacing
+            user_input = hcode_prompt.prompt(message_count=message_count)
 
             if not user_input.strip():
                 continue
@@ -404,16 +419,43 @@ def chat_mode(provider, session):
                         break
                     continue
 
-                elif command == 'help':
-                    help_table = Table(title="Chat Commands", box=box.ROUNDED)
-                    help_table.add_column("Command", style="cyan")
-                    help_table.add_column("Description")
-                    help_table.add_row("/help", "Show this help")
-                    help_table.add_row("/clear", "Clear conversation")
-                    help_table.add_row("/stats", "Show statistics")
-                    help_table.add_row("/export", "Export session")
-                    help_table.add_row("/exit", "Exit chat")
-                    console.print(help_table)
+                elif command.startswith('help'):
+                    # Check if help for specific command
+                    parts = command.split(maxsplit=1)
+                    if len(parts) > 1:
+                        cmd_name = parts[1] if parts[1].startswith('/') else f'/{parts[1]}'
+                        help_text = get_command_help(cmd_name)
+                        if help_text:
+                            console.print(Panel(help_text, title=f"[bold]Help: {cmd_name}[/bold]", border_style=palette.info))
+                        else:
+                            console.print(f"[{palette.warning}]Unknown command: {cmd_name}[/]")
+                        continue
+
+                    # Show all commands grouped by category
+                    all_commands = get_all_commands()
+                    categories = {}
+                    for cmd in all_commands:
+                        if cmd.category not in categories:
+                            categories[cmd.category] = []
+                        categories[cmd.category].append(cmd)
+
+                    console.print(f"\n[bold {palette.primary}]{icons.INFO} Available Commands[/bold {palette.primary}]\n")
+
+                    for category, cmds in sorted(categories.items()):
+                        console.print(f"[bold {palette.accent}]{category.upper()}[/bold {palette.accent}]")
+                        help_table = Table(box=box.SIMPLE, show_header=False, padding=(0, 2))
+                        help_table.add_column("Command", style=f"{palette.info}", min_width=15)
+                        help_table.add_column("Description", style=f"{palette.text_secondary}")
+                        help_table.add_column("Aliases", style=f"{palette.text_muted}")
+
+                        for cmd in cmds:
+                            aliases = ", ".join(cmd.aliases) if cmd.aliases else ""
+                            help_table.add_row(cmd.name, cmd.description, aliases)
+
+                        console.print(help_table)
+                        console.print()
+
+                    console.print(f"[{palette.text_muted}]Type /help <command> for detailed help on a specific command[/]")
                     continue
 
                 elif command == 'stats':
@@ -431,9 +473,32 @@ def chat_mode(provider, session):
                     console.print(stats_panel.render())
                     continue
 
+                elif command.startswith('theme'):
+                    parts = command.split(maxsplit=1)
+                    if len(parts) > 1:
+                        theme_name = parts[1].lower()
+                        theme_map = {
+                            'cyberpunk': ThemeMode.CYBERPUNK,
+                            'neon': ThemeMode.NEON_NIGHTS,
+                            'matrix': ThemeMode.MATRIX,
+                            'synthwave': ThemeMode.SYNTHWAVE,
+                            'frost': ThemeMode.FROST,
+                            'minimal': ThemeMode.MINIMAL,
+                            'hacker': ThemeMode.HACKER,
+                        }
+                        if theme_name in theme_map:
+                            set_theme(theme_map[theme_name])
+                            palette = get_palette()  # Refresh palette
+                            console.print(f"[{palette.success}]{icons.SUCCESS} Theme changed to {theme_name}[/]")
+                        else:
+                            console.print(f"[{palette.warning}]Available themes: {', '.join(theme_map.keys())}[/]")
+                    else:
+                        console.print(f"[{palette.info}]Current theme. Available: cyberpunk, neon, matrix, synthwave, frost, minimal, hacker[/]")
+                    continue
+
                 elif command == 'clear':
                     agent.context_manager.clear_context(keep_system=True)
-                    console.print(f"[green]{EMOJI['success']} Conversation cleared[/green]")
+                    console.print(f"[{palette.success}]{icons.SUCCESS} Conversation cleared[/]")
                     message_count = 0
                     continue
 
