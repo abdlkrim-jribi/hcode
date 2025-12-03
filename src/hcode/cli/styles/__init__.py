@@ -1,95 +1,85 @@
 """
-CLI styling system for Hcode.
+Legacy compatibility layer for cli.styles.
 
-Provides Claude Code-like terminal UI styling.
+This module re-exports all components from the new hcode.ui module
+to maintain backwards compatibility with existing code.
 """
 
-from .colors import Colors, ThemeManager, Theme, ColorScheme, get_rich_theme
-from .borders import BoxStyle, HCODE_BOX, Lines, get_default_box
-from .icons import Icons, Spinners, get_status_icon, get_file_icon, get_tool_icon
-from .components import (
+# Re-export everything from the ui module
+from hcode.ui import (
+    # Colors
+    Colors,
+
+    # Icons
+    Icons,
+    Emoji,
+    Borders,
+
+    # Components
     StyledPanel,
-    TodoDisplay,
     TodoItem,
-    StyledProgress,
+    TodoDisplay,
     Header,
     Footer,
     StatusLine,
     Prompt,
-    MessageDisplay,
-    DiffDisplay,
-    DiffLine,
-    FileTree,
     Separator,
-    LiveDisplay,
-    console
-)
-from .animations import (
-    AnimatedSpinner,
-    spinner,
-    TypingAnimation,
-    type_text,
-    ProgressAnimation,
     progress_bar,
-    PulsingText,
-    Countdown,
-    countdown,
-    LoadingDots,
-    ThinkingAnimation,
+
+    # Box styles
+    get_default_box,
+    Lines,
+    get_status_icon,
+
+    # Console
+    console,
+    get_console,
+
+    # Animations
+    spinner,
     thinking,
-    WaveAnimation
+    loading,
+
+    # Panels
+    DiffLine,
+    DiffDisplay,
 )
 
 __all__ = [
     # Colors
-    'Colors',
-    'ThemeManager',
-    'Theme',
-    'ColorScheme',
-    'get_rich_theme',
-
-    # Borders
-    'BoxStyle',
-    'HCODE_BOX',
-    'Lines',
-    'get_default_box',
+    "Colors",
 
     # Icons
-    'Icons',
-    'Spinners',
-    'get_status_icon',
-    'get_file_icon',
-    'get_tool_icon',
+    "Icons",
+    "Emoji",
+    "Borders",
 
     # Components
-    'StyledPanel',
-    'TodoDisplay',
-    'TodoItem',
-    'StyledProgress',
-    'Header',
-    'Footer',
-    'StatusLine',
-    'Prompt',
-    'MessageDisplay',
-    'DiffDisplay',
-    'DiffLine',
-    'FileTree',
-    'Separator',
-    'LiveDisplay',
-    'console',
+    "StyledPanel",
+    "TodoItem",
+    "TodoDisplay",
+    "Header",
+    "Footer",
+    "StatusLine",
+    "Prompt",
+    "Separator",
+    "progress_bar",
+
+    # Box styles
+    "get_default_box",
+    "Lines",
+    "get_status_icon",
+
+    # Console
+    "console",
+    "get_console",
 
     # Animations
-    'AnimatedSpinner',
-    'spinner',
-    'TypingAnimation',
-    'type_text',
-    'ProgressAnimation',
-    'progress_bar',
-    'PulsingText',
-    'Countdown',
-    'countdown',
-    'LoadingDots',
-    'ThinkingAnimation',
-    'thinking',
-    'WaveAnimation'
+    "spinner",
+    "thinking",
+    "loading",
+
+    # Panels
+    "DiffLine",
+    "DiffDisplay",
 ]

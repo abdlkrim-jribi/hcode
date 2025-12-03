@@ -217,7 +217,36 @@ def apply_env_overrides(config: Dict) -> Dict:
     Returns:
         Updated configuration
     """
-    # Check for API key overrides
+    # Handle api_key_env pattern - if config has env var name, fetch the actual value
+    for provider in ["anthropic", "openai"]:
+        provider_config = config.get("providers", {}).get(provider, {})
+
+        # Handle api_key_env (reference to env var name)
+        api_key_env = provider_config.get("api_key_env")
+        if api_key_env:
+            # Check if it's an env var name or actual key
+            if api_key_env.startswith("sk-") or len(api_key_env) > 50:
+                # Looks like actual API key stored in wrong field
+                config["providers"][provider]["api_key"] = api_key_env
+            else:
+                # It's an env var name, fetch the value
+                actual_key = os.getenv(api_key_env)
+                if actual_key:
+                    config["providers"][provider]["api_key"] = actual_key
+
+        # Handle base_url_env (reference to env var name or actual URL)
+        base_url_env = provider_config.get("base_url_env")
+        if base_url_env:
+            if base_url_env.startswith("http"):
+                # It's an actual URL
+                config["providers"][provider]["base_url"] = base_url_env
+            else:
+                # It's an env var name
+                actual_url = os.getenv(base_url_env)
+                if actual_url:
+                    config["providers"][provider]["base_url"] = actual_url
+
+    # Check for API key overrides from env (takes precedence)
     if os.getenv("ANTHROPIC_API_KEY"):
         config["providers"]["anthropic"]["api_key"] = os.getenv("ANTHROPIC_API_KEY")
 

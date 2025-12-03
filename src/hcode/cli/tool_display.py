@@ -35,6 +35,10 @@ from ..core.output_handler import (
     OutputType,
 )
 
+# Import new UI system
+from ..ui import Colors, Icons, get_palette, console as styled_console
+from ..ui.theme import get_palette as get_theme_palette
+
 # Platform detection
 IS_WINDOWS = sys.platform == "win32"
 
@@ -48,49 +52,65 @@ _output_handler = OutputHandler(
 
 
 # ============================================================
-# HCODE STYLE CONSTANTS
+# HCODE STYLE - USING MODERN THEME SYSTEM
 # ============================================================
 
 class HcodeStyle:
-    """Hcode CLI styling constants"""
+    """
+    Hcode CLI styling constants.
 
-    # Colors (ANSI compatible)
-    DIM = "dim"
-    BOLD = "bold"
+    Now uses the modern UI theme system for consistent styling
+    across the entire application.
+    """
 
-    # Tool colors
-    TOOL_NAME = "cyan"
-    TOOL_EXECUTING = "yellow"
-    TOOL_SUCCESS = "green"
-    TOOL_ERROR = "red"
+    def __init__(self):
+        """Initialize with current theme palette."""
+        self._palette = get_theme_palette()
+        self._icons = Icons()
+        self._update_from_theme()
 
-    # Content colors
-    FILE_PATH = "blue"
-    LINE_NUMBER = "dim cyan"
-    ADDED = "green"
-    REMOVED = "red"
-    CONTEXT = "dim"
+    def _update_from_theme(self):
+        """Update colors from the current theme."""
+        palette = self._palette
 
-    # Icons (ASCII for compatibility)
-    ICON_READ = "📄" if not IS_WINDOWS else "[R]"
-    ICON_WRITE = "📝" if not IS_WINDOWS else "[W]"
-    ICON_EDIT = "✏️" if not IS_WINDOWS else "[E]"
-    ICON_BASH = "⚡" if not IS_WINDOWS else "[>]"
-    ICON_GLOB = "🔍" if not IS_WINDOWS else "[?]"
-    ICON_GREP = "🔎" if not IS_WINDOWS else "[?]"
-    ICON_SUCCESS = "✓" if not IS_WINDOWS else "[OK]"
-    ICON_ERROR = "✗" if not IS_WINDOWS else "[X]"
-    ICON_ARROW = "→" if not IS_WINDOWS else "->"
-    ICON_DIFF_ADD = "+"
-    ICON_DIFF_DEL = "-"
+        # Colors (from theme)
+        self.DIM = "dim"
+        self.BOLD = "bold"
 
-    # Box characters
-    BOX_H = "─" if not IS_WINDOWS else "-"
-    BOX_V = "│" if not IS_WINDOWS else "|"
-    BOX_TL = "┌" if not IS_WINDOWS else "+"
-    BOX_TR = "┐" if not IS_WINDOWS else "+"
-    BOX_BL = "└" if not IS_WINDOWS else "+"
-    BOX_BR = "┘" if not IS_WINDOWS else "+"
+        # Tool colors (from theme palette)
+        self.TOOL_NAME = palette.accent
+        self.TOOL_EXECUTING = palette.warning
+        self.TOOL_SUCCESS = palette.success
+        self.TOOL_ERROR = palette.error
+
+        # Content colors (from theme palette)
+        self.FILE_PATH = palette.info
+        self.LINE_NUMBER = f"dim {palette.accent}"
+        self.ADDED = palette.diff_added
+        self.REMOVED = palette.diff_removed
+        self.CONTEXT = palette.text_muted
+
+        # Icons from UI system
+        self.ICON_READ = self._icons.FILE
+        self.ICON_WRITE = self._icons.EDIT
+        self.ICON_EDIT = self._icons.EDIT
+        self.ICON_BASH = self._icons.LIGHTNING
+        self.ICON_GLOB = self._icons.SEARCH
+        self.ICON_GREP = self._icons.SEARCH
+        self.ICON_SUCCESS = self._icons.SUCCESS
+        self.ICON_ERROR = self._icons.ERROR
+        self.ICON_ARROW = self._icons.ARROW_RIGHT
+        self.ICON_DIFF_ADD = "+"
+        self.ICON_DIFF_DEL = "-"
+
+        # Box characters from UI system (using Borders class)
+        from ..ui.icons import Borders
+        self.BOX_H = Borders.HORIZONTAL
+        self.BOX_V = Borders.VERTICAL
+        self.BOX_TL = Borders.CORNER_TL
+        self.BOX_TR = Borders.CORNER_TR
+        self.BOX_BL = Borders.CORNER_BL
+        self.BOX_BR = Borders.CORNER_BR
 
 
 # ============================================================
@@ -103,11 +123,14 @@ class HcodeToolDisplay:
 
     Provides consistent, clean output for all tool executions
     matching the Hcode CLI format.
+
+    Now uses the modern UI theme system for consistent styling.
     """
 
     def __init__(self, console: Optional[Console] = None):
-        self.console = console or Console()
+        self.console = console or styled_console
         self.style = HcodeStyle()
+        self._icons = Icons()
 
     # ─────────────────────────────────────────────────────────
     # MAIN DISPLAY METHOD
@@ -542,7 +565,7 @@ class HcodeToolDisplay:
             item_count = len([i for i in items if i.strip()])
 
             self.console.print(
-                f"  📁 [bold]Listed[/bold] "
+                f"  {self._icons.FOLDER} [bold]Listed[/bold] "
                 f"[{self.style.FILE_PATH}]{path}[/] "
                 f"[{self.style.DIM}]({item_count} items)[/]"
             )
@@ -614,17 +637,21 @@ class StreamingDisplay:
 
     Shows AI response streaming character by character
     with thinking indicator.
+
+    Now uses the modern UI theme system for consistent styling.
     """
 
     def __init__(self, console: Optional[Console] = None):
-        self.console = console or Console()
+        self.console = console or styled_console
         self.buffer = ""
         self.is_thinking = False
+        self._palette = get_theme_palette()
+        self._icons = Icons()
 
     def start_thinking(self, message: str = "Thinking"):
         """Show thinking indicator"""
         self.is_thinking = True
-        self.console.print(f"[dim]◊ {message}...[/dim]", end="\r")
+        self.console.print(f"[{self._palette.text_muted}]{self._icons.THINKING} {message}...[/]", end="\r")
 
     def stop_thinking(self):
         """Clear thinking indicator"""
@@ -655,10 +682,14 @@ class StatusLineDisplay:
     Hcode-style status line.
 
     Shows model, tokens, cost, and current status at bottom.
+
+    Now uses the modern UI theme system for consistent styling.
     """
 
     def __init__(self, console: Optional[Console] = None):
-        self.console = console or Console()
+        self.console = console or styled_console
+        self._palette = get_theme_palette()
+        self._icons = Icons()
 
     def render(
         self,
@@ -670,34 +701,35 @@ class StatusLineDisplay:
     ) -> str:
         """Render status line string"""
         parts = []
+        palette = self._palette
 
         # Model
         if model:
             model_short = model.split('/')[-1] if '/' in model else model
-            parts.append(f"[cyan]{model_short}[/cyan]")
+            parts.append(f"[{palette.accent}]{model_short}[/]")
 
         # Tokens
         if tokens > 0:
-            parts.append(f"[dim]{tokens:,} tokens[/dim]")
+            parts.append(f"[{palette.text_muted}]{tokens:,} tokens[/]")
 
         # Cost
         if cost > 0:
-            parts.append(f"[dim]${cost:.4f}[/dim]")
+            parts.append(f"[{palette.text_muted}]${cost:.4f}[/]")
 
         # Status
         status_colors = {
-            "ready": "green",
-            "thinking": "yellow",
-            "executing": "cyan",
-            "error": "red"
+            "ready": palette.success,
+            "thinking": palette.warning,
+            "executing": palette.info,
+            "error": palette.error
         }
-        color = status_colors.get(status, "white")
-        parts.append(f"[{color}]{status}[/{color}]")
+        color = status_colors.get(status, palette.text_primary)
+        parts.append(f"[{color}]{status}[/]")
 
         # Current directory
         if cwd:
             cwd_short = os.path.basename(cwd) or cwd
-            parts.append(f"[dim]📁 {cwd_short}[/dim]")
+            parts.append(f"[{palette.text_muted}]{self._icons.FOLDER} {cwd_short}[/]")
 
         return " │ ".join(parts)
 

@@ -129,7 +129,7 @@ class PromptsConfig:
             "system_prompts": {
                 "coding_agent": self._default_coding_prompt(),
                 "openai_coding": self._default_openai_prompt(),
-                "enhanced_agent": self._default_enhanced_prompt(),
+                "agent": self._default_agent_prompt(),
                 "sub_agent": self._default_sub_agent_prompt(),
             },
             "continuation_prompts": [
@@ -185,7 +185,7 @@ Best practices:
 
 You are autonomous and thorough. Break down complex tasks systematically and validate your changes."""
 
-    def _default_enhanced_prompt(self) -> str:
+    def _default_agent_prompt(self) -> str:
         return """You are Hcode, an advanced AI coding assistant with comprehensive tool access.
 
 CORE CAPABILITIES:
@@ -229,7 +229,7 @@ Stay focused on your assigned task and avoid scope creep."""
         Get a system prompt by type.
 
         Args:
-            prompt_type: Type of prompt (coding_agent, openai_coding, enhanced_agent, sub_agent, planning, code_review)
+            prompt_type: Type of prompt (coding_agent, openai_coding, agent, sub_agent, planning, code_review)
 
         Returns:
             The system prompt string, with optional memory file content prepended for OpenAI coding prompts.

@@ -4,14 +4,14 @@ Demonstrates sub-agents, tools, interactive features, and safety.
 """
 
 import asyncio
-from hcode.core import EnhancedHcodeAgent
+from hcode.core import HcodeAgent
 
 
 async def full_featured_example():
     """Complete example with all features"""
 
-    # Initialize enhanced agent
-    agent = EnhancedHcodeAgent(
+    # Initialize agent
+    agent = HcodeAgent(
         anthropic_key="your-anthropic-key",
         openai_key="your-openai-key"
     )
@@ -104,7 +104,7 @@ async def parallel_agents_example():
     """Example of running multiple agents in parallel"""
     from hcode.agents import AgentOrchestrator
 
-    agent = EnhancedHcodeAgent(
+    agent = HcodeAgent(
         anthropic_key="your-key",
         openai_key="your-key"
     )
@@ -127,7 +127,7 @@ async def parallel_agents_example():
 
 async def safety_features_example():
     """Example demonstrating safety features"""
-    agent = EnhancedHcodeAgent(anthropic_key="your-key")
+    agent = HcodeAgent(anthropic_key="your-key")
 
     # Create checkpoint
     checkpoint_id = agent.safety_guard.create_checkpoint("Before refactoring")

@@ -1,0 +1,349 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g., 1.0.0)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  packages: write
+
+env:
+  PYTHON_VERSION: '3.11'
+
+jobs:
+  # ==========================================================================
+  # Test job - runs tests before building releases
+  # ==========================================================================
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Run tests
+        run: |
+          pytest tests/ -v --cov=src/hcode --cov-report=xml
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./coverage.xml
+          fail_ci_if_error: false
+
+  # ==========================================================================
+  # Build executables for all platforms
+  # ==========================================================================
+  build-executables:
+    name: Build ${{ matrix.os }}
+    needs: test
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux-x64
+            artifact: hcode
+          - os: macos-latest
+            platform: macos-x64
+            artifact: hcode
+          - os: macos-14
+            platform: macos-arm64
+            artifact: hcode
+          - os: windows-latest
+            platform: windows-x64
+            artifact: hcode.exe
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[build]"
+
+      - name: Build executable
+        run: |
+          python scripts/build_exe.py --no-archive
+
+      - name: Test executable
+        shell: bash
+        run: |
+          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+            ./dist/${{ matrix.platform }}/hcode.exe --version
+          else
+            ./dist/${{ matrix.platform }}/hcode --version
+          fi
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: hcode-${{ matrix.platform }}
+          path: dist/${{ matrix.platform }}/${{ matrix.artifact }}
+          if-no-files-found: error
+
+  # ==========================================================================
+  # Build Python package (wheel and sdist)
+  # ==========================================================================
+  build-package:
+    name: Build Python Package
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install build tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install build twine
+
+      - name: Build package
+        run: python -m build
+
+      - name: Check package
+        run: twine check dist/*
+
+      - name: Upload package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-package
+          path: dist/
+          if-no-files-found: error
+
+  # ==========================================================================
+  # Create GitHub Release
+  # ==========================================================================
+  create-release:
+    name: Create Release
+    needs: [build-executables, build-package]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+
+      - name: Get version
+        id: version
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "version=${{ inputs.version }}" >> $GITHUB_OUTPUT
+          else
+            echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Prepare release assets
+        run: |
+          mkdir -p release/
+          VERSION=${{ steps.version.outputs.version }}
+
+          # Package executables
+          cd artifacts/
+
+          # Linux
+          if [ -d "hcode-linux-x64" ]; then
+            chmod +x hcode-linux-x64/hcode
+            tar -czvf ../release/hcode-${VERSION}-linux-x64.tar.gz -C hcode-linux-x64 hcode
+          fi
+
+          # macOS x64
+          if [ -d "hcode-macos-x64" ]; then
+            chmod +x hcode-macos-x64/hcode
+            tar -czvf ../release/hcode-${VERSION}-macos-x64.tar.gz -C hcode-macos-x64 hcode
+          fi
+
+          # macOS ARM64
+          if [ -d "hcode-macos-arm64" ]; then
+            chmod +x hcode-macos-arm64/hcode
+            tar -czvf ../release/hcode-${VERSION}-macos-arm64.tar.gz -C hcode-macos-arm64 hcode
+          fi
+
+          # Windows
+          if [ -d "hcode-windows-x64" ]; then
+            cd hcode-windows-x64
+            zip ../../release/hcode-${VERSION}-windows-x64.zip hcode.exe
+            cd ..
+          fi
+
+          # Python package
+          if [ -d "python-package" ]; then
+            cp python-package/*.whl ../release/
+            cp python-package/*.tar.gz ../release/ 2>/dev/null || true
+          fi
+
+          cd ..
+          ls -la release/
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          cat << 'EOF' > RELEASE_NOTES.md
+          # HCode v${{ steps.version.outputs.version }}
+
+          ## Installation
+
+          ### Using pip (recommended)
+          ```bash
+          pip install hcode
+          ```
+
+          ### Using pipx
+          ```bash
+          pipx install hcode
+          ```
+
+          ### Standalone executables
+          Download the appropriate executable for your platform from the assets below.
+
+          #### Linux
+          ```bash
+          wget https://github.com/${{ github.repository }}/releases/download/v${{ steps.version.outputs.version }}/hcode-${{ steps.version.outputs.version }}-linux-x64.tar.gz
+          tar -xzf hcode-${{ steps.version.outputs.version }}-linux-x64.tar.gz
+          chmod +x hcode
+          sudo mv hcode /usr/local/bin/
+          ```
+
+          #### macOS
+          ```bash
+          # For Intel Macs
+          wget https://github.com/${{ github.repository }}/releases/download/v${{ steps.version.outputs.version }}/hcode-${{ steps.version.outputs.version }}-macos-x64.tar.gz
+          tar -xzf hcode-${{ steps.version.outputs.version }}-macos-x64.tar.gz
+
+          # For Apple Silicon
+          wget https://github.com/${{ github.repository }}/releases/download/v${{ steps.version.outputs.version }}/hcode-${{ steps.version.outputs.version }}-macos-arm64.tar.gz
+          tar -xzf hcode-${{ steps.version.outputs.version }}-macos-arm64.tar.gz
+
+          chmod +x hcode
+          mv hcode /usr/local/bin/
+          ```
+
+          #### Windows
+          Download `hcode-${{ steps.version.outputs.version }}-windows-x64.zip`, extract, and add to PATH.
+
+          ## Quick Start
+
+          ```bash
+          # Set up API key
+          export ANTHROPIC_API_KEY="your-key"
+          # or
+          export OPENAI_API_KEY="your-key"
+
+          # Initialize project config
+          hcode init
+
+          # Start interactive chat
+          hcode chat
+
+          # Run a single task
+          hcode run "add error handling to main.py"
+          ```
+
+          ## What's Changed
+
+          See the [full changelog](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) for details.
+
+          ---
+          **Full Changelog**: https://github.com/${{ github.repository }}/compare/v$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "0.0.0")...v${{ steps.version.outputs.version }}
+          EOF
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: HCode v${{ steps.version.outputs.version }}
+          body_path: RELEASE_NOTES.md
+          draft: false
+          prerelease: ${{ contains(steps.version.outputs.version, '-') }}
+          files: release/*
+          fail_on_unmatched_files: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ==========================================================================
+  # Publish to PyPI
+  # ==========================================================================
+  publish-pypi:
+    name: Publish to PyPI
+    needs: create-release
+    runs-on: ubuntu-latest
+    environment: pypi
+    steps:
+      - name: Download package
+        uses: actions/download-artifact@v4
+        with:
+          name: python-package
+          path: dist/
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          password: ${{ secrets.PYPI_API_TOKEN }}
+          skip-existing: true
+
+  # ==========================================================================
+  # Build and push Docker image (optional)
+  # ==========================================================================
+  build-docker:
+    name: Build Docker Image
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Get version
+        id: version
+        run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}:${{ steps.version.outputs.version }}
+            ghcr.io/${{ github.repository }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

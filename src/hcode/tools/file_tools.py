@@ -332,7 +332,7 @@ class EditTool(BaseTool):
     def _show_diff(self, file_path: str, old_content: str, new_content: str) -> str:
         """Generate and optionally display diff"""
         try:
-            from ..cli.styles import DiffDisplay, console as styled_console
+            from ..ui import DiffDisplay, console as styled_console
 
             # Use provided console or default
             display_console = self._console or styled_console
@@ -460,7 +460,7 @@ class MultiEditTool(BaseTool):
     def _show_diff(self, file_path: str, old_content: str, new_content: str) -> str:
         """Generate and optionally display diff"""
         try:
-            from ..cli.styles import DiffDisplay, console as styled_console
+            from ..ui import DiffDisplay, console as styled_console
 
             display_console = self._console or styled_console
 

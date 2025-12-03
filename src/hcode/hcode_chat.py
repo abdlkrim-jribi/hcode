@@ -33,17 +33,17 @@ from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
 from prompt_toolkit.completion import WordCompleter
 from prompt_toolkit.formatted_text import HTML
 
-from .core.enhanced_agent import EnhancedHcodeAgent
-from .providers import ProviderPreferences, TaskComplexity, TaskType
-from .utils.config import load_config
+from hcode.core import HcodeAgent
+from hcode.providers import ProviderPreferences, TaskComplexity, TaskType
+from hcode.utils.config import load_config
 
 # Import autonomous operation system
-from .agent.modes import AgentMode, get_mode_config, get_mode_description
-from .cli.autonomous_cli import AutonomousCLI, create_mode_status_line
-from .cli.shortcuts import ShortcutManager, ShortcutAction, setup_shortcuts_for_agent
+from hcode.agent.modes import AgentMode, get_mode_config, get_mode_description
+from hcode.cli.autonomous_cli import AutonomousCLI, create_mode_status_line
+from hcode.cli.shortcuts import ShortcutManager, ShortcutAction, setup_shortcuts_for_agent
 
-# Import styling system
-from .cli.styles import (
+# Import styling system (from ui module)
+from hcode.ui import (
     Colors,
     Icons,
     Lines,
@@ -274,7 +274,7 @@ class HcodeChat:
             cost_optimization=cost_opt
         )
 
-        self.agent = EnhancedHcodeAgent(
+        self.agent = HcodeAgent(
             anthropic_key=anthropic_key,
             openai_key=openai_key,
             openai_base_url=openai_base_url,
@@ -325,7 +325,7 @@ Remember:
 - All file paths should be relative to or within the workspace"""
 
     def show_banner(self):
-        """Display enhanced Hcode banner with styling"""
+        """Display Hcode banner with styling"""
         # Clear screen for fresh start
         self.console.clear()
 
@@ -493,8 +493,8 @@ Remember:
         if message.startswith("@workspace"):
             # Add workspace context
             workspace_info = await self.get_workspace_context()
-            enhanced_message = f"{workspace_info}\n\nUser request: {message[10:].strip()}"
-            return await self.execute_with_tools(enhanced_message)
+            context_message = f"{workspace_info}\n\nUser request: {message[10:].strip()}"
+            return await self.execute_with_tools(context_message)
 
         elif message.startswith("@file"):
             # Parse file reference
@@ -505,8 +505,8 @@ Remember:
 
                 # Read file and add to context
                 file_content = await self.read_file_content(file_path)
-                enhanced_message = f"File {file_path}:\n{file_content}\n\nUser request: {user_message}"
-                return await self.execute_with_tools(enhanced_message)
+                context_message = f"File {file_path}:\n{file_content}\n\nUser request: {user_message}"
+                return await self.execute_with_tools(context_message)
 
         elif message.startswith("@web"):
             # Perform web search
@@ -598,7 +598,7 @@ Remember:
         if is_continuation:
             task_message = self._enhance_continuation_message(message)
             if task_message != message:
-                self.console.print(f"[dim]📎 Enhanced continuation: {task_message[:100]}...[/dim]")
+                self.console.print(f"[dim]📎 Continuation context: {task_message[:100]}...[/dim]")
 
         # Execute task through agent
         response = await self.agent.execute_task(
@@ -758,7 +758,7 @@ Remember:
 
     async def update_todo_status(self):
         """Update todo status based on progress"""
-        # This would be enhanced with actual progress tracking
+        # TODO: Add actual progress tracking
         if self.todos and self.todos[0]["status"] == "pending":
             self.todos[0]["status"] = "in_progress"
             await self.agent.update_todos(self.todos)

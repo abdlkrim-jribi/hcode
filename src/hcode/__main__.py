@@ -14,7 +14,7 @@ import sys
 def main() -> int:
     """Main entry point for the hcode CLI."""
     try:
-        from hcode.cli_enhanced import main as cli_main
+        from hcode.main_cli import main as cli_main
         cli_main()
         return 0
     except KeyboardInterrupt:

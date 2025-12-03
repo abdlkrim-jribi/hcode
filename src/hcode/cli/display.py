@@ -19,8 +19,8 @@ from ..agent.thinking import ThinkingBlock, ThinkingPhase
 from ..agent.todo import TodoItem, TodoStatus
 from ..config.thinking import ThinkingVisibility
 
-# Import new styling system
-from .styles import (
+# Import UI system
+from ..ui import (
     Colors,
     Icons,
     StyledPanel,

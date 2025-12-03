@@ -6,9 +6,8 @@ Includes display, styling, and interactive features.
 
 from .display import AgentDisplay
 
-# Import styles submodule for easy access
-from . import styles
-from .styles import (
+# Import UI module (replaces old styles)
+from ..ui import (
     Colors,
     Icons,
     StyledPanel,
@@ -29,7 +28,6 @@ from .shortcuts import (
 
 __all__ = [
     'AgentDisplay',
-    'styles',
     'Colors',
     'Icons',
     'StyledPanel',

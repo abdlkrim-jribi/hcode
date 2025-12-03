@@ -391,7 +391,7 @@ class ParallelToolExecutor:
 
 class HcodeToolExecutor(ParallelToolExecutor):
     """
-    Hcode-specific tool executor with enhanced features.
+    Hcode-specific tool executor with full features.
 
     Additional features:
     - Tool call streaming

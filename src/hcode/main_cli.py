@@ -1,5 +1,5 @@
 """
-Enhanced CLI for Hcode with beautiful styling and all advanced features.
+HCode CLI - Command-line interface with beautiful styling and all features.
 """
 
 import click
@@ -8,10 +8,10 @@ import os
 import sys
 from pathlib import Path
 from dotenv import load_dotenv
-from rich.console import Console
 
 # Load environment variables from .env file
 load_dotenv()
+
 from rich.panel import Panel
 from rich.table import Table
 from rich.markdown import Markdown
@@ -27,68 +27,71 @@ from rich.text import Text
 # Install rich traceback for beautiful error messages
 install_rich_traceback(show_locals=True)
 
-from .core import EnhancedHcodeAgent
-from .providers import ProviderPreferences, TaskComplexity, TaskType
-from .utils.config import load_config
+from hcode.core import HcodeAgent
+from hcode.providers import ProviderPreferences, TaskComplexity, TaskType
+from hcode.utils.config import load_config
 
-console = Console()
+# Import UI theme system
+from hcode.ui import (
+    get_console,
+    get_palette,
+    get_theme,
+    set_theme,
+    ThemeMode,
+    create_banner,
+    Icons,
+)
+from hcode.ui.panels import (
+    UserMessagePanel,
+    AIMessagePanel,
+    ToolPanel,
+    ErrorPanel,
+    SuccessPanel,
+    InfoPanel,
+)
 
-# Beautiful banner
-BANNER = """
-[bold cyan]╦ ╦┌─┐┌─┐┌┬┐┌─┐[/bold cyan]
-[bold cyan]╠═╣│  │ │ ││├┤ [/bold cyan]
-[bold cyan]╩ ╩└─┘└─┘─┴┘└─┘[/bold cyan]
-[dim]Universal AI Coding Assistant[/dim]
-[dim]Claude + GPT · Tools · Agents[/dim]
-"""
+# Get themed console
+console = get_console()
 
-# Emoji shortcuts for status (Windows-safe)
-import platform
-IS_WINDOWS = platform.system() == "Windows"
+# Get icons instance (Windows-safe)
+icons = Icons()
 
+# Create progress with theme
 def create_progress(**kwargs):
-    """Create a Windows-safe Progress object"""
-    if IS_WINDOWS:
-        # Use simple progress without spinner on Windows
-        return Progress(
-            TextColumn("[progress.description]{task.description}"),
-            BarColumn(),
-            TaskProgressColumn(),
-            console=console,
-            **kwargs
-        )
-    else:
-        # Use full progress with spinner on Unix
-        return Progress(
-            SpinnerColumn(),
-            TextColumn("[progress.description]{task.description}"),
-            BarColumn(),
-            TaskProgressColumn(),
-            console=console,
-            **kwargs
-        )
+    """Create a themed Progress object"""
+    palette = get_palette()
+    return Progress(
+        SpinnerColumn(style=palette.primary),
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(complete_style=palette.primary, finished_style=palette.success),
+        TaskProgressColumn(),
+        console=console,
+        **kwargs
+    )
 
+# Emoji shortcuts using Icons (Windows-safe)
 EMOJI = {
-    "success": "+" if IS_WINDOWS else "✓",
-    "error": "X" if IS_WINDOWS else "✗",
-    "warning": "!" if IS_WINDOWS else "⚠",
-    "info": "i" if IS_WINDOWS else "ℹ",
-    "rocket": ">" if IS_WINDOWS else "🚀",
-    "robot": "[AI]" if IS_WINDOWS else "🤖",
-    "tool": "[T]" if IS_WINDOWS else "🔧",
-    "search": "?" if IS_WINDOWS else "🔍",
-    "fire": "*" if IS_WINDOWS else "🔥",
-    "sparkles": "*" if IS_WINDOWS else "✨",
-    "check": "+" if IS_WINDOWS else "✅",
-    "cross": "X" if IS_WINDOWS else "❌",
-    "clock": "T" if IS_WINDOWS else "⏱",
-    "money": "$" if IS_WINDOWS else "💰"
+    "success": icons.SUCCESS,
+    "error": icons.ERROR,
+    "warning": icons.WARNING,
+    "info": icons.INFO,
+    "rocket": icons.ROCKET,
+    "robot": icons.AI,
+    "tool": icons.GEAR,
+    "search": icons.SEARCH,
+    "fire": icons.LIGHTNING,
+    "sparkles": icons.SPARKLE,
+    "check": icons.SUCCESS,
+    "cross": icons.ERROR,
+    "clock": icons.LOADING,
+    "money": "$"  # No icon available
 }
 
 
 def show_banner():
-    """Display beautiful banner"""
-    console.print(Panel(BANNER, border_style="cyan", box=box.DOUBLE))
+    """Display beautiful themed banner"""
+    banner = create_banner()
+    console.print(banner)
 
 
 def show_welcome():
@@ -247,7 +250,7 @@ def run_task(task, provider, model, model_size, complexity, cost, session, strea
     with create_progress() as progress:
         init_task = progress.add_task("[cyan]Initializing agent...", total=100)
 
-        agent = EnhancedHcodeAgent(
+        agent = HcodeAgent(
             anthropic_key=anthropic_key,
             openai_key=openai_key,
             openai_base_url=openai_base_url,
@@ -340,35 +343,53 @@ def chat_mode(provider, session):
     config = load_config()
     anthropic_key = os.getenv("ANTHROPIC_API_KEY") or config.get("providers", {}).get("anthropic", {}).get("api_key")
     openai_key = os.getenv("OPENAI_API_KEY") or config.get("providers", {}).get("openai", {}).get("api_key")
+    openai_base_url = os.getenv("OPENAI_BASE_URL") or config.get("providers", {}).get("openai", {}).get("base_url")
+
+    # Get model configuration
+    anthropic_model = os.getenv("ANTHROPIC_MODEL") or config.get("providers", {}).get("anthropic", {}).get("default_model")
+    openai_model = os.getenv("OPENAI_MODEL") or config.get("providers", {}).get("openai", {}).get("default_model")
 
     if not anthropic_key and not openai_key:
         console.print("[red]No API keys found[/red]")
         sys.exit(1)
 
+    # Get provider preference from config if not specified
+    if provider == 'auto':
+        provider = config.get("preferences", {}).get("primary_provider", "auto")
+
     preferences = ProviderPreferences(primary_provider=provider)
-    agent = EnhancedHcodeAgent(
+    agent = HcodeAgent(
         anthropic_key=anthropic_key,
         openai_key=openai_key,
+        openai_base_url=openai_base_url,
+        anthropic_model=anthropic_model,
+        openai_model=openai_model,
         preferences=preferences,
-        session_id=session
+        session_id=session,
+        config=config
     )
 
-    console.print(Panel(
-        "[bold green]Interactive Chat Mode[/bold green]\n\n"
-        "💡 Tips:\n"
-        "  • Type naturally, Hcode understands context\n"
-        "  • Use /commands for special actions\n"
-        "  • Press Ctrl+C to interrupt, /exit to quit\n"
-        "  • Responses stream in real-time",
-        border_style="green"
-    ))
+    palette = get_palette()
+
+    # Show modern info panel for chat tips
+    info_panel = InfoPanel(
+        title="Interactive Chat Mode",
+        content=(
+            f"{icons.INFO} Tips:\n"
+            "  • Type naturally, Hcode understands context\n"
+            "  • Use /commands for special actions\n"
+            "  • Press Ctrl+C to interrupt, /exit to quit\n"
+            "  • Responses stream in real-time"
+        )
+    )
+    console.print(info_panel.render())
 
     message_count = 0
 
     while True:
         try:
-            # Beautiful prompt
-            user_input = console.input(f"\n[bold cyan]You [{message_count}]:[/bold cyan] ")
+            # Modern styled prompt
+            user_input = console.input(f"\n[bold {palette.primary}]{icons.USER} You [{message_count}]:[/bold {palette.primary}] ")
 
             if not user_input.strip():
                 continue
@@ -397,15 +418,17 @@ def chat_mode(provider, session):
 
                 elif command == 'stats':
                     stats = agent.get_session_stats()
-                    stats_panel = Panel(
-                        f"💰 Cost: [green]${stats['total_cost']:.4f}[/green]\n"
-                        f"💬 Messages: [yellow]{stats['context']['total_messages']}[/yellow]\n"
-                        f"{EMOJI['robot']} Provider: [cyan]{stats['provider']}[/cyan]\n"
-                        f"📝 Session: [dim]{stats['context']['session_id']}[/dim]",
-                        title="Statistics",
-                        border_style="blue"
+                    stats_content = (
+                        f"$ Cost: [{palette.success}]${stats['total_cost']:.4f}[/]\n"
+                        f"{icons.MESSAGE} Messages: [{palette.warning}]{stats['context']['total_messages']}[/]\n"
+                        f"{icons.AI} Provider: [{palette.info}]{stats['provider']}[/]\n"
+                        f"{icons.FILE} Session: [{palette.text_muted}]{stats['context']['session_id']}[/]"
                     )
-                    console.print(stats_panel)
+                    stats_panel = InfoPanel(
+                        title="Statistics",
+                        content=stats_content
+                    )
+                    console.print(stats_panel.render())
                     continue
 
                 elif command == 'clear':
@@ -420,8 +443,8 @@ def chat_mode(provider, session):
                     console.print(f"[green]{EMOJI['success']} Exported to {filename}[/green]")
                     continue
 
-            # Execute task
-            console.print(f"\n[bold green]Assistant [{message_count}]:[/bold green]\n")
+            # Execute task with modern assistant indicator
+            console.print(f"\n[bold {palette.success}]{icons.AI} Assistant [{message_count}]:[/bold {palette.success}]\n")
 
             result = asyncio.run(agent.execute_task(
                 task=user_input,
@@ -431,12 +454,16 @@ def chat_mode(provider, session):
             message_count += 1
 
         except KeyboardInterrupt:
-            console.print(f"\n[yellow]{EMOJI['warning']} Interrupted. Type /exit to quit or continue chatting.[/yellow]")
+            console.print(f"\n[{palette.warning}]{icons.WARNING} Interrupted. Type /exit to quit or continue chatting.[/{palette.warning}]")
             continue
         except EOFError:
             break
         except Exception as e:
-            console.print(f"[red]{EMOJI['cross']} Error: {str(e)}[/red]")
+            error_panel = ErrorPanel(
+                message=str(e),
+                error_type="Error"
+            )
+            console.print(error_panel.render())
 
 
 @cli.command(name='analyze', short_help='Analyze code')
@@ -467,7 +494,7 @@ def analyze_code(path, provider, deep):
     openai_key = os.getenv("OPENAI_API_KEY") or config.get("providers", {}).get("openai", {}).get("api_key")
 
     preferences = ProviderPreferences(primary_provider=provider)
-    agent = EnhancedHcodeAgent(
+    agent = HcodeAgent(
         anthropic_key=anthropic_key,
         openai_key=openai_key,
         preferences=preferences
@@ -512,7 +539,7 @@ def explore_codebase(query, thoroughness):
     anthropic_key = os.getenv("ANTHROPIC_API_KEY") or config.get("providers", {}).get("anthropic", {}).get("api_key")
     openai_key = os.getenv("OPENAI_API_KEY") or config.get("providers", {}).get("openai", {}).get("api_key")
 
-    agent = EnhancedHcodeAgent(
+    agent = HcodeAgent(
         anthropic_key=anthropic_key,
         openai_key=openai_key
     )
@@ -1056,7 +1083,7 @@ def debug_issue(error_description, provider):
         sys.exit(1)
 
     preferences = ProviderPreferences(primary_provider=provider)
-    agent = EnhancedHcodeAgent(
+    agent = HcodeAgent(
         anthropic_key=anthropic_key,
         openai_key=openai_key,
         preferences=preferences

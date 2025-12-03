@@ -12,7 +12,7 @@ from rich.text import Text
 from rich.table import Table
 
 from ..agent.modes import AgentMode, get_mode_config, get_mode_description
-from .styles import Colors, Icons, get_default_box
+from ..ui import Colors, Icons, get_default_box
 
 
 class AutonomousCLI:
