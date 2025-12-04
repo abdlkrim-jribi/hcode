@@ -511,6 +511,9 @@ def chat_mode(provider, session, show_todos, debug):
     # Create LIVE todo bar for REAL-TIME updates via callback system
     # This bar receives updates automatically when TodoWrite is called during execution
     live_todo_bar = LiveTodoBar(console=console, height=6)
+    
+    # Start LIVE todo bar for persistent Claude Code-style display
+    live_todo_bar.start()
 
     # Legacy persistent bar (kept for fallback)
     persistent_bar = PersistentStatusBar(console=console, height=6)
@@ -562,12 +565,8 @@ def chat_mode(provider, session, show_todos, debug):
 
     while True:
         try:
-            # Display todo status bar right before prompt IF not just shown after task
-            # This prevents duplicate bars
-            if reasoning_runner.todos and not todo_bar_just_shown:
-                display_todo_bar(force=True, compact=True)
-
-            # Reset flag - next loop iteration should show the bar
+            # LiveTodoBar now handles persistent display - no need to show before prompt
+            # Just reset the flag
             todo_bar_just_shown = False
 
             # Smart prompt with autocomplete (no extra spacing - todo bar already adds separator)
@@ -582,6 +581,9 @@ def chat_mode(provider, session, show_todos, debug):
 
                 if command in ["exit", "quit", "q"]:
                     if Confirm.ask("Exit chat?", default=True):
+                        # Stop LiveTodoBar gracefully
+                        if live_todo_bar.is_active:
+                            live_todo_bar.stop()
                         console.print("[yellow]👋 Goodbye![/yellow]")
                         break
                     continue
@@ -1063,11 +1065,10 @@ def chat_mode(provider, session, show_todos, debug):
                             todo["status"] = "in_progress"
                             break
 
-            # Display todo bar after task completion (Claude Code style)
+            # Update LiveTodoBar with latest todos (it will display persistently)
             if reasoning_runner.todos:
-                # Print static version (the live bar already showed real-time updates)
-                display_todo_bar(force=True, compact=True)
-                todo_bar_just_shown = True  # Prevent duplicate on next loop
+                live_todo_bar.update_todos(reasoning_runner.todos)
+                todo_bar_just_shown = True  # Mark as shown to avoid duplicates
 
             message_count += 1
 
@@ -1106,9 +1107,9 @@ def chat_mode(provider, session, show_todos, debug):
                         agent_todos = todowrite_tool.todo_manager.to_dict_list()
                         if agent_todos:
                             reasoning_runner.todos = [todo_to_dict(t) for t in agent_todos]
-                # Show todo bar after interrupt (Claude Code style)
+                # Update LiveTodoBar after interrupt (it shows persistently)
                 if reasoning_runner.todos:
-                    display_todo_bar(force=True, compact=True)
+                    live_todo_bar.update_todos(reasoning_runner.todos)
                     todo_bar_just_shown = True  # Prevent duplicate
             except Exception:
                 pass
