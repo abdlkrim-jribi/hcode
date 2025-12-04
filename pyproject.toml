@@ -65,7 +65,7 @@ build = [
 ]
 
 [project.scripts]
-hcode = "hcode.cli_enhanced:main"
+hcode = "hcode.main_cli:main"
 
 [project.urls]
 Homepage = "https://github.com/hcode-dev/hcode"
