@@ -1,0 +1,138 @@
+# File Operations Configuration
+# This file contains all file operation limits, encoding settings, and file patterns
+
+# File size and read limits
+limits:
+  max_file_size_bytes: 10485760    # 10MB maximum file size
+  max_lines_per_read: 2000         # Maximum lines to read at once
+  max_files_per_operation: 100     # Maximum files to process in one operation
+
+# Encoding settings
+encoding:
+  default: "utf-8"
+  fallbacks:
+    - "latin-1"
+    - "cp1252"
+    - "iso-8859-1"
+
+# Binary file extensions (organized by category)
+# Files with these extensions will be skipped during read operations
+binary_extensions:
+  executables:
+    - ".exe"
+    - ".dll"
+    - ".so"
+    - ".dylib"
+  
+  archives:
+    - ".zip"
+    - ".tar"
+    - ".gz"
+    - ".bz2"
+    - ".xz"
+    - ".rar"
+    - ".7z"
+  
+  images:
+    - ".jpg"
+    - ".jpeg"
+    - ".png"
+    - ".gif"
+    - ".bmp"
+    - ".ico"
+    - ".webp"
+    - ".svg"
+  
+  audio:
+    - ".mp3"
+    - ".wav"
+    - ".ogg"
+    - ".flac"
+    - ".aac"
+  
+  video:
+    - ".mp4"
+    - ".avi"
+    - ".mkv"
+    - ".mov"
+    - ".wmv"
+    - ".webm"
+  
+  documents:
+    - ".pdf"
+    - ".doc"
+    - ".docx"
+    - ".xls"
+    - ".xlsx"
+    - ".ppt"
+    - ".pptx"
+  
+  compiled:
+    - ".pyc"
+    - ".pyo"
+    - ".class"
+    - ".o"
+    - ".obj"
+  
+  fonts:
+    - ".woff"
+    - ".woff2"
+    - ".ttf"
+    - ".otf"
+    - ".eot"
+  
+  databases:
+    - ".db"
+    - ".sqlite"
+    - ".sqlite3"
+
+# File patterns to ignore during search operations (organized by category)
+ignored_patterns:
+  version_control:
+    - ".git"
+    - ".svn"
+    - ".hg"
+  
+  dependencies:
+    - "node_modules"
+    - ".venv"
+    - "venv"
+    - "env"
+  
+  python_cache:
+    - "__pycache__"
+    - ".pytest_cache"
+    - ".mypy_cache"
+    - ".tox"
+    - "*.pyc"
+    - "*.pyo"
+  
+  build_artifacts:
+    - "dist"
+    - "build"
+    - "*.egg-info"
+    - ".eggs"
+  
+  system:
+    - ".DS_Store"
+    - "Thumbs.db"
+  
+  env_files:
+    - ".env"
+
+# Additional file operation settings
+file_settings:
+  # Create backup before modifying files
+  create_backup: true
+  
+  # Backup directory (relative to file location)
+  backup_dir: ".hcode_backups"
+  
+  # Maximum number of backups to keep per file
+  max_backups_per_file: 5
+  
+  # Preserve file permissions when modifying
+  preserve_permissions: true
+  
+  # Follow symlinks
+  follow_symlinks: false

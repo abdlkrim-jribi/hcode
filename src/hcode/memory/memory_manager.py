@@ -3,17 +3,16 @@ Unified Memory Manager combining all three layers.
 Provides a single interface for the agent to interact with memory.
 """
 
-from pathlib import Path
-from typing import Optional, List, Dict, Any, Tuple
-from dataclasses import dataclass
-from datetime import datetime
 import hashlib
 import re
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Optional, List, Dict, Any, Tuple
 
-from .config import config, MemoryConfig
-from .file_memory import FileMemory
-from .session_memory import SessionMemory, Session
-from .semantic_memory import SemanticMemory, Memory, MemoryType
+from hcode.memory.config import MemoryConfig
+from hcode.memory.file_memory import FileMemory
+from hcode.memory.semantic_memory import SemanticMemory, Memory, MemoryType
+from hcode.memory.session_memory import SessionMemory, Session
 
 
 @dataclass

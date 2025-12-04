@@ -17,27 +17,19 @@ Features:
 
 import os
 import sys
-from typing import Optional, List, Dict, Any
-from dataclasses import dataclass
+from typing import Optional, Dict, Any
+
 from rich.console import Console
-from rich.panel import Panel
-from rich.text import Text
-from rich.syntax import Syntax
-from rich.rule import Rule
-from rich import box
 
 # Import output handler for smart truncation
-from ..core.output_handler import (
+from hcode.core.output_handler import (
     OutputHandler,
-    TruncatedOutput,
-    ExtractedError,
     ErrorSeverity,
     OutputType,
 )
-
 # Import new UI system
-from ..ui import Colors, Icons, get_palette, console as styled_console
-from ..ui.theme import get_palette as get_theme_palette
+from hcode.ui import Icons, console as styled_console
+from hcode.ui.theme import get_palette as get_theme_palette
 
 # Platform detection
 IS_WINDOWS = sys.platform == "win32"
@@ -243,9 +235,6 @@ class HcodeToolDisplay:
         - Smart preview for large files
         - Line numbers for context
         """
-        from rich.syntax import Syntax
-        from rich.panel import Panel
-        from rich import box
 
         lines = content.split("\n") if content else []
         total_lines = len(lines)
@@ -337,7 +326,6 @@ class HcodeToolDisplay:
         file_path = arguments.get("file_path", "unknown")
         old_string = arguments.get("old_string", "")
         new_string = arguments.get("new_string", "")
-        from pathlib import Path
 
         if result.success:
             # Calculate change statistics

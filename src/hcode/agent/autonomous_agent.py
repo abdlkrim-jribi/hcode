@@ -9,7 +9,7 @@ import asyncio
 from dataclasses import dataclass
 from typing import Any, Dict, Optional, AsyncGenerator, Callable
 
-from .autonomous import (
+from hcode.agent import (
     AutonomousEngine,
     ActionProposal,
     ExecutionDecision,
@@ -512,11 +512,13 @@ Generate a step-by-step plan with:
 Use TodoWrite to create the plan."""
 
         # Get plan from LLM
+        from hcode.config.defaults import get_agent_temperature
+        
         response = await self.llm_client.generate(
             prompt=plan_prompt,
             system=self._get_system_prompt(),
             tools=self.tool_manager.get_tool_schemas(),
-            temperature=0.5,
+            temperature=get_agent_temperature("autonomous"),
         )
 
         # Process any tool calls (like TodoWrite)

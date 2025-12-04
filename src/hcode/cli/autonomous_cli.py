@@ -5,13 +5,13 @@ Provides commands and UI for switching between agent modes.
 """
 
 from typing import Optional, Callable, Dict, Any
+
 from rich.console import Console
 from rich.panel import Panel
 from rich.text import Text
-from rich.table import Table
 
-from ..agent.modes import AgentMode, get_mode_config, get_mode_description
-from ..ui import Colors, Icons, get_default_box
+from hcode.agent.modes import AgentMode, get_mode_config
+from hcode.ui import Colors, Icons, get_default_box
 
 
 class AutonomousCLI:

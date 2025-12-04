@@ -13,8 +13,8 @@ import json
 import numpy as np
 from enum import Enum
 
-from .config import config
-from .embeddings import get_embedding_model_safe, cosine_similarity
+from hcode.memory.config import config
+from hcode.memory.embeddings import get_embedding_model_safe, cosine_similarity
 
 
 class MemoryType(Enum):

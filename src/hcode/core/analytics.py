@@ -10,14 +10,13 @@ Provides comprehensive analytics for:
 """
 
 import json
-import time
+import statistics
 from collections import defaultdict
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple
-import statistics
+from typing import Any, Dict, List, Optional, Tuple
 
 
 class MetricType(Enum):

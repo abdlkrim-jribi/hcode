@@ -12,46 +12,39 @@ This module provides a comprehensive thinking management system that integrates:
 Designed for maximum reasoning performance with GPT-OSS and other LLMs.
 """
 
-import time
-import uuid
 from dataclasses import dataclass, field
-from typing import Optional, List, Dict, Any, Callable, AsyncGenerator, Tuple, Union
 from datetime import datetime
 from enum import Enum
-import asyncio
+from typing import Optional, List, Dict, Any, Callable, AsyncGenerator, Tuple
 
-from .thinking import ThinkingBlock, ThinkingSession, ThinkingPhase
-from .reasoning import (
-    StructuredReasoning,
-    ReasoningParser,
-    ReasoningLevel,
-    ReasoningPhase as StructuredPhase,
-    ConfidenceCalibrator,
-    ReasoningToTodoIntegrator,
-    SelfCritiqueEngine,
-    ReasoningQualityMetrics,
-    DecisionOutput,
-    AnalysisOutput,
-    VerificationOutput,
-    ChangeImpactOutput,
-    PreExecutionReviewOutput,
-)
-from .feedback_loop import (
+from hcode.agent.feedback_loop import (
     ThinkingExecutionFeedbackLoop,
     ExecutionResult,
     ExecutionStatus,
     FeedbackEntry,
     ReasoningRevision,
 )
-from .todo import TodoManager, TodoItem, TodoStatus
-from ..config.thinking import ThinkingConfig, ThinkingMode, ThinkingVisibility
-from ..config.reasoning_prompts import (
+from hcode.agent.reasoning import (
+    StructuredReasoning,
+    ReasoningParser,
+    ReasoningLevel,
+    ConfidenceCalibrator,
+    ReasoningToTodoIntegrator,
+    SelfCritiqueEngine,
+    ReasoningQualityMetrics,
+    ChangeImpactOutput,
+    PreExecutionReviewOutput,
+)
+from hcode.agent.thinking import ThinkingBlock, ThinkingSession, ThinkingPhase
+from hcode.agent.todo import TodoManager
+from hcode.config.reasoning_prompts import (
     ReasoningPromptBuilder,
     ReasoningDepth,
     get_reasoning_system_prompt,
     detect_task_type,
     determine_reasoning_depth,
 )
+from hcode.config.thinking import ThinkingConfig
 
 
 class EnhancedThinkingMode(Enum):

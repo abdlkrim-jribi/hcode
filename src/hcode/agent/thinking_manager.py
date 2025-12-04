@@ -4,12 +4,11 @@ Thinking manager for coordinating extended reasoning.
 Integrates with LLM to generate thinking content and manages sessions.
 """
 
-from typing import Optional, List, Callable, AsyncGenerator, Dict, Any
-from datetime import datetime
 import time
+from typing import Optional, List, Callable, AsyncGenerator, Dict, Any
 
-from .thinking import ThinkingBlock, ThinkingSession, ThinkingPhase
-from ..config.thinking import ThinkingConfig, ThinkingVisibility
+from hcode.agent.thinking import ThinkingBlock, ThinkingSession, ThinkingPhase
+from hcode.config.thinking import ThinkingConfig, ThinkingVisibility
 
 
 class ThinkingManager:

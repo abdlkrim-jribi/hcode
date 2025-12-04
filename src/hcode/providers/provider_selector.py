@@ -7,9 +7,9 @@ from enum import Enum
 from typing import Optional, List, Dict, Any
 from dataclasses import dataclass
 
-from .base import AIProvider, ModelType
-from .anthropic_provider import AnthropicProvider
-from .openai_provider import OpenAIProvider
+from hcode.providers.base import AIProvider, ModelType
+from hcode.providers.anthropic_provider import AnthropicProvider
+from hcode.providers.openai_provider import OpenAIProvider
 
 
 class TaskComplexity(Enum):

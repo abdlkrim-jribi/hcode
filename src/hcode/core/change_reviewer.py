@@ -8,17 +8,15 @@ provide context-aware change analysis.
 
 import os
 from dataclasses import dataclass, field
-from pathlib import Path
-from typing import List, Optional, Dict, Any, Callable, Awaitable
 from datetime import datetime
 from enum import Enum
+from pathlib import Path
+from typing import List, Optional, Dict, Any, Callable, Awaitable
 
-from ..tools.diff_tools import (
+from hcode.tools.diff_tools import (
     ChangeProposal,
-    ChangeSet,
     ChangeOperation,
     ChangeStatus,
-    SafetyWarning,
 )
 
 

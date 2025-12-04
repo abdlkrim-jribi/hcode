@@ -4,12 +4,12 @@ TODO management system matching Claude Code exactly.
 Implements todo tracking, active form generation, and batch updates.
 """
 
+import re
+import uuid
 from dataclasses import dataclass, field
-from typing import List, Optional, Dict, Any, Callable
 from datetime import datetime
 from enum import Enum
-import uuid
-import re
+from typing import List, Optional, Dict, Any, Callable
 
 
 class TodoStatus(Enum):

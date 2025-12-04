@@ -13,9 +13,8 @@ Similar to Claude Code's output handling approach.
 
 import re
 from dataclasses import dataclass, field
-from typing import List, Dict, Optional, Tuple, Any, Iterator
 from enum import Enum
-from pathlib import Path
+from typing import List, Optional, Tuple
 
 
 class OutputType(Enum):

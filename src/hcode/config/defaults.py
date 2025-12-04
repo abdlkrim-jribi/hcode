@@ -332,3 +332,175 @@ def should_ignore_path(path: str) -> bool:
 
     path_obj = Path(path)
     return any(ignored in path_obj.parts or path_obj.match(ignored) for ignored in IGNORED_PATTERNS)
+
+
+# ============================================================================
+# Configuration-aware helper functions
+# These functions load values from configuration files instead of hardcoded constants
+# ============================================================================
+
+def get_agent_temperature(agent_type: str = "default") -> float:
+    """
+    Get temperature setting for a specific agent type.
+    
+    Args:
+        agent_type: Agent type (default, exploration, focused, autonomous, coding)
+    
+    Returns:
+        Temperature value from configuration
+    """
+    try:
+        from hcode.config.loader import load_enhanced_settings
+        settings = load_enhanced_settings()
+        
+        temp_map = {
+            "default": settings.agent_behavior.temperature_default,
+            "exploration": settings.agent_behavior.temperature_exploration,
+            "focused": settings.agent_behavior.temperature_focused,
+            "autonomous": settings.agent_behavior.temperature_autonomous,
+            "coding": settings.agent_behavior.temperature_coding,
+        }
+        
+        return temp_map.get(agent_type, settings.agent_behavior.temperature_default)
+    except Exception:
+        # Fallback to hardcoded default if config loading fails
+        return DEFAULT_TEMPERATURE
+
+
+def get_agent_max_tokens(mode: str = "default") -> int:
+    """
+    Get max tokens setting for a specific mode.
+    
+    Args:
+        mode: Mode (default, quick, medium, deep, focused, comprehensive, provider_max)
+    
+    Returns:
+        Max tokens value from configuration
+    """
+    try:
+        from hcode.config.loader import load_enhanced_settings
+        settings = load_enhanced_settings()
+        
+        token_map = {
+            "default": settings.agent_behavior.max_tokens_default,
+            "quick": settings.agent_behavior.max_tokens_thinking_quick,
+            "medium": settings.agent_behavior.max_tokens_thinking_medium,
+            "deep": settings.agent_behavior.max_tokens_thinking_deep,
+            "focused": settings.agent_behavior.max_tokens_thinking_focused,
+            "comprehensive": settings.agent_behavior.max_tokens_thinking_comprehensive,
+            "provider_max": settings.agent_behavior.max_tokens_provider_max,
+        }
+        
+        return token_map.get(mode, settings.agent_behavior.max_tokens_default)
+    except Exception:
+        # Fallback to hardcoded default if config loading fails
+        return DEFAULT_MAX_TOKENS
+
+
+def get_dangerous_commands() -> list[str]:
+    """
+    Get list of dangerous commands from configuration.
+    
+    Returns:
+        List of dangerous command patterns
+    """
+    try:
+        from hcode.config.loader import load_enhanced_settings
+        settings = load_enhanced_settings()
+        return settings.safety.get_all_dangerous_commands()
+    except Exception:
+        # Fallback to hardcoded list if config loading fails
+        return DANGEROUS_COMMANDS
+
+
+def get_confirmation_patterns() -> list[str]:
+    """
+    Get list of confirmation required patterns from configuration.
+    
+    Returns:
+        List of command patterns requiring confirmation
+    """
+    try:
+        from hcode.config.loader import load_enhanced_settings
+        settings = load_enhanced_settings()
+        return settings.safety.get_all_confirmation_patterns()
+    except Exception:
+        # Fallback to hardcoded list if config loading fails
+        return CONFIRMATION_REQUIRED_PATTERNS
+
+
+def get_ignored_patterns() -> list[str]:
+    """
+    Get list of ignored file patterns from configuration.
+    
+    Returns:
+        List of file patterns to ignore
+    """
+    try:
+        from hcode.config.loader import load_enhanced_settings
+        settings = load_enhanced_settings()
+        return settings.file_operations.get_all_ignored_patterns()
+    except Exception:
+        # Fallback to hardcoded list if config loading fails
+        return IGNORED_PATTERNS
+
+
+def get_binary_extensions() -> list[str]:
+    """
+    Get list of binary file extensions from configuration.
+    
+    Returns:
+        List of binary file extensions
+    """
+    try:
+        from hcode.config.loader import load_enhanced_settings
+        settings = load_enhanced_settings()
+        return settings.file_operations.get_all_binary_extensions()
+    except Exception:
+        # Fallback to hardcoded set if config loading fails
+        return list(BINARY_EXTENSIONS)
+
+
+def get_max_file_size() -> int:
+    """
+    Get maximum file size from configuration.
+    
+    Returns:
+        Maximum file size in bytes
+    """
+    try:
+        from hcode.config.loader import load_enhanced_settings
+        settings = load_enhanced_settings()
+        return settings.file_operations.max_file_size_bytes
+    except Exception:
+        return MAX_FILE_SIZE_BYTES
+
+
+def get_max_lines_per_read() -> int:
+    """
+    Get maximum lines per read from configuration.
+    
+    Returns:
+        Maximum lines to read at once
+    """
+    try:
+        from hcode.config.loader import load_enhanced_settings
+        settings = load_enhanced_settings()
+        return settings.file_operations.max_lines_per_read
+    except Exception:
+        return MAX_LINES_PER_READ
+
+
+def get_context_buffer_tokens() -> int:
+    """
+    Get context buffer tokens from configuration.
+    
+    Returns:
+        Number of tokens to reserve for response buffer
+    """
+    try:
+        from hcode.config.loader import load_enhanced_settings
+        settings = load_enhanced_settings()
+        return settings.context.buffer_tokens
+    except Exception:
+        return CONTEXT_BUFFER_TOKENS

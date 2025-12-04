@@ -4,12 +4,12 @@ Specialized agents for different types of tasks (Explore, Plan, etc.).
 """
 
 import asyncio
-from typing import Dict, Any, Optional, List
-from enum import Enum
 from dataclasses import dataclass
+from enum import Enum
+from typing import Dict, Any, Optional, List
 
-from ..providers import AIProvider, Message, ProviderSelector
-from ..tools.base_tool import ToolRegistry, ToolResult
+from hcode.providers import AIProvider, Message, ProviderSelector
+from hcode.tools.base_tool import ToolRegistry
 
 
 class HcodeAgentType(Enum):

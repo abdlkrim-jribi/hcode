@@ -11,15 +11,15 @@ This module provides structured reasoning capabilities including:
 Designed for maximum performance with GPT-OSS and other LLMs.
 """
 
-import re
 import json
+import re
+import statistics
 import uuid
+from collections import deque
 from dataclasses import dataclass, field
-from typing import List, Dict, Optional, Any, Tuple, Callable
 from datetime import datetime
 from enum import Enum
-from collections import deque
-import statistics
+from typing import List, Dict, Optional, Any, Tuple
 
 
 class ReasoningLevel(Enum):

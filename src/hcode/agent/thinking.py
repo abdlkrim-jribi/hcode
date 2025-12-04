@@ -4,11 +4,11 @@ Thinking blocks and session management for extended reasoning.
 Matches Claude Code's thinking block structure and display.
 """
 
+import uuid
 from dataclasses import dataclass, field
-from typing import List, Dict, Optional, Any
 from datetime import datetime
 from enum import Enum
-import uuid
+from typing import List, Dict, Optional, Any
 
 
 class ThinkingPhase(Enum):

@@ -6,58 +6,47 @@ Integrates all features: tools, sub-agents, web capabilities, interactive featur
 import asyncio
 from pathlib import Path
 from typing import Optional, Dict, Any, List
+
 from rich.console import Console
 
+from .analytics import (
+    get_analytics,
+)
+from .context import ContextManager
+# Import optimization components
+from .optimizations import (
+    ToolResultCache,
+    ExecutionStateMachine,
+    ExecutionState,
+    get_token_counter,
+)
+from .safety import SafetyGuard
+from ..agents import HcodeAgentOrchestrator, HcodeAgentType
+from ..providers import (
+    ProviderSelector,
+    ProviderPreferences,
+    TaskComplexity,
+    TaskType,
+    AIProvider,
+)
+from ..tools import ToolManager
 # Import modern UI system
 from ..ui import (
     get_console as get_themed_console,
     get_palette,
     Icons,
 )
-from ..ui.panels import (
-    ToolPanel,
-    ErrorPanel,
-    SuccessPanel,
-    AIMessagePanel,
-)
-
-from ..providers import (
-    ProviderSelector,
-    ProviderPreferences,
-    TaskComplexity,
-    TaskType,
-    Message,
-    AIProvider,
-)
-from ..tools import ToolManager, ToolExecutionContext
-from ..agents import HcodeAgentOrchestrator, HcodeAgentType
-from .context import ContextManager
-from .safety import SafetyGuard
-
-# Import optimization components
-from .optimizations import (
-    CachedTokenCounter,
-    ToolResultCache,
-    ParallelToolExecutor,
-    ExecutionStateMachine,
-    ExecutionState,
-    get_token_counter,
-)
-from .analytics import (
-    ExecutionAnalytics,
-    get_analytics,
-)
 
 # Import memory system
 try:
-    from ..memory import MemoryManager, get_memory_manager
+    from hcode.memory import MemoryManager, get_memory_manager
 
     MEMORY_AVAILABLE = True
 except ImportError:
     MEMORY_AVAILABLE = False
 
 # Import interaction logger
-from .interaction_logger import get_logger, InteractionLogger
+from hcode.core.interaction_logger import get_logger, InteractionLogger
 
 # Thinking block parser
 import re
@@ -334,7 +323,6 @@ def format_thinking_display(
     """
     from rich.panel import Panel
     from rich.text import Text
-    from rich.table import Table
 
     # Get themed colors
     palette = get_palette()
@@ -940,8 +928,6 @@ When the user says things like "yes", "proceed", "continue", "do it", "ok", or s
         - Too many consecutive errors occur (circuit breaker)
         - Model is stuck in a loop (same response repeated)
         """
-        import json
-        import traceback
 
         # Get tool schemas from external config (Claude Code style)
         from ..config.tools import get_tools_config
@@ -2804,9 +2790,6 @@ Please review and decide:
         Returns:
             Formatted summary string
         """
-        from rich.panel import Panel
-        from rich.text import Text
-        from io import StringIO
 
         if not completed_actions:
             return ""
@@ -3456,7 +3439,6 @@ What tool will you call?"""
     def _extract_tool_calls(self, raw_response, response_text: str, provider_name: str) -> list:
         """Extract tool calls from response - handles native API tool calls and text-based JSON"""
         import json
-        import re
 
         tool_calls = []
 
@@ -4265,7 +4247,6 @@ What tool will you call?"""
             List of (tool_name, result, arguments) tuples
         """
         import asyncio
-        from ..tools.tool_manager import ToolExecutionContext
         from ..tools.base_tool import ToolResult
 
         # Transient error patterns that warrant a retry
@@ -4409,7 +4390,6 @@ What tool will you call?"""
         Returns:
             A string key representing the command
         """
-        import hashlib
         import json
 
         tool_lower = tool_name.lower().replace("tool", "")
@@ -4440,11 +4420,6 @@ What tool will you call?"""
         - For new files: shows full content with + prefix (green)
         - For edits: shows removed lines (-) and added lines (+)
         """
-        from rich.panel import Panel
-        from rich.text import Text
-        from rich.syntax import Syntax
-        from rich.table import Table
-        from rich import box
         from pathlib import Path
 
         palette = self._palette
@@ -4564,8 +4539,6 @@ What tool will you call?"""
         - Other tools: Show appropriate preview
         """
         from ..cli.tool_display import HcodeToolDisplay
-        from rich.panel import Panel
-        from rich import box
 
         # Special handling for TodoWrite - skip display here
         # The main_cli.py handles todo display with its own todo bar

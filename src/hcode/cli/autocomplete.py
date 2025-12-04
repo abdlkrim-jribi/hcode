@@ -8,26 +8,25 @@ Provides intelligent command and text completion with:
 - Smart phrase completion
 """
 
-from typing import List, Optional, Dict, Any, Callable, Iterable
+import os
+import re
 from dataclasses import dataclass, field
+from pathlib import Path
+from typing import List, Optional, Dict, Iterable
+
 from prompt_toolkit import PromptSession
+from prompt_toolkit.auto_suggest import AutoSuggestFromHistory, Suggestion
 from prompt_toolkit.completion import (
     Completer,
     Completion,
-    WordCompleter,
-    FuzzyCompleter,
     merge_completers,
 )
+from prompt_toolkit.document import Document
+from prompt_toolkit.formatted_text import HTML, FormattedText
 from prompt_toolkit.history import FileHistory, InMemoryHistory
-from prompt_toolkit.auto_suggest import AutoSuggestFromHistory, Suggestion
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.keys import Keys
 from prompt_toolkit.styles import Style
-from prompt_toolkit.formatted_text import HTML, FormattedText
-from prompt_toolkit.document import Document
-from pathlib import Path
-import os
-import re
 
 
 # ═══════════════════════════════════════════════════════════════════════

@@ -4,11 +4,11 @@ Agent operation modes matching Claude Code behavior.
 Defines modes, safety configuration, and confirmation levels.
 """
 
-import re
 import os
-from enum import Enum
+import re
 from dataclasses import dataclass, field
-from typing import List, Set, Dict, Any, Optional
+from enum import Enum
+from typing import List, Set, Dict
 
 
 class AgentMode(Enum):

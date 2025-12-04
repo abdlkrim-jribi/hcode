@@ -3,15 +3,15 @@ ContextManager for Hcode.
 Manages conversation history, context windows, and session persistence.
 """
 
-import os
 import json
+import os
 import sqlite3
-from pathlib import Path
-from typing import List, Dict, Optional, Any
-from datetime import datetime
 from dataclasses import dataclass, asdict
+from datetime import datetime
+from pathlib import Path
+from typing import List, Dict, Optional
 
-from ..providers import Message, AIProvider
+from hcode.providers import Message, AIProvider
 
 
 @dataclass

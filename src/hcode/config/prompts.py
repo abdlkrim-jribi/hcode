@@ -7,11 +7,12 @@ AI behavior without modifying code.
 """
 
 import os
-import yaml
-from pathlib import Path
-from typing import Dict, Any, Optional, List
 from dataclasses import dataclass, field
 from functools import lru_cache
+from pathlib import Path
+from typing import Dict, Any, Optional, List
+
+import yaml
 
 
 @dataclass

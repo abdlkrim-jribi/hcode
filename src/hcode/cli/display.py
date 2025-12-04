@@ -15,11 +15,11 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
-from ..agent.thinking import ThinkingBlock
-from ..agent.todo import TodoItem, TodoStatus
-from ..config.thinking import ThinkingVisibility
+from hcode.agent.thinking import ThinkingBlock
+from hcode.agent.todo import TodoItem, TodoStatus
+from hcode.config.thinking import ThinkingVisibility
 # Import UI system
-from ..ui import (
+from hcode.ui import (
     Colors,
     Icons,
     get_default_box,

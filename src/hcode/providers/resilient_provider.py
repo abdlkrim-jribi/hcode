@@ -24,11 +24,9 @@ from typing import (
     Dict,
     List,
     Optional,
-    Tuple,
-    TypeVar,
 )
 
-from .base import AIProvider, CompletionResponse, Message, Usage
+from hcode.providers.base import AIProvider, CompletionResponse, Message
 
 
 class ProviderHealth(Enum):

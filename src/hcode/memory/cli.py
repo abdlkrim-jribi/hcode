@@ -4,16 +4,14 @@ Provides commands for managing all three memory layers.
 """
 
 import argparse
-from pathlib import Path
-from typing import Optional
-import json
 import sys
+from pathlib import Path
 
-from .config import config
-from .file_memory import FileMemory
-from .session_memory import SessionMemory
-from .semantic_memory import SemanticMemory, MemoryType
-from .memory_manager import MemoryManager
+from hcode.memory.config import config
+from hcode.memory.file_memory import FileMemory
+from hcode.memory.memory_manager import MemoryManager
+from hcode.memory.semantic_memory import SemanticMemory, MemoryType
+from hcode.memory.session_memory import SessionMemory
 
 
 def cmd_init(args):

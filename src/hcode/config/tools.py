@@ -6,10 +6,11 @@ to match Hcode tool specifications exactly.
 """
 
 import os
-import yaml
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Any, Optional, List
-from dataclasses import dataclass
+
+import yaml
 
 
 @dataclass

@@ -4,17 +4,15 @@ Handles all file system operations including read, write, search, and Git integr
 """
 
 import os
-import shutil
-import glob
 import re
+import shutil
 from pathlib import Path
-from typing import List, Dict, Optional, Set
+from typing import List, Dict, Optional
+
 import aiofiles
-import asyncio
-from git import Repo, InvalidGitRepositoryError
-from watchdog.observers import Observer
-from watchdog.events import FileSystemEventHandler
 import pathspec
+from git import Repo, InvalidGitRepositoryError
+from watchdog.events import FileSystemEventHandler
 
 
 class FileSystemManager:

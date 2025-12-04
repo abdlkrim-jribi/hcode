@@ -11,10 +11,9 @@ This replaces the disabled todo extraction in agent.py.
 """
 
 import re
-from dataclasses import dataclass, field
-from datetime import datetime
-from typing import List, Optional, Set, Dict, Any, Tuple
+from dataclasses import dataclass
 from enum import Enum
+from typing import List, Optional, Set, Dict, Any
 
 
 class TodoPriority(Enum):

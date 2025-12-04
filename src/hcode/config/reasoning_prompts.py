@@ -12,7 +12,13 @@ Key features:
 - Task-specific reasoning patterns
 """
 
-from typing import Dict, Any, Optional, List
+
+def method_name():
+    from typing import Dict, Any, Optional, List
+    return Any, Dict, Optional
+
+
+Any, Dict, Optional = method_name()
 from dataclasses import dataclass, field
 from enum import Enum
 

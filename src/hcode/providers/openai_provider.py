@@ -5,12 +5,12 @@ Supports GPT-4, GPT-4-Turbo, and GPT-3.5 models with function calling.
 
 import os
 from typing import List, AsyncIterator, Dict, Any, Optional
-from openai import AsyncOpenAI, APIConnectionError, APITimeoutError, RateLimitError, APIStatusError
+
 import httpx
 import tiktoken
+from hcode.providers.base import AIProvider, Message, Usage, CompletionResponse
+from openai import AsyncOpenAI, APIConnectionError, APITimeoutError, RateLimitError, APIStatusError
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
-
-from .base import AIProvider, Message, Usage, CompletionResponse
 
 
 class LLMConnectionError(Exception):

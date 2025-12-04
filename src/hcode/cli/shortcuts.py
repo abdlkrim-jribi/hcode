@@ -4,9 +4,9 @@ Keyboard shortcuts for Hcode CLI.
 Provides keyboard shortcut handling for common operations.
 """
 
-from typing import Optional, Callable, Dict, Any, List
 from dataclasses import dataclass
 from enum import Enum
+from typing import Optional, Callable, Dict, Any, List
 
 
 class ShortcutAction(Enum):

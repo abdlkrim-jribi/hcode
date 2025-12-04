@@ -5,8 +5,8 @@ Matches Claude Code's thinking behavior for complex tasks.
 """
 
 from dataclasses import dataclass, field
-from typing import List
 from enum import Enum
+from typing import List
 
 
 class ThinkingMode(Enum):

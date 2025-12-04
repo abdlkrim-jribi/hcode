@@ -12,16 +12,14 @@ Features:
 - Query interface for analysis
 """
 
-import os
+import gzip
 import json
-import time
+import shutil
+import threading
+from dataclasses import dataclass, field, asdict
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any, List, Optional
-from dataclasses import dataclass, field, asdict
-import threading
-import gzip
-import shutil
 
 
 @dataclass

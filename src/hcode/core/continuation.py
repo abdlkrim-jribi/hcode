@@ -8,10 +8,9 @@ Handles long outputs by automatically continuing generation when:
 Similar to Claude Code's seamless long-form generation.
 """
 
-import asyncio
-from typing import Optional, List, Dict, Any, Tuple
 from dataclasses import dataclass
 from enum import Enum
+from typing import Optional, List, Dict, Any
 
 
 class FinishReason(Enum):

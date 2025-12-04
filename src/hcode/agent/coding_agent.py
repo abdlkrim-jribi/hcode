@@ -264,11 +264,13 @@ Remember: Think → Plan → Act → Observe → Update → Repeat"""
         prompt = self._build_action_prompt(ctx)
 
         # Get LLM response
+        from hcode.config.defaults import get_agent_temperature
+        
         response = await self.llm_client.generate(
             prompt=prompt,
             system=self.SYSTEM_PROMPT,
             tools=self.tool_manager.get_tool_schemas(),
-            temperature=0.7,
+            temperature=get_agent_temperature("coding"),
         )
 
         # Parse response into action

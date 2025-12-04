@@ -3,14 +3,14 @@ SafetyGuard for Hcode.
 Provides backup, rollback, and safety checks for file operations.
 """
 
+import hashlib
+import json
 import os
 import shutil
-import json
 import time
-from pathlib import Path
-from typing import Dict, List, Optional, Set
 from datetime import datetime
-import hashlib
+from pathlib import Path
+from typing import Dict, List, Optional
 
 
 class SafetyGuard:

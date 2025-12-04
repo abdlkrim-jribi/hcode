@@ -3,12 +3,11 @@ Layer 1: File-based memory using markdown files.
 Mirrors Claude Code's hcode.md approach with hierarchical loading.
 """
 
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional, List, Dict
-from dataclasses import dataclass
-import os
 
-from .config import config
+from hcode.memory.config import config
 
 
 @dataclass

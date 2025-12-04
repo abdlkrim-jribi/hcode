@@ -3,13 +3,12 @@ Local embedding generation using sentence-transformers.
 No external API calls required - runs entirely locally.
 """
 
-from typing import List, Optional, Union
-import numpy as np
-from pathlib import Path
 import hashlib
 import json
+from typing import List, Optional, Union
 
-from .config import config
+import numpy as np
+from hcode.memory.config import config
 
 
 class EmbeddingModel:

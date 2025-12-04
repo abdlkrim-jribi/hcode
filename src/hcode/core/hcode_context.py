@@ -4,14 +4,11 @@ Manages conversation context, session state, and memory.
 """
 
 import json
-import os
-from pathlib import Path
-from typing import Dict, List, Any, Optional, Tuple
-from dataclasses import dataclass, field, asdict
-from datetime import datetime
-from collections import deque
-import pickle
 import uuid
+from dataclasses import dataclass, field
+from datetime import datetime
+from pathlib import Path
+from typing import Dict, List, Any, Optional
 
 
 @dataclass

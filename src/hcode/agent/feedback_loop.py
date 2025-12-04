@@ -12,14 +12,12 @@ Designed for continuous learning and adaptation during task execution.
 
 import uuid
 from dataclasses import dataclass, field
-from typing import List, Dict, Optional, Any, Callable, Tuple
 from datetime import datetime
 from enum import Enum
-import statistics
+from typing import List, Dict, Optional, Any, Callable, Tuple
 
-from .reasoning import (
+from hcode.agent.reasoning import (
     StructuredReasoning,
-    ReasoningPhase,
     ReasoningParser,
     ConfidenceCalibrator,
     ReasoningQualityMetrics,

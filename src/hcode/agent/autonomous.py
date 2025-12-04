@@ -10,7 +10,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Optional, List, Dict, Any, Callable, Tuple
 
-from .modes import AgentMode, SafetyConfig, get_mode_config
+from hcode.agent import SafetyConfig, AgentMode, get_mode_config
 
 
 class ExecutionDecision(Enum):
