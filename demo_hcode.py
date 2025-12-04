@@ -48,6 +48,9 @@ async def demo():
     7. Generates todos from a sample high‑level task.
     8. Prints a completion banner.
 
+    Args:
+        None
+
     Returns:
         bool: ``True`` if the demonstration completes successfully.
     """

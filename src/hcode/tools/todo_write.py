@@ -112,6 +112,16 @@ Completion rules:
         self.name = "TodoWrite"  # Override default name
         self.todo_manager = todo_manager or TodoManager()
 
+    @property
+    def todos(self) -> List[Dict[str, Any]]:
+        """
+        Get todos as a list of dicts (compatibility property).
+
+        Returns:
+            List of todo dictionaries
+        """
+        return self.todo_manager.to_dict_list()
+
     def get_parameters(self) -> List[ToolParameter]:
         """Get tool parameters"""
         return [

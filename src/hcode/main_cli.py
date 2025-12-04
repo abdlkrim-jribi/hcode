@@ -63,6 +63,10 @@ from hcode.ui.todo_display import (
     render_todo_panel,
     render_todo_status_line,
     PersistentTodoDisplay,
+    ClaudeCodeTodoDisplay,
+    print_claude_code_todos,
+    PersistentStatusBar,
+    update_persistent_todos,
 )
 # Import reasoning components for automatic todo extraction
 from hcode.core.agent import parse_thinking_block
@@ -460,15 +464,24 @@ def chat_mode(provider, session, show_todos, debug):
 
     message_count = 0
     todo_bar_just_shown = False  # Track to avoid duplicate displays
+    task_start_time = None  # Track when task started for elapsed time
+
+    # Create Claude Code style todo display
+    claude_todo_display = ClaudeCodeTodoDisplay(console=console)
+
+    # Create persistent status bar for real-time todo updates
+    persistent_bar = PersistentStatusBar(console=console, height=6)
 
     # Function to display todo status bar - Claude Code style at bottom
-    def display_todo_bar(force=False, compact=True, show_empty=False):
+    def display_todo_bar(force=False, compact=True, show_empty=False, elapsed_seconds=0, token_count=0):
         """Display the todo progress bar in Claude Code style.
 
         Args:
             force: If True, show even if show_todos is disabled
-            compact: If True, show as single-line status bar (Claude Code style)
+            compact: If True, show as Claude Code style (always used now)
             show_empty: If True, show a minimal bar even when no todos
+            elapsed_seconds: Time elapsed for current task
+            token_count: Number of tokens used
         """
         if not (reasoning_runner.show_todos or force):
             return
@@ -479,68 +492,16 @@ def chat_mode(provider, session, show_todos, debug):
                 console.print(f"[dim]─── {icons.GEAR} No tasks ───[/dim]")
             return
 
-        # Calculate progress
-        total = len(reasoning_runner.todos)
-        completed = sum(1 for t in reasoning_runner.todos if t.get("status") == "completed")
-
-        # Get current task
-        current_task = next(
-            (t.get("activeForm", t.get("content", "")) for t in reasoning_runner.todos if t.get("status") == "in_progress"),
-            None
+        # Claude Code style display
+        console.print()
+        print_claude_code_todos(
+            todos=reasoning_runner.todos,
+            console=console,
+            elapsed_seconds=elapsed_seconds,
+            token_count=token_count,
+            show_shortcuts=compact  # Show shortcuts in compact mode
         )
-
-        if compact:
-            # Claude Code style: persistent-looking status bar at bottom
-            # ╭──────────────────────────────────────────────────────────────────────────────────╮
-            # │ ████████░░░░░░░░░░░░ 2/5 tasks • Running tests                                  │
-            # ╰──────────────────────────────────────────────────────────────────────────────────╯
-            bar_width = 20
-            filled = int((completed / total) * bar_width) if total > 0 else 0
-            bar = f"[{palette.success}]{'█' * filled}[/][dim]{'░' * (bar_width - filled)}[/dim]"
-
-            # Build compact status line
-            status_parts = [f"{icons.GEAR}", bar, f"[bold white]{completed}/{total}[/bold white]"]
-            if current_task:
-                # Truncate if too long
-                max_task_len = 45
-                if len(current_task) > max_task_len:
-                    current_task = current_task[:max_task_len-3] + "..."
-                status_parts.append(f"[{palette.info}]│ {icons.LOADING} {current_task}[/]")
-
-            status_line = " ".join(status_parts)
-
-            # Print in a mini-box for visual persistence
-            console.print()
-            console.print(f"[{palette.border_default}]╭{'─' * 78}╮[/]")
-            console.print(f"[{palette.border_default}]│[/] {status_line}")
-            console.print(f"[{palette.border_default}]╰{'─' * 78}╯[/]")
-        else:
-            # Full panel style (for /todo command)
-            bar_width = 30
-            filled = int((completed / total) * bar_width) if total > 0 else 0
-            bar = f"[{palette.success}]{'█' * filled}[/][{palette.text_muted}]{'░' * (bar_width - filled)}[/]"
-
-            # Build full todo list
-            lines = []
-            for i, todo in enumerate(reasoning_runner.todos, 1):
-                status = todo.get('status', 'pending')
-                content = todo.get('content', '')
-                if status == 'completed':
-                    lines.append(f"  [{palette.success}]✓[/] [dim strikethrough]{content}[/dim strikethrough]")
-                elif status == 'in_progress':
-                    lines.append(f"  [{palette.info}]▸[/] [bold {palette.info}]{content}[/bold {palette.info}]")
-                else:
-                    lines.append(f"  [{palette.text_muted}]○[/] {content}")
-
-            content = "\n".join(lines)
-            content += f"\n\n  {bar} {completed}/{total} completed"
-
-            console.print(Panel(
-                content,
-                title=f"[bold {palette.primary}]{icons.GEAR} Tasks[/]",
-                border_style=palette.border_default,
-                box=box.ROUNDED
-            ))
+        console.print()  # Extra line for spacing
 
     # Helper function to convert Todo objects to dicts (needs to be outside loop)
     def todo_to_dict(todo):
@@ -589,9 +550,16 @@ def chat_mode(provider, session, show_todos, debug):
                     continue
 
                 elif command == 'todo':
-                    # Show full todo panel
+                    # Show full todo panel in Claude Code style
                     if reasoning_runner.todos:
-                        display_todo_bar(force=True, compact=False)
+                        # Show Claude Code style with all details
+                        print_claude_code_todos(
+                            todos=reasoning_runner.todos,
+                            console=console,
+                            elapsed_seconds=0,
+                            token_count=0,
+                            show_shortcuts=False  # Don't show shortcuts in explicit view
+                        )
                     else:
                         console.print(f"[{palette.text_muted}]No tasks in progress[/]")
                     continue
@@ -905,36 +873,58 @@ def chat_mode(provider, session, show_todos, debug):
             # Execute task with modern assistant indicator
             console.print(f"\n[bold {palette.success}]{icons.AI} Assistant [{message_count}]:[/bold {palette.success}]\n")
 
+            # Start persistent bar if we have todos
+            if reasoning_runner.todos:
+                persistent_bar.update_todos(reasoning_runner.todos)
+                persistent_bar.start()
+
             result = asyncio.run(agent.execute_task(
                 task=user_input,
                 stream=True
             ))
 
+            # Stop persistent bar after task
+            if persistent_bar._active:
+                persistent_bar.stop()
+
             # SYNC TODOS FROM AGENT'S TODOWRITE TOOL
             # The agent's tool manager has the authoritative todo list
             synced = False
             try:
-                # Try different name variations for the tool
+                # Access the todo_write_tool directly (it's stored as an attribute)
                 todowrite_tool = None
-                for tool_name in ['TodoWrite', 'todowrite', 'TodoWriteTool', 'todo_write']:
-                    todowrite_tool = agent.tool_manager.get_tool(tool_name)
-                    if todowrite_tool:
-                        break
+
+                # First try direct attribute access (preferred)
+                if hasattr(agent.tool_manager, 'todo_write_tool'):
+                    todowrite_tool = agent.tool_manager.todo_write_tool
+
+                # Fallback: try registry lookup
+                if not todowrite_tool:
+                    for tool_name in ['TodoWrite', 'todowrite', 'TodoWriteTool', 'todo_write']:
+                        todowrite_tool = agent.tool_manager.get_tool(tool_name)
+                        if todowrite_tool:
+                            break
 
                 if todowrite_tool:
-                    # Get todos from the tool's todo_manager (if using a manager pattern)
-                    if hasattr(todowrite_tool, 'todo_manager') and todowrite_tool.todo_manager:
+                    # The todos property returns to_dict_list() - use it directly
+                    if hasattr(todowrite_tool, 'todos'):
+                        agent_todos = todowrite_tool.todos  # Now a property
+                        if agent_todos:
+                            reasoning_runner.todos = [todo_to_dict(t) for t in agent_todos]
+                            synced = True
+                            if debug:
+                                console.print(f"[dim]Synced {len(agent_todos)} todos from agent[/dim]")
+                    # Fallback: try todo_manager directly
+                    elif hasattr(todowrite_tool, 'todo_manager') and todowrite_tool.todo_manager:
                         agent_todos = todowrite_tool.todo_manager.to_dict_list()
                         if agent_todos:
                             reasoning_runner.todos = [todo_to_dict(t) for t in agent_todos]
                             synced = True
-                    # Direct todos attribute (most common)
-                    elif hasattr(todowrite_tool, 'todos') and todowrite_tool.todos:
-                        # Convert Todo objects to dicts
-                        reasoning_runner.todos = [todo_to_dict(t) for t in todowrite_tool.todos]
-                        synced = True
+                            if debug:
+                                console.print(f"[dim]Synced {len(agent_todos)} todos via manager[/dim]")
             except Exception as e:
-                console.print(f"[dim red]Todo sync error: {e}[/dim red]")
+                if debug:
+                    console.print(f"[dim red]Todo sync error: {e}[/dim red]")
 
             # If no todos from agent, try extracting from response
             if not reasoning_runner.todos and not synced:
@@ -958,6 +948,15 @@ def chat_mode(provider, session, show_todos, debug):
 
             # Display todo bar after task completion (Claude Code style)
             if reasoning_runner.todos:
+                # Start/restart persistent bar with synced todos to show final state
+                persistent_bar.update_todos(reasoning_runner.todos)
+                if not persistent_bar._active:
+                    persistent_bar.start()
+                # Let the bar display for a moment before continuing
+                import time
+                time.sleep(0.5)
+                persistent_bar.stop()
+                # Also print static version
                 display_todo_bar(force=True, compact=True)
                 todo_bar_just_shown = True  # Prevent duplicate on next loop
 
@@ -968,17 +967,24 @@ def chat_mode(provider, session, show_todos, debug):
             # Sync todos even after interruption
             try:
                 todowrite_tool = None
-                for tool_name in ['TodoWrite', 'todowrite', 'TodoWriteTool', 'todo_write']:
-                    todowrite_tool = agent.tool_manager.get_tool(tool_name)
-                    if todowrite_tool:
-                        break
+                # Direct access preferred
+                if hasattr(agent.tool_manager, 'todo_write_tool'):
+                    todowrite_tool = agent.tool_manager.todo_write_tool
+                if not todowrite_tool:
+                    for tool_name in ['TodoWrite', 'todowrite', 'TodoWriteTool', 'todo_write']:
+                        todowrite_tool = agent.tool_manager.get_tool(tool_name)
+                        if todowrite_tool:
+                            break
                 if todowrite_tool:
-                    if hasattr(todowrite_tool, 'todo_manager') and todowrite_tool.todo_manager:
+                    # Use todos property (returns to_dict_list())
+                    if hasattr(todowrite_tool, 'todos'):
+                        agent_todos = todowrite_tool.todos
+                        if agent_todos:
+                            reasoning_runner.todos = [todo_to_dict(t) for t in agent_todos]
+                    elif hasattr(todowrite_tool, 'todo_manager') and todowrite_tool.todo_manager:
                         agent_todos = todowrite_tool.todo_manager.to_dict_list()
                         if agent_todos:
                             reasoning_runner.todos = [todo_to_dict(t) for t in agent_todos]
-                    elif hasattr(todowrite_tool, 'todos') and todowrite_tool.todos:
-                        reasoning_runner.todos = [todo_to_dict(t) for t in todowrite_tool.todos]
                 # Show todo bar after interrupt (Claude Code style)
                 if reasoning_runner.todos:
                     display_todo_bar(force=True, compact=True)

@@ -3,6 +3,12 @@ Persistent Todo Display Component for HCode CLI.
 
 Provides a Claude Code-style persistent todo list that displays at the
 bottom of the terminal to track agent progress in real-time.
+
+Claude Code Style:
+✶ Writing integration tests… (esc to interrupt · ctrl+t to hide todos · 3m 21s · ↓ 9.5k tokens)
+ ⎿  ☒ Fix Rich markup escaping in Edit tool display
+    ☒ Fix long line handling in Edit tool display
+    ☐ Write more integration tests for Edit tool
 """
 
 from rich.console import Console, Group, RenderableType
@@ -21,8 +27,24 @@ from datetime import datetime
 from enum import Enum
 import threading
 import time
+import sys
 
 from .theme import get_palette, get_theme
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# CLAUDE CODE STYLE CONSTANTS
+# ═══════════════════════════════════════════════════════════════════════
+
+# Checkbox characters (Claude Code style)
+CHECKBOX_CHECKED = "☒"
+CHECKBOX_UNCHECKED = "☐"
+CHECKBOX_IN_PROGRESS = "☐"  # In-progress shown with sparkle header instead
+
+# Icons
+ICON_SPARKLE = "✶"
+ICON_BRANCH = "⎿"
+ICON_BULLET = "●"
 
 
 class TodoDisplayStatus(Enum):
@@ -627,3 +649,465 @@ def render_todo_status_line(
         total=total,
         current_task=current.get("activeForm") or current.get("content") if current else None
     )
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# CLAUDE CODE STYLE TODO DISPLAY
+# ═══════════════════════════════════════════════════════════════════════
+
+class ClaudeCodeTodoDisplay:
+    """
+    Claude Code-style todo display with persistent bottom bar.
+
+    Displays like:
+    ✶ Writing integration tests… (esc to interrupt · ctrl+t to hide todos · 3m 21s · ↓ 9.5k tokens)
+     ⎿  ☒ Fix Rich markup escaping in Edit tool display
+        ☒ Fix long line handling in Edit tool display
+        ☐ Write more integration tests for Edit tool
+    """
+
+    def __init__(self, console: Optional[Console] = None):
+        self.console = console or Console()
+        self.palette = get_palette()
+        self.start_time: Optional[datetime] = None
+        self.token_count: int = 0
+
+    def format_duration(self, seconds: float) -> str:
+        """Format duration as Xm Ys or Xs."""
+        if seconds < 60:
+            return f"{int(seconds)}s"
+        minutes = int(seconds // 60)
+        secs = int(seconds % 60)
+        return f"{minutes}m {secs}s"
+
+    def format_tokens(self, tokens: int) -> str:
+        """Format token count with K suffix if large."""
+        if tokens >= 1000:
+            return f"{tokens / 1000:.1f}k"
+        return str(tokens)
+
+    def render(
+        self,
+        todos: List[Dict[str, Any]],
+        elapsed_seconds: float = 0,
+        token_count: int = 0,
+        show_shortcuts: bool = True
+    ) -> Text:
+        """
+        Render Claude Code-style todo display.
+
+        Args:
+            todos: List of todo dictionaries with content, status, activeForm
+            elapsed_seconds: Time elapsed since start
+            token_count: Number of tokens used
+            show_shortcuts: Whether to show keyboard shortcuts
+
+        Returns:
+            Rich Text object for printing
+        """
+        if not todos:
+            return Text("", style="dim")
+
+        text = Text()
+
+        # Find current in-progress task
+        current_task = next(
+            (t for t in todos if t.get("status") == "in_progress"),
+            None
+        )
+
+        # Header line with sparkle and active task
+        if current_task:
+            active_text = current_task.get("activeForm") or current_task.get("content", "Working…")
+            text.append(f"{ICON_SPARKLE} ", style="bold yellow")
+            text.append(f"{active_text}… ", style="bold yellow")
+        else:
+            # All done or no in-progress
+            completed = sum(1 for t in todos if t.get("status") == "completed")
+            if completed == len(todos):
+                text.append(f"{ICON_SPARKLE} ", style="bold green")
+                text.append("All tasks completed ", style="bold green")
+            else:
+                text.append(f"{ICON_SPARKLE} ", style="bold cyan")
+                text.append("Ready ", style="bold cyan")
+
+        # Status info in parentheses
+        status_parts = []
+        if show_shortcuts:
+            status_parts.append("esc to interrupt")
+            status_parts.append("ctrl+t to hide todos")
+        if elapsed_seconds > 0:
+            status_parts.append(self.format_duration(elapsed_seconds))
+        if token_count > 0:
+            status_parts.append(f"↓ {self.format_tokens(token_count)} tokens")
+
+        if status_parts:
+            text.append("(", style="dim")
+            text.append(" · ".join(status_parts), style="dim")
+            text.append(")", style="dim")
+
+        text.append("\n")
+
+        # Todo items with branch connector
+        text.append(f" {ICON_BRANCH}  ", style="dim")
+
+        for i, todo in enumerate(todos):
+            if i > 0:
+                text.append("\n    ")  # Indent continuation lines
+
+            status = todo.get("status", "pending")
+            content = todo.get("content", "")
+
+            if status == "completed":
+                text.append(f"{CHECKBOX_CHECKED} ", style="green")
+                text.append(content, style="green")
+            elif status == "in_progress":
+                text.append(f"{CHECKBOX_UNCHECKED} ", style="bold yellow")
+                text.append(content, style="bold yellow")
+            else:  # pending
+                text.append(f"{CHECKBOX_UNCHECKED} ", style="dim")
+                text.append(content, style="dim")
+
+        return text
+
+    def print(
+        self,
+        todos: List[Dict[str, Any]],
+        elapsed_seconds: float = 0,
+        token_count: int = 0,
+        show_shortcuts: bool = True
+    ):
+        """Print the todo display to console."""
+        rendered = self.render(todos, elapsed_seconds, token_count, show_shortcuts)
+        self.console.print(rendered)
+
+
+def render_claude_code_todos(
+    todos: List[Dict[str, Any]],
+    console: Optional[Console] = None,
+    elapsed_seconds: float = 0,
+    token_count: int = 0,
+    show_shortcuts: bool = True
+) -> Text:
+    """
+    Render todos in Claude Code style.
+
+    Convenience function for rendering without creating a display instance.
+
+    Args:
+        todos: List of todo dictionaries
+        console: Optional console instance
+        elapsed_seconds: Time elapsed
+        token_count: Tokens used
+        show_shortcuts: Show keyboard hints
+
+    Returns:
+        Rich Text object
+    """
+    display = ClaudeCodeTodoDisplay(console)
+    return display.render(todos, elapsed_seconds, token_count, show_shortcuts)
+
+
+def print_claude_code_todos(
+    todos: List[Dict[str, Any]],
+    console: Optional[Console] = None,
+    elapsed_seconds: float = 0,
+    token_count: int = 0,
+    show_shortcuts: bool = True
+):
+    """
+    Print todos in Claude Code style.
+
+    Convenience function for printing without creating a display instance.
+    """
+    display = ClaudeCodeTodoDisplay(console or Console())
+    display.print(todos, elapsed_seconds, token_count, show_shortcuts)
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# PERSISTENT BOTTOM STATUS BAR (Claude Code style)
+# ═══════════════════════════════════════════════════════════════════════
+
+class PersistentStatusBar:
+    """
+    A persistent status bar that stays at the bottom of the terminal.
+
+    Uses ANSI escape sequences to create a sticky footer that updates
+    in real-time while allowing normal output to scroll above it.
+
+    Usage:
+        status_bar = PersistentStatusBar()
+        status_bar.start()
+
+        # Update todos anytime
+        status_bar.update_todos(todos_list)
+
+        # Normal prints work above the status bar
+        print("This scrolls above")
+
+        status_bar.stop()
+    """
+
+    # ANSI escape sequences
+    SAVE_CURSOR = "\033[s"
+    RESTORE_CURSOR = "\033[u"
+    MOVE_TO_BOTTOM = "\033[{row}H"  # Move to specific row
+    CLEAR_LINE = "\033[2K"
+    SCROLL_UP = "\033[S"
+    MOVE_UP = "\033[{n}A"
+    MOVE_DOWN = "\033[{n}B"
+    HIDE_CURSOR = "\033[?25l"
+    SHOW_CURSOR = "\033[?25h"
+
+    def __init__(self, console: Optional[Console] = None, height: int = 5):
+        """
+        Initialize persistent status bar.
+
+        Args:
+            console: Rich console instance
+            height: Number of lines to reserve for status bar
+        """
+        self.console = console or Console()
+        self.height = height
+        self.todos: List[Dict[str, Any]] = []
+        self.start_time: Optional[datetime] = None
+        self.token_count: int = 0
+        self._active = False
+        self._lock = threading.Lock()
+        self._update_thread: Optional[threading.Thread] = None
+        self._stop_event = threading.Event()
+        self.todo_display = ClaudeCodeTodoDisplay(self.console)
+
+    def start(self):
+        """Start the persistent status bar."""
+        if self._active:
+            return
+
+        self._active = True
+        self._stop_event.clear()
+        self.start_time = datetime.now()
+
+        # Reserve space at bottom
+        self._reserve_space()
+
+        # Start update thread for animations
+        self._update_thread = threading.Thread(target=self._update_loop, daemon=True)
+        self._update_thread.start()
+
+    def stop(self):
+        """Stop the persistent status bar."""
+        self._active = False
+        self._stop_event.set()
+
+        if self._update_thread:
+            self._update_thread.join(timeout=1.0)
+
+        # Clear the status bar area
+        self._clear_status_area()
+
+    def _reserve_space(self):
+        """Reserve space at the bottom of the terminal for the status bar."""
+        # Print newlines to create space
+        for _ in range(self.height):
+            print()
+
+        # Move cursor back up
+        sys.stdout.write(f"\033[{self.height}A")
+        sys.stdout.flush()
+
+    def _clear_status_area(self):
+        """Clear the status bar area."""
+        terminal_height = self._get_terminal_height()
+
+        sys.stdout.write(self.SAVE_CURSOR)
+        for i in range(self.height):
+            row = terminal_height - self.height + i + 1
+            sys.stdout.write(f"\033[{row}H")
+            sys.stdout.write(self.CLEAR_LINE)
+        sys.stdout.write(self.RESTORE_CURSOR)
+        sys.stdout.flush()
+
+    def _get_terminal_height(self) -> int:
+        """Get terminal height."""
+        try:
+            import shutil
+            return shutil.get_terminal_size().lines
+        except Exception:
+            return 24  # Default
+
+    def _update_loop(self):
+        """Background thread to update the status bar."""
+        while not self._stop_event.is_set():
+            self._render_status_bar()
+            time.sleep(0.25)  # Update 4 times per second
+
+    def _render_status_bar(self):
+        """Render the status bar at the bottom of the terminal."""
+        if not self._active:
+            return
+
+        with self._lock:
+            if not self.todos:
+                return
+
+            terminal_height = self._get_terminal_height()
+
+            # Calculate elapsed time
+            elapsed = 0.0
+            if self.start_time:
+                elapsed = (datetime.now() - self.start_time).total_seconds()
+
+            # Render the todo display to a string
+            from io import StringIO
+            string_buffer = StringIO()
+            temp_console = Console(file=string_buffer, force_terminal=True, width=self.console.width or 120)
+
+            # Render todos
+            rendered = self.todo_display.render(
+                self.todos,
+                elapsed_seconds=elapsed,
+                token_count=self.token_count,
+                show_shortcuts=True
+            )
+            temp_console.print(rendered)
+
+            # Get the rendered lines
+            output = string_buffer.getvalue()
+            lines = output.split('\n')[:self.height]
+
+            # Save cursor, move to bottom, render, restore cursor
+            sys.stdout.write(self.SAVE_CURSOR)
+
+            for i, line in enumerate(lines):
+                row = terminal_height - self.height + i + 1
+                sys.stdout.write(f"\033[{row}H")
+                sys.stdout.write(self.CLEAR_LINE)
+                sys.stdout.write(line)
+
+            sys.stdout.write(self.RESTORE_CURSOR)
+            sys.stdout.flush()
+
+    def update_todos(self, todos: List[Dict[str, Any]]):
+        """Update the todo list."""
+        with self._lock:
+            self.todos = todos
+        self._render_status_bar()
+
+    def update_tokens(self, token_count: int):
+        """Update the token count."""
+        with self._lock:
+            self.token_count = token_count
+
+    def reset_timer(self):
+        """Reset the elapsed time."""
+        self.start_time = datetime.now()
+
+
+class LiveTodoBar:
+    """
+    Alternative implementation using Rich's Live display.
+
+    Better integration with Rich but may conflict with other Live displays.
+    """
+
+    def __init__(self, console: Optional[Console] = None):
+        self.console = console or Console()
+        self.todos: List[Dict[str, Any]] = []
+        self.start_time: Optional[datetime] = None
+        self.token_count: int = 0
+        self.live: Optional[Live] = None
+        self._lock = threading.Lock()
+        self.todo_display = ClaudeCodeTodoDisplay(self.console)
+
+    def __enter__(self):
+        """Context manager entry."""
+        self.start()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Context manager exit."""
+        self.stop()
+
+    def start(self):
+        """Start the live display."""
+        self.start_time = datetime.now()
+        self.live = Live(
+            self._render(),
+            console=self.console,
+            refresh_per_second=4,
+            transient=False,
+            vertical_overflow="visible"
+        )
+        self.live.start()
+
+    def stop(self):
+        """Stop the live display."""
+        if self.live:
+            self.live.stop()
+            self.live = None
+
+    def _render(self) -> Text:
+        """Render the current state."""
+        if not self.todos:
+            return Text("")
+
+        elapsed = 0.0
+        if self.start_time:
+            elapsed = (datetime.now() - self.start_time).total_seconds()
+
+        return self.todo_display.render(
+            self.todos,
+            elapsed_seconds=elapsed,
+            token_count=self.token_count,
+            show_shortcuts=True
+        )
+
+    def update(self):
+        """Force update the display."""
+        if self.live:
+            self.live.update(self._render())
+
+    def update_todos(self, todos: List[Dict[str, Any]]):
+        """Update todos and refresh display."""
+        with self._lock:
+            self.todos = todos
+        self.update()
+
+    def update_tokens(self, token_count: int):
+        """Update token count."""
+        with self._lock:
+            self.token_count = token_count
+        self.update()
+
+
+# Global instance for easy access
+_global_status_bar: Optional[PersistentStatusBar] = None
+
+
+def get_status_bar(console: Optional[Console] = None) -> PersistentStatusBar:
+    """Get or create the global status bar instance."""
+    global _global_status_bar
+    if _global_status_bar is None:
+        _global_status_bar = PersistentStatusBar(console)
+    return _global_status_bar
+
+
+def start_persistent_todos(console: Optional[Console] = None) -> PersistentStatusBar:
+    """Start the persistent todo status bar."""
+    bar = get_status_bar(console)
+    bar.start()
+    return bar
+
+
+def stop_persistent_todos():
+    """Stop the persistent todo status bar."""
+    global _global_status_bar
+    if _global_status_bar:
+        _global_status_bar.stop()
+
+
+def update_persistent_todos(todos: List[Dict[str, Any]]):
+    """Update the persistent todo bar with new todos."""
+    global _global_status_bar
+    if _global_status_bar and _global_status_bar._active:
+        _global_status_bar.update_todos(todos)
