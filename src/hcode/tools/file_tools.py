@@ -8,8 +8,7 @@ from pathlib import Path
 from typing import List, Optional, Dict, Any, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from rich.console import Console
-import glob as glob_module
+    pass
 
 from .base_tool import BaseTool, ToolResult, ToolParameter, ToolCategory
 

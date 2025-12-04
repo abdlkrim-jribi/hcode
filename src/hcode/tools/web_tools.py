@@ -3,12 +3,12 @@ Web-related tools for Hcode.
 Includes WebFetch and WebSearch capabilities.
 """
 
-import httpx
-from typing import List, Optional
-import html2text
 from datetime import datetime, timedelta
+from typing import List, Optional
 
-from .base_tool import BaseTool, ToolResult, ToolParameter, ToolCategory
+import html2text
+import httpx
+from hcode.tools.base_tool import BaseTool, ToolResult, ToolParameter, ToolCategory
 
 
 class WebFetchTool(BaseTool):

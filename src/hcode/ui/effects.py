@@ -3,20 +3,18 @@ HCode Special Visual Effects
 Advanced terminal effects and visual enhancements.
 """
 
-from rich.console import Console, RenderableType
-from rich.text import Text
-from rich.panel import Panel
-from rich.live import Live
-from rich.align import Align
-from rich.style import Style
-from typing import List, Optional, Callable, Any
 import random
-import time
-import asyncio
 import threading
-from dataclasses import dataclass
+import time
+from typing import List, Optional
 
-from .theme import get_palette, get_theme, ColorUtils
+from rich.align import Align
+from rich.console import Console, RenderableType
+from rich.live import Live
+from rich.panel import Panel
+from rich.text import Text
+
+from hcode.ui.theme import get_palette, ColorUtils
 
 
 # ═══════════════════════════════════════════════════════════════════════

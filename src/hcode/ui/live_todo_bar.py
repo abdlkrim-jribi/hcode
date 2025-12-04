@@ -12,24 +12,18 @@ Key Features:
 - Thread-safe updates from async execution
 """
 
-from rich.console import Console
-from rich.text import Text
-from rich.live import Live
-from typing import List, Dict, Any, Optional, Callable
-from datetime import datetime
-import threading
 import sys
+import threading
 import time
+from datetime import datetime
+from typing import List, Dict, Any, Optional
 
-from .todo_display import (
+from rich.console import Console
+
+from hcode.ui.todo_display import (
     ClaudeCodeTodoDisplay,
-    ICON_SPARKLE,
-    CHECKBOX_CHECKED,
-    CHECKBOX_UNCHECKED,
-    ICON_BRANCH,
 )
-from ..tools.tool_callbacks import (
-    ToolCallbackManager,
+from hcode.tools.tool_callbacks import (
     ToolEvent,
     ToolEventType,
     get_callback_manager,

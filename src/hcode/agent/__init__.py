@@ -5,13 +5,57 @@ Includes thinking, todo management, ReAct loop, autonomous operation,
 and enhanced reasoning capabilities for maximum AI performance.
 """
 
-from .thinking import ThinkingBlock, ThinkingSession, ThinkingPhase
-from .thinking_manager import ThinkingManager
-from .todo import TodoItem, TodoManager, TodoStatus
-from .coding_agent import HcodeCodingAgent, ExecutionContext
-
+from hcode.agent.autonomous import (
+    ExecutionDecision,
+    ExecutionContext as AutonomousContext,
+    ActionProposal,
+    ExecutionResult,
+    AutonomousEngine,
+    create_read_action,
+    create_edit_action,
+    create_write_action,
+    create_bash_action,
+    create_search_action,
+)
+from hcode.agent.autonomous_agent import HcodeAutonomousCodingAgent, HcodeAutonomousExecutionContext
+from hcode.agent.autonomous_prompt import (
+    get_autonomous_prompt,
+    get_mode_transition_prompt,
+    get_confirmation_prompt,
+    get_error_recovery_prompt,
+)
+from hcode.agent.coding_agent import HcodeCodingAgent, ExecutionContext
+# Enhanced thinking manager
+from hcode.agent.enhanced_thinking_manager import (
+    EnhancedThinkingManager,
+    EnhancedThinkingMode,
+    ThinkingResult,
+    create_enhanced_thinking_manager,
+)
+# Feedback loop components
+from hcode.agent.feedback_loop import (
+    ThinkingExecutionFeedbackLoop,
+    ExecutionResult as FeedbackExecutionResult,
+    ExecutionStatus,
+    FeedbackEntry,
+    FeedbackType,
+    ReasoningRevision,
+    HypothesisValidator,
+    FeedbackProcessor,
+    ReasoningReviser,
+)
+# Autonomous operation components
+from hcode.agent.modes import (
+    AgentMode,
+    ConfirmationLevel,
+    RiskLevel,
+    ModeConfig,
+    SafetyConfig,
+    get_mode_config,
+    get_mode_description,
+)
 # Enhanced reasoning components
-from .reasoning import (
+from hcode.agent.reasoning import (
     StructuredReasoning,
     ReasoningParser,
     ReasoningLevel,
@@ -27,70 +71,8 @@ from .reasoning import (
     DecisionOutput,
     VerificationOutput,
 )
-
-# Feedback loop components
-from .feedback_loop import (
-    ThinkingExecutionFeedbackLoop,
-    ExecutionResult as FeedbackExecutionResult,
-    ExecutionStatus,
-    FeedbackEntry,
-    FeedbackType,
-    ReasoningRevision,
-    HypothesisValidator,
-    FeedbackProcessor,
-    ReasoningReviser,
-)
-
-# Enhanced thinking manager
-from .enhanced_thinking_manager import (
-    EnhancedThinkingManager,
-    EnhancedThinkingMode,
-    ThinkingResult,
-    create_enhanced_thinking_manager,
-)
-
-# Autonomous operation components
-from .modes import (
-    AgentMode,
-    ConfirmationLevel,
-    RiskLevel,
-    ModeConfig,
-    SafetyConfig,
-    get_mode_config,
-    get_mode_description,
-)
-from .autonomous import (
-    ExecutionDecision,
-    ExecutionContext as AutonomousContext,
-    ActionProposal,
-    ExecutionResult,
-    AutonomousEngine,
-    create_read_action,
-    create_edit_action,
-    create_write_action,
-    create_bash_action,
-    create_search_action,
-)
-from .autonomous_agent import HcodeAutonomousCodingAgent, HcodeAutonomousExecutionContext
-from .autonomous_prompt import (
-    get_autonomous_prompt,
-    get_mode_transition_prompt,
-    get_confirmation_prompt,
-    get_error_recovery_prompt,
-)
-
-# Smart todo extraction
-from .smart_todo_extractor import (
-    SmartTodoExtractor,
-    ReasoningTodoBridge,
-    ExtractedTodo,
-    TodoPriority,
-    extract_todos_from_text,
-    extract_todos_from_reasoning,
-)
-
 # Reasoning-driven executor
-from .reasoning_executor import (
+from hcode.agent.reasoning_executor import (
     ReasoningDrivenExecutor,
     ReasoningToExecutionBridge,
     ReasoningExecutionValidator,
@@ -100,6 +82,18 @@ from .reasoning_executor import (
     ExecutionPlan,
     ExecutionResult as ReasoningExecutionResult,
 )
+# Smart todo extraction
+from hcode.agent.smart_todo_extractor import (
+    SmartTodoExtractor,
+    ReasoningTodoBridge,
+    ExtractedTodo,
+    TodoPriority,
+    extract_todos_from_text,
+    extract_todos_from_reasoning,
+)
+from hcode.agent.thinking import ThinkingBlock, ThinkingSession, ThinkingPhase
+from hcode.agent.thinking_manager import ThinkingManager
+from hcode.agent.todo import TodoItem, TodoManager, TodoStatus
 
 __all__ = [
     # Thinking

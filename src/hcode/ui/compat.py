@@ -4,20 +4,19 @@ Compatibility layer for legacy CLI styles.
 Provides backwards-compatible components for code that was using cli.styles.
 """
 
-from typing import List, Optional, Any
 from dataclasses import dataclass
-from rich.console import Console, Group
-from rich.panel import Panel
-from rich.text import Text
-from rich.table import Table
-from rich.syntax import Syntax
-from rich.tree import Tree
-from rich.align import Align
-from rich.rule import Rule
-from rich.box import ROUNDED
+from typing import List, Optional
 
-from .theme import get_palette, get_theme
-from .icons import Icons as NewIcons
+from rich.align import Align
+from rich.box import ROUNDED
+from rich.console import Group
+from rich.panel import Panel
+from rich.rule import Rule
+from rich.syntax import Syntax
+from rich.text import Text
+
+from hcode.ui.icons import Icons as NewIcons
+from hcode.ui.theme import get_palette
 
 
 # ============================================================

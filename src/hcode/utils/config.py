@@ -4,9 +4,10 @@ Loads settings from .hcoderc files and environment variables.
 """
 
 import os
-import yaml
 from pathlib import Path
 from typing import Dict, Any, Optional
+
+import yaml
 
 # Load .env file if it exists
 try:

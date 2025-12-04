@@ -3,16 +3,14 @@ HCode Custom Syntax Highlighting
 Cyberpunk-themed code rendering.
 """
 
-from rich.syntax import Syntax
-from rich.console import Console
-from rich.panel import Panel
-from rich.text import Text
-from rich.box import ROUNDED
-from typing import Optional, List, Dict
 import os
+from typing import Optional, List, Dict
 
-from .theme import get_palette
+from rich.panel import Panel
+from rich.syntax import Syntax
+from rich.text import Text
 
+from hcode.ui.theme import get_palette
 
 # ═══════════════════════════════════════════════════════════════════════
 # CUSTOM SYNTAX THEMES

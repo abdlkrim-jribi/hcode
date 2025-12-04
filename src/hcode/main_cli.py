@@ -2,11 +2,11 @@
 HCode CLI - Command-line interface with beautiful styling and all features.
 """
 
-import click
 import asyncio
 import os
 import sys
-from pathlib import Path
+
+import click
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
@@ -17,12 +17,9 @@ from rich.table import Table
 from rich.markdown import Markdown
 from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn
 from rich.syntax import Syntax
-from rich.live import Live
-from rich.layout import Layout
 from rich.prompt import Prompt, Confirm
 from rich.traceback import install as install_rich_traceback
 from rich import box
-from rich.text import Text
 
 # Install rich traceback for beautiful error messages
 install_rich_traceback(show_locals=True)
@@ -35,46 +32,30 @@ from hcode.utils.config import load_config
 from hcode.ui import (
     get_console,
     get_palette,
-    get_theme,
     set_theme,
     ThemeMode,
     create_banner,
     Icons,
 )
 from hcode.ui.panels import (
-    UserMessagePanel,
-    AIMessagePanel,
-    ToolPanel,
     ErrorPanel,
-    SuccessPanel,
     InfoPanel,
 )
 from hcode.cli.autocomplete import (
-    HCodePrompt,
     create_hcode_prompt,
     get_command_help,
     get_all_commands,
 )
 from hcode.cli.reasoning_runner import (
-    ChatReasoningRunner,
     create_chat_reasoning_runner,
 )
 from hcode.ui.todo_display import (
-    render_todo_panel,
-    render_todo_status_line,
-    PersistentTodoDisplay,
     ClaudeCodeTodoDisplay,
     print_claude_code_todos,
     PersistentStatusBar,
-    update_persistent_todos,
 )
 from hcode.ui.live_todo_bar import (
     LiveTodoBar,
-    StreamingTodoIntegration,
-    get_live_todo_bar,
-    start_live_todos,
-    stop_live_todos,
-    get_current_todos,
 )
 
 # Import reasoning components for automatic todo extraction
@@ -1618,7 +1599,6 @@ def show_history(limit, session):
     """
     from pathlib import Path
     import sqlite3
-    import json
 
     db_path = Path.home() / ".hcode" / "memory.db"
 

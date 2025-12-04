@@ -8,12 +8,11 @@ This is the key component for making the todo bar update in real-time
 during agent execution (like Claude Code).
 """
 
-from typing import Callable, Dict, Any, List, Optional
-from dataclasses import dataclass, field
-from enum import Enum
-from datetime import datetime
 import threading
-import weakref
+from dataclasses import dataclass, field
+from datetime import datetime
+from enum import Enum
+from typing import Callable, Dict, Any, List, Optional
 
 
 class ToolEventType(Enum):

@@ -2,7 +2,7 @@
 Sub-agent system for Hcode.
 """
 
-from .sub_agent import (
+from hcode.agents.sub_agent import (
     HcodeSubAgent,
     HcodeExploreAgent,
     HcodePlanAgent,

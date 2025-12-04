@@ -3,19 +3,16 @@ HCode Futuristic ASCII Art Banners and Branding
 Features animated gradients and glowing effects.
 """
 
-from rich.console import Console, Group, RenderableType
-from rich.text import Text
-from rich.panel import Panel
-from rich.align import Align
-from rich.style import Style
-from rich.padding import Padding
-from rich.box import ROUNDED, DOUBLE, HEAVY
-from typing import List, Optional
-import random
 import time
+from typing import List, Optional
 
-from .theme import get_theme, get_palette, ColorUtils
-
+from hcode.ui.theme import get_palette, ColorUtils
+from rich.align import Align
+from rich.box import ROUNDED, DOUBLE
+from rich.console import Console, Group, RenderableType
+from rich.panel import Panel
+from rich.style import Style
+from rich.text import Text
 
 # ═══════════════════════════════════════════════════════════════════════
 # MAIN LOGO VARIANTS

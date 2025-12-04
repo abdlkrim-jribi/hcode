@@ -7,22 +7,21 @@ import os
 from pathlib import Path
 from typing import Optional, Dict, Any, List
 
-from .base_tool import ToolRegistry, BaseTool, ToolResult
-from .file_tools import ReadTool, WriteTool, EditTool, MultiEditTool, GlobTool, GrepTool
-from .diff_tools import DiffPreviewTool, ApplyChangeTool, RejectChangeTool
-from .bash_tools import BashTool, BashOutputTool, KillShellTool, LSTool, SearchOutputTool
-from .agent_tools import TaskTool, ExitPlanModeTool, TodoReadTool
-from .web_tools import WebFetchTool, WebSearchTool, WebScrapeTool
-from .interactive_tools import (
+from hcode.tools.agent_tools import TaskTool, ExitPlanModeTool, TodoReadTool
+from hcode.tools.base_tool import ToolRegistry, BaseTool, ToolResult
+from hcode.tools.bash_tools import BashTool, BashOutputTool, KillShellTool, LSTool, SearchOutputTool
+from hcode.tools.command_system import SlashCommandTool, SkillTool, CommandRegistry
+from hcode.tools.diff_tools import DiffPreviewTool, ApplyChangeTool, RejectChangeTool
+from hcode.tools.file_tools import ReadTool, WriteTool, EditTool, MultiEditTool, GlobTool, GrepTool
+from hcode.tools.interactive_tools import (
     AskUserQuestionTool,
     TodoWriteTool,
     ConfirmTool,
     DisplayPanelTool,
     ProgressTool,
 )
-from .notebook_tools import NotebookEditTool, NotebookReadTool, NotebookExecuteTool
-from .command_system import SlashCommandTool, SkillTool, CommandRegistry
-from .executor import ToolExecutor
+from hcode.tools.notebook_tools import NotebookEditTool, NotebookReadTool, NotebookExecuteTool
+from hcode.tools.web_tools import WebFetchTool, WebSearchTool, WebScrapeTool
 
 
 class ToolManager:

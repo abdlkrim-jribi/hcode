@@ -39,27 +39,27 @@ Example Usage:
 # THEME EXPORTS
 # ═══════════════════════════════════════════════════════════════════════
 
-from .theme import (
-    # Enums
-    ThemeMode,
+from hcode.ui.animations import (
+    # Spinner definitions
+    CYBER_SPINNERS,
     # Classes
-    ColorPalette,
-    ColorUtils,
-    ThemeEngine,
+    AnimatedMessage,
+    CyberProgress,
+    StreamingText,
+    GlitchEffect,
+    ThinkingAnimation,
+    WaveAnimation,
+    PulsingText,
+    Countdown,
+    LoadingDots,
+    # Context managers
+    spinner,
+    thinking,
+    loading,
     # Functions
-    get_theme,
-    set_theme,
-    get_console,
-    get_palette,
-    # Theme definitions
-    THEMES,
+    countdown,
 )
-
-# ═══════════════════════════════════════════════════════════════════════
-# BANNER EXPORTS
-# ═══════════════════════════════════════════════════════════════════════
-
-from .banners import (
+from hcode.ui.banners import (
     # Logo constants
     LOGO_CYBER,
     LOGO_NEON,
@@ -86,12 +86,7 @@ from .banners import (
     status_banner,
     get_cyberpunk_gradient,
 )
-
-# ═══════════════════════════════════════════════════════════════════════
-# COMPONENT EXPORTS
-# ═══════════════════════════════════════════════════════════════════════
-
-from .components import (
+from hcode.ui.components import (
     # Box styles
     CYBER_BOX,
     NEON_BOX,
@@ -116,73 +111,7 @@ from .components import (
     create_info_table,
     create_horizontal_rule,
 )
-
-# ═══════════════════════════════════════════════════════════════════════
-# ANIMATION EXPORTS
-# ═══════════════════════════════════════════════════════════════════════
-
-from .animations import (
-    # Spinner definitions
-    CYBER_SPINNERS,
-    # Classes
-    AnimatedMessage,
-    CyberProgress,
-    StreamingText,
-    GlitchEffect,
-    ThinkingAnimation,
-    WaveAnimation,
-    PulsingText,
-    Countdown,
-    LoadingDots,
-    # Context managers
-    spinner,
-    thinking,
-    loading,
-    # Functions
-    countdown,
-)
-
-# ═══════════════════════════════════════════════════════════════════════
-# ICON EXPORTS
-# ═══════════════════════════════════════════════════════════════════════
-
-from .icons import (
-    # Classes
-    Icons,
-    Emoji,
-    Borders,
-    # Constants
-    USE_UNICODE,
-    IS_WINDOWS,
-    # Functions
-    supports_unicode,
-)
-
-# ═══════════════════════════════════════════════════════════════════════
-# SYNTAX HIGHLIGHTING EXPORTS
-# ═══════════════════════════════════════════════════════════════════════
-
-from .syntax import (
-    # Classes
-    CyberSyntax,
-    DiffHighlighter,
-    CodeBlock,
-    # Functions
-    highlight_code,
-    highlight_file,
-    inline_code,
-    diff_text,
-    detect_language,
-    # Constants
-    EXTENSION_TO_LANGUAGE,
-    CYBERPUNK_TOKENS,
-)
-
-# ═══════════════════════════════════════════════════════════════════════
-# EFFECTS EXPORTS
-# ═══════════════════════════════════════════════════════════════════════
-
-from .effects import (
+from hcode.ui.effects import (
     # Classes
     MatrixRain,
     ScanLine,
@@ -199,12 +128,18 @@ from .effects import (
     scramble_text,
     particle_burst,
 )
-
-# ═══════════════════════════════════════════════════════════════════════
-# PANEL EXPORTS
-# ═══════════════════════════════════════════════════════════════════════
-
-from .panels import (
+from hcode.ui.icons import (
+    # Classes
+    Icons,
+    Emoji,
+    Borders,
+    # Constants
+    USE_UNICODE,
+    IS_WINDOWS,
+    # Functions
+    supports_unicode,
+)
+from hcode.ui.panels import (
     # Classes
     WelcomePanel,
     UserMessagePanel,
@@ -223,13 +158,63 @@ from .panels import (
     create_separator,
     create_status_bar,
 )
+from hcode.ui.syntax import (
+    # Classes
+    CyberSyntax,
+    DiffHighlighter,
+    CodeBlock,
+    # Functions
+    highlight_code,
+    highlight_file,
+    inline_code,
+    diff_text,
+    detect_language,
+    # Constants
+    EXTENSION_TO_LANGUAGE,
+    CYBERPUNK_TOKENS,
+)
+from hcode.ui.theme import (
+    # Enums
+    ThemeMode,
+    # Classes
+    ColorPalette,
+    ColorUtils,
+    ThemeEngine,
+    # Functions
+    get_theme,
+    set_theme,
+    get_console,
+    get_palette,
+    # Theme definitions
+    THEMES,
+)
+# Create a global console instance for convenience
+from rich.console import Console as _Console
 
+# ═══════════════════════════════════════════════════════════════════════hcode.ui
+# BANNER EXPORTS
+# ═══════════════════════════════════════════════════════════════════════
+# ═══════════════════════════════════════════════════════════════════════
+# COMPONENT EXPORTS
+# ═══════════════════════════════════════════════════════════════════════
+# ═══════════════════════════════════════════════════════════════════════
+# ANIMATION EXPORTS
+# ═══════════════════════════════════════════════════════════════════════
+# ═══════════════════════════════════════════════════════════════════════
+# ICON EXPORTS
+# ═══════════════════════════════════════════════════════════════════════
+# ═══════════════════════════════════════════════════════════════════════
+# SYNTAX HIGHLIGHTING EXPORTS
+# ═══════════════════════════════════════════════════════════════════════
+# ═══════════════════════════════════════════════════════════════════════
+# EFFECTS EXPORTS
+# ═══════════════════════════════════════════════════════════════════════
+# ═══════════════════════════════════════════════════════════════════════
+# PANEL EXPORTS
+# ═══════════════════════════════════════════════════════════════════════
 # ═══════════════════════════════════════════════════════════════════════
 # CONSOLE INSTANCE
 # ═══════════════════════════════════════════════════════════════════════
-
-# Create a global console instance for convenience
-from rich.console import Console as _Console
 
 console = _Console()
 
@@ -237,7 +222,7 @@ console = _Console()
 # CHAT UI EXPORTS
 # ═══════════════════════════════════════════════════════════════════════
 
-from .chat_ui import (
+from hcode.ui.chat_ui import (
     # Classes
     ChatInterface,
     ThinkingContext,
@@ -253,7 +238,7 @@ from .chat_ui import (
 # TODO DISPLAY EXPORTS (Enhanced persistent display)
 # ═══════════════════════════════════════════════════════════════════════
 
-from .todo_display import (
+from hcode.ui.todo_display import (
     # Classes
     TodoDisplayStatus,
     DisplayTodoItem,
@@ -270,7 +255,7 @@ from .todo_display import (
 # LIVE TODO BAR EXPORTS (Real-time updates via callbacks)
 # ═══════════════════════════════════════════════════════════════════════
 
-from .live_todo_bar import (
+from hcode.ui.live_todo_bar import (
     # Classes
     LiveTodoBar,
     StreamingTodoIntegration,

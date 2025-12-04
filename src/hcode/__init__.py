@@ -17,35 +17,13 @@ __version__ = "1.0.0"
 __author__ = "HCode Team"
 __email__ = "contact@hcode.dev"
 
-from .core import (
+from hcode.core import (
     HcodeAgent,
     FileSystemManager,
     SafetyGuard,
     ContextManager,
 )
-
-from .providers import (
-    AIProvider,
-    AnthropicProvider,
-    OpenAIProvider,
-    ProviderSelector,
-    ProviderPreferences,
-    TaskComplexity,
-    TaskType,
-)
-
-from .tools import (
-    ToolExecutor,
-    ExecutionResult,
-)
-
-from .utils import (
-    load_config,
-    save_config,
-    create_default_config,
-)
-
-from .exceptions import (
+from hcode.exceptions import (
     HCodeError,
     ConfigError,
     ConfigNotFoundError,
@@ -71,6 +49,24 @@ from .exceptions import (
     InputError,
     InvalidArgumentError,
     MissingArgumentError,
+)
+from hcode.providers import (
+    AIProvider,
+    AnthropicProvider,
+    OpenAIProvider,
+    ProviderSelector,
+    ProviderPreferences,
+    TaskComplexity,
+    TaskType,
+)
+from hcode.tools import (
+    ToolExecutor,
+    ExecutionResult,
+)
+from hcode.utils import (
+    load_config,
+    save_config,
+    create_default_config,
 )
 
 __all__ = [

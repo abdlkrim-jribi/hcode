@@ -3,23 +3,23 @@ HCode Custom Panel Designs
 Specialized panels for different content types.
 """
 
-from rich.console import Console, Group, RenderableType
-from rich.panel import Panel
-from rich.text import Text
-from rich.table import Table
-from rich.box import ROUNDED, DOUBLE, HEAVY, SIMPLE
-from rich.align import Align
-from rich.padding import Padding
-from rich.rule import Rule
-from rich.markdown import Markdown
-from rich.tree import Tree
-from typing import Optional, List, Dict, Any, Tuple
+import os
 from dataclasses import dataclass
 from datetime import datetime
-import os
+from typing import Optional, List, Dict, Any, Tuple
 
-from .theme import get_palette
-from .icons import Icons
+from hcode.ui.icons import Icons
+from hcode.ui.theme import get_palette
+from rich.align import Align
+from rich.box import ROUNDED, SIMPLE
+from rich.console import Group, RenderableType
+from rich.markdown import Markdown
+from rich.padding import Padding
+from rich.panel import Panel
+from rich.rule import Rule
+from rich.table import Table
+from rich.text import Text
+from rich.tree import Tree
 
 
 # ═══════════════════════════════════════════════════════════════════════

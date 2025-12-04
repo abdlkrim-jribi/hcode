@@ -4,11 +4,11 @@ Support for editing and executing notebook cells.
 """
 
 import json
+from enum import Enum
 from pathlib import Path
 from typing import List, Optional
-from enum import Enum
 
-from .base_tool import BaseTool, ToolResult, ToolParameter, ToolCategory
+from hcode.tools.base_tool import BaseTool, ToolResult, ToolParameter, ToolCategory
 
 
 class CellType(Enum):

@@ -5,9 +5,6 @@ Nerd Font and Unicode icons for the UI.
 
 import os
 import sys
-from enum import Enum
-from typing import Dict, Optional
-
 
 # ═══════════════════════════════════════════════════════════════════════
 # PLATFORM DETECTION

@@ -3,13 +3,12 @@ ToolExecutor for Hcode.
 Executes external tools and commands with timeout and output handling.
 """
 
-import subprocess
 import asyncio
-import shlex
-from pathlib import Path
-from typing import Dict, Optional, List, Tuple
 import re
+import shlex
 from dataclasses import dataclass
+from pathlib import Path
+from typing import Dict, Optional, List
 
 
 @dataclass

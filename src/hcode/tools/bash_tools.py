@@ -3,17 +3,15 @@ Bash execution tools for Hcode.
 Includes Bash, BashOutput, and KillShell tools for command execution.
 """
 
-import os
 import asyncio
-import subprocess
+import os
 import time
 import uuid
-from pathlib import Path
-from typing import Dict, Optional, List, Any
 from dataclasses import dataclass
-import shlex
+from pathlib import Path
+from typing import Dict, Optional, List
 
-from .base_tool import BaseTool, ToolResult, ToolParameter, ToolCategory
+from hcode.tools.base_tool import BaseTool, ToolResult, ToolParameter, ToolCategory
 
 
 @dataclass

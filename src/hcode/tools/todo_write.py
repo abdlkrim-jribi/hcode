@@ -5,10 +5,9 @@ Handles batch todo updates with validation.
 """
 
 from typing import Any, Dict, List, Optional
-import json
 
-from .base_tool import BaseTool, ToolParameter, ToolResult
-from ..agent.todo import TodoManager, TodoStatus
+from hcode.agent.todo import TodoManager, TodoStatus
+from hcode.tools.base_tool import BaseTool, ToolParameter, ToolResult
 
 
 class TodoWriteTool(BaseTool):

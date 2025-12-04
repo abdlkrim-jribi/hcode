@@ -4,8 +4,32 @@ Configuration module for Hcode.
 Includes thinking configuration, prompts, model settings, tools, and other configurations.
 """
 
-from .thinking import ThinkingConfig, ThinkingMode, ThinkingVisibility
-from .prompts import (
+from hcode.config.defaults import (
+    VERSION,
+    APP_NAME,
+    DEFAULT_MODELS,
+    MODEL_PRICING,
+    CONTEXT_WINDOWS,
+    DEFAULT_SYSTEM_PROMPT,
+    CHAT_COMMANDS,
+    DEFAULT_CONFIG_YAML,
+    get_default_model,
+    get_model_pricing,
+    get_context_window,
+    is_binary_file,
+    should_ignore_path,
+)
+from hcode.config.prompt_loader import (
+    PromptLoader,
+    LoadedPrompt,
+    PromptMetadata,
+    PromptVariable,
+    get_prompt_loader,
+    set_prompts_dir,
+    load_prompt,
+    list_prompts,
+)
+from hcode.config.prompts import (
     PromptsConfig,
     ModelsConfig,
     GenerationParams,
@@ -20,15 +44,7 @@ from .prompts import (
     get_max_tokens,
     reload_configs,
 )
-from .tools import (
-    ToolsConfig,
-    ToolDefinition,
-    ToolParameter,
-    get_tools_config,
-    get_tool_schemas_for_openai,
-    get_tool_schemas_for_anthropic,
-)
-from .settings import (
+from hcode.config.settings import (
     HCodeSettings,
     LLMSettings,
     AgentSettings,
@@ -48,30 +64,14 @@ from .settings import (
     get_prompts_settings,
     is_debug_mode,
 )
-from .prompt_loader import (
-    PromptLoader,
-    LoadedPrompt,
-    PromptMetadata,
-    PromptVariable,
-    get_prompt_loader,
-    set_prompts_dir,
-    load_prompt,
-    list_prompts,
-)
-from .defaults import (
-    VERSION,
-    APP_NAME,
-    DEFAULT_MODELS,
-    MODEL_PRICING,
-    CONTEXT_WINDOWS,
-    DEFAULT_SYSTEM_PROMPT,
-    CHAT_COMMANDS,
-    DEFAULT_CONFIG_YAML,
-    get_default_model,
-    get_model_pricing,
-    get_context_window,
-    is_binary_file,
-    should_ignore_path,
+from hcode.config.thinking import ThinkingConfig, ThinkingMode, ThinkingVisibility
+from hcode.config.tools import (
+    ToolsConfig,
+    ToolDefinition,
+    ToolParameter,
+    get_tools_config,
+    get_tool_schemas_for_openai,
+    get_tool_schemas_for_anthropic,
 )
 
 __all__ = [

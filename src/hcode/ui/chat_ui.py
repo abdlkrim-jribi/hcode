@@ -3,26 +3,12 @@ HCode Futuristic Interactive Chat Interface
 Beautiful, responsive chat experience.
 """
 
-from rich.console import Console, Group, RenderableType
-from rich.panel import Panel
-from rich.text import Text
-from rich.markdown import Markdown
-from rich.syntax import Syntax
-from rich.rule import Rule
-from rich.align import Align
-from rich.padding import Padding
-from rich.live import Live
-from rich.box import ROUNDED, DOUBLE, HEAVY
-from typing import Optional, AsyncIterator, List, Callable, Any
 from datetime import datetime
 from pathlib import Path
-import asyncio
-import time
+from typing import Optional, AsyncIterator, List, Any
 
-from .theme import ThemeEngine, ThemeMode, get_theme, get_palette
-from .components import CyberPanel, StatusIndicator, TokenCounter
-from .animations import ThinkingAnimation, StreamingText
-from .panels import (
+from hcode.ui.animations import ThinkingAnimation
+from hcode.ui.panels import (
     WelcomePanel,
     UserMessagePanel,
     AIMessagePanel,
@@ -31,6 +17,13 @@ from .panels import (
     SuccessPanel,
     TokenUsagePanel,
 )
+from hcode.ui.theme import ThemeMode, get_theme, get_palette
+from rich.console import Console, RenderableType
+from rich.live import Live
+from rich.markdown import Markdown
+from rich.padding import Padding
+from rich.rule import Rule
+from rich.text import Text
 
 
 # ═══════════════════════════════════════════════════════════════════════

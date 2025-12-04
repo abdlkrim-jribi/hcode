@@ -7,59 +7,40 @@ import asyncio
 import json
 import os
 import sys
-import re
-from pathlib import Path
-from typing import Optional, Dict, Any, List, Tuple
 from datetime import datetime
 from enum import Enum
+from pathlib import Path
+from typing import Optional, Dict, List
 
 import click
-from rich.console import Console
-from rich.panel import Panel
-from rich.markdown import Markdown
-from rich.syntax import Syntax
-from rich.table import Table
-from rich.progress import Progress, SpinnerColumn, TextColumn
-from rich.prompt import Prompt
-from rich.live import Live
-from rich.layout import Layout
-from rich import box
-from rich.text import Text
-from rich.align import Align
-from rich.columns import Columns
-from prompt_toolkit import PromptSession
-from prompt_toolkit.history import FileHistory
-from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
-from prompt_toolkit.completion import WordCompleter
-from prompt_toolkit.formatted_text import HTML
-
+# Import autonomous operation system
+from hcode.agent.modes import AgentMode, get_mode_config
+from hcode.cli.autonomous_cli import AutonomousCLI, create_mode_status_line
+from hcode.cli.shortcuts import ShortcutManager, ShortcutAction
 from hcode.core import HcodeAgent
 from hcode.providers import ProviderPreferences, TaskComplexity, TaskType
-from hcode.utils.config import load_config
-
-# Import autonomous operation system
-from hcode.agent.modes import AgentMode, get_mode_config, get_mode_description
-from hcode.cli.autonomous_cli import AutonomousCLI, create_mode_status_line
-from hcode.cli.shortcuts import ShortcutManager, ShortcutAction, setup_shortcuts_for_agent
-
 # Import styling system (from ui module)
 from hcode.ui import (
     Colors,
     Icons,
-    Lines,
-    StyledPanel,
-    Header,
-    Footer,
     StatusLine,
-    Prompt as StyledPrompt,
     TodoDisplay,
     TodoItem as StyledTodoItem,
     Separator,
     get_default_box,
     console as styled_console,
     spinner,
-    get_status_icon,
 )
+from hcode.utils.config import load_config
+from prompt_toolkit import PromptSession
+from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
+from prompt_toolkit.completion import WordCompleter
+from prompt_toolkit.formatted_text import HTML
+from prompt_toolkit.history import FileHistory
+from rich.align import Align
+from rich.markdown import Markdown
+from rich.panel import Panel
+from rich.text import Text
 
 
 class MessageRole(Enum):

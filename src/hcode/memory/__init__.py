@@ -7,10 +7,10 @@ A three-layer persistent memory architecture:
 - Layer 3: Semantic memory (vector database for long-term retrieval)
 """
 
-from .config import MemoryConfig, config, get_config, update_config
-from .file_memory import FileMemory, MemoryFile
-from .session_memory import SessionMemory, Session, Message, SessionSummary
-from .embeddings import (
+from hcode.memory.config import MemoryConfig, config, get_config, update_config
+from hcode.memory.file_memory import FileMemory, MemoryFile
+from hcode.memory.session_memory import SessionMemory, Session, Message, SessionSummary
+from hcode.memory.embeddings import (
     EmbeddingModel,
     get_embedding_model,
     embed_text,
@@ -19,8 +19,8 @@ from .embeddings import (
     get_embedding_model_safe,
     FallbackEmbedding,
 )
-from .semantic_memory import SemanticMemory, Memory, MemoryType
-from .memory_manager import MemoryManager, ContextWindow, get_memory_manager
+from hcode.memory.semantic_memory import SemanticMemory, Memory, MemoryType
+from hcode.memory.memory_manager import MemoryManager, ContextWindow, get_memory_manager
 
 __all__ = [
     # Config

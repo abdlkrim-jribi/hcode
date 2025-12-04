@@ -11,26 +11,20 @@ Claude Code Style:
     ☐ Write more integration tests for Edit tool
 """
 
-from rich.console import Console, Group, RenderableType
-from rich.panel import Panel
-from rich.text import Text
-from rich.table import Table
-from rich.box import ROUNDED, SIMPLE, MINIMAL
-from rich.live import Live
-from rich.layout import Layout
-from rich.align import Align
-from rich.padding import Padding
-from rich.rule import Rule
-from typing import Optional, List, Dict, Any, Callable
-from dataclasses import dataclass, field
-from datetime import datetime
-from enum import Enum
+import sys
 import threading
 import time
-import sys
+from dataclasses import dataclass
+from datetime import datetime
+from enum import Enum
+from typing import Optional, List, Dict, Any, Callable
 
-from .theme import get_palette, get_theme
-
+from hcode.ui.theme import get_palette
+from rich.box import ROUNDED
+from rich.console import Console, Group, RenderableType
+from rich.live import Live
+from rich.panel import Panel
+from rich.text import Text
 
 # ═══════════════════════════════════════════════════════════════════════
 # CLAUDE CODE STYLE CONSTANTS

@@ -3,10 +3,15 @@ HCode Futuristic Animations and Loading Effects
 Smooth, non-blocking terminal animations.
 """
 
+import asyncio
+import threading
+import time
+from contextlib import contextmanager
+from dataclasses import dataclass
+from typing import Optional, List
+
 from rich.console import Console
-from rich.text import Text
 from rich.live import Live
-from rich.spinner import Spinner
 from rich.progress import (
     Progress,
     SpinnerColumn,
@@ -14,20 +19,10 @@ from rich.progress import (
     BarColumn,
     TaskProgressColumn,
     TimeElapsedColumn,
-    TimeRemainingColumn,
 )
-from rich.style import Style
-from rich.panel import Panel
-from rich.align import Align
-from typing import Optional, Iterator, List, Callable, Any
-import time
-import asyncio
-import threading
-from contextlib import contextmanager
-from dataclasses import dataclass
+from rich.text import Text
 
-from .theme import get_theme, get_palette, ColorUtils
-
+from .theme import get_palette
 
 # ═══════════════════════════════════════════════════════════════════════
 # CUSTOM SPINNERS

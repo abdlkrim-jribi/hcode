@@ -5,16 +5,16 @@ Provides change preview and approval workflow before applying modifications.
 Allows users to review proposed changes with detailed diffs before execution.
 """
 
-import os
 import difflib
 import hashlib
+import os
 from dataclasses import dataclass, field
-from pathlib import Path
-from typing import List, Optional, Dict, Any, Literal
 from datetime import datetime
 from enum import Enum
+from pathlib import Path
+from typing import List, Optional, Dict, Any, Literal
 
-from .base_tool import BaseTool, ToolResult, ToolParameter, ToolCategory
+from hcode.tools.base_tool import BaseTool, ToolResult, ToolParameter, ToolCategory
 
 
 class ChangeOperation(Enum):

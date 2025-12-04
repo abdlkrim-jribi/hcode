@@ -3,22 +3,18 @@ HCode Futuristic UI Components
 Custom panels, boxes, and interactive elements.
 """
 
-from rich.console import Console, RenderableType, Group
-from rich.panel import Panel
-from rich.box import Box, ROUNDED, DOUBLE, HEAVY, SIMPLE
-from rich.table import Table
-from rich.text import Text
-from rich.align import Align
-from rich.columns import Columns
-from rich.padding import Padding
-from rich.style import Style
-from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn
-from typing import Optional, List, Tuple, Dict, Any
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Optional, List, Tuple, Dict
 
-from .theme import get_theme, get_palette
+from rich.align import Align
+from rich.box import Box, ROUNDED, SIMPLE
+from rich.console import RenderableType, Group
+from rich.panel import Panel
+from rich.table import Table
+from rich.text import Text
 
+from hcode.ui.theme import get_palette
 
 # ═══════════════════════════════════════════════════════════════════════
 # CUSTOM BOX STYLES

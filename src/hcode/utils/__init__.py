@@ -2,7 +2,7 @@
 Utility modules for Hcode.
 """
 
-from .config import (
+from hcode.utils.config import (
     load_config,
     save_config,
     create_default_config,
@@ -12,7 +12,7 @@ from .config import (
     OPENAI_COMPATIBLE_MODELS,
 )
 
-from .formatting import (
+from hcode.utils.formatting import (
     console,
     StatusType,
     ICONS,
@@ -41,7 +41,7 @@ from .formatting import (
     wrap_in_panel,
 )
 
-from .validators import (
+from hcode.utils.validators import (
     ValidationError,
     ValidationResult,
     validate_file_path,

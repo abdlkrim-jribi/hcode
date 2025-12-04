@@ -5,8 +5,7 @@ Detects languages, frameworks, and project structure.
 
 import json
 from pathlib import Path
-from typing import Dict, List, Optional, Set
-import re
+from typing import Dict, List, Optional
 
 
 class ProjectAnalyzer:

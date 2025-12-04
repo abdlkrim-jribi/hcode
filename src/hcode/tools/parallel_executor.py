@@ -5,13 +5,13 @@ Supports concurrent tool execution with proper dependency management.
 
 import asyncio
 import json
-from typing import List, Dict, Any, Optional, Set, Tuple
-from dataclasses import dataclass, field
-from enum import Enum
-from datetime import datetime
 import uuid
+from dataclasses import dataclass, field
+from datetime import datetime
+from enum import Enum
+from typing import List, Dict, Any, Optional, Set
 
-from .base_tool import BaseTool, ToolResult, ToolRegistry
+from hcode.tools.base_tool import ToolResult, ToolRegistry
 
 
 class ExecutionStatus(Enum):

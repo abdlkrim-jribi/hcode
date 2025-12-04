@@ -3,12 +3,13 @@ HCode Futuristic Theme Engine
 Supports multiple themes with smooth color transitions and glow effects.
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
 from typing import Dict, Optional, Tuple, List
+
 from rich.console import Console
-from rich.theme import Theme
 from rich.style import Style
+from rich.theme import Theme
 
 
 class ThemeMode(Enum):

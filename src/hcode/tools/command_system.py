@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Dict, Optional, List, Callable
 import yaml
 
-from .base_tool import BaseTool, ToolResult, ToolParameter, ToolCategory
+from hcode.tools.base_tool import BaseTool, ToolResult, ToolParameter, ToolCategory
 
 
 class SlashCommand:

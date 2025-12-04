@@ -10,7 +10,7 @@ from rich.prompt import Prompt, Confirm
 from rich.panel import Panel
 from rich.table import Table
 
-from .base_tool import BaseTool, ToolResult, ToolParameter, ToolCategory
+from hcode.tools.base_tool import BaseTool, ToolResult, ToolParameter, ToolCategory
 
 
 @dataclass
