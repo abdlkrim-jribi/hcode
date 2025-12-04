@@ -2,6 +2,7 @@
 CLI commands for HCODE memory system.
 Provides commands for managing all three memory layers.
 """
+
 import argparse
 from pathlib import Path
 from typing import Optional
@@ -56,27 +57,27 @@ def cmd_status(args):
     print(f"Project ID: {stats['project']['id']}")
 
     print("\n--- File Memory (Layer 1) ---")
-    file_stats = stats['file_memory']
+    file_stats = stats["file_memory"]
     print(f"Memory files: {file_stats['file_count']}")
     print(f"Total size: {file_stats['total_bytes']} bytes")
-    for f in file_stats['files']:
+    for f in file_stats["files"]:
         print(f"  - [{f['scope']}] {f['path']} ({f['size_bytes']} bytes)")
 
     print("\n--- Session Memory (Layer 2) ---")
-    session_stats = stats['session']
+    session_stats = stats["session"]
     print(f"Session ID: {session_stats['id']}")
     print(f"Messages: {session_stats['message_count']}")
     print(f"Summaries: {session_stats['summary_count']}")
     print(f"Anchors: {session_stats['anchor_count']}")
 
     print("\n--- Semantic Memory (Layer 3) ---")
-    semantic_stats = stats['semantic_memory']
+    semantic_stats = stats["semantic_memory"]
     print(f"Total memories: {semantic_stats['total_memories']}")
     print(f"Average importance: {semantic_stats['average_importance']}")
     print(f"Total accesses: {semantic_stats['total_accesses']}")
-    if semantic_stats['by_type']:
+    if semantic_stats["by_type"]:
         print("By type:")
-        for mem_type, count in semantic_stats['by_type'].items():
+        for mem_type, count in semantic_stats["by_type"].items():
             print(f"  - {mem_type}: {count}")
 
 
@@ -94,11 +95,7 @@ def cmd_search(args):
             print(f"Valid types: {[t.value for t in MemoryType]}")
             return
 
-    results = manager.recall(
-        query=args.query,
-        top_k=args.limit,
-        memory_types=memory_types
-    )
+    results = manager.recall(query=args.query, top_k=args.limit, memory_types=memory_types)
 
     if not results:
         print("No matching memories found.")
@@ -125,10 +122,7 @@ def cmd_remember(args):
         return
 
     memory = manager.remember(
-        content=args.content,
-        memory_type=memory_type,
-        importance=args.importance,
-        source="cli"
+        content=args.content, memory_type=memory_type, importance=args.importance, source="cli"
     )
 
     print(f"Memory added (ID: {memory.id})")
@@ -212,7 +206,7 @@ def cmd_cleanup(args):
     stats = manager.cleanup(
         prune_semantic=not args.no_prune,
         compact_session=not args.no_compact,
-        apply_decay=not args.no_decay
+        apply_decay=not args.no_decay,
     )
 
     print("Cleanup complete:")
@@ -294,10 +288,7 @@ def cmd_show(args):
 
 def create_parser() -> argparse.ArgumentParser:
     """Create the argument parser for memory CLI."""
-    parser = argparse.ArgumentParser(
-        prog="hcode memory",
-        description="HCODE Memory System CLI"
-    )
+    parser = argparse.ArgumentParser(prog="hcode memory", description="HCODE Memory System CLI")
     parser.add_argument("--path", "-p", help="Project path (default: current directory)")
 
     subparsers = parser.add_subparsers(dest="command", help="Commands")
@@ -305,10 +296,11 @@ def create_parser() -> argparse.ArgumentParser:
     # init command
     init_parser = subparsers.add_parser("init", help="Initialize memory files")
     init_parser.add_argument(
-        "--scope", "-s",
+        "--scope",
+        "-s",
         choices=["project", "global", "local", "all"],
         default="project",
-        help="Which memory files to create"
+        help="Which memory files to create",
     )
     init_parser.set_defaults(func=cmd_init)
 
@@ -327,7 +319,9 @@ def create_parser() -> argparse.ArgumentParser:
     remember_parser = subparsers.add_parser("remember", help="Add a memory")
     remember_parser.add_argument("content", help="Memory content")
     remember_parser.add_argument("--type", "-t", default="context", help="Memory type")
-    remember_parser.add_argument("--importance", "-i", type=float, default=0.5, help="Importance (0-1)")
+    remember_parser.add_argument(
+        "--importance", "-i", type=float, default=0.5, help="Importance (0-1)"
+    )
     remember_parser.set_defaults(func=cmd_remember)
 
     # forget command
@@ -338,9 +332,7 @@ def create_parser() -> argparse.ArgumentParser:
     # sessions command
     sessions_parser = subparsers.add_parser("sessions", help="Manage sessions")
     sessions_parser.add_argument(
-        "action",
-        choices=["list", "show", "delete", "new"],
-        help="Session action"
+        "action", choices=["list", "show", "delete", "new"], help="Session action"
     )
     sessions_parser.add_argument("--session-id", "-s", help="Session ID")
     sessions_parser.add_argument("--limit", "-l", type=int, default=10, help="Max sessions to list")
@@ -367,10 +359,11 @@ def create_parser() -> argparse.ArgumentParser:
     # edit command
     edit_parser = subparsers.add_parser("edit", help="Edit memory file in editor")
     edit_parser.add_argument(
-        "--scope", "-s",
+        "--scope",
+        "-s",
         choices=["project", "global", "local"],
         default="project",
-        help="Which memory file to edit"
+        help="Which memory file to edit",
     )
     edit_parser.set_defaults(func=cmd_edit)
 

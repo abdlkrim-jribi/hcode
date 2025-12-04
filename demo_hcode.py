@@ -33,7 +33,9 @@ sys.path.insert(0, str(Path(__file__).parent / "src"))
 
 # Load environment variables
 from dotenv import load_dotenv
+
 load_dotenv()
+
 
 async def demo():
     """Run a comprehensive demonstration of Hcode features.
@@ -85,12 +87,26 @@ async def demo():
     context.add_message("assistant", "Of course! I'd be happy to help you write a Python function.")
 
     # Add todos
-    context.update_todos([
-        {"content": "Understand requirements", "status": "completed", "activeForm": "Understanding requirements"},
-        {"content": "Write function code", "status": "in_progress", "activeForm": "Writing function code"},
-        {"content": "Add documentation", "status": "pending", "activeForm": "Adding documentation"},
-        {"content": "Write tests", "status": "pending", "activeForm": "Writing tests"}
-    ])
+    context.update_todos(
+        [
+            {
+                "content": "Understand requirements",
+                "status": "completed",
+                "activeForm": "Understanding requirements",
+            },
+            {
+                "content": "Write function code",
+                "status": "in_progress",
+                "activeForm": "Writing function code",
+            },
+            {
+                "content": "Add documentation",
+                "status": "pending",
+                "activeForm": "Adding documentation",
+            },
+            {"content": "Write tests", "status": "pending", "activeForm": "Writing tests"},
+        ]
+    )
 
     # Get statistics
     stats = context.get_statistics()
@@ -105,7 +121,7 @@ async def demo():
     test_tasks = [
         "fix a simple bug",
         "implement a complex authentication system",
-        "add a comment to the code"
+        "add a comment to the code",
     ]
 
     for task in test_tasks:
@@ -138,7 +154,7 @@ async def demo():
 
     # Visualize plan
     viz = executor.visualize_plan(plan)
-    for line in viz.split('\n')[:10]:
+    for line in viz.split("\n")[:10]:
         print(f"  {line}")
 
     print("\n[6] Testing Todo Generation...")
@@ -165,10 +181,10 @@ async def demo():
 
 def main():
     """
-Entry point for the demo script.
+    Entry point for the demo script.
 
-This function performs environment validation (checking for required API keys), runs the asynchronous ``demo`` coroutine, and exits with appropriate status codes. It also handles import errors and unexpected exceptions, providing helpful messages to the user.
-"""
+    This function performs environment validation (checking for required API keys), runs the asynchronous ``demo`` coroutine, and exits with appropriate status codes. It also handles import errors and unexpected exceptions, providing helpful messages to the user.
+    """
     try:
         # Check for API keys
         if not os.getenv("ANTHROPIC_API_KEY") and not os.getenv("OPENAI_API_KEY"):
@@ -196,6 +212,7 @@ This function performs environment validation (checking for required API keys), 
     except Exception as e:
         print(f"\nError: {e}")
         import traceback
+
         traceback.print_exc()
         sys.exit(1)
 

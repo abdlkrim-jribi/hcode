@@ -20,6 +20,7 @@ from pathlib import Path
 
 class OutputType(Enum):
     """Types of output content"""
+
     STDOUT = "stdout"
     STDERR = "stderr"
     FILE_CONTENT = "file"
@@ -32,15 +33,17 @@ class OutputType(Enum):
 
 class ErrorSeverity(Enum):
     """Severity levels for extracted errors"""
-    CRITICAL = "critical"      # Fatal errors, crashes
-    ERROR = "error"            # Standard errors
-    WARNING = "warning"        # Warnings
-    INFO = "info"              # Informational messages
+
+    CRITICAL = "critical"  # Fatal errors, crashes
+    ERROR = "error"  # Standard errors
+    WARNING = "warning"  # Warnings
+    INFO = "info"  # Informational messages
 
 
 @dataclass
 class ExtractedError:
     """Represents an extracted error from output"""
+
     message: str
     severity: ErrorSeverity
     line_number: Optional[int] = None
@@ -65,6 +68,7 @@ class ExtractedError:
 @dataclass
 class SearchMatch:
     """Represents a search match in output"""
+
     line_number: int
     line_content: str
     match_start: int
@@ -76,13 +80,14 @@ class SearchMatch:
 @dataclass
 class TruncatedOutput:
     """Result of truncating large output"""
-    content: str                    # The truncated content
-    original_lines: int             # Total lines in original
-    displayed_lines: int            # Lines shown
-    truncated: bool                 # Whether truncation occurred
-    head_lines: int                 # Lines from start
-    tail_lines: int                 # Lines from end
-    omitted_lines: int              # Lines omitted in middle
+
+    content: str  # The truncated content
+    original_lines: int  # Total lines in original
+    displayed_lines: int  # Lines shown
+    truncated: bool  # Whether truncation occurred
+    head_lines: int  # Lines from start
+    tail_lines: int  # Lines from end
+    omitted_lines: int  # Lines omitted in middle
     errors_found: List[ExtractedError] = field(default_factory=list)
     warnings_found: int = 0
     has_stack_trace: bool = False
@@ -101,82 +106,68 @@ class OutputHandler:
     """
 
     # Default configuration
-    DEFAULT_HEAD_LINES = 20          # Lines to show from start
-    DEFAULT_TAIL_LINES = 5           # Lines to show from end (always show latest)
-    DEFAULT_MAX_LINES = 100          # Max total lines before truncation
-    DEFAULT_MAX_LINE_LENGTH = 500    # Max characters per line
-    DEFAULT_CONTEXT_LINES = 3        # Context lines around errors
+    DEFAULT_HEAD_LINES = 20  # Lines to show from start
+    DEFAULT_TAIL_LINES = 5  # Lines to show from end (always show latest)
+    DEFAULT_MAX_LINES = 100  # Max total lines before truncation
+    DEFAULT_MAX_LINE_LENGTH = 500  # Max characters per line
+    DEFAULT_CONTEXT_LINES = 3  # Context lines around errors
 
     # Error patterns for different languages/tools
     ERROR_PATTERNS = {
         # Python errors
-        'python_error': re.compile(
+        "python_error": re.compile(
             r'^(\s*File "([^"]+)", line (\d+).*$|'
-            r'^\s*((?:Traceback|.*Error|.*Exception|.*Warning)[^\n]*$))',
-            re.MULTILINE | re.IGNORECASE
+            r"^\s*((?:Traceback|.*Error|.*Exception|.*Warning)[^\n]*$))",
+            re.MULTILINE | re.IGNORECASE,
         ),
-        'python_traceback': re.compile(
-            r'Traceback \(most recent call last\):',
-            re.IGNORECASE
+        "python_traceback": re.compile(r"Traceback \(most recent call last\):", re.IGNORECASE),
+        "python_exception": re.compile(
+            r"^(\w+Error|\w+Exception|\w+Warning):\s*(.+)$", re.MULTILINE
         ),
-        'python_exception': re.compile(
-            r'^(\w+Error|\w+Exception|\w+Warning):\s*(.+)$',
-            re.MULTILINE
-        ),
-
         # JavaScript/Node errors
-        'js_error': re.compile(
-            r'^(\s*at\s+.+\(.*:\d+:\d+\)|'
-            r'^\s*((?:TypeError|ReferenceError|SyntaxError|Error)[^\n]*$))',
-            re.MULTILINE
+        "js_error": re.compile(
+            r"^(\s*at\s+.+\(.*:\d+:\d+\)|"
+            r"^\s*((?:TypeError|ReferenceError|SyntaxError|Error)[^\n]*$))",
+            re.MULTILINE,
         ),
-
         # Rust errors
-        'rust_error': re.compile(
-            r'^error(\[E\d+\])?:\s*(.+)$|'
-            r'^\s*-->\s*([^:]+):(\d+):(\d+)',
-            re.MULTILINE
+        "rust_error": re.compile(
+            r"^error(\[E\d+\])?:\s*(.+)$|" r"^\s*-->\s*([^:]+):(\d+):(\d+)", re.MULTILINE
         ),
-
         # Go errors
-        'go_error': re.compile(
-            r'^([^:]+):(\d+):(\d+):\s*(.*(?:error|undefined|cannot).*)$',
-            re.MULTILINE | re.IGNORECASE
+        "go_error": re.compile(
+            r"^([^:]+):(\d+):(\d+):\s*(.*(?:error|undefined|cannot).*)$",
+            re.MULTILINE | re.IGNORECASE,
         ),
-
         # Generic error patterns
-        'generic_error': re.compile(
-            r'^.*(?:error|failed|failure|exception|fatal|critical|panic).*$',
-            re.MULTILINE | re.IGNORECASE
+        "generic_error": re.compile(
+            r"^.*(?:error|failed|failure|exception|fatal|critical|panic).*$",
+            re.MULTILINE | re.IGNORECASE,
         ),
-        'generic_warning': re.compile(
-            r'^.*(?:warning|warn|deprecated|caution).*$',
-            re.MULTILINE | re.IGNORECASE
+        "generic_warning": re.compile(
+            r"^.*(?:warning|warn|deprecated|caution).*$", re.MULTILINE | re.IGNORECASE
         ),
-
         # Test failures
-        'test_failure': re.compile(
-            r'^(?:FAILED|FAIL|ERROR|BROKEN|✗|✘|×)[\s:].*$|'
-            r'^\s*(?:assert|expect).*(?:failed|error).*$',
-            re.MULTILINE | re.IGNORECASE
+        "test_failure": re.compile(
+            r"^(?:FAILED|FAIL|ERROR|BROKEN|✗|✘|×)[\s:].*$|"
+            r"^\s*(?:assert|expect).*(?:failed|error).*$",
+            re.MULTILINE | re.IGNORECASE,
         ),
-
         # Build errors
-        'build_error': re.compile(
-            r'^(?:ERROR|error):\s*.*$|'
-            r'^\s*(?:compilation|build)\s+(?:failed|error).*$',
-            re.MULTILINE | re.IGNORECASE
+        "build_error": re.compile(
+            r"^(?:ERROR|error):\s*.*$|" r"^\s*(?:compilation|build)\s+(?:failed|error).*$",
+            re.MULTILINE | re.IGNORECASE,
         ),
     }
 
     # Patterns that indicate important content to preserve
     IMPORTANT_PATTERNS = [
-        re.compile(r'Traceback', re.IGNORECASE),
-        re.compile(r'Error:|Exception:', re.IGNORECASE),
-        re.compile(r'FAILED|FAIL:', re.IGNORECASE),
-        re.compile(r'assert.*failed', re.IGNORECASE),
-        re.compile(r'^\s*>\s+', re.MULTILINE),  # pytest error indicator
-        re.compile(r'^E\s+', re.MULTILINE),      # pytest assertion error
+        re.compile(r"Traceback", re.IGNORECASE),
+        re.compile(r"Error:|Exception:", re.IGNORECASE),
+        re.compile(r"FAILED|FAIL:", re.IGNORECASE),
+        re.compile(r"assert.*failed", re.IGNORECASE),
+        re.compile(r"^\s*>\s+", re.MULTILINE),  # pytest error indicator
+        re.compile(r"^E\s+", re.MULTILINE),  # pytest assertion error
     ]
 
     def __init__(
@@ -318,14 +309,15 @@ class OutputHandler:
 
         # Check if there are important lines in the omitted section
         important_in_middle = [
-            i for i in important_indices
-            if actual_head <= i < total - actual_tail
+            i for i in important_indices if actual_head <= i < total - actual_tail
         ]
 
         if important_in_middle and len(important_in_middle) <= 10:
             # Show important lines from middle section
             result_lines.append("")
-            result_lines.append(f"... [{omitted} lines omitted, showing {len(important_in_middle)} important lines] ...")
+            result_lines.append(
+                f"... [{omitted} lines omitted, showing {len(important_in_middle)} important lines] ..."
+            )
             result_lines.append("")
 
             for idx in sorted(important_in_middle)[:10]:
@@ -348,7 +340,7 @@ class OutputHandler:
         """Truncate a single line if too long"""
         if len(line) <= self.max_line_length:
             return line
-        return line[:self.max_line_length - 3] + "..."
+        return line[: self.max_line_length - 3] + "..."
 
     def _find_important_lines(self, lines: List[str]) -> set:
         """Find line indices that contain important content"""
@@ -359,8 +351,7 @@ class OutputHandler:
                 if pattern.search(line):
                     # Add this line and context
                     for j in range(
-                        max(0, i - self.context_lines),
-                        min(len(lines), i + self.context_lines + 1)
+                        max(0, i - self.context_lines), min(len(lines), i + self.context_lines + 1)
                     ):
                         important.add(j)
                     break
@@ -369,7 +360,7 @@ class OutputHandler:
 
     def _has_stack_trace(self, output: str) -> bool:
         """Check if output contains a stack trace"""
-        return bool(self.ERROR_PATTERNS['python_traceback'].search(output))
+        return bool(self.ERROR_PATTERNS["python_traceback"].search(output))
 
     def _extract_errors(
         self,
@@ -398,14 +389,14 @@ class OutputHandler:
         errors = []
 
         # Find exception lines
-        for match in self.ERROR_PATTERNS['python_exception'].finditer(full_text):
+        for match in self.ERROR_PATTERNS["python_exception"].finditer(full_text):
             error_type = match.group(1)
             message = match.group(2)
 
             # Determine severity
-            if 'Warning' in error_type:
+            if "Warning" in error_type:
                 severity = ErrorSeverity.WARNING
-            elif error_type in ('SyntaxError', 'IndentationError', 'TabError'):
+            elif error_type in ("SyntaxError", "IndentationError", "TabError"):
                 severity = ErrorSeverity.CRITICAL
             else:
                 severity = ErrorSeverity.ERROR
@@ -427,14 +418,16 @@ class OutputHandler:
             # Generate suggestion for common errors
             suggestion = self._suggest_fix(error_type, message)
 
-            errors.append(ExtractedError(
-                message=message,
-                severity=severity,
-                line_number=line_num,
-                file_path=file_path,
-                error_type=error_type,
-                suggestion=suggestion,
-            ))
+            errors.append(
+                ExtractedError(
+                    message=message,
+                    severity=severity,
+                    line_number=line_num,
+                    file_path=file_path,
+                    error_type=error_type,
+                    suggestion=suggestion,
+                )
+            )
 
         return errors
 
@@ -444,26 +437,31 @@ class OutputHandler:
 
         for i, line in enumerate(lines):
             # Check for error patterns
-            if self.ERROR_PATTERNS['generic_error'].search(line):
-                errors.append(ExtractedError(
-                    message=line.strip(),
-                    severity=ErrorSeverity.ERROR,
-                    line_number=i + 1,
-                    context_before=lines[max(0, i-2):i],
-                    context_after=lines[i+1:min(len(lines), i+3)],
-                ))
-            elif self.ERROR_PATTERNS['generic_warning'].search(line):
-                errors.append(ExtractedError(
-                    message=line.strip(),
-                    severity=ErrorSeverity.WARNING,
-                    line_number=i + 1,
-                ))
+            if self.ERROR_PATTERNS["generic_error"].search(line):
+                errors.append(
+                    ExtractedError(
+                        message=line.strip(),
+                        severity=ErrorSeverity.ERROR,
+                        line_number=i + 1,
+                        context_before=lines[max(0, i - 2) : i],
+                        context_after=lines[i + 1 : min(len(lines), i + 3)],
+                    )
+                )
+            elif self.ERROR_PATTERNS["generic_warning"].search(line):
+                errors.append(
+                    ExtractedError(
+                        message=line.strip(),
+                        severity=ErrorSeverity.WARNING,
+                        line_number=i + 1,
+                    )
+                )
 
         # Limit to most important errors
         return errors[:20]
 
     def _suggest_fix(self, error_type: str, message: str) -> Optional[str]:
         """Generate fix suggestions for common errors"""
+
         # Helper to extract module name from message
         def get_module_name(m: str) -> str:
             if "'" in m:
@@ -472,21 +470,21 @@ class OutputHandler:
             return "package"
 
         suggestions = {
-            'ModuleNotFoundError': lambda m: f"Install missing module: pip install {get_module_name(m)}",
-            'ImportError': lambda m: "Check module path and ensure it exists",
-            'FileNotFoundError': lambda m: "Verify the file path exists",
-            'SyntaxError': lambda m: "Check for missing colons, brackets, or quotes",
-            'IndentationError': lambda m: "Fix indentation - use consistent spaces or tabs",
-            'NameError': lambda m: "Variable or function is not defined - check spelling",
-            'TypeError': lambda m: "Check argument types and function signatures",
-            'AttributeError': lambda m: "Object doesn't have this attribute - check spelling",
-            'KeyError': lambda m: "Key doesn't exist in dictionary - check key name",
-            'IndexError': lambda m: "Index out of range - check list/array length",
-            'ValueError': lambda m: "Invalid value - check data format",
-            'ZeroDivisionError': lambda m: "Add check for zero before division",
-            'PermissionError': lambda m: "Check file permissions or run with elevated privileges",
-            'ConnectionError': lambda m: "Check network connection and endpoint availability",
-            'TimeoutError': lambda m: "Increase timeout or check if service is responding",
+            "ModuleNotFoundError": lambda m: f"Install missing module: pip install {get_module_name(m)}",
+            "ImportError": lambda m: "Check module path and ensure it exists",
+            "FileNotFoundError": lambda m: "Verify the file path exists",
+            "SyntaxError": lambda m: "Check for missing colons, brackets, or quotes",
+            "IndentationError": lambda m: "Fix indentation - use consistent spaces or tabs",
+            "NameError": lambda m: "Variable or function is not defined - check spelling",
+            "TypeError": lambda m: "Check argument types and function signatures",
+            "AttributeError": lambda m: "Object doesn't have this attribute - check spelling",
+            "KeyError": lambda m: "Key doesn't exist in dictionary - check key name",
+            "IndexError": lambda m: "Index out of range - check list/array length",
+            "ValueError": lambda m: "Invalid value - check data format",
+            "ZeroDivisionError": lambda m: "Add check for zero before division",
+            "PermissionError": lambda m: "Check file permissions or run with elevated privileges",
+            "ConnectionError": lambda m: "Check network connection and endpoint availability",
+            "TimeoutError": lambda m: "Increase timeout or check if service is responding",
         }
 
         if error_type in suggestions:
@@ -533,14 +531,16 @@ class OutputHandler:
         for i, line in enumerate(lines):
             match = compiled.search(line)
             if match:
-                matches.append(SearchMatch(
-                    line_number=i + 1,
-                    line_content=line,
-                    match_start=match.start(),
-                    match_end=match.end(),
-                    context_before=lines[max(0, i - context_lines):i],
-                    context_after=lines[i + 1:min(len(lines), i + context_lines + 1)],
-                ))
+                matches.append(
+                    SearchMatch(
+                        line_number=i + 1,
+                        line_content=line,
+                        match_start=match.start(),
+                        match_end=match.end(),
+                        context_before=lines[max(0, i - context_lines) : i],
+                        context_after=lines[i + 1 : min(len(lines), i + context_lines + 1)],
+                    )
+                )
 
                 if len(matches) >= max_matches:
                     break
@@ -570,16 +570,24 @@ class OutputHandler:
 
         # Stats header
         if show_stats and truncated.truncated:
-            stats = f"[Output: {truncated.original_lines} lines, showing {truncated.displayed_lines}]"
+            stats = (
+                f"[Output: {truncated.original_lines} lines, showing {truncated.displayed_lines}]"
+            )
             if truncated.errors_found:
-                error_count = len([e for e in truncated.errors_found if e.severity != ErrorSeverity.WARNING])
+                error_count = len(
+                    [e for e in truncated.errors_found if e.severity != ErrorSeverity.WARNING]
+                )
                 stats += f" [{error_count} errors, {truncated.warnings_found} warnings]"
             parts.append(stats)
             parts.append("")
 
         # Error summary (if any)
         if show_errors and truncated.errors_found:
-            critical_errors = [e for e in truncated.errors_found if e.severity in (ErrorSeverity.CRITICAL, ErrorSeverity.ERROR)]
+            critical_errors = [
+                e
+                for e in truncated.errors_found
+                if e.severity in (ErrorSeverity.CRITICAL, ErrorSeverity.ERROR)
+            ]
             if critical_errors:
                 parts.append("=== ERRORS DETECTED ===")
                 for error in critical_errors[:max_error_display]:
@@ -587,7 +595,9 @@ class OutputHandler:
                     if error.suggestion:
                         parts.append(f"    Suggestion: {error.suggestion}")
                 if len(critical_errors) > max_error_display:
-                    parts.append(f"    ... and {len(critical_errors) - max_error_display} more errors")
+                    parts.append(
+                        f"    ... and {len(critical_errors) - max_error_display} more errors"
+                    )
                 parts.append("=" * 23)
                 parts.append("")
 

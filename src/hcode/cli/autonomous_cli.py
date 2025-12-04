@@ -1,4 +1,3 @@
-
 """
 CLI integration for autonomous operation.
 
@@ -124,9 +123,7 @@ class AutonomousCLI:
                 return self._change_mode(mode)
 
         # Not found - show help
-        self.console.print(
-            f"[{Colors.ERROR}]Unknown mode: {name}[/]"
-        )
+        self.console.print(f"[{Colors.ERROR}]Unknown mode: {name}[/]")
         self.show_mode_help()
         return False
 
@@ -180,10 +177,7 @@ class AutonomousCLI:
         # Current mode header
         content.append(f" {self.icons.LOGO} ", style=f"bold {Colors.PRIMARY}")
         content.append("Current Mode: ", style=Colors.TEXT_SECONDARY)
-        content.append(
-            f"{self._current_mode.value.upper()}\n",
-            style=f"bold {Colors.SUCCESS}"
-        )
+        content.append(f"{self._current_mode.value.upper()}\n", style=f"bold {Colors.SUCCESS}")
 
         # Description
         content.append(f"   {mode_config.description}\n", style=Colors.TEXT_MUTED)
@@ -205,13 +199,15 @@ class AutonomousCLI:
             content.append(f"   {icon} ", style=color)
             content.append(f"{name}\n", style=Colors.TEXT_SECONDARY)
 
-        self.console.print(Panel(
-            content,
-            border_style=Colors.PRIMARY,
-            box=get_default_box(),
-            padding=(0, 1),
-            width=50
-        ))
+        self.console.print(
+            Panel(
+                content,
+                border_style=Colors.PRIMARY,
+                box=get_default_box(),
+                padding=(0, 1),
+                width=50,
+            )
+        )
 
     def show_mode_help(self):
         """Show mode command help"""
@@ -237,18 +233,17 @@ class AutonomousCLI:
         content.append("\n")
         content.append(f" {self.icons.ARROW_RIGHT} ", style=Colors.PRIMARY)
         content.append("Tip: ", style=f"bold {Colors.TEXT_SECONDARY}")
-        content.append(
-            "Press Shift+Tab to toggle modes",
-            style=Colors.TEXT_MUTED
-        )
+        content.append("Press Shift+Tab to toggle modes", style=Colors.TEXT_MUTED)
 
-        self.console.print(Panel(
-            content,
-            border_style=Colors.BORDER_DEFAULT,
-            box=get_default_box(),
-            padding=(0, 1),
-            width=50
-        ))
+        self.console.print(
+            Panel(
+                content,
+                border_style=Colors.BORDER_DEFAULT,
+                box=get_default_box(),
+                padding=(0, 1),
+                width=50,
+            )
+        )
 
     def confirm_action(self, message: str) -> bool:
         """
@@ -261,13 +256,15 @@ class AutonomousCLI:
             True if confirmed
         """
         self.console.print()
-        self.console.print(Panel(
-            message,
-            title=f"[{Colors.WARNING}]Confirm?[/]",
-            border_style=Colors.WARNING,
-            box=get_default_box(),
-            padding=(0, 1)
-        ))
+        self.console.print(
+            Panel(
+                message,
+                title=f"[{Colors.WARNING}]Confirm?[/]",
+                border_style=Colors.WARNING,
+                box=get_default_box(),
+                padding=(0, 1),
+            )
+        )
 
         try:
             response = input("  (y/n): ").strip().lower()
@@ -287,24 +284,19 @@ class AutonomousCLI:
             True if approved
         """
         self.console.print()
-        self.console.print(Panel(
-            plan_display,
-            title=f"[{Colors.PRIMARY}]Execution Plan[/]",
-            border_style=Colors.PRIMARY,
-            box=get_default_box(),
-            padding=(1, 2)
-        ))
+        self.console.print(
+            Panel(
+                plan_display,
+                title=f"[{Colors.PRIMARY}]Execution Plan[/]",
+                border_style=Colors.PRIMARY,
+                box=get_default_box(),
+                padding=(1, 2),
+            )
+        )
 
         self.console.print()
-        self.console.print(
-            f" {self.icons.INFO} ",
-            style=Colors.INFO,
-            end=""
-        )
-        self.console.print(
-            f"This plan has {action_count} actions.",
-            style=Colors.TEXT_SECONDARY
-        )
+        self.console.print(f" {self.icons.INFO} ", style=Colors.INFO, end="")
+        self.console.print(f"This plan has {action_count} actions.", style=Colors.TEXT_SECONDARY)
 
         try:
             response = input("  Approve? (y/n): ").strip().lower()
@@ -312,22 +304,15 @@ class AutonomousCLI:
 
             if approved:
                 self.console.print(
-                    f" {self.icons.CHECK} Plan approved",
-                    style=f"bold {Colors.SUCCESS}"
+                    f" {self.icons.CHECK} Plan approved", style=f"bold {Colors.SUCCESS}"
                 )
             else:
-                self.console.print(
-                    f" {self.icons.CROSS} Plan rejected",
-                    style=Colors.WARNING
-                )
+                self.console.print(f" {self.icons.CROSS} Plan rejected", style=Colors.WARNING)
 
             return approved
 
         except (EOFError, KeyboardInterrupt):
-            self.console.print(
-                f" {self.icons.CROSS} Plan cancelled",
-                style=Colors.WARNING
-            )
+            self.console.print(f" {self.icons.CROSS} Plan cancelled", style=Colors.WARNING)
             return False
 
     def show_progress(self, message: str, progress: float):
@@ -345,8 +330,7 @@ class AutonomousCLI:
         pct = int(progress * 100)
 
         self.console.print(
-            f"\r {self.icons.TOOL} [{Colors.PRIMARY}]{bar}[/] {pct}% - {message}",
-            end=""
+            f"\r {self.icons.TOOL} [{Colors.PRIMARY}]{bar}[/] {pct}% - {message}", end=""
         )
 
         if progress >= 1.0:
@@ -372,21 +356,20 @@ class AutonomousCLI:
         content.append("  Actions: ", style=Colors.TEXT_SECONDARY)
         content.append(f"{stats.get('total_actions', 0)}", style=Colors.TEXT_PRIMARY)
 
-        if stats.get('dangerous_actions', 0) > 0:
+        if stats.get("dangerous_actions", 0) > 0:
             content.append(
-                f" ({stats['dangerous_actions']} required confirmation)",
-                style=Colors.WARNING
+                f" ({stats['dangerous_actions']} required confirmation)", style=Colors.WARNING
             )
         content.append("\n")
 
         # Errors
-        errors = stats.get('errors', 0)
+        errors = stats.get("errors", 0)
         if errors > 0:
             content.append("  Errors: ", style=Colors.TEXT_SECONDARY)
             content.append(f"{errors}\n", style=Colors.ERROR)
 
         # Duration
-        duration = stats.get('elapsed_seconds', 0)
+        duration = stats.get("elapsed_seconds", 0)
         if duration > 0:
             content.append("  Duration: ", style=Colors.TEXT_SECONDARY)
             if duration < 60:
@@ -397,32 +380,25 @@ class AutonomousCLI:
                 content.append(f"{mins}m {secs:.1f}s\n", style=Colors.TEXT_PRIMARY)
 
         # Todo progress
-        todo_progress = stats.get('todo_progress', {})
+        todo_progress = stats.get("todo_progress", {})
         if todo_progress:
-            completed = todo_progress.get('completed', 0)
-            total = todo_progress.get('total', 0)
+            completed = todo_progress.get("completed", 0)
+            total = todo_progress.get("total", 0)
             if total > 0:
                 content.append("  Tasks: ", style=Colors.TEXT_SECONDARY)
-                content.append(
-                    f"{completed}/{total} completed\n",
-                    style=Colors.TEXT_PRIMARY
-                )
+                content.append(f"{completed}/{total} completed\n", style=Colors.TEXT_PRIMARY)
 
-        self.console.print(Panel(
-            content,
-            border_style=Colors.SUCCESS,
-            box=get_default_box(),
-            padding=(0, 1),
-            width=50
-        ))
+        self.console.print(
+            Panel(
+                content,
+                border_style=Colors.SUCCESS,
+                box=get_default_box(),
+                padding=(0, 1),
+                width=50,
+            )
+        )
 
-    def display_decision(
-        self,
-        tool_name: str,
-        risk_level: str,
-        decision: str,
-        reason: str = ""
-    ):
+    def display_decision(self, tool_name: str, risk_level: str, decision: str, reason: str = ""):
         """
         Display execution decision.
 
@@ -433,17 +409,13 @@ class AutonomousCLI:
             reason: Reason for the action
         """
         # Risk colors
-        risk_colors = {
-            "safe": Colors.SUCCESS,
-            "caution": Colors.WARNING,
-            "dangerous": Colors.ERROR
-        }
+        risk_colors = {"safe": Colors.SUCCESS, "caution": Colors.WARNING, "dangerous": Colors.ERROR}
 
         # Risk icons
         risk_icons = {
             "safe": self.icons.CHECK,
             "caution": self.icons.WARNING,
-            "dangerous": self.icons.CROSS
+            "dangerous": self.icons.CROSS,
         }
 
         color = risk_colors.get(risk_level, Colors.TEXT_SECONDARY)
@@ -454,7 +426,7 @@ class AutonomousCLI:
             "execute": self.icons.LIGHTNING,
             "confirm": self.icons.PROMPT,
             "skip": self.icons.ARROW_RIGHT,
-            "abort": self.icons.CROSS
+            "abort": self.icons.CROSS,
         }
 
         dec_icon = decision_icons.get(decision, self.icons.BULLET)
@@ -492,10 +464,7 @@ def create_mode_status_line(mode: AgentMode) -> Text:
         AgentMode.REVIEW: (icons.SEARCH, Colors.TERTIARY, "REV"),
     }
 
-    icon, color, label = mode_info.get(
-        mode,
-        (icons.BULLET, Colors.TEXT_MUTED, "???")
-    )
+    icon, color, label = mode_info.get(mode, (icons.BULLET, Colors.TEXT_MUTED, "???"))
 
     status = Text()
     status.append(f"{icon}", style=color)

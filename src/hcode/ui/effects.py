@@ -2,6 +2,7 @@
 HCode Special Visual Effects
 Advanced terminal effects and visual enhancements.
 """
+
 from rich.console import Console, RenderableType
 from rich.text import Text
 from rich.panel import Panel
@@ -21,6 +22,7 @@ from .theme import get_palette, get_theme, ColorUtils
 # ═══════════════════════════════════════════════════════════════════════
 # MATRIX RAIN EFFECT
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class MatrixRain:
     """Matrix-style falling code rain effect."""
@@ -104,6 +106,7 @@ class MatrixRain:
 # SCAN LINE EFFECT
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class ScanLine:
     """Horizontal scan line effect."""
 
@@ -151,6 +154,7 @@ class ScanLine:
 # PULSE EFFECT
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class PulseEffect:
     """Pulsing glow effect on text."""
 
@@ -193,6 +197,7 @@ class PulseEffect:
 # REVEAL EFFECT
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class RevealEffect:
     """Character-by-character reveal effect."""
 
@@ -228,6 +233,7 @@ class RevealEffect:
 # ═══════════════════════════════════════════════════════════════════════
 # SCRAMBLE EFFECT
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class ScrambleEffect:
     """Text scramble/decode effect."""
@@ -283,6 +289,7 @@ class ScrambleEffect:
 # BORDER GLOW EFFECT
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class BorderGlow:
     """Animated glowing border effect."""
 
@@ -325,6 +332,7 @@ class BorderGlow:
 # PARTICLE BURST EFFECT
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class ParticleBurst:
     """Particle burst animation."""
 
@@ -353,14 +361,16 @@ class ParticleBurst:
         for _ in range(num_particles):
             angle = random.uniform(0, 6.28)  # 2*pi
             speed = random.uniform(0.5, 2)
-            particles.append({
-                'x': self.width // 2,
-                'y': self.height // 2,
-                'vx': speed * (angle - 3.14),  # cos approximation
-                'vy': speed * (angle - 1.57),  # sin approximation
-                'char': random.choice(self.PARTICLES),
-                'life': 1.0,
-            })
+            particles.append(
+                {
+                    "x": self.width // 2,
+                    "y": self.height // 2,
+                    "vx": speed * (angle - 3.14),  # cos approximation
+                    "vy": speed * (angle - 1.57),  # sin approximation
+                    "char": random.choice(self.PARTICLES),
+                    "life": 1.0,
+                }
+            )
 
         with Live(console=self.console, refresh_per_second=20, transient=True) as live:
             for step in range(steps):
@@ -369,15 +379,15 @@ class ParticleBurst:
 
                 # Update and draw particles
                 for p in particles:
-                    if p['life'] > 0:
-                        x, y = int(p['x']), int(p['y'])
+                    if p["life"] > 0:
+                        x, y = int(p["x"]), int(p["y"])
                         if 0 <= x < self.width and 0 <= y < self.height:
-                            frame[y][x] = p['char']
+                            frame[y][x] = p["char"]
 
                         # Update position
-                        p['x'] += p['vx']
-                        p['y'] += p['vy']
-                        p['life'] -= 0.05
+                        p["x"] += p["vx"]
+                        p["y"] += p["vy"]
+                        p["life"] -= 0.05
 
                 # Build display
                 text = Text()
@@ -396,6 +406,7 @@ class ParticleBurst:
 # ═══════════════════════════════════════════════════════════════════════
 # HELPER FUNCTIONS
 # ═══════════════════════════════════════════════════════════════════════
+
 
 def matrix_rain(console: Console, duration: float = 3.0, width: int = 60, height: int = 10) -> None:
     """Quick matrix rain effect."""

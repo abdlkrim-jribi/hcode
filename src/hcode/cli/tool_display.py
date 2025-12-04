@@ -44,16 +44,17 @@ IS_WINDOWS = sys.platform == "win32"
 
 # Global output handler instance
 _output_handler = OutputHandler(
-    head_lines=15,       # Show first 15 lines
-    tail_lines=5,        # ALWAYS show last 5 lines
-    max_lines=50,        # Max lines before truncation
-    max_line_length=200, # Max chars per line
+    head_lines=15,  # Show first 15 lines
+    tail_lines=5,  # ALWAYS show last 5 lines
+    max_lines=50,  # Max lines before truncation
+    max_line_length=200,  # Max chars per line
 )
 
 
 # ============================================================
 # HCODE STYLE - USING MODERN THEME SYSTEM
 # ============================================================
+
 
 class HcodeStyle:
     """
@@ -105,6 +106,7 @@ class HcodeStyle:
 
         # Box characters from UI system (using Borders class)
         from ..ui.icons import Borders
+
         self.BOX_H = Borders.HORIZONTAL
         self.BOX_V = Borders.VERTICAL
         self.BOX_TL = Borders.CORNER_TL
@@ -116,6 +118,7 @@ class HcodeStyle:
 # ============================================================
 # TOOL DISPLAY CLASS
 # ============================================================
+
 
 class HcodeToolDisplay:
     """
@@ -141,11 +144,7 @@ class HcodeToolDisplay:
     # ─────────────────────────────────────────────────────────
 
     def display_tool_call(
-        self,
-        tool_name: str,
-        arguments: Dict[str, Any],
-        result: Any,
-        show_thinking: bool = False
+        self, tool_name: str, arguments: Dict[str, Any], result: Any, show_thinking: bool = False
     ):
         """
         Display tool execution in Hcode style.
@@ -156,22 +155,22 @@ class HcodeToolDisplay:
             result: Tool execution result (has .success, .output, .error)
             show_thinking: Whether to show verbose output
         """
-        tool_name_lower = tool_name.lower().replace('tool', '')
+        tool_name_lower = tool_name.lower().replace("tool", "")
 
         # Route to appropriate display method
-        if tool_name_lower in ['read']:
+        if tool_name_lower in ["read"]:
             self._display_read(arguments, result)
-        elif tool_name_lower in ['write']:
+        elif tool_name_lower in ["write"]:
             self._display_write(arguments, result)
-        elif tool_name_lower in ['edit']:
+        elif tool_name_lower in ["edit"]:
             self._display_edit(arguments, result)
-        elif tool_name_lower in ['bash']:
+        elif tool_name_lower in ["bash"]:
             self._display_bash(arguments, result)
-        elif tool_name_lower in ['glob']:
+        elif tool_name_lower in ["glob"]:
             self._display_glob(arguments, result)
-        elif tool_name_lower in ['grep']:
+        elif tool_name_lower in ["grep"]:
             self._display_grep(arguments, result)
-        elif tool_name_lower in ['ls']:
+        elif tool_name_lower in ["ls"]:
             self._display_ls(arguments, result)
         else:
             self._display_generic(tool_name, arguments, result)
@@ -182,24 +181,41 @@ class HcodeToolDisplay:
 
     def _display_read(self, arguments: Dict[str, Any], result: Any):
         """Display Read tool execution - Claude Code style with full-width lines"""
-        file_path = arguments.get('file_path', 'unknown')
+        file_path = arguments.get("file_path", "unknown")
         from pathlib import Path
 
         # Get file extension for syntax hint
-        ext = Path(file_path).suffix.lower() if file_path else ''
+        ext = Path(file_path).suffix.lower() if file_path else ""
         lang_map = {
-            '.py': 'python', '.js': 'javascript', '.ts': 'typescript',
-            '.jsx': 'jsx', '.tsx': 'tsx', '.json': 'json', '.yaml': 'yaml',
-            '.yml': 'yaml', '.md': 'markdown', '.html': 'html', '.css': 'css',
-            '.sh': 'bash', '.bash': 'bash', '.rs': 'rust', '.go': 'go',
-            '.java': 'java', '.cpp': 'cpp', '.c': 'c', '.h': 'c',
-            '.sql': 'sql', '.xml': 'xml', '.toml': 'toml', '.ini': 'ini',
+            ".py": "python",
+            ".js": "javascript",
+            ".ts": "typescript",
+            ".jsx": "jsx",
+            ".tsx": "tsx",
+            ".json": "json",
+            ".yaml": "yaml",
+            ".yml": "yaml",
+            ".md": "markdown",
+            ".html": "html",
+            ".css": "css",
+            ".sh": "bash",
+            ".bash": "bash",
+            ".rs": "rust",
+            ".go": "go",
+            ".java": "java",
+            ".cpp": "cpp",
+            ".c": "c",
+            ".h": "c",
+            ".sql": "sql",
+            ".xml": "xml",
+            ".toml": "toml",
+            ".ini": "ini",
         }
-        lang = lang_map.get(ext, '')
+        lang = lang_map.get(ext, "")
 
         if result.success:
             content = result.output or ""
-            lines = content.split('\n') if content else []
+            lines = content.split("\n") if content else []
             line_count = len(lines)
 
             # Claude Code style header: ⎯⎯ file_path ⎯⎯
@@ -215,7 +231,9 @@ class HcodeToolDisplay:
             )
             self.console.print(f"    [red]{result.error}[/red]")
 
-    def _show_file_preview_enhanced(self, content: str, file_path: str, lang: str = '', max_preview_lines: int = 25):
+    def _show_file_preview_enhanced(
+        self, content: str, file_path: str, lang: str = "", max_preview_lines: int = 25
+    ):
         """
         Show file preview - Claude Code style with full-width lines.
 
@@ -229,7 +247,7 @@ class HcodeToolDisplay:
         from rich.panel import Panel
         from rich import box
 
-        lines = content.split('\n') if content else []
+        lines = content.split("\n") if content else []
         total_lines = len(lines)
 
         # Determine how many lines to show
@@ -251,7 +269,7 @@ class HcodeToolDisplay:
             # Line number + content (full width, no truncation)
             line_num = f"[dim]{i:4}[/dim]"
             # Escape any Rich markup in the line (only [ needs escaping)
-            safe_line = line.replace('[', '\\[')
+            safe_line = line.replace("[", "\\[")
             self.console.print(f"  {line_num} │ {safe_line}")
 
         # Show truncation indicator and last lines for large files
@@ -262,7 +280,7 @@ class HcodeToolDisplay:
             # Show last 5 lines
             for i, line in enumerate(last_lines, total_lines - 4):
                 line_num = f"[dim]{i:4}[/dim]"
-                safe_line = line.replace('[', '\\[')
+                safe_line = line.replace("[", "\\[")
                 self.console.print(f"  {line_num} │ {safe_line}")
 
         self.console.print()  # spacing after
@@ -273,29 +291,41 @@ class HcodeToolDisplay:
 
     def _display_write(self, arguments: Dict[str, Any], result: Any):
         """Display Write tool execution - Claude Code style"""
-        file_path = arguments.get('file_path', 'unknown')
-        content = arguments.get('content', '')
+        file_path = arguments.get("file_path", "unknown")
+        content = arguments.get("content", "")
         from pathlib import Path
 
         # Get file extension for language hint
-        ext = Path(file_path).suffix.lower() if file_path else ''
+        ext = Path(file_path).suffix.lower() if file_path else ""
         lang_map = {
-            '.py': 'python', '.js': 'javascript', '.ts': 'typescript',
-            '.json': 'json', '.yaml': 'yaml', '.yml': 'yaml', '.md': 'markdown',
-            '.html': 'html', '.css': 'css', '.sh': 'bash', '.sql': 'sql',
+            ".py": "python",
+            ".js": "javascript",
+            ".ts": "typescript",
+            ".json": "json",
+            ".yaml": "yaml",
+            ".yml": "yaml",
+            ".md": "markdown",
+            ".html": "html",
+            ".css": "css",
+            ".sh": "bash",
+            ".sql": "sql",
         }
-        lang = lang_map.get(ext, '')
+        lang = lang_map.get(ext, "")
 
         if result.success:
-            lines = content.split('\n') if content else []
+            lines = content.split("\n") if content else []
             line_count = len(lines)
-            byte_count = len(content.encode('utf-8'))
+            byte_count = len(content.encode("utf-8"))
 
             # Claude Code style header
             self.console.print(f"\n  [bold green]{'─' * 3} {file_path} {'─' * 3}[/bold green]")
-            self.console.print(f"  [dim]Created {line_count} lines ({byte_count} bytes){f' • {lang}' if lang else ''}[/dim]")
+            self.console.print(
+                f"  [dim]Created {line_count} lines ({byte_count} bytes){f' • {lang}' if lang else ''}[/dim]"
+            )
         else:
-            self.console.print(f"\n  [bold red]✗ Write failed:[/bold red] [{self.style.FILE_PATH}]{file_path}[/]")
+            self.console.print(
+                f"\n  [bold red]✗ Write failed:[/bold red] [{self.style.FILE_PATH}]{file_path}[/]"
+            )
             self.console.print(f"    [red]{result.error}[/red]")
 
     # ─────────────────────────────────────────────────────────
@@ -304,26 +334,30 @@ class HcodeToolDisplay:
 
     def _display_edit(self, arguments: Dict[str, Any], result: Any):
         """Display Edit tool execution - Claude Code style with full-width diff"""
-        file_path = arguments.get('file_path', 'unknown')
-        old_string = arguments.get('old_string', '')
-        new_string = arguments.get('new_string', '')
+        file_path = arguments.get("file_path", "unknown")
+        old_string = arguments.get("old_string", "")
+        new_string = arguments.get("new_string", "")
         from pathlib import Path
 
         if result.success:
             # Calculate change statistics
-            old_lines = old_string.split('\n')
-            new_lines = new_string.split('\n')
+            old_lines = old_string.split("\n")
+            new_lines = new_string.split("\n")
             lines_removed = len(old_lines)
             lines_added = len(new_lines)
 
             # Claude Code style header
             self.console.print(f"\n  [bold cyan]{'─' * 3} {file_path} {'─' * 3}[/bold cyan]")
-            self.console.print(f"  [green]+{lines_added}[/green] [red]-{lines_removed}[/red] lines changed")
+            self.console.print(
+                f"  [green]+{lines_added}[/green] [red]-{lines_removed}[/red] lines changed"
+            )
 
             # Show full diff
             self._show_diff_enhanced(old_string, new_string)
         else:
-            self.console.print(f"\n  [bold red]✗ Edit failed:[/bold red] [{self.style.FILE_PATH}]{file_path}[/]")
+            self.console.print(
+                f"\n  [bold red]✗ Edit failed:[/bold red] [{self.style.FILE_PATH}]{file_path}[/]"
+            )
             self.console.print(f"    [red]{result.error}[/red]")
 
     def _show_diff_enhanced(self, old_string: str, new_string: str, max_lines: int = 20):
@@ -339,8 +373,8 @@ class HcodeToolDisplay:
         """
         from rich.text import Text
 
-        old_lines = old_string.split('\n')
-        new_lines = new_string.split('\n')
+        old_lines = old_string.split("\n")
+        new_lines = new_string.split("\n")
 
         self.console.print()  # spacing
 
@@ -348,7 +382,7 @@ class HcodeToolDisplay:
             """Print a diff line with proper truncation and no wrapping."""
             # Truncate if needed (before any escaping)
             if len(line) > max_width:
-                display_line = line[:max_width - 3] + '...'
+                display_line = line[: max_width - 3] + "..."
             else:
                 display_line = line
 
@@ -393,7 +427,7 @@ class HcodeToolDisplay:
 
     def _display_bash(self, arguments: Dict[str, Any], result: Any):
         """Display Bash tool execution - Hcode style with output"""
-        command = arguments.get('command', '')
+        command = arguments.get("command", "")
 
         # Truncate long commands for display
         display_cmd = command if len(command) <= 60 else command[:57] + "..."
@@ -415,11 +449,9 @@ class HcodeToolDisplay:
             error_msg = result.error if result.error else "Command failed (no error message)"
 
             # For multi-line errors, show them properly
-            error_lines = error_msg.strip().split('\n')
+            error_lines = error_msg.strip().split("\n")
             if len(error_lines) == 1:
-                self.console.print(
-                    f"    [{self.style.TOOL_ERROR}]Error: {error_lines[0]}[/]"
-                )
+                self.console.print(f"    [{self.style.TOOL_ERROR}]Error: {error_lines[0]}[/]")
             else:
                 self.console.print(f"    [{self.style.TOOL_ERROR}]Error:[/]")
                 for line in error_lines[:5]:
@@ -460,16 +492,20 @@ class HcodeToolDisplay:
         # ═══════════════════════════════════════════════════════════════════════════
         if not self.debug_mode:
             # Show output directly without boxes (Claude Code style)
-            content_lines = truncated.content.split('\n')
+            content_lines = truncated.content.split("\n")
             for line in content_lines[:30]:  # Limit to 30 lines in normal mode
                 # Highlight error lines
-                if any(word in line.lower() for word in ['error', 'exception', 'failed', 'traceback']):
+                if any(
+                    word in line.lower() for word in ["error", "exception", "failed", "traceback"]
+                ):
                     self.console.print(f"    [{self.style.TOOL_ERROR}]{line}[/]")
                 else:
                     self.console.print(f"    [{self.style.DIM}]{line}[/]")
 
             if len(content_lines) > 30:
-                self.console.print(f"    [{self.style.DIM}]... ({len(content_lines) - 30} more lines)[/]")
+                self.console.print(
+                    f"    [{self.style.DIM}]... ({len(content_lines) - 30} more lines)[/]"
+                )
             return
 
         # ═══════════════════════════════════════════════════════════════════════════
@@ -478,17 +514,26 @@ class HcodeToolDisplay:
 
         # Show error summary if errors found
         if show_errors and truncated.errors_found:
-            critical_errors = [e for e in truncated.errors_found
-                             if e.severity in (ErrorSeverity.CRITICAL, ErrorSeverity.ERROR)]
+            critical_errors = [
+                e
+                for e in truncated.errors_found
+                if e.severity in (ErrorSeverity.CRITICAL, ErrorSeverity.ERROR)
+            ]
             if critical_errors:
-                self.console.print(f"    [{self.style.TOOL_ERROR}]=== {len(critical_errors)} Error(s) Detected ===[/]")
+                self.console.print(
+                    f"    [{self.style.TOOL_ERROR}]=== {len(critical_errors)} Error(s) Detected ===[/]"
+                )
                 for error in critical_errors[:3]:
                     error_line = str(error)[:70]
                     self.console.print(f"    [{self.style.TOOL_ERROR}]  {error_line}[/]")
                     if error.suggestion:
-                        self.console.print(f"    [{self.style.DIM}]    -> {error.suggestion[:60]}[/]")
+                        self.console.print(
+                            f"    [{self.style.DIM}]    -> {error.suggestion[:60]}[/]"
+                        )
                 if len(critical_errors) > 3:
-                    self.console.print(f"    [{self.style.DIM}]  ... and {len(critical_errors) - 3} more errors[/]")
+                    self.console.print(
+                        f"    [{self.style.DIM}]  ... and {len(critical_errors) - 3} more errors[/]"
+                    )
                 self.console.print("")
 
         # Draw output box
@@ -496,30 +541,36 @@ class HcodeToolDisplay:
 
         # Show truncation stats if truncated
         if truncated.truncated:
-            stats_line = f"[{truncated.original_lines} lines total, showing {truncated.displayed_lines}]"
-            self.console.print(f"    {self.style.BOX_V} [{self.style.DIM}]{stats_line:<68}[/] {self.style.BOX_V}")
+            stats_line = (
+                f"[{truncated.original_lines} lines total, showing {truncated.displayed_lines}]"
+            )
+            self.console.print(
+                f"    {self.style.BOX_V} [{self.style.DIM}]{stats_line:<68}[/] {self.style.BOX_V}"
+            )
             self.console.print(f"    {self.style.BOX_V}{' ' * 70}{self.style.BOX_V}")
 
         # Display the processed content
-        content_lines = truncated.content.split('\n')
+        content_lines = truncated.content.split("\n")
         for line in content_lines:
             # Determine line style based on content
             line_style = self.style.DIM
 
             # Highlight error lines
-            if any(word in line.lower() for word in ['error', 'exception', 'failed', 'traceback']):
+            if any(word in line.lower() for word in ["error", "exception", "failed", "traceback"]):
                 line_style = self.style.TOOL_ERROR
             # Highlight "latest lines" section header
-            elif line.startswith('--- Latest'):
+            elif line.startswith("--- Latest"):
                 line_style = "bold cyan"
             # Highlight omission indicator
-            elif line.startswith('...') and 'omitted' in line:
+            elif line.startswith("...") and "omitted" in line:
                 line_style = "yellow"
 
             # Truncate long lines for display
             display_line = line[:68] if len(line) <= 68 else line[:65] + "..."
 
-            self.console.print(f"    {self.style.BOX_V} [{line_style}]{display_line:<68}[/] {self.style.BOX_V}")
+            self.console.print(
+                f"    {self.style.BOX_V} [{line_style}]{display_line:<68}[/] {self.style.BOX_V}"
+            )
 
         self.console.print(f"    {self.style.BOX_BL}{self.style.BOX_H * 70}{self.style.BOX_BR}")
 
@@ -533,11 +584,11 @@ class HcodeToolDisplay:
 
     def _display_glob(self, arguments: Dict[str, Any], result: Any):
         """Display Glob tool execution - Hcode style"""
-        pattern = arguments.get('pattern', '*')
-        path = arguments.get('path', '.')
+        pattern = arguments.get("pattern", "*")
+        path = arguments.get("path", ".")
 
         if result.success:
-            files = result.output.strip().split('\n') if result.output else []
+            files = result.output.strip().split("\n") if result.output else []
             file_count = len([f for f in files if f.strip()])
 
             self.console.print(
@@ -567,12 +618,12 @@ class HcodeToolDisplay:
 
     def _display_grep(self, arguments: Dict[str, Any], result: Any):
         """Display Grep tool execution - Hcode style with smart output handling"""
-        pattern = arguments.get('pattern', '')
-        path = arguments.get('path', '.')
+        pattern = arguments.get("pattern", "")
+        path = arguments.get("path", ".")
 
         if result.success:
             output = result.output.strip() if result.output else ""
-            matches = output.split('\n') if output else []
+            matches = output.split("\n") if output else []
             match_count = len([m for m in matches if m.strip()])
 
             self.console.print(
@@ -620,21 +671,25 @@ class HcodeToolDisplay:
         # Draw results box
         self.console.print(f"    {self.style.BOX_TL}{self.style.BOX_H * 70}{self.style.BOX_TR}")
 
-        result_lines = truncated.content.split('\n')
+        result_lines = truncated.content.split("\n")
         for line in result_lines[:25]:  # Limit display
             # Highlight pattern matches
             if pattern.lower() in line.lower():
                 line_style = "bold"
-            elif line.startswith('---') or line.startswith('...'):
+            elif line.startswith("---") or line.startswith("..."):
                 line_style = "yellow"
             else:
                 line_style = self.style.DIM
 
             display_line = line[:68] if len(line) <= 68 else line[:65] + "..."
-            self.console.print(f"    {self.style.BOX_V} [{line_style}]{display_line:<68}[/] {self.style.BOX_V}")
+            self.console.print(
+                f"    {self.style.BOX_V} [{line_style}]{display_line:<68}[/] {self.style.BOX_V}"
+            )
 
         if len(result_lines) > 25:
-            self.console.print(f"    {self.style.BOX_V} [{self.style.DIM}]{'... (more matches available)':<68}[/] {self.style.BOX_V}")
+            self.console.print(
+                f"    {self.style.BOX_V} [{self.style.DIM}]{'... (more matches available)':<68}[/] {self.style.BOX_V}"
+            )
 
         self.console.print(f"    {self.style.BOX_BL}{self.style.BOX_H * 70}{self.style.BOX_BR}")
 
@@ -644,10 +699,10 @@ class HcodeToolDisplay:
 
     def _display_ls(self, arguments: Dict[str, Any], result: Any):
         """Display LS tool execution - Hcode style"""
-        path = arguments.get('path', '.')
+        path = arguments.get("path", ".")
 
         if result.success:
-            items = result.output.strip().split('\n') if result.output else []
+            items = result.output.strip().split("\n") if result.output else []
             item_count = len([i for i in items if i.strip()])
 
             self.console.print(
@@ -700,12 +755,12 @@ class HcodeToolDisplay:
 
     def show_executing(self, tool_name: str, description: str = ""):
         """Show tool is executing (spinner style)"""
-        tool_name_clean = tool_name.replace('Tool', '').replace('tool', '')
+        tool_name_clean = tool_name.replace("Tool", "").replace("tool", "")
         desc = description or f"Executing {tool_name_clean}..."
         self.console.print(
             f"  [{self.style.TOOL_EXECUTING}]⋯[/] [bold]{tool_name_clean}[/bold] "
             f"[{self.style.DIM}]{desc}[/]",
-            end="\r"
+            end="\r",
         )
 
     def clear_executing(self):
@@ -716,6 +771,7 @@ class HcodeToolDisplay:
 # ============================================================
 # STREAMING DISPLAY
 # ============================================================
+
 
 class StreamingDisplay:
     """
@@ -737,7 +793,9 @@ class StreamingDisplay:
     def start_thinking(self, message: str = "Thinking"):
         """Show thinking indicator"""
         self.is_thinking = True
-        self.console.print(f"[{self._palette.text_muted}]{self._icons.THINKING} {message}...[/]", end="\r")
+        self.console.print(
+            f"[{self._palette.text_muted}]{self._icons.THINKING} {message}...[/]", end="\r"
+        )
 
     def stop_thinking(self):
         """Clear thinking indicator"""
@@ -763,6 +821,7 @@ class StreamingDisplay:
 # STATUS LINE DISPLAY
 # ============================================================
 
+
 class StatusLineDisplay:
     """
     Hcode-style status line.
@@ -783,7 +842,7 @@ class StatusLineDisplay:
         tokens: int = 0,
         cost: float = 0.0,
         status: str = "ready",
-        cwd: str = ""
+        cwd: str = "",
     ) -> str:
         """Render status line string"""
         parts = []
@@ -791,7 +850,7 @@ class StatusLineDisplay:
 
         # Model
         if model:
-            model_short = model.split('/')[-1] if '/' in model else model
+            model_short = model.split("/")[-1] if "/" in model else model
             parts.append(f"[{palette.accent}]{model_short}[/]")
 
         # Tokens
@@ -807,7 +866,7 @@ class StatusLineDisplay:
             "ready": palette.success,
             "thinking": palette.warning,
             "executing": palette.info,
-            "error": palette.error
+            "error": palette.error,
         }
         color = status_colors.get(status, palette.text_primary)
         parts.append(f"[{color}]{status}[/]")

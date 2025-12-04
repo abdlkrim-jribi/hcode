@@ -6,27 +6,23 @@ matching Claude Code's behavior for auto, plan, and interactive modes.
 """
 
 import asyncio
-from typing import Any, Dict, List, Optional, AsyncGenerator, Callable, Tuple
 from dataclasses import dataclass
+from typing import Any, Dict, Optional, AsyncGenerator, Callable
 
-from .coding_agent import HcodeCodingAgent, ExecutionContext
-from .modes import AgentMode, SafetyConfig, RiskLevel, get_mode_config
 from .autonomous import (
     AutonomousEngine,
     ActionProposal,
     ExecutionDecision,
     ExecutionResult,
-    create_read_action,
-    create_edit_action,
-    create_write_action,
-    create_bash_action,
-    create_search_action
 )
+from .coding_agent import HcodeCodingAgent, ExecutionContext
+from .modes import AgentMode, SafetyConfig, get_mode_config
 
 
 @dataclass
 class HcodeAutonomousExecutionContext(ExecutionContext):
     """Extended context for autonomous execution"""
+
     mode: AgentMode = AgentMode.INTERACTIVE
     actions_executed: int = 0
     actions_confirmed: int = 0
@@ -99,7 +95,7 @@ Remember: Be efficient in auto mode, but never sacrifice safety."""
         *args,
         mode: AgentMode = AgentMode.INTERACTIVE,
         safety_config: Optional[SafetyConfig] = None,
-        **kwargs
+            **kwargs,
     ):
         """
         Initialize autonomous coding agent.
@@ -116,10 +112,7 @@ Remember: Be efficient in auto mode, but never sacrifice safety."""
         self.safety_config = safety_config or SafetyConfig()
 
         # Create autonomous engine
-        self.autonomous_engine = AutonomousEngine(
-            mode=mode,
-            safety_config=self.safety_config
-        )
+        self.autonomous_engine = AutonomousEngine(mode=mode, safety_config=self.safety_config)
 
         # Callbacks
         self._confirmation_callback: Optional[Callable[[str], bool]] = None
@@ -143,8 +136,7 @@ Remember: Be efficient in auto mode, but never sacrifice safety."""
         if self._display_callback:
             mode_config = get_mode_config(mode)
             self._display_callback(
-                f"Mode changed: {old_mode.value} → {mode.value}\n"
-                f"  {mode_config.description}"
+                f"Mode changed: {old_mode.value} → {mode.value}\n" f"  {mode_config.description}"
             )
 
     def get_mode(self) -> AgentMode:
@@ -190,9 +182,7 @@ Remember: Be efficient in auto mode, but never sacrifice safety."""
     # ============================================================
 
     async def execute_autonomous(
-        self,
-        user_message: str,
-        context: Optional[HcodeAutonomousExecutionContext] = None
+            self, user_message: str, context: Optional[HcodeAutonomousExecutionContext] = None
     ) -> HcodeAutonomousExecutionContext:
         """
         Execute with autonomous capabilities.
@@ -214,8 +204,7 @@ Remember: Be efficient in auto mode, but never sacrifice safety."""
         # PHASE 1: THINKING (if enabled)
         if self.thinking_config.should_think(user_message):
             ctx.thinking_session = await self.thinking_manager.think(
-                user_message,
-                context=ctx.metadata
+                user_message, context=ctx.metadata
             )
 
         # PHASE 2: PLANNING (in plan/review modes)
@@ -255,11 +244,7 @@ Remember: Be efficient in auto mode, but never sacrifice safety."""
                 if decision == ExecutionDecision.EXECUTE:
                     # Execute immediately
                     result = await self._execute_tool_autonomous(action, proposal)
-                    ctx.tool_calls.append({
-                        "action": action,
-                        "result": result,
-                        "confirmed": False
-                    })
+                    ctx.tool_calls.append({"action": action, "result": result, "confirmed": False})
                     ctx.actions_executed += 1
 
                 elif decision == ExecutionDecision.CONFIRM:
@@ -268,11 +253,9 @@ Remember: Be efficient in auto mode, but never sacrifice safety."""
 
                     if confirmed:
                         result = await self._execute_tool_autonomous(action, proposal)
-                        ctx.tool_calls.append({
-                            "action": action,
-                            "result": result,
-                            "confirmed": True
-                        })
+                        ctx.tool_calls.append(
+                            {"action": action, "result": result, "confirmed": True}
+                        )
                         ctx.actions_executed += 1
                         ctx.actions_confirmed += 1
                     else:
@@ -298,10 +281,9 @@ Remember: Be efficient in auto mode, but never sacrifice safety."""
             elif action["type"] == "think":
                 # Additional thinking
                 from .thinking import ThinkingPhase
+
                 block = await self.thinking_manager._think_phase(
-                    action["prompt"],
-                    ThinkingPhase.REASONING,
-                    ctx.metadata
+                    action["prompt"], ThinkingPhase.REASONING, ctx.metadata
                 )
                 if ctx.thinking_session:
                     ctx.thinking_session.add_block(block)
@@ -309,8 +291,7 @@ Remember: Be efficient in auto mode, but never sacrifice safety."""
         return ctx
 
     async def stream_execute_autonomous(
-        self,
-        user_message: str
+            self, user_message: str
     ) -> AsyncGenerator[Dict[str, Any], None]:
         """
         Stream autonomous execution with real-time updates.
@@ -328,7 +309,7 @@ Remember: Be efficient in auto mode, but never sacrifice safety."""
         yield {
             "type": "mode",
             "mode": self.mode.value,
-            "description": get_mode_config(self.mode).description
+            "description": get_mode_config(self.mode).description,
         }
 
         # Reset engine
@@ -337,13 +318,9 @@ Remember: Be efficient in auto mode, but never sacrifice safety."""
         # Stream thinking if enabled
         if self.thinking_config.should_think(user_message):
             async for block in self.thinking_manager.stream_thinking(
-                user_message,
-                context=ctx.metadata
+                    user_message, context=ctx.metadata
             ):
-                yield {
-                    "type": "thinking",
-                    "block": block.to_dict()
-                }
+                yield {"type": "thinking", "block": block.to_dict()}
 
         # Plan phase
         if self.autonomous_engine.should_show_plan():
@@ -351,10 +328,7 @@ Remember: Be efficient in auto mode, but never sacrifice safety."""
 
             await self._create_and_show_plan(ctx)
 
-            yield {
-                "type": "plan",
-                "content": self.autonomous_engine.format_plan_display()
-            }
+            yield {"type": "plan", "content": self.autonomous_engine.format_plan_display()}
 
             if self.autonomous_engine.needs_plan_approval():
                 yield {"type": "awaiting_approval"}
@@ -362,16 +336,10 @@ Remember: Be efficient in auto mode, but never sacrifice safety."""
                 approved = await self.autonomous_engine.confirm_plan()
                 ctx.plan_approved = approved
 
-                yield {
-                    "type": "plan_approval",
-                    "approved": approved
-                }
+                yield {"type": "plan_approval", "approved": approved}
 
                 if not approved:
-                    yield {
-                        "type": "response",
-                        "content": "Plan rejected."
-                    }
+                    yield {"type": "response", "content": "Plan rejected."}
                     return
 
         # Execute with streaming
@@ -394,28 +362,24 @@ Remember: Be efficient in auto mode, but never sacrifice safety."""
                     "type": "decision",
                     "tool": proposal.tool_name,
                     "risk": proposal.risk_level,
-                    "decision": decision.value
+                    "decision": decision.value,
                 }
 
                 if decision == ExecutionDecision.EXECUTE:
                     yield {
                         "type": "executing",
                         "tool": proposal.tool_name,
-                        "reason": proposal.reason
+                        "reason": proposal.reason,
                     }
 
                     result = await self._execute_tool_autonomous(action, proposal)
-                    ctx.tool_calls.append({
-                        "action": action,
-                        "result": result,
-                        "confirmed": False
-                    })
+                    ctx.tool_calls.append({"action": action, "result": result, "confirmed": False})
                     ctx.actions_executed += 1
 
                     yield {
                         "type": "tool_result",
                         "success": result.success,
-                        "output": result.output[:500] if result.success else result.error
+                        "output": result.output[:500] if result.success else result.error,
                     }
 
                 elif decision == ExecutionDecision.CONFIRM:
@@ -423,30 +387,25 @@ Remember: Be efficient in auto mode, but never sacrifice safety."""
                         "type": "confirm_required",
                         "tool": proposal.tool_name,
                         "reason": proposal.reason,
-                        "risk": proposal.risk_level
+                        "risk": proposal.risk_level,
                     }
 
                     confirmed = await self.autonomous_engine.confirm_action(proposal)
 
-                    yield {
-                        "type": "confirmed",
-                        "approved": confirmed
-                    }
+                    yield {"type": "confirmed", "approved": confirmed}
 
                     if confirmed:
                         result = await self._execute_tool_autonomous(action, proposal)
-                        ctx.tool_calls.append({
-                            "action": action,
-                            "result": result,
-                            "confirmed": True
-                        })
+                        ctx.tool_calls.append(
+                            {"action": action, "result": result, "confirmed": True}
+                        )
                         ctx.actions_executed += 1
                         ctx.actions_confirmed += 1
 
                         yield {
                             "type": "tool_result",
                             "success": result.success,
-                            "output": result.output[:500] if result.success else result.error
+                            "output": result.output[:500] if result.success else result.error,
                         }
                     else:
                         ctx.actions_skipped += 1
@@ -461,10 +420,7 @@ Remember: Be efficient in auto mode, but never sacrifice safety."""
 
             elif action["type"] == "response":
                 ctx.final_response = action["content"]
-                yield {
-                    "type": "response",
-                    "content": action["content"]
-                }
+                yield {"type": "response", "content": action["content"]}
                 break
 
         # Final statistics
@@ -475,8 +431,8 @@ Remember: Be efficient in auto mode, but never sacrifice safety."""
                 "executed": ctx.actions_executed,
                 "confirmed": ctx.actions_confirmed,
                 "skipped": ctx.actions_skipped,
-                "todos": self.todo_manager.get_progress()
-            }
+                "todos": self.todo_manager.get_progress(),
+            },
         }
 
     # ============================================================
@@ -491,16 +447,10 @@ Remember: Be efficient in auto mode, but never sacrifice safety."""
         # Determine reason from context
         reason = parameters.get("description", f"Execute {tool_name}")
 
-        return ActionProposal(
-            tool_name=tool_name,
-            arguments=parameters,
-            reason=reason
-        )
+        return ActionProposal(tool_name=tool_name, arguments=parameters, reason=reason)
 
     async def _execute_tool_autonomous(
-        self,
-        action: Dict[str, Any],
-        proposal: ActionProposal
+            self, action: Dict[str, Any], proposal: ActionProposal
     ) -> ExecutionResult:
         """Execute tool with error handling and retries"""
         tool_name = action["tool"]
@@ -509,11 +459,7 @@ Remember: Be efficient in auto mode, but never sacrifice safety."""
         # Safety check
         is_safe, reason = self.autonomous_engine.check_safety(tool_name, parameters)
         if not is_safe:
-            return ExecutionResult(
-                success=False,
-                output="",
-                error=f"Safety check failed: {reason}"
-            )
+            return ExecutionResult(success=False, output="", error=f"Safety check failed: {reason}")
 
         # Execute with retries
         max_retries = 3
@@ -522,12 +468,10 @@ Remember: Be efficient in auto mode, but never sacrifice safety."""
         for attempt in range(max_retries):
             try:
                 import time
+
                 start_time = time.time()
 
-                result = await self.tool_manager.execute_tool(
-                    tool_name,
-                    **parameters
-                )
+                result = await self.tool_manager.execute_tool(tool_name, **parameters)
 
                 duration = time.time() - start_time
 
@@ -535,10 +479,7 @@ Remember: Be efficient in auto mode, but never sacrifice safety."""
                 self.autonomous_engine.track_action(proposal, True)
 
                 return ExecutionResult(
-                    success=True,
-                    output=str(result),
-                    duration=duration,
-                    retries=attempt
+                    success=True, output=str(result), duration=duration, retries=attempt
                 )
 
             except Exception as e:
@@ -550,10 +491,7 @@ Remember: Be efficient in auto mode, but never sacrifice safety."""
                     self.autonomous_engine.track_action(proposal, False)
 
                     return ExecutionResult(
-                        success=False,
-                        output="",
-                        error=str(e),
-                        retries=attempt + 1
+                        success=False, output="", error=str(e), retries=attempt + 1
                     )
 
         # Should not reach here
@@ -578,16 +516,13 @@ Use TodoWrite to create the plan."""
             prompt=plan_prompt,
             system=self._get_system_prompt(),
             tools=self.tool_manager.get_tool_schemas(),
-            temperature=0.5
+            temperature=0.5,
         )
 
         # Process any tool calls (like TodoWrite)
         if "tool_calls" in response and response["tool_calls"]:
             for tool_call in response["tool_calls"]:
-                await self.tool_manager.execute_tool(
-                    tool_call["name"],
-                    **tool_call["parameters"]
-                )
+                await self.tool_manager.execute_tool(tool_call["name"], **tool_call["parameters"])
 
         ctx.plan_displayed = True
 
@@ -628,8 +563,7 @@ CURRENT CONTEXT: REVIEW MODE
 - Then execute automatically"""
 
         return self.AUTONOMOUS_SYSTEM_PROMPT.format(
-            mode=self.mode.value.upper(),
-            additional_context=additional
+            mode=self.mode.value.upper(), additional_context=additional
         )
 
     def _build_action_prompt(self, ctx: ExecutionContext) -> str:
@@ -654,5 +588,5 @@ CURRENT CONTEXT: REVIEW MODE
         return {
             **engine_stats,
             "thinking_enabled": self.thinking_config.enabled,
-            "todo_progress": self.todo_manager.get_progress()
+            "todo_progress": self.todo_manager.get_progress(),
         }

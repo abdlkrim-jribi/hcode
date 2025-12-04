@@ -27,8 +27,8 @@ from hcode.tools.base_tool import ToolResult
 
 def strip_ansi(text: str) -> str:
     """Remove ANSI escape codes from text for easier testing."""
-    ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
-    return ansi_escape.sub('', text)
+    ansi_escape = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
+    return ansi_escape.sub("", text)
 
 
 class TestHcodeToolDisplay:
@@ -120,7 +120,7 @@ class TestReadToolDisplay(TestHcodeToolDisplay):
             display._display_read(arguments, success_result)
             output = mock_console.file.getvalue()
             # Language hint should be shown
-            assert expected_lang in output.lower() or file_path.split('.')[-1] in output
+            assert expected_lang in output.lower() or file_path.split(".")[-1] in output
 
     def test_read_failure_shows_error(self, display, mock_console, error_result):
         """Read tool should show error message on failure."""
@@ -185,7 +185,7 @@ class TestEditToolDisplay(TestHcodeToolDisplay):
         arguments = {
             "file_path": "/path/to/file.py",
             "old_string": "old line 1\nold line 2",
-            "new_string": "new line 1\nnew line 2\nnew line 3"
+            "new_string": "new line 1\nnew line 2\nnew line 3",
         }
 
         display._display_edit(arguments, success_result)
@@ -201,7 +201,7 @@ class TestEditToolDisplay(TestHcodeToolDisplay):
         arguments = {
             "file_path": "/path/to/file.py",
             "old_string": f"short\n{long_line}",
-            "new_string": "replacement"
+            "new_string": "replacement",
         }
 
         display._display_edit(arguments, success_result)
@@ -218,7 +218,7 @@ class TestEditToolDisplay(TestHcodeToolDisplay):
         arguments = {
             "file_path": "/path/to/file.py",
             "old_string": old_lines,
-            "new_string": new_lines
+            "new_string": new_lines,
         }
 
         display._display_edit(arguments, success_result)
@@ -232,7 +232,7 @@ class TestEditToolDisplay(TestHcodeToolDisplay):
         arguments = {
             "file_path": "/path/to/file.py",
             "old_string": "not found",
-            "new_string": "replacement"
+            "new_string": "replacement",
         }
 
         display._display_edit(arguments, error_result)
@@ -245,7 +245,7 @@ class TestEditToolDisplay(TestHcodeToolDisplay):
         arguments = {
             "file_path": "/path/to/file.py",
             "old_string": "[bold]old[/bold]",
-            "new_string": "[red]new[/red]"
+            "new_string": "[red]new[/red]",
         }
 
         display._display_edit(arguments, success_result)
@@ -405,7 +405,7 @@ class TestEditToolIntegration:
         args = {
             "file_path": "/test.py",
             "old_string": "[bold]text[/bold]",
-            "new_string": "[red]new[/red]"
+            "new_string": "[red]new[/red]",
         }
 
         display._display_edit(args, result)
@@ -419,11 +419,7 @@ class TestEditToolIntegration:
         """Edit tool should truncate very long lines without breaking layout."""
         result = ToolResult(success=True, output="ok", error=None)
         long_line = "x" * 150
-        args = {
-            "file_path": "/test.py",
-            "old_string": long_line,
-            "new_string": "short"
-        }
+        args = {"file_path": "/test.py", "old_string": long_line, "new_string": "short"}
 
         display._display_edit(args, result)
         output = strip_ansi(display.console.file.getvalue())
@@ -441,7 +437,7 @@ class TestEditToolIntegration:
         args = {
             "file_path": "/test.py",
             "old_string": "line1\nline2\nline3",
-            "new_string": "new1\nnew2\nnew3\nnew4"
+            "new_string": "new1\nnew2\nnew3\nnew4",
         }
 
         display._display_edit(args, result)
@@ -460,11 +456,7 @@ class TestEditToolIntegration:
     def test_edit_unicode_content_preserved(self, display):
         """Edit tool should handle Unicode content correctly."""
         result = ToolResult(success=True, output="ok", error=None)
-        args = {
-            "file_path": "/test.py",
-            "old_string": "Hello 世界",
-            "new_string": "Bonjour 世界"
-        }
+        args = {"file_path": "/test.py", "old_string": "Hello 世界", "new_string": "Bonjour 世界"}
 
         display._display_edit(args, result)
         output = display.console.file.getvalue()
@@ -496,7 +488,7 @@ class TestEditToolIntegration:
         args = {
             "file_path": "/test.py",
             "old_string": "tab\there\nnewline\n\rcarriage",
-            "new_string": "spaces    here"
+            "new_string": "spaces    here",
         }
 
         display._display_edit(args, result)
@@ -509,11 +501,7 @@ class TestEditToolIntegration:
         result = ToolResult(success=True, output="ok", error=None)
         old_lines = "\n".join([f"old line {i}" for i in range(50)])
         new_lines = "\n".join([f"new line {i}" for i in range(50)])
-        args = {
-            "file_path": "/test.py",
-            "old_string": old_lines,
-            "new_string": new_lines
-        }
+        args = {"file_path": "/test.py", "old_string": old_lines, "new_string": new_lines}
 
         display._display_edit(args, result)
         output = strip_ansi(display.console.file.getvalue())
@@ -528,11 +516,7 @@ class TestEditToolIntegration:
     def test_edit_failure_shows_clear_error(self, display):
         """Edit tool should show clear error message on failure."""
         result = ToolResult(success=False, output="", error="String 'foobar' not found in file")
-        args = {
-            "file_path": "/path/to/missing.py",
-            "old_string": "foobar",
-            "new_string": "bazqux"
-        }
+        args = {"file_path": "/path/to/missing.py", "old_string": "foobar", "new_string": "bazqux"}
 
         display._display_edit(args, result)
         output = strip_ansi(display.console.file.getvalue())
@@ -546,7 +530,7 @@ class TestEditToolIntegration:
         args = {
             "file_path": "/path/to/deep/nested/file.py",
             "old_string": "old",
-            "new_string": "new"
+            "new_string": "new",
         }
 
         display._display_edit(args, result)
@@ -560,7 +544,7 @@ class TestEditToolIntegration:
         args = {
             "file_path": "/test.py",
             "old_string": "one\ntwo",
-            "new_string": "one\ntwo\nthree\nfour\nfive"
+            "new_string": "one\ntwo\nthree\nfour\nfive",
         }
 
         display._display_edit(args, result)
@@ -703,10 +687,19 @@ class TestHcodeStyle:
         style = HcodeStyle()
 
         required_attrs = [
-            'ICON_READ', 'ICON_WRITE', 'ICON_EDIT', 'ICON_BASH',
-            'ICON_DIFF_ADD', 'ICON_DIFF_DEL', 'ICON_ERROR',
-            'FILE_PATH', 'TOOL_NAME', 'TOOL_ERROR',
-            'ADDED', 'REMOVED', 'DIM',
+            "ICON_READ",
+            "ICON_WRITE",
+            "ICON_EDIT",
+            "ICON_BASH",
+            "ICON_DIFF_ADD",
+            "ICON_DIFF_DEL",
+            "ICON_ERROR",
+            "FILE_PATH",
+            "TOOL_NAME",
+            "TOOL_ERROR",
+            "ADDED",
+            "REMOVED",
+            "DIM",
         ]
 
         for attr in required_attrs:
@@ -716,7 +709,7 @@ class TestHcodeStyle:
         """HcodeStyle should have box drawing characters."""
         style = HcodeStyle()
 
-        box_attrs = ['BOX_TL', 'BOX_TR', 'BOX_BL', 'BOX_BR', 'BOX_H', 'BOX_V']
+        box_attrs = ["BOX_TL", "BOX_TR", "BOX_BL", "BOX_BR", "BOX_H", "BOX_V"]
 
         for attr in box_attrs:
             assert hasattr(style, attr), f"HcodeStyle should have {attr} attribute"

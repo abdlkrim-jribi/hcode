@@ -8,6 +8,7 @@ Features:
 - Anchor messages that are never summarized
 - Session continuation with --continue flag
 """
+
 import json
 import hashlib
 from pathlib import Path
@@ -22,6 +23,7 @@ from .config import config
 @dataclass
 class Message:
     """A single conversation message."""
+
     role: str  # "user", "assistant", "system", "tool"
     content: str
     timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
@@ -43,6 +45,7 @@ class Message:
 @dataclass
 class SessionSummary:
     """Compressed representation of older conversation segments."""
+
     summary: str
     message_range: tuple  # (start_id, end_id)
     original_count: int
@@ -59,14 +62,15 @@ class SessionSummary:
     def from_dict(cls, data: Dict[str, Any]) -> "SessionSummary":
         """Create from dictionary."""
         # Handle tuple conversion
-        if isinstance(data.get('message_range'), list):
-            data['message_range'] = tuple(data['message_range'])
+        if isinstance(data.get("message_range"), list):
+            data["message_range"] = tuple(data["message_range"])
         return cls(**data)
 
 
 @dataclass
 class Session:
     """A conversation session with full state."""
+
     session_id: str
     project_path: Optional[str]
     created_at: str
@@ -86,7 +90,7 @@ class Session:
             "messages": [m.to_dict() for m in self.messages],
             "summaries": [s.to_dict() for s in self.summaries],
             "anchors": self.anchors,
-            "metadata": self.metadata
+            "metadata": self.metadata,
         }
 
     @classmethod
@@ -100,7 +104,7 @@ class Session:
             messages=[Message.from_dict(m) for m in data.get("messages", [])],
             summaries=[SessionSummary.from_dict(s) for s in data.get("summaries", [])],
             anchors=data.get("anchors", []),
-            metadata=data.get("metadata", {})
+            metadata=data.get("metadata", {}),
         )
 
 
@@ -119,7 +123,7 @@ class SessionMemory:
         self,
         session_id: Optional[str] = None,
         project_path: Optional[Path] = None,
-        summarizer: Optional[Callable[[List[Message]], str]] = None
+        summarizer: Optional[Callable[[List[Message]], str]] = None,
     ):
         """
         Initialize session memory.
@@ -159,7 +163,7 @@ class SessionMemory:
             messages=[],
             summaries=[],
             anchors=[],
-            metadata={}
+            metadata={},
         )
 
     def _load_session(self, session_id: str) -> Session:
@@ -174,7 +178,7 @@ class SessionMemory:
             return self._create_session()
 
         try:
-            with open(file_path, 'r', encoding='utf-8') as f:
+            with open(file_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
             return Session.from_dict(data)
         except (json.JSONDecodeError, KeyError) as e:
@@ -187,7 +191,7 @@ class SessionMemory:
 
         for file in self.sessions_dir.glob("*.json"):
             try:
-                with open(file, 'r', encoding='utf-8') as f:
+                with open(file, "r", encoding="utf-8") as f:
                     data = json.load(f)
 
                 # Filter by project if specified
@@ -210,16 +214,11 @@ class SessionMemory:
         self.session.updated_at = datetime.now().isoformat()
         file_path = self._session_file(self.session.session_id)
 
-        with open(file_path, 'w', encoding='utf-8') as f:
+        with open(file_path, "w", encoding="utf-8") as f:
             json.dump(self.session.to_dict(), f, indent=2, ensure_ascii=False)
 
     def add_message(
-        self,
-        role: str,
-        content: str,
-        is_anchor: bool = False,
-        auto_anchor: bool = True,
-        **metadata
+        self, role: str, content: str, is_anchor: bool = False, auto_anchor: bool = True, **metadata
     ) -> Message:
         """
         Add a message to the session.
@@ -238,12 +237,7 @@ class SessionMemory:
         if auto_anchor and not is_anchor:
             is_anchor = self._should_anchor(content)
 
-        message = Message(
-            role=role,
-            content=content,
-            is_anchor=is_anchor,
-            metadata=metadata
-        )
+        message = Message(role=role, content=content, is_anchor=is_anchor, metadata=metadata)
 
         self.session.messages.append(message)
 
@@ -321,7 +315,7 @@ class SessionMemory:
             original_count=len(messages),
             key_decisions=self._extract_decisions(messages),
             code_changes=self._extract_code_changes(messages),
-            topics=self._extract_topics(messages)
+            topics=self._extract_topics(messages),
         )
 
     def _default_summarizer(self, messages: List[Message]) -> str:
@@ -337,10 +331,7 @@ class SessionMemory:
 
         # Summarize user intents
         if user_messages:
-            user_preview = "\n".join([
-                f"- User: {m.content[:100]}..."
-                for m in user_messages[:3]
-            ])
+            user_preview = "\n".join([f"- User: {m.content[:100]}..." for m in user_messages[:3]])
             summary_parts.append(f"User requests:\n{user_preview}")
 
         # Summarize assistant actions
@@ -373,7 +364,7 @@ class SessionMemory:
             for kw in decision_keywords:
                 if kw in content_lower:
                     # Extract sentence containing keyword
-                    sentences = m.content.split('.')
+                    sentences = m.content.split(".")
                     for s in sentences:
                         if kw in s.lower():
                             decisions.append(s.strip()[:200])
@@ -388,9 +379,9 @@ class SessionMemory:
         for m in messages:
             if m.role == "assistant" and "```" in m.content:
                 # Look for file paths or descriptions
-                lines = m.content.split('\n')
+                lines = m.content.split("\n")
                 for i, line in enumerate(lines):
-                    if '```' in line and i > 0:
+                    if "```" in line and i > 0:
                         prev_line = lines[i - 1].strip()
                         if prev_line:
                             changes.append(prev_line[:100])
@@ -404,7 +395,18 @@ class SessionMemory:
         words = all_content.lower().split()
 
         # Count significant words (length > 5, not common)
-        common_words = {'about', 'would', 'could', 'should', 'there', 'their', 'these', 'those', 'which', 'where'}
+        common_words = {
+            "about",
+            "would",
+            "could",
+            "should",
+            "there",
+            "their",
+            "these",
+            "those",
+            "which",
+            "where",
+        }
         word_counts = {}
         for word in words:
             if len(word) > 5 and word.isalpha() and word not in common_words:
@@ -426,21 +428,19 @@ class SessionMemory:
 
         # Add summaries as system context
         if self.session.summaries:
-            summary_text = "\n\n".join([
-                f"[Previous conversation summary - {s.original_count} messages]\n{s.summary}"
-                for s in self.session.summaries
-            ])
-            context.append({
-                "role": "system",
-                "content": f"# Conversation History\n\n{summary_text}"
-            })
+            summary_text = "\n\n".join(
+                [
+                    f"[Previous conversation summary - {s.original_count} messages]\n{s.summary}"
+                    for s in self.session.summaries
+                ]
+            )
+            context.append(
+                {"role": "system", "content": f"# Conversation History\n\n{summary_text}"}
+            )
 
         # Add actual messages
         for msg in self.session.messages:
-            context.append({
-                "role": msg.role,
-                "content": msg.content
-            })
+            context.append({"role": msg.role, "content": msg.content})
 
         return context
 
@@ -458,21 +458,23 @@ class SessionMemory:
 
         for file in self.sessions_dir.glob("*.json"):
             try:
-                with open(file, 'r', encoding='utf-8') as f:
+                with open(file, "r", encoding="utf-8") as f:
                     data = json.load(f)
 
                 # Filter by project if specified
                 if self.project_path and data.get("project_path") != str(self.project_path):
                     continue
 
-                sessions.append({
-                    "session_id": data["session_id"],
-                    "created_at": data["created_at"],
-                    "updated_at": data["updated_at"],
-                    "message_count": len(data.get("messages", [])),
-                    "summary_count": len(data.get("summaries", [])),
-                    "anchor_count": len(data.get("anchors", []))
-                })
+                sessions.append(
+                    {
+                        "session_id": data["session_id"],
+                        "created_at": data["created_at"],
+                        "updated_at": data["updated_at"],
+                        "message_count": len(data.get("messages", [])),
+                        "summary_count": len(data.get("summaries", [])),
+                        "anchor_count": len(data.get("anchors", [])),
+                    }
+                )
             except (json.JSONDecodeError, KeyError):
                 continue
 
@@ -529,7 +531,7 @@ class SessionMemory:
             "anchor_count": len(self.session.anchors),
             "compressed_messages": sum(s.original_count for s in self.session.summaries),
             "user_messages": len([m for m in self.session.messages if m.role == "user"]),
-            "assistant_messages": len([m for m in self.session.messages if m.role == "assistant"])
+            "assistant_messages": len([m for m in self.session.messages if m.role == "assistant"]),
         }
 
     # Public methods that mirror private ones for external use
@@ -561,7 +563,7 @@ class SessionMemory:
 
         for file in self.sessions_dir.glob("*.json"):
             try:
-                with open(file, 'r', encoding='utf-8') as f:
+                with open(file, "r", encoding="utf-8") as f:
                     data = json.load(f)
 
                 # Get last message preview
@@ -571,13 +573,15 @@ class SessionMemory:
                     last_msg = messages[-1]
                     last_preview = last_msg.get("content", "")[:50]
 
-                sessions.append({
-                    "session_id": data["session_id"],
-                    "created_at": data["created_at"],
-                    "updated_at": data["updated_at"],
-                    "message_count": len(messages),
-                    "last_message_preview": last_preview
-                })
+                sessions.append(
+                    {
+                        "session_id": data["session_id"],
+                        "created_at": data["created_at"],
+                        "updated_at": data["updated_at"],
+                        "message_count": len(messages),
+                        "last_message_preview": last_preview,
+                    }
+                )
             except (json.JSONDecodeError, KeyError):
                 continue
 
@@ -593,6 +597,7 @@ class SessionMemory:
 
         try:
             import shutil
+
             shutil.copy(file_path, output_path)
             return True
         except Exception:

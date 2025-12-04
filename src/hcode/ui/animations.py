@@ -2,6 +2,7 @@
 HCode Futuristic Animations and Loading Effects
 Smooth, non-blocking terminal animations.
 """
+
 from rich.console import Console
 from rich.text import Text
 from rich.live import Live
@@ -73,9 +74,7 @@ CYBER_SPINNERS = {
         "interval": 100,
     },
     "dna": {
-        "frames": [
-            "╔══╗", "║╔═╝", "╚╝╔╗", "══╚╝", "╔╗══", "╝╚═╗", "╔══╝", "╚══╗"
-        ],
+        "frames": ["╔══╗", "║╔═╝", "╚╝╔╗", "══╚╝", "╔╗══", "╝╚═╗", "╔══╝", "╚══╗"],
         "interval": 100,
     },
     "cyber_scan": {
@@ -140,9 +139,11 @@ CYBER_SPINNERS = {
 # ANIMATED MESSAGE
 # ═══════════════════════════════════════════════════════════════════════
 
+
 @dataclass
 class AnimatedMessage:
     """A message with animated components."""
+
     prefix_icon: str
     message: str
     suffix_frames: List[str]
@@ -153,13 +154,16 @@ class AnimatedMessage:
         text = Text()
         text.append(f"{self.prefix_icon} ", style=f"bold {self.color}")
         text.append(self.message, style=f"{self.color}")
-        text.append(f" {self.suffix_frames[frame % len(self.suffix_frames)]}", style=f"bold {self.color}")
+        text.append(
+            f" {self.suffix_frames[frame % len(self.suffix_frames)]}", style=f"bold {self.color}"
+        )
         return text
 
 
 # ═══════════════════════════════════════════════════════════════════════
 # CYBER PROGRESS
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class CyberProgress:
     """Futuristic progress bar with custom styling."""
@@ -208,6 +212,7 @@ class CyberProgress:
 # ═══════════════════════════════════════════════════════════════════════
 # STREAMING TEXT
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class StreamingText:
     """Typewriter effect for streaming text output."""
@@ -260,6 +265,7 @@ class StreamingText:
 # GLITCH EFFECT
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class GlitchEffect:
     """Apply glitch effect to text."""
 
@@ -269,13 +275,14 @@ class GlitchEffect:
     def glitch_text(cls, text: str, intensity: float = 0.1) -> str:
         """Apply random glitch characters to text."""
         import random
+
         result = []
         for char in text:
-            if random.random() < intensity and char != ' ':
+            if random.random() < intensity and char != " ":
                 result.append(random.choice(cls.GLITCH_CHARS))
             else:
                 result.append(char)
-        return ''.join(result)
+        return "".join(result)
 
     @classmethod
     def animated_glitch(
@@ -325,6 +332,7 @@ class GlitchEffect:
 # ═══════════════════════════════════════════════════════════════════════
 # THINKING ANIMATION
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class ThinkingAnimation:
     """AI thinking indicator with futuristic styling."""
@@ -428,6 +436,7 @@ class ThinkingAnimation:
 # WAVE ANIMATION
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class WaveAnimation:
     """Wave animation for processing state."""
 
@@ -500,6 +509,7 @@ class WaveAnimation:
 # PULSING TEXT
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class PulsingText:
     """Text that pulses between colors."""
 
@@ -563,6 +573,7 @@ class PulsingText:
 # COUNTDOWN
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class Countdown:
     """Countdown timer animation."""
 
@@ -593,6 +604,7 @@ class Countdown:
 # ═══════════════════════════════════════════════════════════════════════
 # LOADING DOTS
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class LoadingDots:
     """Animated loading dots."""
@@ -656,6 +668,7 @@ class LoadingDots:
 # ═══════════════════════════════════════════════════════════════════════
 # HELPER CONTEXT MANAGERS
 # ═══════════════════════════════════════════════════════════════════════
+
 
 @contextmanager
 def spinner(

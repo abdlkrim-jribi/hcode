@@ -15,6 +15,7 @@ from dataclasses import dataclass
 @dataclass
 class ToolParameter:
     """Tool parameter definition"""
+
     name: str
     type: str
     description: str
@@ -25,6 +26,7 @@ class ToolParameter:
 @dataclass
 class ToolDefinition:
     """Tool definition matching Hcode format"""
+
     name: str
     description: str
     parameters: List[ToolParameter]
@@ -35,10 +37,7 @@ class ToolDefinition:
         required = []
 
         for param in self.parameters:
-            prop = {
-                "type": param.type,
-                "description": param.description
-            }
+            prop = {"type": param.type, "description": param.description}
             if param.enum:
                 prop["enum"] = param.enum
 
@@ -52,12 +51,8 @@ class ToolDefinition:
             "function": {
                 "name": self.name,
                 "description": self.description.strip(),
-                "parameters": {
-                    "type": "object",
-                    "properties": properties,
-                    "required": required
-                }
-            }
+                "parameters": {"type": "object", "properties": properties, "required": required},
+            },
         }
 
     def to_anthropic_schema(self) -> Dict[str, Any]:
@@ -66,10 +61,7 @@ class ToolDefinition:
         required = []
 
         for param in self.parameters:
-            prop = {
-                "type": param.type,
-                "description": param.description
-            }
+            prop = {"type": param.type, "description": param.description}
             if param.enum:
                 prop["enum"] = param.enum
 
@@ -81,11 +73,7 @@ class ToolDefinition:
         return {
             "name": self.name,
             "description": self.description.strip(),
-            "input_schema": {
-                "type": "object",
-                "properties": properties,
-                "required": required
-            }
+            "input_schema": {"type": "object", "properties": properties, "required": required},
         }
 
 
@@ -97,7 +85,7 @@ class ToolsConfig:
     schemas for different AI providers.
     """
 
-    _instance: Optional['ToolsConfig'] = None
+    _instance: Optional["ToolsConfig"] = None
     _tools_data: Dict[str, Any] = {}
     _config_path: Optional[Path] = None
 
@@ -131,7 +119,7 @@ class ToolsConfig:
         self._config_path = self._find_config_path()
 
         if self._config_path and self._config_path.exists():
-            with open(self._config_path, 'r', encoding='utf-8') as f:
+            with open(self._config_path, "r", encoding="utf-8") as f:
                 self._tools_data = yaml.safe_load(f) or {}
         else:
             self._tools_data = self._get_default_tools()
@@ -147,9 +135,9 @@ class ToolsConfig:
                         "file_path": {
                             "type": "string",
                             "description": "The absolute path to the file to read",
-                            "required": True
+                            "required": True,
                         }
-                    }
+                    },
                 },
                 "Write": {
                     "name": "Write",
@@ -158,15 +146,15 @@ class ToolsConfig:
                         "file_path": {
                             "type": "string",
                             "description": "The absolute path to the file to write",
-                            "required": True
+                            "required": True,
                         },
                         "content": {
                             "type": "string",
                             "description": "The content to write",
-                            "required": True
-                        }
-                    }
-                }
+                            "required": True,
+                        },
+                    },
+                },
             }
         }
 
@@ -189,18 +177,20 @@ class ToolsConfig:
 
         parameters = []
         for param_name, param_data in tool_data.get("parameters", {}).items():
-            parameters.append(ToolParameter(
-                name=param_name,
-                type=param_data.get("type", "string"),
-                description=param_data.get("description", ""),
-                required=param_data.get("required", True),
-                enum=param_data.get("enum")
-            ))
+            parameters.append(
+                ToolParameter(
+                    name=param_name,
+                    type=param_data.get("type", "string"),
+                    description=param_data.get("description", ""),
+                    required=param_data.get("required", True),
+                    enum=param_data.get("enum"),
+                )
+            )
 
         return ToolDefinition(
             name=tool_data.get("name", tool_name),
             description=tool_data.get("description", ""),
-            parameters=parameters
+            parameters=parameters,
         )
 
     def get_all_tool_definitions(self) -> List[ToolDefinition]:

@@ -2,6 +2,7 @@
 HCode Futuristic Interactive Chat Interface
 Beautiful, responsive chat experience.
 """
+
 from rich.console import Console, Group, RenderableType
 from rich.panel import Panel
 from rich.text import Text
@@ -35,6 +36,7 @@ from .panels import (
 # ═══════════════════════════════════════════════════════════════════════
 # CHAT INTERFACE
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class ChatInterface:
     """Futuristic chat interface with rich visuals."""
@@ -106,10 +108,12 @@ class ChatInterface:
 
             # Final render without cursor
             final_text = "".join(full_response)
-            live.update(Padding(
-                self._render_response(final_text),
-                (0, 0, 0, 2),
-            ))
+            live.update(
+                Padding(
+                    self._render_response(final_text),
+                    (0, 0, 0, 2),
+                )
+            )
 
         return final_text
 
@@ -138,10 +142,12 @@ class ChatInterface:
                 live.update(Padding(display, (0, 0, 0, 2)))
 
             final_text = "".join(full_response)
-            live.update(Padding(
-                self._render_response(final_text),
-                (0, 0, 0, 2),
-            ))
+            live.update(
+                Padding(
+                    self._render_response(final_text),
+                    (0, 0, 0, 2),
+                )
+            )
 
         return final_text
 
@@ -254,6 +260,7 @@ class ChatInterface:
 # THINKING CONTEXT
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class ThinkingContext:
     """Context manager for thinking/processing state."""
 
@@ -280,6 +287,7 @@ class ThinkingContext:
 # ═══════════════════════════════════════════════════════════════════════
 # INTERACTIVE PROMPT
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class InteractivePrompt:
     """Interactive prompt with history and suggestions."""
@@ -334,6 +342,7 @@ class InteractivePrompt:
 # ═══════════════════════════════════════════════════════════════════════
 # CHAT SESSION
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class ChatSession:
     """Complete chat session manager."""
@@ -395,6 +404,7 @@ class ChatSession:
         ]
 
         from .panels import HelpPanel
+
         panel = HelpPanel(commands)
         self.chat.console.print(panel.render())
         self.chat.console.print()
@@ -411,8 +421,7 @@ class ChatSession:
             except ValueError:
                 available = ", ".join([m.value for m in ThemeMode])
                 self.chat.display_error(
-                    f"Unknown theme: {theme_name}",
-                    f"Available themes: {available}"
+                    f"Unknown theme: {theme_name}", f"Available themes: {available}"
                 )
         else:
             available = ", ".join([m.value for m in ThemeMode])
@@ -422,6 +431,7 @@ class ChatSession:
 # ═══════════════════════════════════════════════════════════════════════
 # QUICK CHAT FUNCTIONS
 # ═══════════════════════════════════════════════════════════════════════
+
 
 def create_chat() -> ChatInterface:
     """Create a new chat interface."""

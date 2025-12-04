@@ -34,9 +34,11 @@ import re
 # COMMAND DEFINITIONS
 # ═══════════════════════════════════════════════════════════════════════
 
+
 @dataclass
 class Command:
     """Represents a slash command."""
+
     name: str
     description: str
     aliases: List[str] = field(default_factory=list)
@@ -53,7 +55,7 @@ BUILTIN_COMMANDS: List[Command] = [
         aliases=["/h", "/?"],
         category="system",
         usage="/help [command]",
-        examples=["/help", "/help stats"]
+        examples=["/help", "/help stats"],
     ),
     Command(
         name="/exit",
@@ -86,7 +88,7 @@ BUILTIN_COMMANDS: List[Command] = [
         aliases=["/m"],
         category="config",
         usage="/model <model_name>",
-        examples=["/model gpt-4", "/model claude-3"]
+        examples=["/model gpt-4", "/model claude-3"],
     ),
     Command(
         name="/provider",
@@ -100,7 +102,7 @@ BUILTIN_COMMANDS: List[Command] = [
         description="Change UI theme",
         category="config",
         usage="/theme <theme_name>",
-        examples=["/theme cyberpunk", "/theme matrix", "/theme frost"]
+        examples=["/theme cyberpunk", "/theme matrix", "/theme frost"],
     ),
     Command(
         name="/undo",
@@ -130,7 +132,7 @@ BUILTIN_COMMANDS: List[Command] = [
         aliases=["/exec", "/!"],
         category="tools",
         usage="/run <command>",
-        examples=["/run npm test", "/run python script.py"]
+        examples=["/run npm test", "/run python script.py"],
     ),
     Command(
         name="/read",
@@ -295,6 +297,7 @@ SMART_PHRASES: Dict[str, List[str]] = {
 # COMMAND COMPLETER
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class CommandCompleter(Completer):
     """Completer for slash commands with rich metadata."""
 
@@ -315,11 +318,11 @@ class CommandCompleter(Completer):
         text = document.text_before_cursor
 
         # Only complete if starting with /
-        if not text.startswith('/'):
+        if not text.startswith("/"):
             return
 
         # Get the word being typed
-        word = text.lstrip('/')
+        word = text.lstrip("/")
 
         # Find matching commands
         for cmd in self.commands:
@@ -328,7 +331,7 @@ class CommandCompleter(Completer):
                 yield Completion(
                     cmd.name,
                     start_position=-len(text),
-                    display=HTML(f'<b>{cmd.name}</b>'),
+                    display=HTML(f"<b>{cmd.name}</b>"),
                     display_meta=HTML(f'<style fg="ansicyan">{cmd.description}</style>'),
                 )
 
@@ -338,7 +341,7 @@ class CommandCompleter(Completer):
                     yield Completion(
                         alias,
                         start_position=-len(text),
-                        display=HTML(f'<i>{alias}</i>'),
+                        display=HTML(f"<i>{alias}</i>"),
                         display_meta=HTML(f'<style fg="ansimagenta">→ {cmd.name}</style>'),
                     )
 
@@ -346,6 +349,7 @@ class CommandCompleter(Completer):
 # ═══════════════════════════════════════════════════════════════════════
 # SMART PHRASE COMPLETER
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class SmartPhraseCompleter(Completer):
     """Completer for smart phrase suggestions."""
@@ -358,7 +362,7 @@ class SmartPhraseCompleter(Completer):
         text = document.text_before_cursor.lower().strip()
 
         # Don't complete commands
-        if text.startswith('/'):
+        if text.startswith("/"):
             return
 
         # Don't complete very short inputs
@@ -377,7 +381,7 @@ class SmartPhraseCompleter(Completer):
             if trigger.startswith(last_word):
                 for phrase in completions:
                     # Calculate what to add
-                    remaining = phrase[len(last_word):] if phrase.startswith(last_word) else phrase
+                    remaining = phrase[len(last_word) :] if phrase.startswith(last_word) else phrase
 
                     yield Completion(
                         remaining,
@@ -391,6 +395,7 @@ class SmartPhraseCompleter(Completer):
 # FILE PATH COMPLETER
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class FilePathCompleter(Completer):
     """Completer for file paths in the current project."""
 
@@ -402,21 +407,21 @@ class FilePathCompleter(Completer):
     def _scan_files(self, max_depth: int = 4) -> List[str]:
         """Scan project files."""
         files = []
-        ignore_dirs = {'.git', 'node_modules', '__pycache__', '.venv', 'venv', 'dist', 'build'}
+        ignore_dirs = {".git", "node_modules", "__pycache__", ".venv", "venv", "dist", "build"}
 
         def scan(path: Path, depth: int = 0):
             if depth > max_depth:
                 return
             try:
                 for item in path.iterdir():
-                    if item.name.startswith('.') and item.name not in ['.env', '.gitignore']:
+                    if item.name.startswith(".") and item.name not in [".env", ".gitignore"]:
                         continue
                     if item.is_dir():
                         if item.name not in ignore_dirs:
                             scan(item, depth + 1)
                     else:
                         rel_path = str(item.relative_to(self.root_dir))
-                        files.append(rel_path.replace('\\', '/'))
+                        files.append(rel_path.replace("\\", "/"))
             except PermissionError:
                 pass
 
@@ -430,8 +435,8 @@ class FilePathCompleter(Completer):
         # Look for file path patterns
         # After commands like /read, /write, or when typing paths
         patterns = [
-            r'/(?:read|write|cat|view|edit)\s+(\S*)$',
-            r'(?:file|path)[:\s]+(\S*)$',
+            r"/(?:read|write|cat|view|edit)\s+(\S*)$",
+            r"(?:file|path)[:\s]+(\S*)$",
             r'"([^"]*)"$',
             r"'([^']*)'$",
         ]
@@ -448,6 +453,7 @@ class FilePathCompleter(Completer):
 
         # Refresh cache periodically
         import time
+
         if time.time() - self._cache_time > 30:
             self._cache = self._scan_files()
             self._cache_time = time.time()
@@ -467,6 +473,7 @@ class FilePathCompleter(Completer):
 # ═══════════════════════════════════════════════════════════════════════
 # HISTORY-BASED AUTO-SUGGEST
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class SmartAutoSuggest(AutoSuggestFromHistory):
     """Enhanced auto-suggest with smart completions."""
@@ -491,7 +498,7 @@ class SmartAutoSuggest(AutoSuggestFromHistory):
                 if text_lower.endswith(trigger):
                     # Suggest first completion
                     if completions:
-                        suggestion = completions[0][len(trigger):]
+                        suggestion = completions[0][len(trigger) :]
                         return Suggestion(suggestion)
 
         return None
@@ -501,39 +508,38 @@ class SmartAutoSuggest(AutoSuggestFromHistory):
 # HCODE PROMPT STYLE
 # ═══════════════════════════════════════════════════════════════════════
 
+
 def get_hcode_style() -> Style:
     """Get the styled prompt theme."""
-    return Style.from_dict({
-        # Completion menu
-        'completion-menu': 'bg:#1a1a2e #ffffff',
-        'completion-menu.completion': 'bg:#1a1a2e #00ffff',
-        'completion-menu.completion.current': 'bg:#00ffff #000000',
-        'completion-menu.meta.completion': 'bg:#1a1a2e #888888',
-        'completion-menu.meta.completion.current': 'bg:#00ffff #000000',
-
-        # Scrollbar
-        'scrollbar.background': 'bg:#1a1a2e',
-        'scrollbar.button': 'bg:#00ffff',
-
-        # Auto-suggestion (ghost text)
-        'auto-suggestion': '#666666 italic',
-
-        # Prompt
-        'prompt': '#00ffff bold',
-        'prompt.arg': '#ff00ff',
-
-        # Input
-        '': '#ffffff',  # Default text
-
-        # Bottom toolbar
-        'bottom-toolbar': 'bg:#1a1a2e #888888',
-        'bottom-toolbar.text': '#00ffff',
-    })
+    return Style.from_dict(
+        {
+            # Completion menu
+            "completion-menu": "bg:#1a1a2e #ffffff",
+            "completion-menu.completion": "bg:#1a1a2e #00ffff",
+            "completion-menu.completion.current": "bg:#00ffff #000000",
+            "completion-menu.meta.completion": "bg:#1a1a2e #888888",
+            "completion-menu.meta.completion.current": "bg:#00ffff #000000",
+            # Scrollbar
+            "scrollbar.background": "bg:#1a1a2e",
+            "scrollbar.button": "bg:#00ffff",
+            # Auto-suggestion (ghost text)
+            "auto-suggestion": "#666666 italic",
+            # Prompt
+            "prompt": "#00ffff bold",
+            "prompt.arg": "#ff00ff",
+            # Input
+            "": "#ffffff",  # Default text
+            # Bottom toolbar
+            "bottom-toolbar": "bg:#1a1a2e #888888",
+            "bottom-toolbar.text": "#00ffff",
+        }
+    )
 
 
 # ═══════════════════════════════════════════════════════════════════════
 # HCODE PROMPT SESSION
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class HCodePrompt:
     """
@@ -614,17 +620,19 @@ class HCodePrompt:
 
     def _get_prompt_message(self, message_count: int = 0) -> FormattedText:
         """Get formatted prompt message."""
-        return FormattedText([
-            ('class:prompt', f'You [{message_count}]: '),
-        ])
+        return FormattedText(
+            [
+                ("class:prompt", f"You [{message_count}]: "),
+            ]
+        )
 
     def _get_bottom_toolbar(self) -> str:
         """Get bottom toolbar text."""
         return HTML(
-            '<b>Tab</b>: Complete  |  '
-            '<b>Ctrl+Space</b>: Show suggestions  |  '
-            '<b>↑↓</b>: Navigate  |  '
-            '<b>/help</b>: Commands'
+            "<b>Tab</b>: Complete  |  "
+            "<b>Ctrl+Space</b>: Show suggestions  |  "
+            "<b>↑↓</b>: Navigate  |  "
+            "<b>/help</b>: Commands"
         )
 
     def create_session(self) -> PromptSession:
@@ -643,12 +651,7 @@ class HCodePrompt:
         )
         return self.session
 
-    def prompt(
-        self,
-        message: str = "You: ",
-        message_count: int = 0,
-        **kwargs
-    ) -> str:
+    def prompt(self, message: str = "You: ", message_count: int = 0, **kwargs) -> str:
         """
         Show prompt and get user input with completions.
 
@@ -663,15 +666,13 @@ class HCodePrompt:
         if self.session is None:
             self.create_session()
 
-        return self.session.prompt(
-            self._get_prompt_message(message_count),
-            **kwargs
-        )
+        return self.session.prompt(self._get_prompt_message(message_count), **kwargs)
 
 
 # ═══════════════════════════════════════════════════════════════════════
 # QUICK ACCESS FUNCTIONS
 # ═══════════════════════════════════════════════════════════════════════
+
 
 def create_hcode_prompt(
     history_file: Optional[str] = None,

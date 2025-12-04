@@ -6,12 +6,7 @@ Supports Anthropic Claude and OpenAI GPT models.
 from .base import AIProvider, Message, Usage, CompletionResponse, ModelType
 from .anthropic_provider import AnthropicProvider
 from .openai_provider import OpenAIProvider, LLMConnectionError
-from .provider_selector import (
-    ProviderSelector,
-    ProviderPreferences,
-    TaskComplexity,
-    TaskType
-)
+from .provider_selector import ProviderSelector, ProviderPreferences, TaskComplexity, TaskType
 from .resilient_provider import (
     ResilientProvider,
     ResilientStreamWrapper,
@@ -22,7 +17,7 @@ from .resilient_provider import (
     CircuitBreakerConfig,
     RetryConfig,
     RetryHandler,
-    create_resilient_provider
+    create_resilient_provider,
 )
 
 __all__ = [

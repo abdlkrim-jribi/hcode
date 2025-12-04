@@ -9,7 +9,7 @@ from .config import (
     get_project_instructions,
     get_model_for_size,
     MODEL_SIZE_MAP,
-    OPENAI_COMPATIBLE_MODELS
+    OPENAI_COMPATIBLE_MODELS,
 )
 
 from .formatting import (

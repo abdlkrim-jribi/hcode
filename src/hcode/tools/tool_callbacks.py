@@ -18,6 +18,7 @@ import weakref
 
 class ToolEventType(Enum):
     """Types of tool execution events."""
+
     BEFORE_EXECUTE = "before_execute"
     AFTER_EXECUTE = "after_execute"
     TODO_UPDATE = "todo_update"
@@ -41,6 +42,7 @@ class ToolEvent:
         timestamp: When the event occurred
         metadata: Additional event metadata
     """
+
     event_type: ToolEventType
     tool_name: str
     arguments: Dict[str, Any] = field(default_factory=dict)
@@ -117,9 +119,7 @@ class ToolCallbackManager:
         """
         with cls._lock:
             if cls._instance is not None:
-                cls._instance._callbacks = {
-                    event_type: [] for event_type in ToolEventType
-                }
+                cls._instance._callbacks = {event_type: [] for event_type in ToolEventType}
                 cls._instance._event_history = []
             cls._instance = None
 
@@ -203,6 +203,7 @@ class ToolCallbackManager:
             except Exception as e:
                 # Log error but don't break execution
                 import sys
+
                 print(f"[Callback Error] {event.event_type.value}: {e}", file=sys.stderr)
 
     def emit_todo_update(self, todos: List[Dict[str, Any]], tool_name: str = "TodoWrite") -> None:
@@ -213,11 +214,7 @@ class ToolCallbackManager:
             todos: The updated todo list
             tool_name: Name of the tool that updated todos
         """
-        self.emit(ToolEvent(
-            event_type=ToolEventType.TODO_UPDATE,
-            tool_name=tool_name,
-            todos=todos
-        ))
+        self.emit(ToolEvent(event_type=ToolEventType.TODO_UPDATE, tool_name=tool_name, todos=todos))
 
     def emit_tool_start(self, tool_name: str, arguments: Dict[str, Any]) -> None:
         """
@@ -227,11 +224,9 @@ class ToolCallbackManager:
             tool_name: Name of the tool starting
             arguments: Arguments being passed to the tool
         """
-        self.emit(ToolEvent(
-            event_type=ToolEventType.TOOL_START,
-            tool_name=tool_name,
-            arguments=arguments
-        ))
+        self.emit(
+            ToolEvent(event_type=ToolEventType.TOOL_START, tool_name=tool_name, arguments=arguments)
+        )
 
     def emit_tool_end(self, tool_name: str, result: Any, success: bool = True) -> None:
         """
@@ -242,12 +237,14 @@ class ToolCallbackManager:
             result: Result from the tool
             success: Whether execution was successful
         """
-        self.emit(ToolEvent(
-            event_type=ToolEventType.TOOL_END,
-            tool_name=tool_name,
-            result=result,
-            metadata={"success": success}
-        ))
+        self.emit(
+            ToolEvent(
+                event_type=ToolEventType.TOOL_END,
+                tool_name=tool_name,
+                result=result,
+                metadata={"success": success},
+            )
+        )
 
     def get_callbacks_count(self, event_type: Optional[ToolEventType] = None) -> int:
         """
@@ -264,9 +261,9 @@ class ToolCallbackManager:
                 return sum(len(cbs) for cbs in self._callbacks.values())
             return len(self._callbacks[event_type])
 
-    def get_event_history(self,
-                          event_type: Optional[ToolEventType] = None,
-                          limit: int = 10) -> List[ToolEvent]:
+    def get_event_history(
+        self, event_type: Optional[ToolEventType] = None, limit: int = 10
+    ) -> List[ToolEvent]:
         """
         Get recent events from history.
 

@@ -39,6 +39,7 @@ SUPPORTS_EMOJI = not IS_WINDOWS or "WT_SESSION" in os.environ
 
 class StatusType(Enum):
     """Status message types."""
+
     SUCCESS = "success"
     ERROR = "error"
     WARNING = "warning"
@@ -73,20 +74,22 @@ ICONS = {
 }
 
 # Custom theme for HCode
-HCODE_THEME = Theme({
-    "hcode.success": "bold green",
-    "hcode.error": "bold red",
-    "hcode.warning": "bold yellow",
-    "hcode.info": "bold cyan",
-    "hcode.debug": "dim",
-    "hcode.prompt": "bold cyan",
-    "hcode.response": "green",
-    "hcode.code": "bright_white on grey23",
-    "hcode.filename": "bold blue",
-    "hcode.line_number": "dim cyan",
-    "hcode.token_count": "dim magenta",
-    "hcode.cost": "dim green",
-})
+HCODE_THEME = Theme(
+    {
+        "hcode.success": "bold green",
+        "hcode.error": "bold red",
+        "hcode.warning": "bold yellow",
+        "hcode.info": "bold cyan",
+        "hcode.debug": "dim",
+        "hcode.prompt": "bold cyan",
+        "hcode.response": "green",
+        "hcode.code": "bright_white on grey23",
+        "hcode.filename": "bold blue",
+        "hcode.line_number": "dim cyan",
+        "hcode.token_count": "dim magenta",
+        "hcode.cost": "dim green",
+    }
+)
 
 # Global console instance
 console = Console(theme=HCODE_THEME)
@@ -153,12 +156,12 @@ def print_debug(message: str) -> None:
 
 
 def render_code(
-        code: str,
-        language: str = "python",
-        line_numbers: bool = True,
-        start_line: int = 1,
-        highlight_lines: set[int] | None = None,
-        theme: str = "monokai",
+    code: str,
+    language: str = "python",
+    line_numbers: bool = True,
+    start_line: int = 1,
+    highlight_lines: set[int] | None = None,
+    theme: str = "monokai",
 ) -> Syntax:
     """
     Render code with syntax highlighting.
@@ -199,11 +202,11 @@ def render_markdown(content: str) -> Markdown:
 
 
 def render_panel(
-        content: Any,
-        title: str | None = None,
-        subtitle: str | None = None,
-        border_style: str = "blue",
-        expand: bool = True,
+    content: Any,
+    title: str | None = None,
+    subtitle: str | None = None,
+    border_style: str = "blue",
+    expand: bool = True,
 ) -> Panel:
     """
     Render content in a styled panel.
@@ -229,9 +232,9 @@ def render_panel(
 
 
 def create_table(
-        title: str | None = None,
-        columns: list[tuple[str, str]] | None = None,
-        box_style: Any = box.ROUNDED,
+    title: str | None = None,
+    columns: list[tuple[str, str]] | None = None,
+    box_style: Any = box.ROUNDED,
 ) -> Table:
     """
     Create a styled table.
@@ -254,9 +257,9 @@ def create_table(
 
 
 def create_progress(
-        description: str = "Working...",
-        show_spinner: bool = True,
-        transient: bool = False,
+    description: str = "Working...",
+    show_spinner: bool = True,
+    transient: bool = False,
 ) -> Progress:
     """
     Create a progress bar/spinner.
@@ -274,12 +277,14 @@ def create_progress(
     if show_spinner and not IS_WINDOWS:
         columns.append(SpinnerColumn())
 
-    columns.extend([
-        TextColumn("[progress.description]{task.description}"),
-        BarColumn(),
-        TaskProgressColumn(),
-        TimeElapsedColumn(),
-    ])
+    columns.extend(
+        [
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(),
+            TaskProgressColumn(),
+            TimeElapsedColumn(),
+        ]
+    )
 
     return Progress(
         *columns,
@@ -474,9 +479,9 @@ def truncate_text(text: str, max_length: int = 100, suffix: str = "...") -> str:
 
 
 def wrap_in_panel(
-        content: str,
-        title: str | None = None,
-        status: StatusType = StatusType.INFO,
+    content: str,
+    title: str | None = None,
+    status: StatusType = StatusType.INFO,
 ) -> Panel:
     """
     Wrap content in a status-colored panel.

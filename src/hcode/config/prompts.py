@@ -17,6 +17,7 @@ from functools import lru_cache
 @dataclass
 class GenerationParams:
     """Model generation parameters"""
+
     temperature: float = 0.3
     top_p: float = 1.0
     top_k: int = 0
@@ -47,6 +48,7 @@ class GenerationParams:
 @dataclass
 class ContextConfig:
     """Context window configuration"""
+
     max_context_tokens: int = 200000  # Claude 3.5 Sonnet max
     reserve_output_tokens: int = 16384  # Max output tokens
     summarization_threshold: float = 0.85
@@ -56,6 +58,7 @@ class ContextConfig:
 @dataclass
 class ContinuationConfig:
     """Continuation settings for long outputs"""
+
     enabled: bool = True
     max_continuations: int = 20
     max_total_tokens: int = 200000
@@ -65,6 +68,7 @@ class ContinuationConfig:
 @dataclass
 class ReliabilityConfig:
     """Retry and timeout settings"""
+
     timeout: float = 120.0
     connect_timeout: float = 30.0
     max_retries: int = 5
@@ -81,7 +85,7 @@ class PromptsConfig:
     easy access to all system prompts.
     """
 
-    _instance: Optional['PromptsConfig'] = None
+    _instance: Optional["PromptsConfig"] = None
     _prompts_data: Dict[str, Any] = {}
     _config_path: Optional[Path] = None
 
@@ -117,7 +121,7 @@ class PromptsConfig:
         self._config_path = self._find_config_path()
 
         if self._config_path and self._config_path.exists():
-            with open(self._config_path, 'r', encoding='utf-8') as f:
+            with open(self._config_path, "r", encoding="utf-8") as f:
                 self._prompts_data = yaml.safe_load(f) or {}
         else:
             # Use default prompts if no config file found
@@ -142,7 +146,7 @@ class PromptsConfig:
                 "tone": "professional",
                 "use_emojis": False,
                 "verbosity": "balanced",
-            }
+            },
         }
 
     def _default_coding_prompt(self) -> str:
@@ -256,9 +260,12 @@ Stay focused on your assigned task and avoid scope creep."""
 
     def get_continuation_prompts(self) -> List[str]:
         """Get list of continuation prompts"""
-        return self._prompts_data.get("continuation_prompts", [
-            "Continue from where you left off. Do not repeat what you've already written.",
-        ])
+        return self._prompts_data.get(
+            "continuation_prompts",
+            [
+                "Continue from where you left off. Do not repeat what you've already written.",
+            ],
+        )
 
     def get_continuation_prompt(self, index: int = 0) -> str:
         """Get a specific continuation prompt by index (rotates)"""
@@ -277,35 +284,47 @@ Stay focused on your assigned task and avoid scope creep."""
 
     def get_security_config(self) -> Dict[str, Any]:
         """Get security configuration (banned commands, confirm commands)"""
-        return self._prompts_data.get("security", {
-            "banned_commands": [],
-            "confirm_commands": [],
-        })
+        return self._prompts_data.get(
+            "security",
+            {
+                "banned_commands": [],
+                "confirm_commands": [],
+            },
+        )
 
     def get_memory_config(self) -> Dict[str, Any]:
         """Get memory/CLAUDE.md configuration"""
-        return self._prompts_data.get("memory", {
-            "memory_file": "CLAUDE.md",
-            "memory_prompt": "",
-        })
+        return self._prompts_data.get(
+            "memory",
+            {
+                "memory_file": "CLAUDE.md",
+                "memory_prompt": "",
+            },
+        )
 
     def get_persona(self) -> Dict[str, Any]:
         """Get persona configuration"""
-        return self._prompts_data.get("persona", {
-            "name": "Hcode",
-            "tone": "professional",
-            "use_emojis": False,
-            "verbosity": "balanced",
-        })
+        return self._prompts_data.get(
+            "persona",
+            {
+                "name": "Hcode",
+                "tone": "professional",
+                "use_emojis": False,
+                "verbosity": "balanced",
+            },
+        )
 
     def get_formatting(self) -> Dict[str, Any]:
         """Get formatting configuration"""
-        return self._prompts_data.get("formatting", {
-            "code_block_style": "fenced",
-            "default_language": "python",
-            "show_line_numbers": True,
-            "max_output_lines": 100,
-        })
+        return self._prompts_data.get(
+            "formatting",
+            {
+                "code_block_style": "fenced",
+                "default_language": "python",
+                "show_line_numbers": True,
+                "max_output_lines": 100,
+            },
+        )
 
 
 class ModelsConfig:
@@ -316,7 +335,7 @@ class ModelsConfig:
     easy access to generation settings.
     """
 
-    _instance: Optional['ModelsConfig'] = None
+    _instance: Optional["ModelsConfig"] = None
     _models_data: Dict[str, Any] = {}
     _config_path: Optional[Path] = None
 
@@ -352,7 +371,7 @@ class ModelsConfig:
         self._config_path = self._find_config_path()
 
         if self._config_path and self._config_path.exists():
-            with open(self._config_path, 'r', encoding='utf-8') as f:
+            with open(self._config_path, "r", encoding="utf-8") as f:
                 self._models_data = yaml.safe_load(f) or {}
         else:
             # Use default config if no file found

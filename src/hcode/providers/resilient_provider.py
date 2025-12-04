@@ -33,6 +33,7 @@ from .base import AIProvider, CompletionResponse, Message, Usage
 
 class ProviderHealth(Enum):
     """Health status of a provider"""
+
     HEALTHY = "healthy"
     DEGRADED = "degraded"  # Slow responses or intermittent errors
     UNHEALTHY = "unhealthy"  # Consistent failures
@@ -41,6 +42,7 @@ class ProviderHealth(Enum):
 
 class FailureType(Enum):
     """Types of provider failures"""
+
     RATE_LIMIT = "rate_limit"
     API_ERROR = "api_error"
     TIMEOUT = "timeout"
@@ -54,6 +56,7 @@ class FailureType(Enum):
 @dataclass
 class FailureRecord:
     """Record of a provider failure"""
+
     failure_type: FailureType
     timestamp: datetime
     error_message: str
@@ -63,6 +66,7 @@ class FailureRecord:
 @dataclass
 class ProviderStats:
     """Statistics for a provider"""
+
     total_requests: int = 0
     successful_requests: int = 0
     failed_requests: int = 0
@@ -97,6 +101,7 @@ class ProviderStats:
 @dataclass
 class CircuitBreakerConfig:
     """Configuration for circuit breaker"""
+
     failure_threshold: int = 5  # Failures before opening circuit
     success_threshold: int = 3  # Successes before closing circuit
     open_timeout: float = 60.0  # Seconds circuit stays open
@@ -180,6 +185,7 @@ class CircuitBreaker:
 @dataclass
 class RetryConfig:
     """Configuration for retry logic"""
+
     max_retries: int = 3
     initial_delay: float = 1.0  # seconds
     max_delay: float = 60.0  # seconds
@@ -198,7 +204,7 @@ class RetryHandler:
         func: Callable,
         *args,
         should_retry: Optional[Callable[[Exception], bool]] = None,
-        **kwargs
+        **kwargs,
     ) -> Any:
         """
         Execute function with retry logic.
@@ -230,19 +236,14 @@ class RetryHandler:
 
                 # Calculate delay with jitter
                 import random
-                jitter = random.uniform(
-                    -self.config.jitter * delay,
-                    self.config.jitter * delay
-                )
+
+                jitter = random.uniform(-self.config.jitter * delay, self.config.jitter * delay)
                 actual_delay = min(delay + jitter, self.config.max_delay)
 
                 await asyncio.sleep(actual_delay)
 
                 # Exponential backoff
-                delay = min(
-                    delay * self.config.exponential_base,
-                    self.config.max_delay
-                )
+                delay = min(delay * self.config.exponential_base, self.config.max_delay)
 
         raise last_exception
 
@@ -426,20 +427,17 @@ class ResilientProvider:
         stats.total_requests += 1
         stats.failed_requests += 1
         stats.last_failure = datetime.now()
-        stats.recent_failures.append(FailureRecord(
-            failure_type=failure_type,
-            timestamp=datetime.now(),
-            error_message=str(error)
-        ))
+        stats.recent_failures.append(
+            FailureRecord(
+                failure_type=failure_type, timestamp=datetime.now(), error_message=str(error)
+            )
+        )
 
         circuit = self._circuit_breakers[provider_name]
         circuit.record_failure()
 
     async def generate_completion(
-        self,
-        messages: List[Message],
-        stream: bool = False,
-        **kwargs
+        self, messages: List[Message], stream: bool = False, **kwargs
     ) -> CompletionResponse | AsyncIterator[str]:
         """
         Generate completion with automatic failover.
@@ -488,7 +486,7 @@ class ResilientProvider:
                     messages,
                     stream=stream,
                     should_retry=self._is_retryable,
-                    **kwargs
+                    **kwargs,
                 )
 
                 latency = time.time() - start_time
@@ -551,10 +549,10 @@ class ResilientProvider:
                     "success_rate": self._stats[name].success_rate,
                     "avg_latency": self._stats[name].average_latency,
                     "total_requests": self._stats[name].total_requests,
-                    "circuit_state": self._circuit_breakers[name].state.value
+                    "circuit_state": self._circuit_breakers[name].state.value,
                 }
                 for name in self.providers
-            }
+            },
         }
 
 
@@ -562,17 +560,13 @@ class ResilientProvider:
 # STREAMING WRAPPER
 # =============================================================================
 
+
 class ResilientStreamWrapper:
     """
     Wrapper for resilient streaming that handles mid-stream failures.
     """
 
-    def __init__(
-        self,
-        resilient_provider: ResilientProvider,
-        messages: List[Message],
-        **kwargs
-    ):
+    def __init__(self, resilient_provider: ResilientProvider, messages: List[Message], **kwargs):
         self.resilient_provider = resilient_provider
         self.messages = messages
         self.kwargs = kwargs
@@ -591,9 +585,7 @@ class ResilientStreamWrapper:
             if self._current_stream is None:
                 # Start new stream
                 self._current_stream = await self.resilient_provider.generate_completion(
-                    self.messages,
-                    stream=True,
-                    **self.kwargs
+                    self.messages, stream=True, **self.kwargs
                 )
 
             chunk = await self._current_stream.__anext__()
@@ -619,9 +611,7 @@ class ResilientStreamWrapper:
             # Retry with failover
             try:
                 self._current_stream = await self.resilient_provider.generate_completion(
-                    self.messages,
-                    stream=True,
-                    **self.kwargs
+                    self.messages, stream=True, **self.kwargs
                 )
                 chunk = await self._current_stream.__anext__()
                 self._buffer.append(chunk)
@@ -635,11 +625,12 @@ class ResilientStreamWrapper:
 # CONVENIENCE FUNCTIONS
 # =============================================================================
 
+
 def create_resilient_provider(
     anthropic_key: Optional[str] = None,
     openai_key: Optional[str] = None,
     primary: str = "anthropic",
-    **kwargs
+    **kwargs,
 ) -> ResilientProvider:
     """
     Create a resilient provider from API keys.
@@ -660,15 +651,14 @@ def create_resilient_provider(
 
     if anthropic_key:
         providers["anthropic"] = AnthropicProvider(
-            api_key=anthropic_key,
-            model=kwargs.get("anthropic_model", "claude-3-5-sonnet-20241022")
+            api_key=anthropic_key, model=kwargs.get("anthropic_model", "claude-3-5-sonnet-20241022")
         )
 
     if openai_key:
         providers["openai"] = OpenAIProvider(
             api_key=openai_key,
             model=kwargs.get("openai_model", "gpt-4o"),
-            base_url=kwargs.get("openai_base_url")
+            base_url=kwargs.get("openai_base_url"),
         )
 
     if not providers:
@@ -678,7 +668,7 @@ def create_resilient_provider(
         providers=providers,
         primary_provider=primary if primary in providers else None,
         circuit_config=kwargs.get("circuit_config"),
-        retry_config=kwargs.get("retry_config")
+        retry_config=kwargs.get("retry_config"),
     )
 
 

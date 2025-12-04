@@ -11,6 +11,7 @@ from enum import Enum
 
 class ModelType(Enum):
     """Types of models available across providers"""
+
     FLAGSHIP = "flagship"  # Most capable (Opus, GPT-4)
     BALANCED = "balanced"  # Good balance (Sonnet, GPT-4-Turbo)
     FAST = "fast"  # Quick and economical (Haiku, GPT-3.5-Turbo)
@@ -19,6 +20,7 @@ class ModelType(Enum):
 @dataclass
 class Message:
     """Represents a chat message"""
+
     role: str  # "user", "assistant", "system"
     content: str
 
@@ -29,22 +31,24 @@ class Message:
 @dataclass
 class Usage:
     """Token usage information"""
+
     input_tokens: int
     output_tokens: int
     total_tokens: int
 
-    def __add__(self, other: 'Usage') -> 'Usage':
+    def __add__(self, other: "Usage") -> "Usage":
         """Allow adding usage objects together"""
         return Usage(
             input_tokens=self.input_tokens + other.input_tokens,
             output_tokens=self.output_tokens + other.output_tokens,
-            total_tokens=self.total_tokens + other.total_tokens
+            total_tokens=self.total_tokens + other.total_tokens,
         )
 
 
 @dataclass
 class CompletionResponse:
     """Response from an AI completion request"""
+
     content: str
     usage: Usage
     model: str
@@ -73,10 +77,7 @@ class AIProvider(ABC):
 
     @abstractmethod
     async def generate_completion(
-        self,
-        messages: List[Message],
-        stream: bool = False,
-        **kwargs
+        self, messages: List[Message], stream: bool = False, **kwargs
     ) -> CompletionResponse | AsyncIterator[str]:
         """
         Generate a completion from the AI model.

@@ -81,24 +81,24 @@ Completion rules:
                         "content": {
                             "type": "string",
                             "description": "Todo description (imperative form)",
-                            "minLength": 1
+                            "minLength": 1,
                         },
                         "status": {
                             "type": "string",
                             "enum": ["pending", "in_progress", "completed", "blocked", "skipped"],
-                            "description": "Current status"
+                            "description": "Current status",
                         },
                         "activeForm": {
                             "type": "string",
                             "description": "Present continuous form",
-                            "minLength": 1
-                        }
+                            "minLength": 1,
+                        },
                     },
-                    "required": ["content", "status", "activeForm"]
-                }
+                    "required": ["content", "status", "activeForm"],
+                },
             }
         },
-        "required": ["todos"]
+        "required": ["todos"],
     }
 
     def __init__(self, todo_manager: Optional[TodoManager] = None):
@@ -129,7 +129,7 @@ Completion rules:
                 name="todos",
                 type="array",
                 description="Complete list of todos (replace entire list)",
-                required=True
+                required=True,
             )
         ]
 
@@ -148,11 +148,7 @@ Completion rules:
             # Validate todos format
             validation_result = self._validate_todos(todos)
             if not validation_result["valid"]:
-                return ToolResult(
-                    success=False,
-                    output=None,
-                    error=validation_result["error"]
-                )
+                return ToolResult(success=False, output=None, error=validation_result["error"])
 
             # Perform batch update
             self.todo_manager.batch_update(todos)
@@ -166,14 +162,17 @@ Completion rules:
             # Emit todo update event for real-time UI updates
             try:
                 from .tool_callbacks import get_callback_manager, ToolEventType, ToolEvent
+
                 callback_manager = get_callback_manager()
-                callback_manager.emit(ToolEvent(
-                    event_type=ToolEventType.TODO_UPDATE,
-                    tool_name="TodoWrite",
-                    arguments={"todos": todos},
-                    todos=updated_todos,
-                    metadata={"stats": stats}
-                ))
+                callback_manager.emit(
+                    ToolEvent(
+                        event_type=ToolEventType.TODO_UPDATE,
+                        tool_name="TodoWrite",
+                        arguments={"todos": todos},
+                        todos=updated_todos,
+                        metadata={"stats": stats},
+                    )
+                )
             except ImportError:
                 pass  # Callbacks not available, continue without
 
@@ -182,16 +181,12 @@ Completion rules:
                 output={
                     "message": "Todos have been modified successfully. Ensure that you continue to use the todo list to track your progress. Please proceed with the current tasks if applicable",
                     "stats": stats,
-                    "todos": updated_todos
-                }
+                    "todos": updated_todos,
+                },
             )
 
         except Exception as e:
-            return ToolResult(
-                success=False,
-                output=None,
-                error=f"Failed to update todos: {str(e)}"
-            )
+            return ToolResult(success=False, output=None, error=f"Failed to update todos: {str(e)}")
 
     def _validate_todos(self, todos: List[Dict[str, Any]]) -> Dict[str, Any]:
         """
@@ -210,10 +205,7 @@ Completion rules:
             Validation result with "valid" and optional "error"
         """
         if not isinstance(todos, list):
-            return {
-                "valid": False,
-                "error": "Todos must be a list"
-            }
+            return {"valid": False, "error": "Todos must be a list"}
 
         # Count in-progress todos
         in_progress_count = 0
@@ -221,16 +213,13 @@ Completion rules:
         for i, todo in enumerate(todos):
             # Check required fields
             if not isinstance(todo, dict):
-                return {
-                    "valid": False,
-                    "error": f"Todo at index {i} is not a dictionary"
-                }
+                return {"valid": False, "error": f"Todo at index {i} is not a dictionary"}
 
             for field in ["content", "status", "activeForm"]:
                 if field not in todo:
                     return {
                         "valid": False,
-                        "error": f"Todo at index {i} missing required field: {field}"
+                        "error": f"Todo at index {i} missing required field: {field}",
                     }
 
             # Validate status
@@ -241,42 +230,32 @@ Completion rules:
             except ValueError:
                 return {
                     "valid": False,
-                    "error": f"Todo at index {i} has invalid status: {todo['status']}"
+                    "error": f"Todo at index {i} has invalid status: {todo['status']}",
                 }
 
             # Validate content not empty
             if not todo["content"].strip():
-                return {
-                    "valid": False,
-                    "error": f"Todo at index {i} has empty content"
-                }
+                return {"valid": False, "error": f"Todo at index {i} has empty content"}
 
             # Validate activeForm not empty
             if not todo["activeForm"].strip():
-                return {
-                    "valid": False,
-                    "error": f"Todo at index {i} has empty activeForm"
-                }
+                return {"valid": False, "error": f"Todo at index {i} has empty activeForm"}
 
         # Validate single in-progress rule
         if in_progress_count == 0:
             return {
                 "valid": False,
-                "error": "Must have exactly ONE todo in_progress (found 0). Mark a todo as in_progress before starting work."
+                "error": "Must have exactly ONE todo in_progress (found 0). Mark a todo as in_progress before starting work.",
             }
 
         if in_progress_count > 1:
             return {
                 "valid": False,
-                "error": f"Must have exactly ONE todo in_progress (found {in_progress_count}). Only one task should be active at a time."
+                "error": f"Must have exactly ONE todo in_progress (found {in_progress_count}). Only one task should be active at a time.",
             }
 
         return {"valid": True}
 
     def get_schema(self) -> Dict[str, Any]:
         """Get tool schema"""
-        return {
-            "name": self.name,
-            "description": self.description,
-            "parameters": self.parameters
-        }
+        return {"name": self.name, "description": self.description, "parameters": self.parameters}

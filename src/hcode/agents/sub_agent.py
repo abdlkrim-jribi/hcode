@@ -14,6 +14,7 @@ from ..tools.base_tool import ToolRegistry, ToolResult
 
 class HcodeAgentType(Enum):
     """Types of specialized Hcode agents"""
+
     GENERAL = "general-purpose"
     EXPLORE = "Explore"
     PLAN = "Plan"
@@ -26,6 +27,7 @@ class HcodeAgentType(Enum):
 @dataclass
 class HcodeAgentResult:
     """Result from Hcode sub-agent execution"""
+
     agent_type: HcodeAgentType
     success: bool
     output: str
@@ -37,10 +39,7 @@ class HcodeSubAgent:
     """Base class for specialized Hcode sub-agents"""
 
     def __init__(
-        self,
-        agent_type: HcodeAgentType,
-        provider: AIProvider,
-        tool_registry: ToolRegistry
+        self, agent_type: HcodeAgentType, provider: AIProvider, tool_registry: ToolRegistry
     ):
         """
         Initialize sub-agent.
@@ -97,13 +96,10 @@ class HcodeExploreAgent(HcodeSubAgent):
     def _get_system_prompt(self) -> str:
         """Get explore agent prompt from external config"""
         from ..config.prompts import get_system_prompt
+
         return get_system_prompt("explore_agent") + super()._get_system_prompt()
 
-    async def execute(
-        self,
-        task: str,
-        context: Optional[Dict] = None
-    ) -> HcodeAgentResult:
+    async def execute(self, task: str, context: Optional[Dict] = None) -> HcodeAgentResult:
         """Execute exploration task"""
         try:
             thoroughness = context.get("thoroughness", "medium") if context else "medium"
@@ -132,19 +128,12 @@ Use Glob and Grep tools to search systematically. Report findings clearly."""
                 agent_type=self.agent_type,
                 success=True,
                 output=response.content,
-                metadata={
-                    "thoroughness": thoroughness,
-                    "tokens_used": response.usage.total_tokens
-                }
+                metadata={"thoroughness": thoroughness, "tokens_used": response.usage.total_tokens},
             )
 
         except Exception as e:
             return HcodeAgentResult(
-                agent_type=self.agent_type,
-                success=False,
-                output="",
-                metadata={},
-                error=str(e)
+                agent_type=self.agent_type, success=False, output="", metadata={}, error=str(e)
             )
 
 
@@ -160,21 +149,17 @@ class HcodePlanAgent(HcodeSubAgent):
     def _get_system_prompt(self) -> str:
         """Get plan agent prompt from external config"""
         from ..config.prompts import get_system_prompt
+
         return get_system_prompt("plan_agent") + super()._get_system_prompt()
 
-    async def execute(
-        self,
-        task: str,
-        context: Optional[Dict] = None
-    ) -> HcodeAgentResult:
+    async def execute(self, task: str, context: Optional[Dict] = None) -> HcodeAgentResult:
         """Create implementation plan"""
         try:
             # Explore codebase first if needed
             if context and context.get("explore_first", True):
                 explore_agent = HcodeExploreAgent(self.provider, self.tool_registry)
                 explore_result = await explore_agent.execute(
-                    f"Understand the codebase structure for: {task}",
-                    {"thoroughness": "quick"}
+                    f"Understand the codebase structure for: {task}", {"thoroughness": "quick"}
                 )
                 codebase_context = explore_result.output
             else:
@@ -209,17 +194,13 @@ Provide:
                 output=response.content,
                 metadata={
                     "tokens_used": response.usage.total_tokens,
-                    "explored_first": context.get("explore_first", True) if context else True
-                }
+                    "explored_first": context.get("explore_first", True) if context else True,
+                },
             )
 
         except Exception as e:
             return HcodeAgentResult(
-                agent_type=self.agent_type,
-                success=False,
-                output="",
-                metadata={},
-                error=str(e)
+                agent_type=self.agent_type, success=False, output="", metadata={}, error=str(e)
             )
 
 
@@ -235,13 +216,10 @@ class HcodeImplementAgent(HcodeSubAgent):
     def _get_system_prompt(self) -> str:
         """Get code agent prompt from external config"""
         from ..config.prompts import get_system_prompt
+
         return get_system_prompt("code_agent") + super()._get_system_prompt()
 
-    async def execute(
-        self,
-        task: str,
-        context: Optional[Dict] = None
-    ) -> HcodeAgentResult:
+    async def execute(self, task: str, context: Optional[Dict] = None) -> HcodeAgentResult:
         """Implement code based on plan"""
         try:
             plan = context.get("plan", "") if context else ""
@@ -269,19 +247,12 @@ Include proper error handling, documentation, and tests."""
                 agent_type=self.agent_type,
                 success=True,
                 output=response.content,
-                metadata={
-                    "tokens_used": response.usage.total_tokens,
-                    "had_plan": bool(plan)
-                }
+                metadata={"tokens_used": response.usage.total_tokens, "had_plan": bool(plan)},
             )
 
         except Exception as e:
             return HcodeAgentResult(
-                agent_type=self.agent_type,
-                success=False,
-                output="",
-                metadata={},
-                error=str(e)
+                agent_type=self.agent_type, success=False, output="", metadata={}, error=str(e)
             )
 
 
@@ -291,11 +262,7 @@ class HcodeAgentOrchestrator:
     Coordinates parallel and sequential agent execution.
     """
 
-    def __init__(
-        self,
-        provider_selector: ProviderSelector,
-        tool_registry: ToolRegistry
-    ):
+    def __init__(self, provider_selector: ProviderSelector, tool_registry: ToolRegistry):
         """
         Initialize agent orchestrator.
 
@@ -307,10 +274,7 @@ class HcodeAgentOrchestrator:
         self.tool_registry = tool_registry
 
     async def execute_with_agents(
-        self,
-        task: str,
-        agent_types: List[HcodeAgentType],
-        parallel: bool = False
+        self, task: str, agent_types: List[HcodeAgentType], parallel: bool = False
     ) -> List[HcodeAgentResult]:
         """
         Execute task using multiple agents.
@@ -384,10 +348,14 @@ class HcodeAgentOrchestrator:
         results = await self.execute_with_agents(task, agent_types, parallel=False)
 
         # Return the last result (most complete)
-        return results[-1] if results else HcodeAgentResult(
-            agent_type=HcodeAgentType.GENERAL,
-            success=False,
-            output="",
-            metadata={},
-            error="No agents executed"
+        return (
+            results[-1]
+            if results
+            else HcodeAgentResult(
+                agent_type=HcodeAgentType.GENERAL,
+                success=False,
+                output="",
+                metadata={},
+                error="No agents executed",
+            )
         )

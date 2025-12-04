@@ -26,6 +26,7 @@ from .reasoning import (
 
 class ExecutionStrategy(Enum):
     """Strategies for execution based on reasoning"""
+
     CONFIDENT = "confident"  # High confidence, execute directly
     CAUTIOUS = "cautious"  # Medium confidence, validate each step
     EXPLORATORY = "exploratory"  # Low confidence, gather more info first
@@ -34,6 +35,7 @@ class ExecutionStrategy(Enum):
 
 class ExecutionPhase(Enum):
     """Phases of reasoning-driven execution"""
+
     PLANNING = "planning"
     VALIDATION = "validation"
     EXECUTION = "execution"
@@ -45,6 +47,7 @@ class ExecutionPhase(Enum):
 @dataclass
 class ExecutionStep:
     """A single execution step derived from reasoning"""
+
     id: str
     description: str
     tool_name: str
@@ -63,6 +66,7 @@ class ExecutionStep:
 @dataclass
 class ExecutionPlan:
     """Plan derived from reasoning output"""
+
     steps: List[ExecutionStep]
     strategy: ExecutionStrategy
     estimated_duration: float  # seconds
@@ -74,6 +78,7 @@ class ExecutionPlan:
 @dataclass
 class ExecutionResult:
     """Result of reasoning-driven execution"""
+
     plan: ExecutionPlan
     completed_steps: List[str]
     failed_steps: List[str]
@@ -153,9 +158,9 @@ class ReasoningToExecutionBridge:
 
         # Check if user approval needed
         requires_approval = (
-            strategy == ExecutionStrategy.INTERACTIVE or
-            risk_level == "high" or
-            any(not s.is_reversible for s in steps)
+            strategy == ExecutionStrategy.INTERACTIVE
+            or risk_level == "high"
+            or any(not s.is_reversible for s in steps)
         )
 
         return ExecutionPlan(
@@ -164,7 +169,7 @@ class ReasoningToExecutionBridge:
             estimated_duration=self._estimate_duration(steps),
             risk_level=risk_level,
             requires_user_approval=requires_approval,
-            parallel_groups=parallel_groups
+            parallel_groups=parallel_groups,
         )
 
     def _extract_from_analysis(self, analysis: AnalysisOutput) -> List[ExecutionStep]:
@@ -184,7 +189,7 @@ class ReasoningToExecutionBridge:
                     tool_name=self.ACTION_TO_TOOL.get(action, "bashtool"),
                     tool_params=params,
                     expected_outcome=f"Complete: {item}",
-                    confidence=analysis.confidence_score or 0.7
+                    confidence=analysis.confidence_score or 0.7,
                 )
                 steps.append(step)
 
@@ -206,7 +211,7 @@ class ReasoningToExecutionBridge:
                     tool_name=self.ACTION_TO_TOOL.get(action, "bashtool"),
                     tool_params=params,
                     expected_outcome=f"Action completed: {item}",
-                    confidence=0.85  # Decision phase = higher confidence
+                    confidence=0.85,  # Decision phase = higher confidence
                 )
                 steps.append(step)
 
@@ -227,7 +232,7 @@ class ReasoningToExecutionBridge:
                         tool_params=params,
                         expected_outcome=f"Verified: {item}",
                         confidence=0.9,
-                        is_reversible=True  # Verification steps are safe
+                        is_reversible=True,  # Verification steps are safe
                     )
                     steps.append(step)
 
@@ -250,9 +255,7 @@ class ReasoningToExecutionBridge:
             if action in text_lower:
                 # Try to extract file paths
                 file_match = re.search(
-                    r'[\w/\\.-]+\.(?:py|js|ts|json|yaml|yml|md|txt|html|css)',
-                    text,
-                    re.IGNORECASE
+                    r"[\w/\\.-]+\.(?:py|js|ts|json|yaml|yml|md|txt|html|css)", text, re.IGNORECASE
                 )
                 if file_match:
                     params["file_path"] = file_match.group(0)
@@ -264,7 +267,7 @@ class ReasoningToExecutionBridge:
 
                 # Try to extract commands
                 if action in ["execute", "run", "test"]:
-                    cmd_match = re.search(r'`([^`]+)`', text)
+                    cmd_match = re.search(r"`([^`]+)`", text)
                     if cmd_match:
                         params["command"] = cmd_match.group(1)
 
@@ -408,7 +411,7 @@ class ReasoningDrivenExecutor:
                         skipped_steps=[s.id for s in plan.steps],
                         total_duration=0,
                         success=False,
-                        error="User did not approve execution"
+                        error="User did not approve execution",
                     )
             else:
                 # No callback, skip execution
@@ -419,7 +422,7 @@ class ReasoningDrivenExecutor:
                     skipped_steps=[s.id for s in plan.steps],
                     total_duration=0,
                     success=False,
-                    error="Approval required but no callback provided"
+                    error="Approval required but no callback provided",
                 )
 
         # Execute plan
@@ -438,9 +441,7 @@ class ReasoningDrivenExecutor:
             if plan.strategy == ExecutionStrategy.CONFIDENT:
                 # Execute in parallel where possible
                 for group in plan.parallel_groups:
-                    results = await self._execute_parallel(
-                        [step_map[sid] for sid in group]
-                    )
+                    results = await self._execute_parallel([step_map[sid] for sid in group])
                     for step_id, success in results.items():
                         if success:
                             completed.append(step_id)
@@ -463,7 +464,9 @@ class ReasoningDrivenExecutor:
                     else:
                         failed.append(step.id)
                         # In cautious mode, stop on first failure
-                        skipped.extend(s.id for s in plan.steps if s.id not in completed and s.id not in failed)
+                        skipped.extend(
+                            s.id for s in plan.steps if s.id not in completed and s.id not in failed
+                        )
                         break
 
             elif plan.strategy == ExecutionStrategy.EXPLORATORY:
@@ -499,7 +502,7 @@ class ReasoningDrivenExecutor:
                 failed_steps=failed,
                 skipped_steps=skipped,
                 total_duration=time.time() - start_time,
-                success=success
+                success=success,
             )
 
             self._execution_history.append(result)
@@ -513,23 +516,22 @@ class ReasoningDrivenExecutor:
                 plan=plan,
                 completed_steps=completed,
                 failed_steps=failed,
-                skipped_steps=[s.id for s in plan.steps if s.id not in completed and s.id not in failed],
+                skipped_steps=[
+                    s.id for s in plan.steps if s.id not in completed and s.id not in failed
+                ],
                 total_duration=time.time() - start_time,
                 success=False,
                 error=str(e),
-                rollback_performed=rollback_performed
+                rollback_performed=rollback_performed,
             )
 
     async def _execute_step(self, step: ExecutionStep) -> bool:
         """Execute a single step"""
         try:
-            result = await self.tool_executor.execute_tool(
-                step.tool_name,
-                **step.tool_params
-            )
+            result = await self.tool_executor.execute_tool(step.tool_name, **step.tool_params)
 
             step.executed = True
-            step.success = result.success if hasattr(result, 'success') else True
+            step.success = result.success if hasattr(result, "success") else True
             step.result = result
 
             return step.success
@@ -540,10 +542,7 @@ class ReasoningDrivenExecutor:
             step.error = str(e)
             return False
 
-    async def _execute_parallel(
-        self,
-        steps: List[ExecutionStep]
-    ) -> Dict[str, bool]:
+    async def _execute_parallel(self, steps: List[ExecutionStep]) -> Dict[str, bool]:
         """Execute multiple steps in parallel"""
         results = {}
 
@@ -562,9 +561,7 @@ class ReasoningDrivenExecutor:
         return results
 
     async def _rollback(
-        self,
-        completed_step_ids: List[str],
-        step_map: Dict[str, ExecutionStep]
+        self, completed_step_ids: List[str], step_map: Dict[str, ExecutionStep]
     ) -> bool:
         """Attempt to rollback completed steps"""
         rollback_success = True
@@ -581,7 +578,7 @@ class ReasoningDrivenExecutor:
             try:
                 await self.tool_executor.execute_tool(
                     step.rollback_action.get("tool", "bashtool"),
-                    **step.rollback_action.get("params", {})
+                    **step.rollback_action.get("params", {}),
                 )
             except Exception:
                 rollback_success = False
@@ -595,11 +592,7 @@ class ReasoningDrivenExecutor:
     def get_stats(self) -> Dict[str, Any]:
         """Get execution statistics"""
         if not self._execution_history:
-            return {
-                "total_executions": 0,
-                "success_rate": 0.0,
-                "average_duration": 0.0
-            }
+            return {"total_executions": 0, "success_rate": 0.0, "average_duration": 0.0}
 
         successful = sum(1 for r in self._execution_history if r.success)
         total_duration = sum(r.total_duration for r in self._execution_history)
@@ -608,18 +601,15 @@ class ReasoningDrivenExecutor:
             "total_executions": len(self._execution_history),
             "success_rate": successful / len(self._execution_history),
             "average_duration": total_duration / len(self._execution_history),
-            "total_steps_completed": sum(
-                len(r.completed_steps) for r in self._execution_history
-            ),
-            "total_steps_failed": sum(
-                len(r.failed_steps) for r in self._execution_history
-            )
+            "total_steps_completed": sum(len(r.completed_steps) for r in self._execution_history),
+            "total_steps_failed": sum(len(r.failed_steps) for r in self._execution_history),
         }
 
 
 # =============================================================================
 # REASONING VALIDATOR
 # =============================================================================
+
 
 class ReasoningExecutionValidator:
     """
@@ -629,11 +619,7 @@ class ReasoningExecutionValidator:
     def __init__(self):
         self._validation_history: List[Dict[str, Any]] = []
 
-    def validate(
-        self,
-        reasoning: ReasoningOutput,
-        result: ExecutionResult
-    ) -> Dict[str, Any]:
+    def validate(self, reasoning: ReasoningOutput, result: ExecutionResult) -> Dict[str, Any]:
         """
         Validate execution result against reasoning.
 
@@ -650,23 +636,19 @@ class ReasoningExecutionValidator:
             "execution_success": result.success,
             "alignment_score": 0.0,
             "issues": [],
-            "recommendations": []
+            "recommendations": [],
         }
 
         # Check if execution matched reasoning confidence
         expected_success = reasoning.quality_score() > 0.5
         if expected_success != result.success:
             if expected_success:
-                report["issues"].append(
-                    "High-confidence reasoning led to failed execution"
-                )
+                report["issues"].append("High-confidence reasoning led to failed execution")
                 report["recommendations"].append(
                     "Review reasoning decomposition for missed edge cases"
                 )
             else:
-                report["issues"].append(
-                    "Low-confidence reasoning unexpectedly succeeded"
-                )
+                report["issues"].append("Low-confidence reasoning unexpectedly succeeded")
 
         # Check step completion ratio
         total_steps = len(result.plan.steps)
@@ -679,19 +661,14 @@ class ReasoningExecutionValidator:
 
         # Calculate alignment score
         report["alignment_score"] = self._calculate_alignment(
-            reasoning.quality_score(),
-            completed_ratio,
-            result.success
+            reasoning.quality_score(), completed_ratio, result.success
         )
 
         self._validation_history.append(report)
         return report
 
     def _calculate_alignment(
-        self,
-        reasoning_score: float,
-        completion_ratio: float,
-        success: bool
+        self, reasoning_score: float, completion_ratio: float, success: bool
     ) -> float:
         """Calculate alignment between reasoning and execution"""
         # Perfect alignment: high reasoning -> high completion and success
@@ -707,7 +684,9 @@ class ReasoningExecutionValidator:
         """Get average alignment score over history"""
         if not self._validation_history:
             return 0.0
-        return sum(v["alignment_score"] for v in self._validation_history) / len(self._validation_history)
+        return sum(v["alignment_score"] for v in self._validation_history) / len(
+            self._validation_history
+        )
 
 
 # =============================================================================

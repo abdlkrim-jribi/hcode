@@ -7,7 +7,7 @@ import sys
 import os
 
 # Add src to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from hcode.core.context import ContextManager, ContextEntry
 from hcode.providers import Message
@@ -80,8 +80,14 @@ class TestContextPersistence:
         cm.set_system_prompt("You are a coding assistant")
 
         # First exchange
-        cm.add_message(role="user", content="Create a comprehensive Python tutorial HTML file with dark mode, syntax highlighting, and interactive examples")
-        cm.add_message(role="assistant", content="I'll create this file for you. Here's what I'll include:\n- Dark/Light mode toggle\n- Syntax highlighting\n- Interactive code examples\n\nPlease confirm by saying 'proceed'.")
+        cm.add_message(
+            role="user",
+            content="Create a comprehensive Python tutorial HTML file with dark mode, syntax highlighting, and interactive examples",
+        )
+        cm.add_message(
+            role="assistant",
+            content="I'll create this file for you. Here's what I'll include:\n- Dark/Light mode toggle\n- Syntax highlighting\n- Interactive code examples\n\nPlease confirm by saying 'proceed'.",
+        )
 
         # User confirms
         cm.add_message(role="user", content="proceed")
@@ -130,12 +136,15 @@ class TestContinuationMessageEnhancement:
 
         # Simulate session history
         session_history = [
-            {"role": "user", "content": "Create a comprehensive Python tutorial HTML file with dark mode and syntax highlighting"},
+            {
+                "role": "user",
+                "content": "Create a comprehensive Python tutorial HTML file with dark mode and syntax highlighting",
+            },
             {"role": "assistant", "content": "I'll create this file for you. Please confirm."},
         ]
 
         # The pattern we want to test
-        confirmation_words = ['yes', 'y', 'ok', 'okay', 'sure', 'go ahead', 'proceed']
+        confirmation_words = ["yes", "y", "ok", "okay", "sure", "go ahead", "proceed"]
         message = "proceed"
         message_lower = message.strip().lower()
 
@@ -143,8 +152,8 @@ class TestContinuationMessageEnhancement:
             # Find original task
             original_task = None
             for msg in reversed(session_history):
-                if msg.get('role') == 'user':
-                    content = msg.get('content', '')
+                if msg.get("role") == "user":
+                    content = msg.get("content", "")
                     if content.strip().lower() not in confirmation_words and len(content) > 20:
                         original_task = content
                         break

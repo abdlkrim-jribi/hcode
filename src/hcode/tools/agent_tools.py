@@ -33,25 +33,25 @@ class TaskTool(BaseTool):
                 name="subagent_type",
                 type="string",
                 description="The type of specialized agent to use for this task (general-purpose, Explore, Plan, Implement)",
-                required=True
+                required=True,
             ),
             ToolParameter(
                 name="prompt",
                 type="string",
                 description="The task for the agent to perform autonomously. Should include detailed instructions.",
-                required=True
+                required=True,
             ),
             ToolParameter(
                 name="description",
                 type="string",
                 description="A short (3-5 word) description of the task",
-                required=True
+                required=True,
             ),
             ToolParameter(
                 name="model",
                 type="string",
                 description="Optional model to use for this agent (sonnet, opus, haiku). If not specified, inherits from parent.",
-                required=False
+                required=False,
             ),
         ]
 
@@ -66,7 +66,7 @@ class TaskTool(BaseTool):
             return ToolResult(
                 success=False,
                 output="",
-                error="subagent_type, prompt, and description are required"
+                error="subagent_type, prompt, and description are required",
             )
 
         # Validate agent type
@@ -75,15 +75,13 @@ class TaskTool(BaseTool):
             return ToolResult(
                 success=False,
                 output="",
-                error=f"Invalid subagent_type. Must be one of: {', '.join(valid_types)}"
+                error=f"Invalid subagent_type. Must be one of: {', '.join(valid_types)}",
             )
 
         try:
             if not self.agent_orchestrator:
                 return ToolResult(
-                    success=False,
-                    output="",
-                    error="Agent orchestrator not initialized"
+                    success=False, output="", error="Agent orchestrator not initialized"
                 )
 
             # Launch agent
@@ -94,7 +92,7 @@ class TaskTool(BaseTool):
                 "general-purpose": AgentType.GENERAL,
                 "Explore": AgentType.EXPLORE,
                 "Plan": AgentType.PLAN,
-                "Implement": AgentType.IMPLEMENT
+                "Implement": AgentType.IMPLEMENT,
             }
 
             agent_type = type_mapping.get(subagent_type, AgentType.GENERAL)
@@ -103,7 +101,7 @@ class TaskTool(BaseTool):
             result = await self.agent_orchestrator.execute_agent_task(
                 agent_type=agent_type,
                 task=prompt,
-                context={"description": description, "model": model}
+                context={"description": description, "model": model},
             )
 
             return ToolResult(
@@ -113,16 +111,12 @@ class TaskTool(BaseTool):
                     "agent_type": subagent_type,
                     "description": description,
                     "model": model,
-                    "result": result
-                }
+                    "result": result,
+                },
             )
 
         except Exception as e:
-            return ToolResult(
-                success=False,
-                output="",
-                error=f"Failed to launch agent: {str(e)}"
-            )
+            return ToolResult(success=False, output="", error=f"Failed to launch agent: {str(e)}")
 
 
 class ExitPlanModeTool(BaseTool):
@@ -147,18 +141,14 @@ class ExitPlanModeTool(BaseTool):
                 name="plan",
                 type="string",
                 description="The plan you came up with, that you want to run by the user for approval. Supports markdown. The plan should be pretty concise.",
-                required=True
+                required=True,
             ),
         ]
 
     async def execute(self, plan: str) -> ToolResult:
         """Exit plan mode with the finalized plan"""
         if not plan:
-            return ToolResult(
-                success=False,
-                output="",
-                error="plan is required"
-            )
+            return ToolResult(success=False, output="", error="plan is required")
 
         # Format the plan for display
         output = f"""
@@ -181,11 +171,7 @@ Please confirm to proceed.
         return ToolResult(
             success=True,
             output=output,
-            metadata={
-                "plan": plan,
-                "mode": "exit_plan",
-                "awaiting_confirmation": True
-            }
+            metadata={"plan": plan, "mode": "exit_plan", "awaiting_confirmation": True},
         )
 
 
@@ -218,20 +204,13 @@ class TodoReadTool(BaseTool):
                 return ToolResult(
                     success=True,
                     output="No tasks in the current todo list.",
-                    metadata={
-                        "todos": [],
-                        "count": 0
-                    }
+                    metadata={"todos": [], "count": 0},
                 )
 
             # Format todos for display
             output_lines = ["# Current Task List\n"]
 
-            status_emoji = {
-                "pending": "⏳",
-                "in_progress": "🔄",
-                "completed": "✅"
-            }
+            status_emoji = {"pending": "⏳", "in_progress": "🔄", "completed": "✅"}
 
             for i, todo in enumerate(self._current_todos, 1):
                 content = todo.get("content", "")
@@ -254,7 +233,9 @@ class TodoReadTool(BaseTool):
             in_progress = sum(1 for t in self._current_todos if t.get("status") == "in_progress")
             pending = sum(1 for t in self._current_todos if t.get("status") == "pending")
 
-            output_lines.append(f"**Summary:** {completed}/{total} completed, {in_progress} in progress, {pending} pending")
+            output_lines.append(
+                f"**Summary:** {completed}/{total} completed, {in_progress} in progress, {pending} pending"
+            )
 
             return ToolResult(
                 success=True,
@@ -264,13 +245,9 @@ class TodoReadTool(BaseTool):
                     "count": total,
                     "completed": completed,
                     "in_progress": in_progress,
-                    "pending": pending
-                }
+                    "pending": pending,
+                },
             )
 
         except Exception as e:
-            return ToolResult(
-                success=False,
-                output="",
-                error=f"Failed to read todos: {str(e)}"
-            )
+            return ToolResult(success=False, output="", error=f"Failed to read todos: {str(e)}")

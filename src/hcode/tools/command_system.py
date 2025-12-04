@@ -37,13 +37,7 @@ class SlashCommand:
 class Skill:
     """Represents a reusable skill"""
 
-    def __init__(
-        self,
-        name: str,
-        description: str,
-        prompt: str,
-        category: Optional[str] = None
-    ):
+    def __init__(self, name: str, description: str, prompt: str, category: Optional[str] = None):
         """
         Initialize skill.
 
@@ -95,7 +89,7 @@ class CommandRegistry:
 
         for cmd_file in commands_dir.glob("*.md"):
             # Read command file
-            with open(cmd_file, 'r', encoding='utf-8') as f:
+            with open(cmd_file, "r", encoding="utf-8") as f:
                 content = f.read()
 
             # Extract frontmatter if present
@@ -119,9 +113,7 @@ class CommandRegistry:
             # Register command
             cmd_name = cmd_file.stem
             self.commands[cmd_name] = SlashCommand(
-                name=cmd_name,
-                description=description,
-                prompt=prompt
+                name=cmd_name, description=description, prompt=prompt
             )
 
     def _load_skills(self):
@@ -132,7 +124,7 @@ class CommandRegistry:
             return
 
         for skill_file in skills_dir.glob("*.md"):
-            with open(skill_file, 'r', encoding='utf-8') as f:
+            with open(skill_file, "r", encoding="utf-8") as f:
                 content = f.read()
 
             # Extract frontmatter
@@ -148,7 +140,7 @@ class CommandRegistry:
                             name=skill_name,
                             description=frontmatter.get("description", ""),
                             prompt=prompt,
-                            category=frontmatter.get("category")
+                            category=frontmatter.get("category"),
                         )
                     except:
                         pass
@@ -184,7 +176,12 @@ class SlashCommandTool(BaseTool):
 
     def get_parameters(self) -> List[ToolParameter]:
         return [
-            ToolParameter("command", "string", "Slash command to execute (e.g., '/review-pr 123')", required=True),
+            ToolParameter(
+                "command",
+                "string",
+                "Slash command to execute (e.g., '/review-pr 123')",
+                required=True,
+            ),
         ]
 
     async def execute(self, command: str) -> ToolResult:
@@ -192,11 +189,7 @@ class SlashCommandTool(BaseTool):
         try:
             # Parse command
             if not command.startswith("/"):
-                return ToolResult(
-                    success=False,
-                    output=None,
-                    error="Command must start with /"
-                )
+                return ToolResult(success=False, output=None, error="Command must start with /")
 
             parts = command[1:].split(maxsplit=1)
             cmd_name = parts[0]
@@ -210,7 +203,7 @@ class SlashCommandTool(BaseTool):
                 return ToolResult(
                     success=False,
                     output=None,
-                    error=f"Command not found: {cmd_name}. Available: {available}"
+                    error=f"Command not found: {cmd_name}. Available: {available}",
                 )
 
             # Execute command
@@ -222,8 +215,8 @@ class SlashCommandTool(BaseTool):
                 metadata={
                     "command": cmd_name,
                     "args": cmd_args,
-                    "description": slash_cmd.description
-                }
+                    "description": slash_cmd.description,
+                },
             )
 
         except Exception as e:
@@ -257,7 +250,7 @@ class SkillTool(BaseTool):
                 return ToolResult(
                     success=False,
                     output=None,
-                    error=f"Skill not found: {skill}. Available: {available}"
+                    error=f"Skill not found: {skill}. Available: {available}",
                 )
 
             # Execute skill
@@ -269,8 +262,8 @@ class SkillTool(BaseTool):
                 metadata={
                     "skill": skill,
                     "category": skill_obj.category,
-                    "description": skill_obj.description
-                }
+                    "description": skill_obj.description,
+                },
             )
 
         except Exception as e:
@@ -316,26 +309,26 @@ class HookSystem:
             # Execute hook
             try:
                 result = subprocess.run(
-                    command,
-                    shell=True,
-                    capture_output=True,
-                    text=True,
-                    timeout=30
+                    command, shell=True, capture_output=True, text=True, timeout=30
                 )
 
-                results.append(ToolResult(
-                    success=result.returncode == 0,
-                    output=result.stdout,
-                    error=result.stderr if result.returncode != 0 else None,
-                    metadata={"event": event, "command": command}
-                ))
+                results.append(
+                    ToolResult(
+                        success=result.returncode == 0,
+                        output=result.stdout,
+                        error=result.stderr if result.returncode != 0 else None,
+                        metadata={"event": event, "command": command},
+                    )
+                )
 
             except Exception as e:
-                results.append(ToolResult(
-                    success=False,
-                    output=None,
-                    error=str(e),
-                    metadata={"event": event, "command": command}
-                ))
+                results.append(
+                    ToolResult(
+                        success=False,
+                        output=None,
+                        error=str(e),
+                        metadata={"event": event, "command": command},
+                    )
+                )
 
         return results

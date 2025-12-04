@@ -1,6 +1,7 @@
 """
 Tests for the HCODE Infinite Memory System.
 """
+
 import pytest
 import tempfile
 import shutil
@@ -10,7 +11,7 @@ import sys
 import os
 
 # Add src to path for imports
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 
 class TestMemoryConfig:
@@ -58,6 +59,7 @@ class TestFileMemory:
 
         # Create FileMemory from within the project
         import os
+
         original_cwd = os.getcwd()
         os.chdir(temp_project)
         try:
@@ -259,7 +261,7 @@ class TestSemanticMemory:
         memory = sm.add(
             content="Python uses snake_case for variable names",
             memory_type=MemoryType.FACT,
-            importance=0.8
+            importance=0.8,
         )
 
         assert memory.id is not None
@@ -371,9 +373,7 @@ class TestMemoryManager:
 
         # Remember something
         manager.remember(
-            "This project uses FastAPI for the backend",
-            memory_type=MemoryType.FACT,
-            importance=0.8
+            "This project uses FastAPI for the backend", memory_type=MemoryType.FACT, importance=0.8
         )
 
         # Recall it
@@ -466,10 +466,7 @@ class TestCLI:
         from src.hcode.memory.cli import cmd_init
         import argparse
 
-        args = argparse.Namespace(
-            path=str(temp_project),
-            scope="project"
-        )
+        args = argparse.Namespace(path=str(temp_project), scope="project")
 
         # Should not raise
         cmd_init(args)

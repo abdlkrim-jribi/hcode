@@ -7,13 +7,13 @@ import sys
 import os
 
 # Add src to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from hcode.core.continuation import (
     ContinuationManager,
     ContextWindowManager,
     ContinuationState,
-    FinishReason
+    FinishReason,
 )
 
 
@@ -42,7 +42,10 @@ class TestContinuationManager:
         assert manager.should_continue("stop", "Here is code:\n```python\ndef foo():") is True
 
         # Closed code block should not
-        assert manager.should_continue("stop", "Here is code:\n```python\ndef foo():\n    pass\n```") is False
+        assert (
+            manager.should_continue("stop", "Here is code:\n```python\ndef foo():\n    pass\n```")
+            is False
+        )
 
     def test_should_continue_truncation_patterns(self):
         """Test detection of truncation patterns"""
@@ -91,7 +94,7 @@ class TestContinuationManager:
         # Simulate overlap where model repeated end of previous output
         responses = [
             "First part of the response with some words at the end",
-            "words at the end and then new content continues here"
+            "words at the end and then new content continues here",
         ]
         merged = manager.merge_responses(responses)
 
@@ -134,7 +137,7 @@ class TestContinuationManager:
             response_text="First part of response",
             finish_reason="length",
             input_tokens=100,
-            output_tokens=500
+            output_tokens=500,
         )
 
         assert state.accumulated_response == "First part of response"
@@ -149,7 +152,7 @@ class TestContinuationManager:
             response_text="Second part completes.",
             finish_reason="stop",
             input_tokens=150,
-            output_tokens=300
+            output_tokens=300,
         )
 
         assert state.continuation_count == 2
@@ -164,10 +167,7 @@ class TestContextWindowManager:
 
     def test_initialization(self):
         """Test basic initialization"""
-        manager = ContextWindowManager(
-            max_context_tokens=128000,
-            reserve_output_tokens=4096
-        )
+        manager = ContextWindowManager(max_context_tokens=128000, reserve_output_tokens=4096)
 
         assert manager.max_context_tokens == 128000
         assert manager.reserve_output_tokens == 4096
@@ -175,15 +175,10 @@ class TestContextWindowManager:
 
     def test_calculate_token_budget(self):
         """Test token budget calculation"""
-        manager = ContextWindowManager(
-            max_context_tokens=10000,
-            reserve_output_tokens=2000
-        )
+        manager = ContextWindowManager(max_context_tokens=10000, reserve_output_tokens=2000)
 
         budget = manager.calculate_token_budget(
-            system_tokens=500,
-            history_tokens=3000,
-            new_message_tokens=200
+            system_tokens=500, history_tokens=3000, new_message_tokens=200
         )
 
         assert budget["system"] == 500
@@ -196,15 +191,10 @@ class TestContextWindowManager:
 
     def test_calculate_token_budget_needs_truncation(self):
         """Test budget when truncation is needed"""
-        manager = ContextWindowManager(
-            max_context_tokens=5000,
-            reserve_output_tokens=1000
-        )
+        manager = ContextWindowManager(max_context_tokens=5000, reserve_output_tokens=1000)
 
         budget = manager.calculate_token_budget(
-            system_tokens=500,
-            history_tokens=4000,  # Too much history
-            new_message_tokens=200
+            system_tokens=500, history_tokens=4000, new_message_tokens=200  # Too much history
         )
 
         assert budget["needs_truncation"] is True
@@ -213,9 +203,7 @@ class TestContextWindowManager:
     def test_needs_summarization(self):
         """Test summarization threshold detection"""
         manager = ContextWindowManager(
-            max_context_tokens=10000,
-            reserve_output_tokens=2000,
-            summarization_threshold=0.8
+            max_context_tokens=10000, reserve_output_tokens=2000, summarization_threshold=0.8
         )
 
         # available = 8000, threshold = 6400
@@ -225,10 +213,7 @@ class TestContextWindowManager:
 
     def test_get_safe_max_tokens(self):
         """Test safe max_tokens calculation"""
-        manager = ContextWindowManager(
-            max_context_tokens=10000,
-            reserve_output_tokens=4000
-        )
+        manager = ContextWindowManager(max_context_tokens=10000, reserve_output_tokens=4000)
 
         # With 5000 input tokens
         safe = manager.get_safe_max_tokens(5000)
@@ -262,7 +247,7 @@ class TestContinuationIntegration:
                 response_text=response_text,
                 finish_reason=finish_reason,
                 input_tokens=100,
-                output_tokens=200
+                output_tokens=200,
             )
 
             if finish_reason == "stop":

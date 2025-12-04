@@ -11,6 +11,7 @@ from rich.box import Box, ROUNDED, DOUBLE, HEAVY, SIMPLE
 
 class BoxStyle:
     """Legacy BoxStyle class - provides box style constants."""
+
     ROUNDED = ROUNDED
     DOUBLE = DOUBLE
     HEAVY = HEAVY
@@ -24,6 +25,7 @@ class BoxStyle:
 
 class BoxChars:
     """Legacy BoxChars class - provides box drawing characters."""
+
     HORIZONTAL = "─"
     VERTICAL = "│"
     CORNER_TL = "╭"

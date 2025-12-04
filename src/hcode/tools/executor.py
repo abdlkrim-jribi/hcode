@@ -15,6 +15,7 @@ from dataclasses import dataclass
 @dataclass
 class ExecutionResult:
     """Result from command execution"""
+
     command: str
     exit_code: int
     stdout: str
@@ -55,7 +56,6 @@ class ToolExecutor:
             "command": "mypy",
             "timeout": 120,
         },
-
         # JavaScript tools
         "npm": {
             "command": "npm",
@@ -73,7 +73,6 @@ class ToolExecutor:
             "command": "prettier",
             "timeout": 60,
         },
-
         # Build tools
         "make": {
             "command": "make",
@@ -87,7 +86,6 @@ class ToolExecutor:
             "command": "gradle",
             "timeout": 600,
         },
-
         # Version control
         "git": {
             "command": "git",
@@ -111,7 +109,7 @@ class ToolExecutor:
         timeout: float = 120,
         cwd: Optional[str] = None,
         env: Optional[Dict[str, str]] = None,
-        shell: bool = False
+        shell: bool = False,
     ) -> ExecutionResult:
         """
         Execute a command asynchronously.
@@ -150,15 +148,12 @@ class ToolExecutor:
                 stderr=asyncio.subprocess.PIPE,
                 cwd=str(work_dir),
                 env=exec_env,
-                shell=shell
+                shell=shell,
             )
 
             # Wait with timeout
             try:
-                stdout, stderr = await asyncio.wait_for(
-                    process.communicate(),
-                    timeout=timeout
-                )
+                stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=timeout)
 
                 exit_code = process.returncode
                 timed_out = False
@@ -178,10 +173,10 @@ class ToolExecutor:
             return ExecutionResult(
                 command=command,
                 exit_code=exit_code,
-                stdout=stdout.decode('utf-8', errors='ignore'),
-                stderr=stderr.decode('utf-8', errors='ignore'),
+                stdout=stdout.decode("utf-8", errors="ignore"),
+                stderr=stderr.decode("utf-8", errors="ignore"),
                 duration=duration,
-                timed_out=timed_out
+                timed_out=timed_out,
             )
 
         except Exception as e:
@@ -193,15 +188,10 @@ class ToolExecutor:
                 stdout="",
                 stderr=str(e),
                 duration=duration,
-                timed_out=False
+                timed_out=False,
             )
 
-    async def run_tool(
-        self,
-        tool_name: str,
-        args: List[str],
-        **kwargs
-    ) -> ExecutionResult:
+    async def run_tool(self, tool_name: str, args: List[str], **kwargs) -> ExecutionResult:
         """
         Run a configured tool.
 
@@ -229,9 +219,7 @@ class ToolExecutor:
         return await self.execute(command, **exec_params)
 
     async def run_tests(
-        self,
-        test_framework: str = "auto",
-        test_path: Optional[str] = None
+        self, test_framework: str = "auto", test_path: Optional[str] = None
     ) -> ExecutionResult:
         """
         Run tests with automatic framework detection.
@@ -258,9 +246,7 @@ class ToolExecutor:
         return await self.run_tool(test_framework, args)
 
     async def run_linter(
-        self,
-        linter: str = "auto",
-        files: Optional[List[str]] = None
+        self, linter: str = "auto", files: Optional[List[str]] = None
     ) -> ExecutionResult:
         """
         Run linter with automatic detection.
@@ -280,10 +266,7 @@ class ToolExecutor:
         return await self.run_tool(linter, args)
 
     async def run_formatter(
-        self,
-        formatter: str = "auto",
-        files: Optional[List[str]] = None,
-        check_only: bool = False
+        self, formatter: str = "auto", files: Optional[List[str]] = None, check_only: bool = False
     ) -> ExecutionResult:
         """
         Run code formatter.
@@ -314,10 +297,7 @@ class ToolExecutor:
 
         return await self.run_tool(formatter, args)
 
-    async def run_build(
-        self,
-        build_tool: str = "auto"
-    ) -> ExecutionResult:
+    async def run_build(self, build_tool: str = "auto") -> ExecutionResult:
         """
         Run build process.
 
@@ -344,8 +324,7 @@ class ToolExecutor:
     def _detect_test_framework(self) -> str:
         """Detect test framework from project"""
         # Check for Python
-        if (self.root_dir / "pytest.ini").exists() or \
-           (self.root_dir / "setup.cfg").exists():
+        if (self.root_dir / "pytest.ini").exists() or (self.root_dir / "setup.cfg").exists():
             return "pytest"
 
         # Check for JavaScript
@@ -353,6 +332,7 @@ class ToolExecutor:
         if package_json.exists():
             try:
                 import json
+
                 with open(package_json) as f:
                     data = json.load(f)
                     deps = {**data.get("dependencies", {}), **data.get("devDependencies", {})}
@@ -372,8 +352,7 @@ class ToolExecutor:
             return "pylint"
 
         # Check for JavaScript
-        if (self.root_dir / ".eslintrc.js").exists() or \
-           (self.root_dir / ".eslintrc.json").exists():
+        if (self.root_dir / ".eslintrc.js").exists() or (self.root_dir / ".eslintrc.json").exists():
             return "eslint"
 
         # Default based on files
@@ -427,12 +406,7 @@ class ToolExecutor:
         Returns:
             Interpreted information
         """
-        interpretation = {
-            "success": result.success,
-            "errors": [],
-            "warnings": [],
-            "summary": ""
-        }
+        interpretation = {"success": result.success, "errors": [], "warnings": [], "summary": ""}
 
         # Parse common error patterns
         error_patterns = [

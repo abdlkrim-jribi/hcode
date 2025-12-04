@@ -11,7 +11,8 @@ from datetime import datetime
 # Import components
 import sys
 import os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from hcode.config.thinking import ThinkingConfig, ThinkingMode, ThinkingVisibility
 from hcode.agent.thinking import ThinkingBlock, ThinkingSession, ThinkingPhase
@@ -116,7 +117,7 @@ class TestThinkingBlocks:
             content="Understanding the problem...",
             summary="Analyzing requirements",
             tokens_used=100,
-            duration_ms=500
+            duration_ms=500,
         )
 
         assert block.phase == ThinkingPhase.UNDERSTANDING
@@ -129,9 +130,7 @@ class TestThinkingBlocks:
     def test_thinking_block_to_dict(self):
         """Test converting block to dict"""
         block = ThinkingBlock(
-            phase=ThinkingPhase.PLANNING,
-            content="Planning approach",
-            summary="Plan created"
+            phase=ThinkingPhase.PLANNING, content="Planning approach", summary="Plan created"
         )
 
         data = block.to_dict()
@@ -155,16 +154,10 @@ class TestThinkingBlocks:
         session = ThinkingSession()
 
         block1 = ThinkingBlock(
-            phase=ThinkingPhase.UNDERSTANDING,
-            content="Understanding...",
-            tokens_used=50
+            phase=ThinkingPhase.UNDERSTANDING, content="Understanding...", tokens_used=50
         )
 
-        block2 = ThinkingBlock(
-            phase=ThinkingPhase.PLANNING,
-            content="Planning...",
-            tokens_used=75
-        )
+        block2 = ThinkingBlock(phase=ThinkingPhase.PLANNING, content="Planning...", tokens_used=75)
 
         session.add_block(block1)
         session.add_block(block2)
@@ -179,13 +172,11 @@ class TestThinkingBlocks:
         block1 = ThinkingBlock(
             phase=ThinkingPhase.UNDERSTANDING,
             content="Understanding...",
-            summary="Analyzed requirements"
+            summary="Analyzed requirements",
         )
 
         block2 = ThinkingBlock(
-            phase=ThinkingPhase.PLANNING,
-            content="Planning...",
-            summary="Created plan"
+            phase=ThinkingPhase.PLANNING, content="Planning...", summary="Created plan"
         )
 
         session.add_block(block1)
@@ -200,6 +191,7 @@ class TestThinkingBlocks:
     def test_thinking_session_complete(self):
         """Test completing session"""
         import time
+
         session = ThinkingSession()
         time.sleep(0.001)  # Small delay to ensure measurable duration
         session.complete()
@@ -221,10 +213,7 @@ class TestTodoSystem:
 
     def test_todo_item_creation(self):
         """Test creating todo item"""
-        todo = TodoItem(
-            content="Add tests",
-            status=TodoStatus.PENDING
-        )
+        todo = TodoItem(content="Add tests", status=TodoStatus.PENDING)
 
         assert todo.content == "Add tests"
         assert todo.status == TodoStatus.PENDING
@@ -244,12 +233,14 @@ class TestTodoSystem:
             ("Make changes", "Making changes"),
             ("Get data", "Getting data"),
             ("Set config", "Setting config"),
-            ("Read file", "Reading file")
+            ("Read file", "Reading file"),
         ]
 
         for content, expected_active in test_cases:
             active = TodoItem.generate_active_form(content)
-            assert active == expected_active, f"Failed: {content} -> {active} (expected {expected_active})"
+            assert (
+                active == expected_active
+            ), f"Failed: {content} -> {active} (expected {expected_active})"
 
     def test_todo_mark_in_progress(self):
         """Test marking todo in progress"""
@@ -287,7 +278,7 @@ class TestTodoSystem:
         todos_data = [
             {"content": "Add tests", "status": "pending", "activeForm": "Adding tests"},
             {"content": "Fix bug", "status": "in_progress", "activeForm": "Fixing bug"},
-            {"content": "Update docs", "status": "pending", "activeForm": "Updating docs"}
+            {"content": "Update docs", "status": "pending", "activeForm": "Updating docs"},
         ]
 
         manager.batch_update(todos_data)
@@ -303,7 +294,7 @@ class TestTodoSystem:
         todos_data = [
             {"content": "Task 1", "status": "completed", "activeForm": "Task 1"},
             {"content": "Task 2", "status": "in_progress", "activeForm": "Task 2"},
-            {"content": "Task 3", "status": "pending", "activeForm": "Task 3"}
+            {"content": "Task 3", "status": "pending", "activeForm": "Task 3"},
         ]
 
         manager.batch_update(todos_data)
@@ -319,7 +310,7 @@ class TestTodoSystem:
         todos_data = [
             {"content": "Task 1", "status": "completed", "activeForm": "Task 1"},
             {"content": "Task 2", "status": "in_progress", "activeForm": "Task 2"},
-            {"content": "Task 3", "status": "pending", "activeForm": "Task 3"}
+            {"content": "Task 3", "status": "pending", "activeForm": "Task 3"},
         ]
 
         manager.batch_update(todos_data)
@@ -336,7 +327,7 @@ class TestTodoSystem:
             {"content": "Task 1", "status": "completed", "activeForm": "Task 1"},
             {"content": "Task 2", "status": "completed", "activeForm": "Task 2"},
             {"content": "Task 3", "status": "in_progress", "activeForm": "Task 3"},
-            {"content": "Task 4", "status": "pending", "activeForm": "Task 4"}
+            {"content": "Task 4", "status": "pending", "activeForm": "Task 4"},
         ]
 
         manager.batch_update(todos_data)
@@ -368,7 +359,7 @@ class TestTodoWriteTool:
 
         todos_data = [
             {"content": "Add tests", "status": "in_progress", "activeForm": "Adding tests"},
-            {"content": "Fix bug", "status": "pending", "activeForm": "Fixing bug"}
+            {"content": "Fix bug", "status": "pending", "activeForm": "Fixing bug"},
         ]
 
         result = await tool.execute(todos=todos_data)
@@ -384,7 +375,7 @@ class TestTodoWriteTool:
 
         todos_data = [
             {"content": "Add tests", "status": "pending", "activeForm": "Adding tests"},
-            {"content": "Fix bug", "status": "pending", "activeForm": "Fixing bug"}
+            {"content": "Fix bug", "status": "pending", "activeForm": "Fixing bug"},
         ]
 
         result = await tool.execute(todos=todos_data)
@@ -400,7 +391,7 @@ class TestTodoWriteTool:
 
         todos_data = [
             {"content": "Add tests", "status": "in_progress", "activeForm": "Adding tests"},
-            {"content": "Fix bug", "status": "in_progress", "activeForm": "Fixing bug"}
+            {"content": "Fix bug", "status": "in_progress", "activeForm": "Fixing bug"},
         ]
 
         result = await tool.execute(todos=todos_data)
@@ -414,9 +405,7 @@ class TestTodoWriteTool:
         manager = TodoManager()
         tool = TodoWriteTool(manager)
 
-        todos_data = [
-            {"content": "Add tests", "status": "in_progress"}  # Missing activeForm
-        ]
+        todos_data = [{"content": "Add tests", "status": "in_progress"}]  # Missing activeForm
 
         result = await tool.execute(todos=todos_data)
 
@@ -429,10 +418,7 @@ class TestIntegration:
 
     def test_thinking_manager_with_config(self):
         """Test thinking manager with config"""
-        config = ThinkingConfig(
-            mode=ThinkingMode.AUTO,
-            visibility=ThinkingVisibility.STREAMING
-        )
+        config = ThinkingConfig(mode=ThinkingMode.AUTO, visibility=ThinkingVisibility.STREAMING)
         manager = ThinkingManager(config)
 
         assert manager.config == config
@@ -464,22 +450,24 @@ class TestIntegration:
         block1 = ThinkingBlock(
             phase=ThinkingPhase.UNDERSTANDING,
             content="Understanding the task",
-            summary="Task understood"
+            summary="Task understood",
         )
         session.add_block(block1)
 
         block2 = ThinkingBlock(
-            phase=ThinkingPhase.PLANNING,
-            content="Planning approach",
-            summary="Plan created"
+            phase=ThinkingPhase.PLANNING, content="Planning approach", summary="Plan created"
         )
         session.add_block(block2)
 
         # Create todos
         todos_data = [
-            {"content": "Implement feature", "status": "in_progress", "activeForm": "Implementing feature"},
+            {
+                "content": "Implement feature",
+                "status": "in_progress",
+                "activeForm": "Implementing feature",
+            },
             {"content": "Add tests", "status": "pending", "activeForm": "Adding tests"},
-            {"content": "Update docs", "status": "pending", "activeForm": "Updating docs"}
+            {"content": "Update docs", "status": "pending", "activeForm": "Updating docs"},
         ]
         todo_manager.batch_update(todos_data)
 

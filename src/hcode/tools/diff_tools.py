@@ -19,6 +19,7 @@ from .base_tool import BaseTool, ToolResult, ToolParameter, ToolCategory
 
 class ChangeOperation(Enum):
     """Types of file change operations"""
+
     EDIT = "edit"
     WRITE = "write"
     DELETE = "delete"
@@ -28,6 +29,7 @@ class ChangeOperation(Enum):
 
 class ChangeStatus(Enum):
     """Status of a proposed change"""
+
     PENDING = "pending"
     APPROVED = "approved"
     REJECTED = "rejected"
@@ -38,6 +40,7 @@ class ChangeStatus(Enum):
 @dataclass
 class DiffLine:
     """Represents a single line in a diff"""
+
     line_number_old: Optional[int]
     line_number_new: Optional[int]
     content: str
@@ -48,13 +51,14 @@ class DiffLine:
             "line_number_old": self.line_number_old,
             "line_number_new": self.line_number_new,
             "content": self.content,
-            "change_type": self.change_type
+            "change_type": self.change_type,
         }
 
 
 @dataclass
 class DiffHunk:
     """Represents a hunk (section) of changes in a diff"""
+
     old_start: int
     old_count: int
     new_start: int
@@ -69,13 +73,14 @@ class DiffHunk:
             "new_start": self.new_start,
             "new_count": self.new_count,
             "lines": [line.to_dict() for line in self.lines],
-            "header": self.header
+            "header": self.header,
         }
 
 
 @dataclass
 class SafetyWarning:
     """A safety warning about a proposed change"""
+
     level: Literal["info", "warning", "critical"]
     message: str
     category: str  # e.g., "syntax", "security", "breaking_change"
@@ -86,7 +91,7 @@ class SafetyWarning:
             "level": self.level,
             "message": self.message,
             "category": self.category,
-            "line_number": self.line_number
+            "line_number": self.line_number,
         }
 
 
@@ -97,7 +102,12 @@ class ChangeProposal:
 
     Contains all information needed to preview, review, and apply a change.
     """
-    id: str = field(default_factory=lambda: hashlib.md5(str(datetime.now().timestamp()).encode()).hexdigest()[:12])
+
+    id: str = field(
+        default_factory=lambda: hashlib.md5(str(datetime.now().timestamp()).encode()).hexdigest()[
+            :12
+        ]
+    )
 
     # File information
     file_path: str = ""
@@ -143,13 +153,15 @@ class ChangeProposal:
         new_lines = self.new_content.splitlines(keepends=True)
 
         # Generate unified diff
-        diff_lines = list(difflib.unified_diff(
-            old_lines,
-            new_lines,
-            fromfile=f"a/{os.path.basename(self.file_path)}",
-            tofile=f"b/{os.path.basename(self.file_path)}",
-            lineterm=""
-        ))
+        diff_lines = list(
+            difflib.unified_diff(
+                old_lines,
+                new_lines,
+                fromfile=f"a/{os.path.basename(self.file_path)}",
+                tofile=f"b/{os.path.basename(self.file_path)}",
+                lineterm="",
+            )
+        )
         self.unified_diff = "\n".join(diff_lines)
 
         # Parse into hunks
@@ -167,24 +179,25 @@ class ChangeProposal:
 
         for line in diff_lines:
             # Skip file headers
-            if line.startswith('---') or line.startswith('+++'):
+            if line.startswith("---") or line.startswith("+++"):
                 continue
 
             # Hunk header
-            if line.startswith('@@'):
+            if line.startswith("@@"):
                 if current_hunk:
                     hunks.append(current_hunk)
 
                 # Parse @@ -old_start,old_count +new_start,new_count @@
                 import re
-                match = re.match(r'@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@(.*)', line)
+
+                match = re.match(r"@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@(.*)", line)
                 if match:
                     current_hunk = DiffHunk(
                         old_start=int(match.group(1)),
                         old_count=int(match.group(2) or 1),
                         new_start=int(match.group(3)),
                         new_count=int(match.group(4) or 1),
-                        header=match.group(5).strip() if match.group(5) else ""
+                        header=match.group(5).strip() if match.group(5) else "",
                     )
                     old_line = current_hunk.old_start
                     new_line = current_hunk.new_start
@@ -194,39 +207,47 @@ class ChangeProposal:
                 continue
 
             # Parse diff lines
-            if line.startswith('+'):
-                current_hunk.lines.append(DiffLine(
-                    line_number_old=None,
-                    line_number_new=new_line,
-                    content=line[1:],
-                    change_type="added"
-                ))
+            if line.startswith("+"):
+                current_hunk.lines.append(
+                    DiffLine(
+                        line_number_old=None,
+                        line_number_new=new_line,
+                        content=line[1:],
+                        change_type="added",
+                    )
+                )
                 new_line += 1
-            elif line.startswith('-'):
-                current_hunk.lines.append(DiffLine(
-                    line_number_old=old_line,
-                    line_number_new=None,
-                    content=line[1:],
-                    change_type="removed"
-                ))
+            elif line.startswith("-"):
+                current_hunk.lines.append(
+                    DiffLine(
+                        line_number_old=old_line,
+                        line_number_new=None,
+                        content=line[1:],
+                        change_type="removed",
+                    )
+                )
                 old_line += 1
-            elif line.startswith(' '):
-                current_hunk.lines.append(DiffLine(
-                    line_number_old=old_line,
-                    line_number_new=new_line,
-                    content=line[1:],
-                    change_type="unchanged"
-                ))
+            elif line.startswith(" "):
+                current_hunk.lines.append(
+                    DiffLine(
+                        line_number_old=old_line,
+                        line_number_new=new_line,
+                        content=line[1:],
+                        change_type="unchanged",
+                    )
+                )
                 old_line += 1
                 new_line += 1
             else:
                 # Context line without prefix
-                current_hunk.lines.append(DiffLine(
-                    line_number_old=old_line,
-                    line_number_new=new_line,
-                    content=line,
-                    change_type="context"
-                ))
+                current_hunk.lines.append(
+                    DiffLine(
+                        line_number_old=old_line,
+                        line_number_new=new_line,
+                        content=line,
+                        change_type="context",
+                    )
+                )
                 old_line += 1
                 new_line += 1
 
@@ -255,7 +276,7 @@ class ChangeProposal:
         self.safety_warnings = []
 
         # Check for syntax issues in Python files
-        if self.file_path.endswith('.py'):
+        if self.file_path.endswith(".py"):
             self._check_python_syntax()
 
         # Check for potential security issues
@@ -270,105 +291,116 @@ class ChangeProposal:
     def _check_python_syntax(self) -> None:
         """Check for Python syntax issues"""
         # Bracket matching
-        brackets = {'(': ')', '[': ']', '{': '}'}
+        brackets = {"(": ")", "[": "]", "{": "}"}
         for char, closing in brackets.items():
             if self.new_content.count(char) != self.new_content.count(closing):
-                self.safety_warnings.append(SafetyWarning(
-                    level="warning",
-                    message=f"Mismatched {char}{closing} brackets",
-                    category="syntax"
-                ))
+                self.safety_warnings.append(
+                    SafetyWarning(
+                        level="warning",
+                        message=f"Mismatched {char}{closing} brackets",
+                        category="syntax",
+                    )
+                )
 
         # Triple quote matching
         if self.new_content.count('"""') % 2 != 0:
-            self.safety_warnings.append(SafetyWarning(
-                level="warning",
-                message="Unclosed triple-quote string",
-                category="syntax"
-            ))
+            self.safety_warnings.append(
+                SafetyWarning(
+                    level="warning", message="Unclosed triple-quote string", category="syntax"
+                )
+            )
 
         # Try to compile for syntax errors
         try:
-            compile(self.new_content, self.file_path, 'exec')
+            compile(self.new_content, self.file_path, "exec")
         except SyntaxError as e:
-            self.safety_warnings.append(SafetyWarning(
-                level="critical",
-                message=f"Syntax error: {e.msg}",
-                category="syntax",
-                line_number=e.lineno
-            ))
+            self.safety_warnings.append(
+                SafetyWarning(
+                    level="critical",
+                    message=f"Syntax error: {e.msg}",
+                    category="syntax",
+                    line_number=e.lineno,
+                )
+            )
 
     def _check_security_patterns(self) -> None:
         """Check for potential security issues"""
         security_patterns = [
-            (r'eval\s*\(', "Use of eval() - potential code injection"),
-            (r'exec\s*\(', "Use of exec() - potential code injection"),
-            (r'__import__\s*\(', "Dynamic import - potential security risk"),
-            (r'os\.system\s*\(', "Shell command execution - verify input sanitization"),
-            (r'subprocess\..*shell\s*=\s*True', "Shell=True in subprocess - potential injection"),
+            (r"eval\s*\(", "Use of eval() - potential code injection"),
+            (r"exec\s*\(", "Use of exec() - potential code injection"),
+            (r"__import__\s*\(", "Dynamic import - potential security risk"),
+            (r"os\.system\s*\(", "Shell command execution - verify input sanitization"),
+            (r"subprocess\..*shell\s*=\s*True", "Shell=True in subprocess - potential injection"),
             (r'password\s*=\s*["\'][^"\']+["\']', "Hardcoded password detected"),
             (r'api_key\s*=\s*["\'][^"\']+["\']', "Hardcoded API key detected"),
         ]
 
         import re
+
         for pattern, message in security_patterns:
             # Check if pattern is newly introduced
             if re.search(pattern, self.new_content, re.IGNORECASE):
                 if not re.search(pattern, self.old_content, re.IGNORECASE):
-                    self.safety_warnings.append(SafetyWarning(
-                        level="warning",
-                        message=message,
-                        category="security"
-                    ))
+                    self.safety_warnings.append(
+                        SafetyWarning(level="warning", message=message, category="security")
+                    )
 
     def _check_breaking_changes(self) -> None:
         """Check for potential breaking changes"""
         import re
 
         # Check for removed function/class definitions
-        old_funcs = set(re.findall(r'def\s+(\w+)\s*\(', self.old_content))
-        new_funcs = set(re.findall(r'def\s+(\w+)\s*\(', self.new_content))
+        old_funcs = set(re.findall(r"def\s+(\w+)\s*\(", self.old_content))
+        new_funcs = set(re.findall(r"def\s+(\w+)\s*\(", self.new_content))
         removed_funcs = old_funcs - new_funcs
 
         for func in removed_funcs:
-            self.safety_warnings.append(SafetyWarning(
-                level="warning",
-                message=f"Function '{func}' removed - may break dependent code",
-                category="breaking_change"
-            ))
+            self.safety_warnings.append(
+                SafetyWarning(
+                    level="warning",
+                    message=f"Function '{func}' removed - may break dependent code",
+                    category="breaking_change",
+                )
+            )
 
-        old_classes = set(re.findall(r'class\s+(\w+)\s*[:\(]', self.old_content))
-        new_classes = set(re.findall(r'class\s+(\w+)\s*[:\(]', self.new_content))
+        old_classes = set(re.findall(r"class\s+(\w+)\s*[:\(]", self.old_content))
+        new_classes = set(re.findall(r"class\s+(\w+)\s*[:\(]", self.new_content))
         removed_classes = old_classes - new_classes
 
         for cls in removed_classes:
-            self.safety_warnings.append(SafetyWarning(
-                level="warning",
-                message=f"Class '{cls}' removed - may break dependent code",
-                category="breaking_change"
-            ))
+            self.safety_warnings.append(
+                SafetyWarning(
+                    level="warning",
+                    message=f"Class '{cls}' removed - may break dependent code",
+                    category="breaking_change",
+                )
+            )
 
     def _check_change_size(self) -> None:
         """Check if change is unusually large"""
         total_changes = self.additions + self.deletions
 
         if total_changes > 100:
-            self.safety_warnings.append(SafetyWarning(
-                level="info",
-                message=f"Large change: {total_changes} lines affected",
-                category="size"
-            ))
+            self.safety_warnings.append(
+                SafetyWarning(
+                    level="info",
+                    message=f"Large change: {total_changes} lines affected",
+                    category="size",
+                )
+            )
 
         # Check if most of the file is being changed
         old_lines = len(self.old_content.splitlines())
         if old_lines > 0:
             change_ratio = self.deletions / old_lines
             if change_ratio > 0.5:
-                self.safety_warnings.append(SafetyWarning(
-                    level="info",
-                    message=f"Significant rewrite: {change_ratio:.0%} of file changed",
-                    category="size"
-                ))
+                self.safety_warnings.append(
+                    SafetyWarning(
+                        level="info",
+                        message=f"Significant rewrite: {change_ratio:.0%} of file changed",
+                        category="size",
+                    )
+                )
 
     def get_summary(self) -> str:
         """Get a brief summary of the change"""
@@ -398,14 +430,19 @@ class ChangeProposal:
             "status": self.status.value,
             "created_at": self.created_at.isoformat(),
             "reviewed_at": self.reviewed_at.isoformat() if self.reviewed_at else None,
-            "applied_at": self.applied_at.isoformat() if self.applied_at else None
+            "applied_at": self.applied_at.isoformat() if self.applied_at else None,
         }
 
 
 @dataclass
 class ChangeSet:
     """A collection of related changes to be reviewed together"""
-    id: str = field(default_factory=lambda: hashlib.md5(str(datetime.now().timestamp()).encode()).hexdigest()[:12])
+
+    id: str = field(
+        default_factory=lambda: hashlib.md5(str(datetime.now().timestamp()).encode()).hexdigest()[
+            :12
+        ]
+    )
     name: str = ""
     description: str = ""
     proposals: List[ChangeProposal] = field(default_factory=list)
@@ -422,7 +459,7 @@ class ChangeSet:
             "additions": sum(p.additions for p in self.proposals),
             "deletions": sum(p.deletions for p in self.proposals),
             "warnings": sum(len(p.safety_warnings) for p in self.proposals),
-            "critical_warnings": sum(1 for p in self.proposals if p.has_critical_warnings())
+            "critical_warnings": sum(1 for p in self.proposals if p.has_critical_warnings()),
         }
 
     def all_approved(self) -> bool:
@@ -437,7 +474,7 @@ class ChangeSet:
             "description": self.description,
             "proposals": [p.to_dict() for p in self.proposals],
             "stats": self.get_total_stats(),
-            "created_at": self.created_at.isoformat()
+            "created_at": self.created_at.isoformat(),
         }
 
 
@@ -469,10 +506,18 @@ Use this before Edit or Write to review changes safely."""
 
     def get_parameters(self) -> List[ToolParameter]:
         return [
-            ToolParameter("file_path", "string", "Path to the file to preview changes for", required=True),
-            ToolParameter("old_string", "string", "String to be replaced (for edit preview)", required=False),
-            ToolParameter("new_string", "string", "Replacement string (for edit preview)", required=False),
-            ToolParameter("new_content", "string", "New file content (for write preview)", required=False),
+            ToolParameter(
+                "file_path", "string", "Path to the file to preview changes for", required=True
+            ),
+            ToolParameter(
+                "old_string", "string", "String to be replaced (for edit preview)", required=False
+            ),
+            ToolParameter(
+                "new_string", "string", "Replacement string (for edit preview)", required=False
+            ),
+            ToolParameter(
+                "new_content", "string", "New file content (for write preview)", required=False
+            ),
             ToolParameter("replace_all", "boolean", "Replace all occurrences", default=False),
             ToolParameter("context_lines", "integer", "Lines of context around changes", default=3),
         ]
@@ -485,7 +530,7 @@ Use this before Edit or Write to review changes safely."""
         new_content: Optional[str] = None,
         replace_all: bool = False,
         context_lines: int = 3,
-        **kwargs
+        **kwargs,
     ) -> ToolResult:
         """Generate a preview of proposed changes"""
         try:
@@ -500,13 +545,13 @@ Use this before Edit or Write to review changes safely."""
                 return ToolResult(
                     success=False,
                     output=None,
-                    error="Must provide either (old_string, new_string) for edit or new_content for write"
+                    error="Must provide either (old_string, new_string) for edit or new_content for write",
                 )
 
             # Get current content
             old_content = ""
             if path.exists():
-                with open(path, 'r', encoding='utf-8', errors='ignore') as f:
+                with open(path, "r", encoding="utf-8", errors="ignore") as f:
                     old_content = f.read()
 
             # Calculate new content
@@ -518,7 +563,7 @@ Use this before Edit or Write to review changes safely."""
                     return ToolResult(
                         success=False,
                         output=None,
-                        error=f"String not found in file: {old_string[:100]}..."
+                        error=f"String not found in file: {old_string[:100]}...",
                     )
 
                 count = old_content.count(old_string)
@@ -526,7 +571,7 @@ Use this before Edit or Write to review changes safely."""
                     return ToolResult(
                         success=False,
                         output=None,
-                        error=f"String appears {count} times. Use replace_all=True or provide more context."
+                        error=f"String appears {count} times. Use replace_all=True or provide more context.",
                     )
 
                 if replace_all:
@@ -542,7 +587,7 @@ Use this before Edit or Write to review changes safely."""
                 new_content=final_new_content,
                 old_string=old_string,
                 new_string=new_string,
-                replace_all=replace_all
+                replace_all=replace_all,
             )
 
             # Compute diff and analyze
@@ -569,8 +614,8 @@ Use this before Edit or Write to review changes safely."""
                     "additions": proposal.additions,
                     "deletions": proposal.deletions,
                     "warnings_count": len(proposal.safety_warnings),
-                    "has_critical": proposal.has_critical_warnings()
-                }
+                    "has_critical": proposal.has_critical_warnings(),
+                },
             )
 
         except Exception as e:
@@ -608,14 +653,13 @@ Use this before Edit or Write to review changes safely."""
         lines.append("-" * 40)
 
         for hunk in proposal.hunks:
-            lines.append(f"@@ -{hunk.old_start},{hunk.old_count} +{hunk.new_start},{hunk.new_count} @@")
+            lines.append(
+                f"@@ -{hunk.old_start},{hunk.old_count} +{hunk.new_start},{hunk.new_count} @@"
+            )
             for diff_line in hunk.lines:
-                prefix = {
-                    "added": "+",
-                    "removed": "-",
-                    "unchanged": " ",
-                    "context": " "
-                }[diff_line.change_type]
+                prefix = {"added": "+", "removed": "-", "unchanged": " ", "context": " "}[
+                    diff_line.change_type
+                ]
                 lines.append(f"{prefix}{diff_line.content}")
 
         lines.append("-" * 40)
@@ -636,7 +680,7 @@ Use this before Edit or Write to review changes safely."""
                 old_content=proposal.old_content,
                 new_content=proposal.new_content,
                 context_lines=3,
-                show_stats=True
+                show_stats=True,
             )
 
             self._console.print(diff_panel)
@@ -688,16 +732,13 @@ The change will only be applied if it was previously previewed."""
 
     def get_parameters(self) -> List[ToolParameter]:
         return [
-            ToolParameter("proposal_id", "string", "ID of the change proposal to apply", required=True),
+            ToolParameter(
+                "proposal_id", "string", "ID of the change proposal to apply", required=True
+            ),
             ToolParameter("force", "boolean", "Apply even with critical warnings", default=False),
         ]
 
-    async def execute(
-        self,
-        proposal_id: str,
-        force: bool = False,
-        **kwargs
-    ) -> ToolResult:
+    async def execute(self, proposal_id: str, force: bool = False, **kwargs) -> ToolResult:
         """Apply a previewed change"""
         try:
             # Get proposal
@@ -707,7 +748,7 @@ The change will only be applied if it was previously previewed."""
                 return ToolResult(
                     success=False,
                     output=None,
-                    error=f"No pending proposal found with ID: {proposal_id}"
+                    error=f"No pending proposal found with ID: {proposal_id}",
                 )
 
             # Check for critical warnings
@@ -716,7 +757,8 @@ The change will only be applied if it was previously previewed."""
                 return ToolResult(
                     success=False,
                     output=None,
-                    error=f"Critical warnings found. Use force=True to override:\n" + "\n".join(warnings)
+                    error=f"Critical warnings found. Use force=True to override:\n"
+                    + "\n".join(warnings),
                 )
 
             # Apply the change
@@ -726,7 +768,7 @@ The change will only be applied if it was previously previewed."""
             path.parent.mkdir(parents=True, exist_ok=True)
 
             # Write new content
-            with open(path, 'w', encoding='utf-8') as f:
+            with open(path, "w", encoding="utf-8") as f:
                 f.write(proposal.new_content)
 
             # Update proposal status
@@ -743,8 +785,8 @@ The change will only be applied if it was previously previewed."""
                     "proposal_id": proposal_id,
                     "file_path": proposal.file_path,
                     "additions": proposal.additions,
-                    "deletions": proposal.deletions
-                }
+                    "deletions": proposal.deletions,
+                },
             )
 
         except Exception as e:
@@ -769,16 +811,13 @@ class RejectChangeTool(BaseTool):
 
     def get_parameters(self) -> List[ToolParameter]:
         return [
-            ToolParameter("proposal_id", "string", "ID of the change proposal to reject", required=True),
+            ToolParameter(
+                "proposal_id", "string", "ID of the change proposal to reject", required=True
+            ),
             ToolParameter("reason", "string", "Reason for rejection", required=False),
         ]
 
-    async def execute(
-        self,
-        proposal_id: str,
-        reason: Optional[str] = None,
-        **kwargs
-    ) -> ToolResult:
+    async def execute(self, proposal_id: str, reason: Optional[str] = None, **kwargs) -> ToolResult:
         """Reject a change proposal"""
         try:
             proposal = self.diff_preview.get_pending_proposal(proposal_id)
@@ -787,7 +826,7 @@ class RejectChangeTool(BaseTool):
                 return ToolResult(
                     success=False,
                     output=None,
-                    error=f"No pending proposal found with ID: {proposal_id}"
+                    error=f"No pending proposal found with ID: {proposal_id}",
                 )
 
             proposal.status = ChangeStatus.REJECTED
@@ -798,8 +837,9 @@ class RejectChangeTool(BaseTool):
 
             return ToolResult(
                 success=True,
-                output=f"Change rejected: {proposal.file_path}" + (f" - {reason}" if reason else ""),
-                metadata={"proposal_id": proposal_id, "reason": reason}
+                output=f"Change rejected: {proposal.file_path}"
+                + (f" - {reason}" if reason else ""),
+                metadata={"proposal_id": proposal_id, "reason": reason},
             )
 
         except Exception as e:

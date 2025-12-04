@@ -27,6 +27,7 @@ class AnimatedSpinner:
 
     def __init__(self, console=None, message="Processing"):
         from hcode.ui import get_console
+
         self.console = console or get_console()
         self.message = message
         self._anim = None
@@ -53,6 +54,7 @@ class TypingAnimation:
 
     def __init__(self, console=None, speed=0.02):
         from hcode.ui import get_console
+
         self.console = console or get_console()
         self.speed = speed
         self._stream = StreamingText(self.console, speed=speed)
@@ -71,6 +73,7 @@ class ProgressAnimation:
 
     def __init__(self, console=None, description="Processing"):
         from hcode.ui import get_console
+
         self.console = console or get_console()
         self.description = description
 
@@ -86,7 +89,6 @@ __all__ = [
     "thinking",
     "loading",
     "countdown",
-
     # Classes
     "ThinkingAnimation",
     "WaveAnimation",
@@ -97,12 +99,10 @@ __all__ = [
     "GlitchEffect",
     "CyberProgress",
     "AnimatedMessage",
-
     # Legacy classes
     "AnimatedSpinner",
     "TypingAnimation",
     "ProgressAnimation",
-
     # Constants
     "CYBER_SPINNERS",
 ]

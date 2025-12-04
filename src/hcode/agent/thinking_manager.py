@@ -20,11 +20,7 @@ class ThinkingManager:
     the complete thinking lifecycle.
     """
 
-    def __init__(
-        self,
-        config: ThinkingConfig,
-        llm_client: Optional[Any] = None
-    ):
+    def __init__(self, config: ThinkingConfig, llm_client: Optional[Any] = None):
         """
         Initialize thinking manager.
 
@@ -70,9 +66,7 @@ class ThinkingManager:
         Returns:
             New thinking session
         """
-        self.current_session = ThinkingSession(
-            metadata=metadata or {}
-        )
+        self.current_session = ThinkingSession(metadata=metadata or {})
         return self.current_session
 
     def end_session(self) -> Optional[ThinkingSession]:
@@ -93,7 +87,7 @@ class ThinkingManager:
         self,
         prompt: str,
         phases: Optional[List[ThinkingPhase]] = None,
-        context: Optional[Dict[str, Any]] = None
+        context: Optional[Dict[str, Any]] = None,
     ) -> ThinkingSession:
         """
         Perform extended thinking on a prompt.
@@ -121,7 +115,7 @@ class ThinkingManager:
                 ThinkingPhase.REASONING,
                 ThinkingPhase.EVALUATING,
                 ThinkingPhase.DECIDING,
-                ThinkingPhase.VERIFYING
+                ThinkingPhase.VERIFYING,
             ]
 
         # Start session
@@ -141,10 +135,7 @@ class ThinkingManager:
         return session
 
     async def _think_phase(
-        self,
-        prompt: str,
-        phase: ThinkingPhase,
-        context: Optional[Dict[str, Any]] = None
+        self, prompt: str, phase: ThinkingPhase, context: Optional[Dict[str, Any]] = None
     ) -> ThinkingBlock:
         """
         Perform thinking for a specific phase.
@@ -183,16 +174,13 @@ class ThinkingManager:
             summary=summary,
             tokens_used=tokens,
             duration_ms=duration_ms,
-            metadata=context or {}
+            metadata=context or {},
         )
 
         return block
 
     def _build_phase_prompt(
-        self,
-        prompt: str,
-        phase: ThinkingPhase,
-        context: Optional[Dict[str, Any]] = None
+        self, prompt: str, phase: ThinkingPhase, context: Optional[Dict[str, Any]] = None
     ) -> str:
         """
         Build a phase-specific thinking prompt.
@@ -212,25 +200,15 @@ class ThinkingManager:
             ThinkingPhase.REASONING: "Think deeply about the best solution. Why is one approach better than others?",
             ThinkingPhase.EVALUATING: "Evaluate your planned solution. What could go wrong? What are the edge cases?",
             ThinkingPhase.DECIDING: "Make concrete decisions. What exactly will you do?",
-            ThinkingPhase.VERIFYING: "Verify your approach is sound. Does this solve the problem completely?"
+            ThinkingPhase.VERIFYING: "Verify your approach is sound. Does this solve the problem completely?",
         }
 
         instruction = phase_instructions.get(phase, "Think about this problem.")
 
-        parts = [
-            f"=== {phase.value.upper()} PHASE ===",
-            instruction,
-            "",
-            "Task:",
-            prompt
-        ]
+        parts = [f"=== {phase.value.upper()} PHASE ===", instruction, "", "Task:", prompt]
 
         if context:
-            parts.extend([
-                "",
-                "Context:",
-                str(context)
-            ])
+            parts.extend(["", "Context:", str(context)])
 
         return "\n".join(parts)
 
@@ -253,7 +231,7 @@ class ThinkingManager:
                 prompt=prompt,
                 max_tokens=self.config.budget_tokens,
                 temperature=1.0,  # Higher temperature for exploration
-                system="You are an expert reasoning assistant. Think deeply and systematically about problems."
+                system="You are an expert reasoning assistant. Think deeply and systematically about problems.",
             )
 
             content = response.get("content", "")
@@ -292,7 +270,7 @@ class ThinkingManager:
         self,
         prompt: str,
         phases: Optional[List[ThinkingPhase]] = None,
-        context: Optional[Dict[str, Any]] = None
+        context: Optional[Dict[str, Any]] = None,
     ) -> AsyncGenerator[ThinkingBlock, None]:
         """
         Stream thinking blocks as they are generated.
@@ -317,7 +295,7 @@ class ThinkingManager:
                 ThinkingPhase.REASONING,
                 ThinkingPhase.EVALUATING,
                 ThinkingPhase.DECIDING,
-                ThinkingPhase.VERIFYING
+                ThinkingPhase.VERIFYING,
             ]
 
         # Start session

@@ -3,6 +3,7 @@ Layer 3: Semantic memory using vector database.
 Long‑term storage with similarity‑based retrieval.
 Uses SQLite with optional sqlite‑vec extension.
 """
+
 from pathlib import Path
 from typing import Optional, List, Dict, Any, Tuple
 from dataclasses import dataclass, field
@@ -18,24 +19,26 @@ from .embeddings import get_embedding_model_safe, cosine_similarity
 
 class MemoryType(Enum):
     """Types of memories that can be stored."""
-    FACT = "fact"                  # Factual information about the project/user
-    PREFERENCE = "preference"      # User preferences and style
+
+    FACT = "fact"  # Factual information about the project/user
+    PREFERENCE = "preference"  # User preferences and style
     CODE_PATTERN = "code_pattern"  # Code patterns and conventions
-    DECISION = "decision"          # Architectural/design decisions
-    CONTEXT = "context"            # General context about conversations
-    ERROR = "error"                # Common errors and solutions
-    TODO = "todo"                  # Tasks and todos mentioned
-    LEARNING = "learning"          # Things learned during sessions
+    DECISION = "decision"  # Architectural/design decisions
+    CONTEXT = "context"  # General context about conversations
+    ERROR = "error"  # Common errors and solutions
+    TODO = "todo"  # Tasks and todos mentioned
+    LEARNING = "learning"  # Things learned during sessions
 
 
 @dataclass
 class Memory:
     """Represents a single memory in the semantic store."""
+
     id: Optional[int] = None
     content: str = ""
     memory_type: MemoryType = MemoryType.CONTEXT
-    source: str = ""              # Where this memory came from
-    importance: float = 0.5       # 0‑1 importance score
+    source: str = ""  # Where this memory came from
+    importance: float = 0.5  # 0‑1 importance score
     embedding: Optional[np.ndarray] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
     created_at: datetime = field(default_factory=datetime.now)
@@ -69,20 +72,31 @@ class Memory:
             importance=data.get("importance", 0.5),
             embedding=embedding,
             metadata=data.get("metadata", {}),
-            created_at=datetime.fromisoformat(data["created_at"]) if "created_at" in data else datetime.now(),
-            last_accessed=datetime.fromisoformat(data["last_accessed"]) if "last_accessed" in data else datetime.now(),
+            created_at=(
+                datetime.fromisoformat(data["created_at"])
+                if "created_at" in data
+                else datetime.now()
+            ),
+            last_accessed=(
+                datetime.fromisoformat(data["last_accessed"])
+                if "last_accessed" in data
+                else datetime.now()
+            ),
             access_count=data.get("access_count", 0),
             project_id=data.get("project_id"),
         )
+
 
 # ---------------------------------------------------------------------------
 # Vector‑based SemanticMemory implementation (the one used by the tests)
 # ---------------------------------------------------------------------------
 
+
 class SemanticMemory:
     """Vector database for semantic memory storage and retrieval.
     Uses SQLite with numpy for vector operations.
     """
+
     def __init__(self, db_path: Optional[Path] = None, project_id: Optional[str] = None):
         """Initialize semantic memory.
 
@@ -113,7 +127,8 @@ class SemanticMemory:
     def _init_db(self) -> None:
         """Initialize the database schema using the persistent connection."""
         conn = self._conn
-        conn.execute("""
+        conn.execute(
+            """
             CREATE TABLE IF NOT EXISTS memories (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 content TEXT NOT NULL,
@@ -127,7 +142,8 @@ class SemanticMemory:
                 access_count INTEGER DEFAULT 0,
                 project_id TEXT
             )
-        """)
+        """
+        )
         conn.execute("CREATE INDEX IF NOT EXISTS idx_memory_type ON memories(memory_type)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_project_id ON memories(project_id)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_importance ON memories(importance)")
@@ -288,7 +304,9 @@ class SemanticMemory:
         """Return basic statistics about the memory store."""
         conn = self._conn
         total = conn.execute("SELECT COUNT(*) FROM memories").fetchone()[0]
-        type_counts = conn.execute("SELECT memory_type, COUNT(*) FROM memories GROUP BY memory_type").fetchall()
+        type_counts = conn.execute(
+            "SELECT memory_type, COUNT(*) FROM memories GROUP BY memory_type"
+        ).fetchall()
         return {
             "total_memories": total,
             "by_type": {row[0]: row[1] for row in type_counts},

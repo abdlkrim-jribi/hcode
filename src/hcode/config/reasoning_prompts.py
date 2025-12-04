@@ -19,14 +19,16 @@ from enum import Enum
 
 class ReasoningDepth(Enum):
     """Depth levels for reasoning prompts"""
-    QUICK = "quick"           # Level 1: Fast decisions
-    STANDARD = "standard"     # Level 2: Balanced analysis
-    DEEP = "deep"             # Level 3: Comprehensive reasoning
+
+    QUICK = "quick"  # Level 1: Fast decisions
+    STANDARD = "standard"  # Level 2: Balanced analysis
+    DEEP = "deep"  # Level 3: Comprehensive reasoning
 
 
 @dataclass
 class ReasoningPromptConfig:
     """Configuration for reasoning prompt generation"""
+
     depth: ReasoningDepth = ReasoningDepth.STANDARD
     require_confidence: bool = True
     require_fallback: bool = True
@@ -274,7 +276,6 @@ Code quality checklist:
 - [ ] Follows project conventions
 - [ ] No security vulnerabilities
 """,
-
     "debugging": """
 ## DEBUGGING REASONING PROTOCOL
 
@@ -304,7 +305,6 @@ Debug checklist:
 - [ ] No regression introduced
 - [ ] Added test to prevent recurrence
 """,
-
     "refactoring": """
 ## REFACTORING REASONING PROTOCOL
 
@@ -338,7 +338,6 @@ Refactoring checklist:
 - [ ] All tests pass after each step
 - [ ] Code is cleaner/more maintainable
 """,
-
     "security_review": """
 ## SECURITY REVIEW REASONING PROTOCOL
 
@@ -378,7 +377,6 @@ Security checklist:
 - [ ] Sensitive data encryption
 - [ ] Secure dependencies
 """,
-
     "architecture_design": """
 ## ARCHITECTURE DESIGN REASONING PROTOCOL
 
@@ -418,7 +416,7 @@ When designing architecture, your thinking must include:
 [RISKS] What could go wrong
 [CONFIDENCE] X%
 </thinking>
-"""
+""",
 }
 
 
@@ -513,6 +511,7 @@ When an error or unexpected result occurs:
 # PROMPT BUILDER CLASS
 # =============================================================================
 
+
 class ReasoningPromptBuilder:
     """
     Builds optimized reasoning prompts based on task and configuration.
@@ -522,9 +521,7 @@ class ReasoningPromptBuilder:
         self.config = config or ReasoningPromptConfig()
 
     def build_system_prompt(
-        self,
-        task_type: Optional[str] = None,
-        include_self_critique: bool = True
+        self, task_type: Optional[str] = None, include_self_critique: bool = True
     ) -> str:
         """
         Build complete system prompt for reasoning.
@@ -552,7 +549,7 @@ class ReasoningPromptBuilder:
         self,
         task: str,
         context: Optional[Dict[str, Any]] = None,
-        depth: Optional[ReasoningDepth] = None
+        depth: Optional[ReasoningDepth] = None,
     ) -> str:
         """
         Build prompt to trigger thinking for a specific task.
@@ -579,7 +576,7 @@ class ReasoningPromptBuilder:
             "",
             "Please reason through this using the following structure:",
             "",
-            template
+            template,
         ]
 
         if context:
@@ -649,12 +646,7 @@ class ReasoningPromptBuilder:
 [READY]
 </thinking>"""
 
-    def build_refinement_prompt(
-        self,
-        original_reasoning: str,
-        feedback: str,
-        outcome: str
-    ) -> str:
+    def build_refinement_prompt(self, original_reasoning: str, feedback: str, outcome: str) -> str:
         """
         Build prompt for refining reasoning based on feedback.
 
@@ -709,25 +701,52 @@ Please analyze what went wrong and provide refined reasoning:
         # Task type indicators
         indicators = {
             "code_generation": [
-                "write", "create", "implement", "add function",
-                "new feature", "generate code", "build"
+                "write",
+                "create",
+                "implement",
+                "add function",
+                "new feature",
+                "generate code",
+                "build",
             ],
             "debugging": [
-                "fix", "bug", "error", "exception", "failing",
-                "not working", "broken", "debug", "issue"
+                "fix",
+                "bug",
+                "error",
+                "exception",
+                "failing",
+                "not working",
+                "broken",
+                "debug",
+                "issue",
             ],
             "refactoring": [
-                "refactor", "clean up", "reorganize", "restructure",
-                "improve code", "optimize", "simplify"
+                "refactor",
+                "clean up",
+                "reorganize",
+                "restructure",
+                "improve code",
+                "optimize",
+                "simplify",
             ],
             "security_review": [
-                "security", "vulnerability", "audit", "penetration",
-                "secure", "authentication", "authorization"
+                "security",
+                "vulnerability",
+                "audit",
+                "penetration",
+                "secure",
+                "authentication",
+                "authorization",
             ],
             "architecture_design": [
-                "architecture", "design", "system design", "structure",
-                "how should", "best approach", "planning"
-            ]
+                "architecture",
+                "design",
+                "system design",
+                "structure",
+                "how should",
+                "best approach",
+                "planning",
+            ],
         }
 
         for task_type, keywords in indicators.items():
@@ -736,11 +755,7 @@ Please analyze what went wrong and provide refined reasoning:
 
         return None
 
-    def determine_depth(
-        self,
-        message: str,
-        estimated_complexity: float = 0.5
-    ) -> ReasoningDepth:
+    def determine_depth(self, message: str, estimated_complexity: float = 0.5) -> ReasoningDepth:
         """
         Determine appropriate reasoning depth.
 
@@ -754,16 +769,21 @@ Please analyze what went wrong and provide refined reasoning:
         message_lower = message.lower()
 
         # Quick indicators
-        quick_indicators = [
-            "show", "list", "what is", "read", "check",
-            "status", "help", "how to"
-        ]
+        quick_indicators = ["show", "list", "what is", "read", "check", "status", "help", "how to"]
 
         # Deep indicators
         deep_indicators = [
-            "refactor", "architecture", "design", "migration",
-            "security audit", "optimize", "complex", "multiple files",
-            "entire", "comprehensive", "thoroughly"
+            "refactor",
+            "architecture",
+            "design",
+            "migration",
+            "security audit",
+            "optimize",
+            "complex",
+            "multiple files",
+            "entire",
+            "comprehensive",
+            "thoroughly",
         ]
 
         if any(ind in message_lower for ind in quick_indicators):
@@ -784,6 +804,7 @@ Please analyze what went wrong and provide refined reasoning:
 # CONVENIENCE FUNCTIONS
 # =============================================================================
 
+
 def get_reasoning_system_prompt(task_type: Optional[str] = None) -> str:
     """Get the complete reasoning system prompt"""
     builder = ReasoningPromptBuilder()
@@ -793,7 +814,7 @@ def get_reasoning_system_prompt(task_type: Optional[str] = None) -> str:
 def get_thinking_prompt(
     task: str,
     depth: ReasoningDepth = ReasoningDepth.STANDARD,
-    context: Optional[Dict[str, Any]] = None
+    context: Optional[Dict[str, Any]] = None,
 ) -> str:
     """Get a thinking trigger prompt for a task"""
     builder = ReasoningPromptBuilder()
@@ -806,10 +827,7 @@ def detect_task_type(message: str) -> Optional[str]:
     return builder.get_task_type_from_message(message)
 
 
-def determine_reasoning_depth(
-    message: str,
-    complexity: float = 0.5
-) -> ReasoningDepth:
+def determine_reasoning_depth(message: str, complexity: float = 0.5) -> ReasoningDepth:
     """Determine appropriate reasoning depth for a message"""
     builder = ReasoningPromptBuilder()
     return builder.determine_depth(message, complexity)

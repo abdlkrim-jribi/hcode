@@ -1,6 +1,7 @@
 """
 Configuration for the HCODE agent memory system.
 """
+
 from pathlib import Path
 from dataclasses import dataclass, field
 from typing import Optional
@@ -30,6 +31,7 @@ class MemoryConfig:
         session_memory_budget: Token budget for session memory
         semantic_memory_budget: Token budget for semantic memory
     """
+
     # Base directories
     global_dir: Path = field(default_factory=lambda: Path.home() / ".hcode")
 
@@ -42,10 +44,18 @@ class MemoryConfig:
     sessions_dir: str = "sessions"
     max_recent_messages: int = 50  # Keep full history for last N messages
     compression_threshold: int = 100  # Compress when exceeding this
-    anchor_keywords: tuple = field(default_factory=lambda: (
-        "important", "remember", "always", "never", "critical",
-        "key decision", "architecture", "design choice"
-    ))
+    anchor_keywords: tuple = field(
+        default_factory=lambda: (
+            "important",
+            "remember",
+            "always",
+            "never",
+            "critical",
+            "key decision",
+            "architecture",
+            "design choice",
+        )
+    )
 
     # Semantic memory settings
     db_file: str = "memory.db"

@@ -5,47 +5,35 @@ Combines enhanced reasoning with todo tracking and persistent display.
 Provides a Claude Code-like experience with visible progress tracking.
 """
 
-import asyncio
-from typing import Optional, Dict, Any, List, Callable, AsyncIterator
+from dataclasses import dataclass
 from datetime import datetime
-from dataclasses import dataclass, field
-from rich.console import Console
-from rich.live import Live
-from rich.layout import Layout
-from rich.panel import Panel
-from rich.text import Text
-from rich.table import Table
-from rich import box
+from typing import Optional, Dict, Any, List, Callable
 
-from ..agent.enhanced_thinking_manager import (
-    EnhancedThinkingManager,
+from hcode.agent.enhanced_thinking_manager import (
     EnhancedThinkingMode,
     ThinkingResult,
-    create_enhanced_thinking_manager
+    create_enhanced_thinking_manager,
 )
-from ..agent.reasoning import (
-    StructuredReasoning,
-    ReasoningParser,
-    ReasoningToTodoIntegrator
-)
-from ..agent.feedback_loop import (
-    ThinkingExecutionFeedbackLoop,
-    FeedbackEntry,
-    ExecutionStatus
-)
-from ..agent.todo import TodoManager, TodoItem, TodoStatus
-from ..ui.todo_display import (
+from hcode.agent.feedback_loop import FeedbackEntry
+from hcode.agent.todo import TodoManager, TodoItem
+from hcode.ui.theme import get_palette, get_console
+from hcode.ui.todo_display import (
     PersistentTodoDisplay,
     render_todo_panel,
     render_todo_status_line,
-    TodoStatusBar
+    TodoStatusBar,
 )
-from ..ui.theme import get_palette, get_console
+from rich import box
+from rich.console import Console
+from rich.panel import Panel
+from rich.table import Table
+from rich.text import Text
 
 
 @dataclass
 class ReasoningRunnerConfig:
     """Configuration for the reasoning runner"""
+
     show_thinking: bool = True
     show_todo_panel: bool = True
     compact_todo: bool = False
@@ -69,7 +57,7 @@ class ReasoningRunner:
         self,
         llm_client: Any = None,
         console: Optional[Console] = None,
-        config: Optional[ReasoningRunnerConfig] = None
+            config: Optional[ReasoningRunnerConfig] = None,
     ):
         """
         Initialize the reasoning runner.
@@ -86,13 +74,12 @@ class ReasoningRunner:
         # Initialize components
         self.todo_manager = TodoManager()
         self.thinking_manager = create_enhanced_thinking_manager(
-            llm_client=llm_client,
-            todo_manager=self.todo_manager
+            llm_client=llm_client, todo_manager=self.todo_manager
         )
         self.todo_display = PersistentTodoDisplay(
             console=self.console,
             max_visible=self.config.max_visible_todos,
-            compact_mode=self.config.compact_todo
+            compact_mode=self.config.compact_todo,
         )
 
         # State
@@ -119,11 +106,7 @@ class ReasoningRunner:
     def _on_todos_changed(self, todos: List[TodoItem]):
         """Handle todo list changes"""
         todo_dicts = [
-            {
-                "content": t.content,
-                "status": t.status.value,
-                "activeForm": t.active_form
-            }
+            {"content": t.content, "status": t.status.value, "activeForm": t.active_form}
             for t in todos
         ]
         self.todo_display.set_todos(todo_dicts)
@@ -152,7 +135,7 @@ class ReasoningRunner:
         self,
         task: str,
         context: Optional[Dict[str, Any]] = None,
-        mode: Optional[EnhancedThinkingMode] = None
+            mode: Optional[EnhancedThinkingMode] = None,
     ) -> ThinkingResult:
         """
         Run a task with full reasoning and todo tracking.
@@ -174,11 +157,7 @@ class ReasoningRunner:
 
         try:
             # Perform reasoning
-            result = await self.thinking_manager.think(
-                prompt=task,
-                mode=mode,
-                context=context
-            )
+            result = await self.thinking_manager.think(prompt=task, mode=mode, context=context)
 
             self.current_result = result
 
@@ -201,7 +180,7 @@ class ReasoningRunner:
         output: str,
         success: bool,
         error: Optional[str] = None,
-        duration_ms: int = 0
+            duration_ms: int = 0,
     ) -> FeedbackEntry:
         """
         Record an execution result.
@@ -223,17 +202,19 @@ class ReasoningRunner:
             output=output,
             success=success,
             error=error,
-            duration_ms=duration_ms
+            duration_ms=duration_ms,
         )
 
         # Track in history
-        self.execution_history.append({
-            "tool_name": tool_name,
-            "action": action,
-            "success": success,
-            "timestamp": datetime.now().isoformat(),
-            "feedback_type": feedback.feedback_type.value
-        })
+        self.execution_history.append(
+            {
+                "tool_name": tool_name,
+                "action": action,
+                "success": success,
+                "timestamp": datetime.now().isoformat(),
+                "feedback_type": feedback.feedback_type.value,
+            }
+        )
 
         # Advance todo if successful
         if success and self.config.auto_update_todos:
@@ -288,26 +269,22 @@ class ReasoningRunner:
     def render_status(self) -> Text:
         """Render current status as text"""
         todos = self.todo_manager.get_all()
-        return render_todo_status_line([
-            {
-                "content": t.content,
-                "status": t.status.value,
-                "activeForm": t.active_form
-            }
-            for t in todos
-        ])
+        return render_todo_status_line(
+            [
+                {"content": t.content, "status": t.status.value, "activeForm": t.active_form}
+                for t in todos
+            ]
+        )
 
     def render_panel(self) -> Panel:
         """Render todo panel"""
         todos = self.todo_manager.get_all()
-        return render_todo_panel([
-            {
-                "content": t.content,
-                "status": t.status.value,
-                "activeForm": t.active_form
-            }
-            for t in todos
-        ])
+        return render_todo_panel(
+            [
+                {"content": t.content, "status": t.status.value, "activeForm": t.active_form}
+                for t in todos
+            ]
+        )
 
     def get_progress(self) -> Dict[str, Any]:
         """Get progress statistics"""
@@ -320,9 +297,7 @@ class ReasoningRunner:
 
         # Create summary table
         table = Table(
-            title="Execution Summary",
-            box=box.ROUNDED,
-            border_style=palette.border_default
+            title="Execution Summary", box=box.ROUNDED, border_style=palette.border_default
         )
         table.add_column("Metric", style=palette.text_secondary)
         table.add_column("Value", style=f"bold {palette.primary}")
@@ -337,8 +312,7 @@ class ReasoningRunner:
             table.add_row("Confidence", f"{self.current_result.confidence:.0%}")
             if self.current_result.quality_metrics:
                 table.add_row(
-                    "Quality Score",
-                    f"{self.current_result.quality_metrics.get('overall', 0):.2f}"
+                    "Quality Score", f"{self.current_result.quality_metrics.get('overall', 0):.2f}"
                 )
 
         self.console.print(table)
@@ -352,11 +326,7 @@ class ChatReasoningRunner:
     persistently at the bottom of the screen.
     """
 
-    def __init__(
-        self,
-        llm_client: Any = None,
-        console: Optional[Console] = None
-    ):
+    def __init__(self, llm_client: Any = None, console: Optional[Console] = None):
         self.llm_client = llm_client
         self.console = console or get_console()
         self.palette = get_palette()
@@ -364,8 +334,7 @@ class ChatReasoningRunner:
         # Components
         self.todo_manager = TodoManager()
         self.thinking_manager = create_enhanced_thinking_manager(
-            llm_client=llm_client,
-            todo_manager=self.todo_manager
+            llm_client=llm_client, todo_manager=self.todo_manager
         )
         self.todo_bar = TodoStatusBar()
 
@@ -387,11 +356,7 @@ class ChatReasoningRunner:
 
     def add_todo(self, content: str, active_form: Optional[str] = None):
         """Add a todo item"""
-        new_todo = {
-            "content": content,
-            "status": "pending",
-            "activeForm": active_form or content
-        }
+        new_todo = {"content": content, "status": "pending", "activeForm": active_form or content}
 
         # If this is the first pending and no in_progress, make it in_progress
         has_in_progress = any(t.get("status") == "in_progress" for t in self.todos)
@@ -423,15 +388,12 @@ class ChatReasoningRunner:
 
         total = len(self.todos)
         completed = sum(1 for t in self.todos if t.get("status") == "completed")
-        current = next(
-            (t for t in self.todos if t.get("status") == "in_progress"),
-            None
-        )
+        current = next((t for t in self.todos if t.get("status") == "in_progress"), None)
 
         return self.todo_bar.render(
             completed=completed,
             total=total,
-            current_task=current.get("activeForm") if current else None
+            current_task=current.get("activeForm") if current else None,
         )
 
     def render_full_panel(self) -> Panel:
@@ -439,9 +401,7 @@ class ChatReasoningRunner:
         return render_todo_panel(self.todos)
 
     async def process_with_reasoning(
-        self,
-        task: str,
-        context: Optional[Dict[str, Any]] = None
+            self, task: str, context: Optional[Dict[str, Any]] = None
     ) -> ThinkingResult:
         """
         Process a task with reasoning and todo extraction.
@@ -454,9 +414,7 @@ class ChatReasoningRunner:
             ThinkingResult with reasoning and action items
         """
         result = await self.thinking_manager.think(
-            prompt=task,
-            mode=EnhancedThinkingMode.ADAPTIVE,
-            context=context
+            prompt=task, mode=EnhancedThinkingMode.ADAPTIVE, context=context
         )
 
         # Update todos from result
@@ -475,11 +433,12 @@ class ChatReasoningRunner:
 # FACTORY FUNCTIONS
 # ═══════════════════════════════════════════════════════════════════════
 
+
 def create_reasoning_runner(
     llm_client: Any = None,
     console: Optional[Console] = None,
     show_todos: bool = True,
-    compact_todos: bool = False
+        compact_todos: bool = False,
 ) -> ReasoningRunner:
     """
     Create a configured reasoning runner.
@@ -493,20 +452,12 @@ def create_reasoning_runner(
     Returns:
         Configured ReasoningRunner
     """
-    config = ReasoningRunnerConfig(
-        show_todo_panel=show_todos,
-        compact_todo=compact_todos
-    )
-    return ReasoningRunner(
-        llm_client=llm_client,
-        console=console,
-        config=config
-    )
+    config = ReasoningRunnerConfig(show_todo_panel=show_todos, compact_todo=compact_todos)
+    return ReasoningRunner(llm_client=llm_client, console=console, config=config)
 
 
 def create_chat_reasoning_runner(
-    llm_client: Any = None,
-    console: Optional[Console] = None
+        llm_client: Any = None, console: Optional[Console] = None
 ) -> ChatReasoningRunner:
     """
     Create a chat-mode reasoning runner.
@@ -518,7 +469,4 @@ def create_chat_reasoning_runner(
     Returns:
         Configured ChatReasoningRunner
     """
-    return ChatReasoningRunner(
-        llm_client=llm_client,
-        console=console
-    )
+    return ChatReasoningRunner(llm_client=llm_client, console=console)

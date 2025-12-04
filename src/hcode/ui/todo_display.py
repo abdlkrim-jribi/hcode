@@ -49,6 +49,7 @@ ICON_BULLET = "●"
 
 class TodoDisplayStatus(Enum):
     """Status indicators for todo items"""
+
     PENDING = "pending"
     IN_PROGRESS = "in_progress"
     COMPLETED = "completed"
@@ -59,6 +60,7 @@ class TodoDisplayStatus(Enum):
 @dataclass
 class DisplayTodoItem:
     """Todo item for display purposes"""
+
     content: str
     status: TodoDisplayStatus = TodoDisplayStatus.PENDING
     active_form: str = ""
@@ -115,10 +117,7 @@ class TodoDisplayRenderer:
         self.palette = get_palette()
 
     def render(
-        self,
-        todos: List[DisplayTodoItem],
-        show_all: bool = False,
-        compact: bool = False
+        self, todos: List[DisplayTodoItem], show_all: bool = False, compact: bool = False
     ) -> RenderableType:
         """
         Render the todo list.
@@ -164,23 +163,21 @@ class TodoDisplayRenderer:
 
         return text
 
-    def _render_full(
-        self,
-        todos: List[DisplayTodoItem],
-        show_all: bool
-    ) -> Panel:
+    def _render_full(self, todos: List[DisplayTodoItem], show_all: bool) -> Panel:
         """Render full todo panel"""
         # Separate by status
         completed = [t for t in todos if t.status == TodoDisplayStatus.COMPLETED]
         in_progress = [t for t in todos if t.status == TodoDisplayStatus.IN_PROGRESS]
         pending = [t for t in todos if t.status == TodoDisplayStatus.PENDING]
-        other = [t for t in todos if t.status in [TodoDisplayStatus.BLOCKED, TodoDisplayStatus.SKIPPED]]
+        other = [
+            t for t in todos if t.status in [TodoDisplayStatus.BLOCKED, TodoDisplayStatus.SKIPPED]
+        ]
 
         # Build display list - prioritize in_progress and pending
         display_todos = in_progress + pending + other
 
         if not show_all and len(display_todos) > self.max_visible:
-            display_todos = display_todos[:self.max_visible]
+            display_todos = display_todos[: self.max_visible]
 
         # Create content
         lines = []
@@ -203,10 +200,7 @@ class TodoDisplayRenderer:
         hidden_completed = len(completed)
         if hidden_completed > 0 and not show_all:
             lines.append(Text(""))
-            lines.append(Text(
-                f"  ● {hidden_completed} completed",
-                style="dim green"
-            ))
+            lines.append(Text(f"  ● {hidden_completed} completed", style="dim green"))
 
         # Show remaining count if truncated
         remaining = len(todos) - len(display_todos) - hidden_completed
@@ -226,12 +220,7 @@ class TodoDisplayRenderer:
             padding=(0, 1),
         )
 
-    def _render_progress_bar(
-        self,
-        done: int,
-        total: int,
-        percentage: float
-    ) -> Text:
+    def _render_progress_bar(self, done: int, total: int, percentage: float) -> Text:
         """Render progress bar"""
         bar_width = 30
         filled = int(bar_width * percentage / 100)
@@ -252,8 +241,7 @@ class TodoDisplayRenderer:
     def _render_todo_item(self, todo: DisplayTodoItem) -> Text:
         """Render a single todo item"""
         icon, color = self.STATUS_CONFIG.get(
-            todo.status,
-            self.STATUS_CONFIG[TodoDisplayStatus.PENDING]
+            todo.status, self.STATUS_CONFIG[TodoDisplayStatus.PENDING]
         )
 
         # Animate in-progress items
@@ -300,7 +288,7 @@ class PersistentTodoDisplay:
         console: Optional[Console] = None,
         max_visible: int = 5,
         refresh_rate: float = 4.0,  # Refreshes per second
-        compact_mode: bool = False
+        compact_mode: bool = False,
     ):
         """
         Initialize persistent display.
@@ -349,15 +337,12 @@ class PersistentTodoDisplay:
             console=self.console,
             refresh_per_second=self.refresh_rate,
             transient=False,
-            vertical_overflow="visible"
+            vertical_overflow="visible",
         )
         self.live.start()
 
         # Start animation thread
-        self._animation_thread = threading.Thread(
-            target=self._animation_loop,
-            daemon=True
-        )
+        self._animation_thread = threading.Thread(target=self._animation_loop, daemon=True)
         self._animation_thread.start()
 
     def stop(self):
@@ -378,11 +363,7 @@ class PersistentTodoDisplay:
     def _render(self) -> RenderableType:
         """Render current state"""
         with self._lock:
-            return self.renderer.render(
-                self.todos,
-                show_all=False,
-                compact=self.compact_mode
-            )
+            return self.renderer.render(self.todos, show_all=False, compact=self.compact_mode)
 
     def _update_display(self):
         """Update the live display"""
@@ -412,7 +393,7 @@ class PersistentTodoDisplay:
                     content=todo_data.get("content", ""),
                     status=status,
                     active_form=todo_data.get("activeForm", ""),
-                    index=i
+                    index=i,
                 )
 
                 # Set start time for in-progress
@@ -447,9 +428,15 @@ class PersistentTodoDisplay:
                     todo.active_form = active_form
 
                 # Track timing
-                if todo.status == TodoDisplayStatus.IN_PROGRESS and old_status != TodoDisplayStatus.IN_PROGRESS:
+                if (
+                    todo.status == TodoDisplayStatus.IN_PROGRESS
+                    and old_status != TodoDisplayStatus.IN_PROGRESS
+                ):
                     todo.start_time = datetime.now()
-                elif todo.status == TodoDisplayStatus.COMPLETED and old_status == TodoDisplayStatus.IN_PROGRESS:
+                elif (
+                    todo.status == TodoDisplayStatus.COMPLETED
+                    and old_status == TodoDisplayStatus.IN_PROGRESS
+                ):
                     todo.end_time = datetime.now()
 
         self._update_display()
@@ -474,7 +461,7 @@ class PersistentTodoDisplay:
                 content=content,
                 status=status_enum,
                 active_form=active_form or content,
-                index=len(self.todos)
+                index=len(self.todos),
             )
 
             if status_enum == TodoDisplayStatus.IN_PROGRESS:
@@ -495,7 +482,7 @@ class PersistentTodoDisplay:
                     todo.end_time = datetime.now()
 
                     # Find next pending and mark in-progress
-                    for next_todo in self.todos[i + 1:]:
+                    for next_todo in self.todos[i + 1 :]:
                         if next_todo.status == TodoDisplayStatus.PENDING:
                             next_todo.status = TodoDisplayStatus.IN_PROGRESS
                             next_todo.start_time = datetime.now()
@@ -522,8 +509,7 @@ class PersistentTodoDisplay:
             pending = sum(1 for t in self.todos if t.status == TodoDisplayStatus.PENDING)
 
             current = next(
-                (t for t in self.todos if t.status == TodoDisplayStatus.IN_PROGRESS),
-                None
+                (t for t in self.todos if t.status == TodoDisplayStatus.IN_PROGRESS), None
             )
 
             return {
@@ -532,7 +518,7 @@ class PersistentTodoDisplay:
                 "in_progress": in_progress,
                 "pending": pending,
                 "percentage": (completed / total * 100) if total > 0 else 0,
-                "current_task": current.get_display_text() if current else None
+                "current_task": current.get_display_text() if current else None,
             }
 
 
@@ -546,12 +532,7 @@ class TodoStatusBar:
     def __init__(self):
         self.palette = get_palette()
 
-    def render(
-        self,
-        completed: int,
-        total: int,
-        current_task: Optional[str] = None
-    ) -> Text:
+    def render(self, completed: int, total: int, current_task: Optional[str] = None) -> Text:
         """Render status bar"""
         text = Text()
 
@@ -578,21 +559,15 @@ class TodoStatusBar:
 # INTEGRATION HELPERS
 # ═══════════════════════════════════════════════════════════════════════
 
+
 def create_todo_display(
-    console: Optional[Console] = None,
-    compact: bool = False
+    console: Optional[Console] = None, compact: bool = False
 ) -> PersistentTodoDisplay:
     """Create a new todo display instance"""
-    return PersistentTodoDisplay(
-        console=console,
-        compact_mode=compact
-    )
+    return PersistentTodoDisplay(console=console, compact_mode=compact)
 
 
-def render_todo_panel(
-    todos: List[Dict[str, Any]],
-    max_visible: int = 5
-) -> Panel:
+def render_todo_panel(todos: List[Dict[str, Any]], max_visible: int = 5) -> Panel:
     """
     Render a static todo panel.
 
@@ -617,16 +592,14 @@ def render_todo_panel(
             content=todo_data.get("content", ""),
             status=status,
             active_form=todo_data.get("activeForm", ""),
-            index=i
+            index=i,
         )
         display_items.append(item)
 
     return renderer.render(display_items, show_all=False, compact=False)
 
 
-def render_todo_status_line(
-    todos: List[Dict[str, Any]]
-) -> Text:
+def render_todo_status_line(todos: List[Dict[str, Any]]) -> Text:
     """
     Render a single-line todo status.
 
@@ -638,22 +611,20 @@ def render_todo_status_line(
     """
     total = len(todos)
     completed = sum(1 for t in todos if t.get("status") == "completed")
-    current = next(
-        (t for t in todos if t.get("status") == "in_progress"),
-        None
-    )
+    current = next((t for t in todos if t.get("status") == "in_progress"), None)
 
     bar = TodoStatusBar()
     return bar.render(
         completed=completed,
         total=total,
-        current_task=current.get("activeForm") or current.get("content") if current else None
+        current_task=current.get("activeForm") or current.get("content") if current else None,
     )
 
 
 # ═══════════════════════════════════════════════════════════════════════
 # CLAUDE CODE STYLE TODO DISPLAY
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class ClaudeCodeTodoDisplay:
     """
@@ -691,7 +662,7 @@ class ClaudeCodeTodoDisplay:
         todos: List[Dict[str, Any]],
         elapsed_seconds: float = 0,
         token_count: int = 0,
-        show_shortcuts: bool = True
+        show_shortcuts: bool = True,
     ) -> Text:
         """
         Render Claude Code-style todo display.
@@ -711,10 +682,7 @@ class ClaudeCodeTodoDisplay:
         text = Text()
 
         # Find current in-progress task
-        current_task = next(
-            (t for t in todos if t.get("status") == "in_progress"),
-            None
-        )
+        current_task = next((t for t in todos if t.get("status") == "in_progress"), None)
 
         # Header line with sparkle and active task
         if current_task:
@@ -775,7 +743,7 @@ class ClaudeCodeTodoDisplay:
         todos: List[Dict[str, Any]],
         elapsed_seconds: float = 0,
         token_count: int = 0,
-        show_shortcuts: bool = True
+        show_shortcuts: bool = True,
     ):
         """Print the todo display to console."""
         rendered = self.render(todos, elapsed_seconds, token_count, show_shortcuts)
@@ -787,7 +755,7 @@ def render_claude_code_todos(
     console: Optional[Console] = None,
     elapsed_seconds: float = 0,
     token_count: int = 0,
-    show_shortcuts: bool = True
+    show_shortcuts: bool = True,
 ) -> Text:
     """
     Render todos in Claude Code style.
@@ -813,7 +781,7 @@ def print_claude_code_todos(
     console: Optional[Console] = None,
     elapsed_seconds: float = 0,
     token_count: int = 0,
-    show_shortcuts: bool = True
+    show_shortcuts: bool = True,
 ):
     """
     Print todos in Claude Code style.
@@ -827,6 +795,7 @@ def print_claude_code_todos(
 # ═══════════════════════════════════════════════════════════════════════
 # PERSISTENT BOTTOM STATUS BAR (Claude Code style)
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class PersistentStatusBar:
     """
@@ -931,6 +900,7 @@ class PersistentStatusBar:
         """Get terminal height."""
         try:
             import shutil
+
             return shutil.get_terminal_size().lines
         except Exception:
             return 24  # Default
@@ -959,21 +929,24 @@ class PersistentStatusBar:
 
             # Render the todo display to a string
             from io import StringIO
+
             string_buffer = StringIO()
-            temp_console = Console(file=string_buffer, force_terminal=True, width=self.console.width or 120)
+            temp_console = Console(
+                file=string_buffer, force_terminal=True, width=self.console.width or 120
+            )
 
             # Render todos
             rendered = self.todo_display.render(
                 self.todos,
                 elapsed_seconds=elapsed,
                 token_count=self.token_count,
-                show_shortcuts=True
+                show_shortcuts=True,
             )
             temp_console.print(rendered)
 
             # Get the rendered lines
             output = string_buffer.getvalue()
-            lines = output.split('\n')[:self.height]
+            lines = output.split("\n")[: self.height]
 
             # Save cursor, move to bottom, render, restore cursor
             sys.stdout.write(self.SAVE_CURSOR)
@@ -1036,7 +1009,7 @@ class LiveTodoBar:
             console=self.console,
             refresh_per_second=4,
             transient=False,
-            vertical_overflow="visible"
+            vertical_overflow="visible",
         )
         self.live.start()
 
@@ -1056,10 +1029,7 @@ class LiveTodoBar:
             elapsed = (datetime.now() - self.start_time).total_seconds()
 
         return self.todo_display.render(
-            self.todos,
-            elapsed_seconds=elapsed,
-            token_count=self.token_count,
-            show_shortcuts=True
+            self.todos, elapsed_seconds=elapsed, token_count=self.token_count, show_shortcuts=True
         )
 
     def update(self):

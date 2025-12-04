@@ -2,6 +2,7 @@
 HCode Icon System
 Nerd Font and Unicode icons for the UI.
 """
+
 import os
 import sys
 from enum import Enum
@@ -19,9 +20,9 @@ def supports_unicode() -> bool:
     """Check if terminal supports Unicode."""
     if IS_WINDOWS:
         return (
-            os.environ.get("WT_SESSION") is not None or
-            os.environ.get("ConEmuANSI") == "ON" or
-            os.environ.get("TERM_PROGRAM") == "vscode"
+            os.environ.get("WT_SESSION") is not None
+            or os.environ.get("ConEmuANSI") == "ON"
+            or os.environ.get("TERM_PROGRAM") == "vscode"
         )
     return True
 
@@ -32,6 +33,7 @@ USE_UNICODE = supports_unicode()
 # ═══════════════════════════════════════════════════════════════════════
 # ICON DEFINITIONS
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class Icons:
     """Centralized icon definitions with Unicode fallbacks."""
@@ -193,7 +195,11 @@ class Icons:
     # ═══════════════════════════════════════════════════════════════
 
     SPINNER_ORBIT = ["◐", "◓", "◑", "◒"] if USE_UNICODE else ["-", "\\", "|", "/"]
-    SPINNER_DOTS = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"] if USE_UNICODE else [".", "..", "...", ".."]
+    SPINNER_DOTS = (
+        ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
+        if USE_UNICODE
+        else [".", "..", "...", ".."]
+    )
     SPINNER_PULSE = ["●", "◉", "○", "◉"] if USE_UNICODE else ["#", "=", "-", "="]
 
     # ═══════════════════════════════════════════════════════════════
@@ -307,6 +313,7 @@ class Icons:
 # EMOJI HELPER
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class Emoji:
     """Emoji helper for consistent usage."""
 
@@ -349,6 +356,7 @@ class Emoji:
 # ═══════════════════════════════════════════════════════════════════════
 # DECORATIVE BORDERS
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class Borders:
     """Decorative border characters."""

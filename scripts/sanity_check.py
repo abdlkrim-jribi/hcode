@@ -34,6 +34,7 @@ DIST_DIR = PROJECT_ROOT / "dist" / "compiled"
 @dataclass
 class CheckResult:
     """Result of a sanity check."""
+
     name: str
     passed: bool
     message: str
@@ -66,10 +67,7 @@ class SanityChecker:
             print(f"  {message}")
 
     def run_command(
-        self,
-        cmd: List[str],
-        timeout: int = 60,
-        cwd: Optional[Path] = None
+        self, cmd: List[str], timeout: int = 60, cwd: Optional[Path] = None
     ) -> Tuple[int, str, str]:
         """Run a command and return (returncode, stdout, stderr)."""
         try:
@@ -105,17 +103,11 @@ class SanityChecker:
         if exe_path.exists():
             size_mb = exe_path.stat().st_size / (1024 * 1024)
             self.add_result(
-                "Executable exists",
-                True,
-                f"Found at {exe_path.name} ({size_mb:.1f} MB)"
+                "Executable exists", True, f"Found at {exe_path.name} ({size_mb:.1f} MB)"
             )
             return True
         else:
-            self.add_result(
-                "Executable exists",
-                False,
-                f"Not found: {exe_path}"
-            )
+            self.add_result("Executable exists", False, f"Not found: {exe_path}")
             return False
 
     def check_exe_version(self) -> bool:
@@ -124,20 +116,10 @@ class SanityChecker:
         returncode, stdout, stderr = self.run_command([str(exe_path), "--version"])
 
         if returncode == 0:
-            self.add_result(
-                "Version check (exe)",
-                True,
-                "Returns version info",
-                stdout.strip()
-            )
+            self.add_result("Version check (exe)", True, "Returns version info", stdout.strip())
             return True
         else:
-            self.add_result(
-                "Version check (exe)",
-                False,
-                "Failed to get version",
-                stderr or stdout
-            )
+            self.add_result("Version check (exe)", False, "Failed to get version", stderr or stdout)
             return False
 
     def check_exe_help(self) -> bool:
@@ -146,19 +128,10 @@ class SanityChecker:
         returncode, stdout, stderr = self.run_command([str(exe_path), "--help"])
 
         if returncode == 0 and ("hcode" in stdout.lower() or "usage" in stdout.lower()):
-            self.add_result(
-                "Help check (exe)",
-                True,
-                "Shows help message"
-            )
+            self.add_result("Help check (exe)", True, "Shows help message")
             return True
         else:
-            self.add_result(
-                "Help check (exe)",
-                False,
-                "Failed to show help",
-                stderr or stdout
-            )
+            self.add_result("Help check (exe)", False, "Failed to show help", stderr or stdout)
             return False
 
     def check_exe_imports(self) -> bool:
@@ -166,10 +139,7 @@ class SanityChecker:
         exe_path = DIST_DIR / self.platform_name / self.exe_name
 
         # Try running with --help which should load most modules
-        returncode, stdout, stderr = self.run_command(
-            [str(exe_path), "--help"],
-            timeout=30
-        )
+        returncode, stdout, stderr = self.run_command([str(exe_path), "--help"], timeout=30)
 
         # Check for import errors in stderr
         import_errors = [
@@ -181,18 +151,11 @@ class SanityChecker:
         for error in import_errors:
             if error in stderr:
                 self.add_result(
-                    "Import check (exe)",
-                    False,
-                    f"Import error detected: {error}",
-                    stderr[:500]
+                    "Import check (exe)", False, f"Import error detected: {error}", stderr[:500]
                 )
                 return False
 
-        self.add_result(
-            "Import check (exe)",
-            True,
-            "No import errors detected"
-        )
+        self.add_result("Import check (exe)", True, "No import errors detected")
         return True
 
     def check_exe_config_commands(self) -> bool:
@@ -200,17 +163,10 @@ class SanityChecker:
         exe_path = DIST_DIR / self.platform_name / self.exe_name
 
         # Test 'config show' command
-        returncode, stdout, stderr = self.run_command(
-            [str(exe_path), "config", "show"],
-            timeout=30
-        )
+        returncode, stdout, stderr = self.run_command([str(exe_path), "config", "show"], timeout=30)
 
         if returncode == 0:
-            self.add_result(
-                "Config command (exe)",
-                True,
-                "Config show works"
-            )
+            self.add_result("Config command (exe)", True, "Config show works")
             return True
         else:
             # Not a critical failure if config isn't implemented
@@ -218,7 +174,7 @@ class SanityChecker:
                 "Config command (exe)",
                 False,
                 "Config command failed (may not be implemented)",
-                stderr[:200] if stderr else stdout[:200]
+                stderr[:200] if stderr else stdout[:200],
             )
             return False
 
@@ -256,18 +212,10 @@ class SanityChecker:
         wheel_path = self.find_wheel()
         if wheel_path:
             size_kb = wheel_path.stat().st_size / 1024
-            self.add_result(
-                "Wheel exists",
-                True,
-                f"Found: {wheel_path.name} ({size_kb:.1f} KB)"
-            )
+            self.add_result("Wheel exists", True, f"Found: {wheel_path.name} ({size_kb:.1f} KB)")
             return True
         else:
-            self.add_result(
-                "Wheel exists",
-                False,
-                f"No .whl file found in {DIST_DIR}"
-            )
+            self.add_result("Wheel exists", False, f"No .whl file found in {DIST_DIR}")
             return False
 
     def check_wheel_structure(self) -> bool:
@@ -279,7 +227,7 @@ class SanityChecker:
             return False
 
         try:
-            with zipfile.ZipFile(wheel_path, 'r') as zf:
+            with zipfile.ZipFile(wheel_path, "r") as zf:
                 names = zf.namelist()
 
                 # Check for expected directories
@@ -293,26 +241,17 @@ class SanityChecker:
 
                 if has_hcode and has_metadata:
                     details = f"Files: {len(names)}, Compiled extensions: {has_compiled}"
-                    self.add_result(
-                        "Wheel structure",
-                        True,
-                        "Valid wheel structure",
-                        details
-                    )
+                    self.add_result("Wheel structure", True, "Valid wheel structure", details)
                     return True
                 else:
                     self.add_result(
                         "Wheel structure",
                         False,
-                        f"Invalid structure: hcode={has_hcode}, metadata={has_metadata}"
+                        f"Invalid structure: hcode={has_hcode}, metadata={has_metadata}",
                     )
                     return False
         except Exception as e:
-            self.add_result(
-                "Wheel structure",
-                False,
-                f"Error reading wheel: {e}"
-            )
+            self.add_result("Wheel structure", False, f"Error reading wheel: {e}")
             return False
 
     def check_wheel_install(self) -> bool:
@@ -342,44 +281,30 @@ class SanityChecker:
                 # Install the wheel
                 self.log(f"Installing wheel: {wheel_path.name}")
                 returncode, stdout, stderr = self.run_command(
-                    [str(pip_path), "install", str(wheel_path)],
-                    timeout=120
+                    [str(pip_path), "install", str(wheel_path)], timeout=120
                 )
 
                 if returncode != 0:
                     self.add_result(
-                        "Wheel installation",
-                        False,
-                        "Failed to install wheel",
-                        stderr[:500]
+                        "Wheel installation", False, "Failed to install wheel", stderr[:500]
                     )
                     return False
 
-                self.add_result(
-                    "Wheel installation",
-                    True,
-                    "Successfully installed in test venv"
-                )
+                self.add_result("Wheel installation", True, "Successfully installed in test venv")
 
                 # Try importing hcode
                 self.log("Testing import...")
                 returncode, stdout, stderr = self.run_command(
-                    [str(python_path), "-c", "import hcode; print('Import OK')"],
-                    timeout=30
+                    [str(python_path), "-c", "import hcode; print('Import OK')"], timeout=30
                 )
 
                 if returncode == 0 and "Import OK" in stdout:
                     self.add_result(
-                        "Package import (whl)",
-                        True,
-                        "Successfully imports hcode module"
+                        "Package import (whl)", True, "Successfully imports hcode module"
                     )
                 else:
                     self.add_result(
-                        "Package import (whl)",
-                        False,
-                        "Failed to import hcode",
-                        stderr[:300]
+                        "Package import (whl)", False, "Failed to import hcode", stderr[:300]
                     )
                     return False
 
@@ -392,37 +317,23 @@ class SanityChecker:
 
                 if hcode_cli.exists():
                     returncode, stdout, stderr = self.run_command(
-                        [str(hcode_cli), "--help"],
-                        timeout=30
+                        [str(hcode_cli), "--help"], timeout=30
                     )
                     if returncode == 0:
-                        self.add_result(
-                            "CLI entry point (whl)",
-                            True,
-                            "Entry point 'hcode' works"
-                        )
+                        self.add_result("CLI entry point (whl)", True, "Entry point 'hcode' works")
                     else:
                         self.add_result(
-                            "CLI entry point (whl)",
-                            False,
-                            "Entry point failed",
-                            stderr[:200]
+                            "CLI entry point (whl)", False, "Entry point failed", stderr[:200]
                         )
                 else:
                     self.add_result(
-                        "CLI entry point (whl)",
-                        False,
-                        f"Entry point not found: {hcode_cli}"
+                        "CLI entry point (whl)", False, f"Entry point not found: {hcode_cli}"
                     )
 
                 return True
 
             except Exception as e:
-                self.add_result(
-                    "Wheel installation",
-                    False,
-                    f"Error during installation test: {e}"
-                )
+                self.add_result("Wheel installation", False, f"Error during installation test: {e}")
                 return False
 
     def run_whl_checks(self) -> bool:
@@ -476,21 +387,10 @@ class SanityChecker:
 
 def main():
     """Main entry point."""
-    parser = argparse.ArgumentParser(
-        description="Run sanity checks on HCode builds"
-    )
-    parser.add_argument(
-        "--exe", action="store_true",
-        help="Check executable only"
-    )
-    parser.add_argument(
-        "--whl", action="store_true",
-        help="Check wheel package only"
-    )
-    parser.add_argument(
-        "--verbose", "-v", action="store_true",
-        help="Verbose output"
-    )
+    parser = argparse.ArgumentParser(description="Run sanity checks on HCode builds")
+    parser.add_argument("--exe", action="store_true", help="Check executable only")
+    parser.add_argument("--whl", action="store_true", help="Check wheel package only")
+    parser.add_argument("--verbose", "-v", action="store_true", help="Verbose output")
     args = parser.parse_args()
 
     # If neither specified, check both

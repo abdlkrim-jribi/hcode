@@ -18,20 +18,22 @@ from ..tools.diff_tools import (
     ChangeSet,
     ChangeOperation,
     ChangeStatus,
-    SafetyWarning
+    SafetyWarning,
 )
 
 
 class ReviewMode(Enum):
     """Review mode determines how changes are handled"""
-    AUTO_APPROVE = "auto"       # Apply changes without review (dangerous)
-    PREVIEW_ONLY = "preview"    # Show preview, require explicit apply
+
+    AUTO_APPROVE = "auto"  # Apply changes without review (dangerous)
+    PREVIEW_ONLY = "preview"  # Show preview, require explicit apply
     INTERACTIVE = "interactive"  # Interactive approval for each change
-    BATCH = "batch"             # Collect changes, review all at once
+    BATCH = "batch"  # Collect changes, review all at once
 
 
 class ReviewDecision(Enum):
     """User's decision on a proposed change"""
+
     APPROVE = "approve"
     APPROVE_ALL = "approve_all"
     REJECT = "reject"
@@ -43,6 +45,7 @@ class ReviewDecision(Enum):
 @dataclass
 class ReviewResult:
     """Result of a change review"""
+
     proposal_id: str
     decision: ReviewDecision
     modified_content: Optional[str] = None  # If user edited the change
@@ -55,13 +58,14 @@ class ReviewResult:
             "decision": self.decision.value,
             "modified_content": self.modified_content is not None,
             "reason": self.reason,
-            "reviewed_at": self.reviewed_at.isoformat()
+            "reviewed_at": self.reviewed_at.isoformat(),
         }
 
 
 @dataclass
 class ReviewSession:
     """A session of reviewing multiple changes"""
+
     id: str = field(default_factory=lambda: datetime.now().strftime("%Y%m%d_%H%M%S"))
     proposals: List[ChangeProposal] = field(default_factory=list)
     results: List[ReviewResult] = field(default_factory=list)
@@ -83,11 +87,19 @@ class ReviewSession:
 
     def get_approved_count(self) -> int:
         """Get count of approved changes"""
-        return sum(1 for r in self.results if r.decision in (ReviewDecision.APPROVE, ReviewDecision.APPROVE_ALL))
+        return sum(
+            1
+            for r in self.results
+            if r.decision in (ReviewDecision.APPROVE, ReviewDecision.APPROVE_ALL)
+        )
 
     def get_rejected_count(self) -> int:
         """Get count of rejected changes"""
-        return sum(1 for r in self.results if r.decision in (ReviewDecision.REJECT, ReviewDecision.REJECT_ALL))
+        return sum(
+            1
+            for r in self.results
+            if r.decision in (ReviewDecision.REJECT, ReviewDecision.REJECT_ALL)
+        )
 
     def get_summary(self) -> Dict[str, Any]:
         """Get session summary"""
@@ -98,7 +110,7 @@ class ReviewSession:
             "approved": self.get_approved_count(),
             "rejected": self.get_rejected_count(),
             "pending": len(self.proposals) - len(self.results),
-            "complete": self.is_complete()
+            "complete": self.is_complete(),
         }
 
 
@@ -118,7 +130,7 @@ class ChangeReviewer:
         self,
         mode: ReviewMode = ReviewMode.INTERACTIVE,
         console: Optional[Any] = None,
-        auto_approve_threshold: float = 0.9  # Confidence threshold for auto-approve
+        auto_approve_threshold: float = 0.9,  # Confidence threshold for auto-approve
     ):
         """
         Initialize the change reviewer.
@@ -142,15 +154,16 @@ class ChangeReviewer:
         self.session_history: List[ReviewSession] = []
 
         # Callbacks for custom approval logic
-        self._approval_callback: Optional[Callable[[ChangeProposal], Awaitable[ReviewDecision]]] = None
+        self._approval_callback: Optional[Callable[[ChangeProposal], Awaitable[ReviewDecision]]] = (
+            None
+        )
 
     def set_mode(self, mode: ReviewMode) -> None:
         """Set the review mode"""
         self.mode = mode
 
     def set_approval_callback(
-        self,
-        callback: Callable[[ChangeProposal], Awaitable[ReviewDecision]]
+        self, callback: Callable[[ChangeProposal], Awaitable[ReviewDecision]]
     ) -> None:
         """Set custom approval callback"""
         self._approval_callback = callback
@@ -208,10 +221,7 @@ class ChangeReviewer:
         else:
             decision = await self._interactive_decide(proposal)
 
-        result = ReviewResult(
-            proposal_id=proposal.id,
-            decision=decision
-        )
+        result = ReviewResult(proposal_id=proposal.id, decision=decision)
 
         # Update proposal status based on decision
         if decision in (ReviewDecision.APPROVE, ReviewDecision.APPROVE_ALL):
@@ -246,13 +256,17 @@ class ChangeReviewer:
 
             # Show options
             self.console.print("\n[bold yellow]Review this change?[/bold yellow]")
-            self.console.print("[green]y/yes[/green] - Approve | [red]n/no[/red] - Reject | [blue]s/skip[/blue] - Skip")
-            self.console.print("[cyan]a/all[/cyan] - Approve all | [magenta]r/reject-all[/magenta] - Reject all")
+            self.console.print(
+                "[green]y/yes[/green] - Approve | [red]n/no[/red] - Reject | [blue]s/skip[/blue] - Skip"
+            )
+            self.console.print(
+                "[cyan]a/all[/cyan] - Approve all | [magenta]r/reject-all[/magenta] - Reject all"
+            )
 
             response = Prompt.ask(
                 "[bold]Decision[/bold]",
                 default="y",
-                choices=["y", "yes", "n", "no", "s", "skip", "a", "all", "r", "reject-all"]
+                choices=["y", "yes", "n", "no", "s", "skip", "a", "all", "r", "reject-all"],
             )
 
             response = response.lower()
@@ -286,13 +300,13 @@ class ChangeReviewer:
             # Header
             header = Text()
             header.append("\n")
-            header.append("="*60 + "\n", style="dim")
+            header.append("=" * 60 + "\n", style="dim")
             header.append("CHANGE PREVIEW: ", style="bold cyan")
             header.append(proposal.file_path, style="bold white")
             header.append("\n")
             header.append(f"Operation: {proposal.operation.value.upper()}", style="yellow")
             header.append(f" | ID: {proposal.id}", style="dim")
-            header.append("\n" + "="*60, style="dim")
+            header.append("\n" + "=" * 60, style="dim")
 
             self.console.print(header)
 
@@ -309,9 +323,13 @@ class ChangeReviewer:
             if proposal.safety_warnings:
                 self.console.print("\n[bold yellow]Safety Warnings:[/bold yellow]")
                 for warning in proposal.safety_warnings:
-                    style = {"info": "blue", "warning": "yellow", "critical": "red bold"}[warning.level]
+                    style = {"info": "blue", "warning": "yellow", "critical": "red bold"}[
+                        warning.level
+                    ]
                     line_info = f" (line {warning.line_number})" if warning.line_number else ""
-                    self.console.print(f"  [{style}][{warning.level.upper()}][/{style}] {warning.message}{line_info}")
+                    self.console.print(
+                        f"  [{style}][{warning.level.upper()}][/{style}] {warning.message}{line_info}"
+                    )
 
             # Diff display
             diff_panel = DiffDisplay.render(
@@ -319,7 +337,7 @@ class ChangeReviewer:
                 old_content=proposal.old_content,
                 new_content=proposal.new_content,
                 context_lines=3,
-                show_stats=False
+                show_stats=False,
             )
             self.console.print(diff_panel)
 
@@ -333,7 +351,7 @@ class ChangeReviewer:
                 for w in proposal.safety_warnings:
                     self.console.print(f"[{w.level}] {w.message}")
             self.console.print(proposal.unified_diff)
-            self.console.print("="*60)
+            self.console.print("=" * 60)
 
     async def review_all(self) -> List[ReviewResult]:
         """
@@ -351,16 +369,10 @@ class ChangeReviewer:
 
         for proposal in self.current_session.proposals:
             if approve_all:
-                result = ReviewResult(
-                    proposal_id=proposal.id,
-                    decision=ReviewDecision.APPROVE
-                )
+                result = ReviewResult(proposal_id=proposal.id, decision=ReviewDecision.APPROVE)
                 proposal.status = ChangeStatus.APPROVED
             elif reject_all:
-                result = ReviewResult(
-                    proposal_id=proposal.id,
-                    decision=ReviewDecision.REJECT
-                )
+                result = ReviewResult(proposal_id=proposal.id, decision=ReviewDecision.REJECT)
                 proposal.status = ChangeStatus.REJECTED
             else:
                 result = await self.review_proposal(proposal)
@@ -404,7 +416,7 @@ class ChangeReviewer:
                 path = Path(proposal.file_path)
                 path.parent.mkdir(parents=True, exist_ok=True)
 
-                with open(path, 'w', encoding='utf-8') as f:
+                with open(path, "w", encoding="utf-8") as f:
                     f.write(proposal.new_content)
 
                 proposal.status = ChangeStatus.APPLIED
@@ -419,7 +431,7 @@ class ChangeReviewer:
             "applied": len(applied),
             "failed": len(failed),
             "applied_ids": applied,
-            "failures": failed
+            "failures": failed,
         }
 
     def get_pending_count(self) -> int:
@@ -449,11 +461,7 @@ class ChangeReviewContext:
             # Changes reviewed and applied on exit if approved
     """
 
-    def __init__(
-        self,
-        reviewer: ChangeReviewer,
-        auto_apply: bool = True
-    ):
+    def __init__(self, reviewer: ChangeReviewer, auto_apply: bool = True):
         self.reviewer = reviewer
         self.auto_apply = auto_apply
         self.proposals: List[ChangeProposal] = []
@@ -491,7 +499,7 @@ async def review_change(
     new_content: str,
     operation: ChangeOperation = ChangeOperation.EDIT,
     console: Optional[Any] = None,
-    mode: ReviewMode = ReviewMode.INTERACTIVE
+    mode: ReviewMode = ReviewMode.INTERACTIVE,
 ) -> bool:
     """
     Quick helper to review a single change.
@@ -508,10 +516,7 @@ async def review_change(
         True if change was approved
     """
     proposal = ChangeProposal(
-        file_path=file_path,
-        operation=operation,
-        old_content=old_content,
-        new_content=new_content
+        file_path=file_path, operation=operation, old_content=old_content, new_content=new_content
     )
 
     reviewer = ChangeReviewer(mode=mode, console=console)

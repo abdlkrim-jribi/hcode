@@ -18,7 +18,7 @@ from .interactive_tools import (
     TodoWriteTool,
     ConfirmTool,
     DisplayPanelTool,
-    ProgressTool
+    ProgressTool,
 )
 from .notebook_tools import NotebookEditTool, NotebookReadTool, NotebookExecuteTool
 from .command_system import SlashCommandTool, SkillTool, CommandRegistry
@@ -194,14 +194,12 @@ class ToolManager:
         """Convenience method for writing files"""
         return await self.execute_tool("writetool", file_path=file_path, content=content)
 
-    async def edit_file(self, file_path: str, old_string: str, new_string: str, **kwargs) -> ToolResult:
+    async def edit_file(
+        self, file_path: str, old_string: str, new_string: str, **kwargs
+    ) -> ToolResult:
         """Convenience method for editing files"""
         return await self.execute_tool(
-            "edittool",
-            file_path=file_path,
-            old_string=old_string,
-            new_string=new_string,
-            **kwargs
+            "edittool", file_path=file_path, old_string=old_string, new_string=new_string, **kwargs
         )
 
     async def search_files(self, pattern: str, **kwargs) -> ToolResult:
@@ -220,7 +218,7 @@ class ToolManager:
         """Convenience method for updating todos"""
         result = await self.execute_tool("todowritetool", todos=todos)
         # Sync todos to TodoRead tool
-        if hasattr(self, 'todo_read_tool'):
+        if hasattr(self, "todo_read_tool"):
             self.todo_read_tool.set_todos(todos)
         return result
 
@@ -230,7 +228,7 @@ class ToolManager:
 
     def set_agent_orchestrator(self, agent_orchestrator):
         """Set the agent orchestrator for the Task tool"""
-        if hasattr(self, 'task_tool'):
+        if hasattr(self, "task_tool"):
             self.task_tool.agent_orchestrator = agent_orchestrator
 
     async def web_fetch(self, url: str, prompt: str) -> ToolResult:
@@ -246,11 +244,7 @@ class ToolManager:
     # =========================================================================
 
     async def preview_edit(
-        self,
-        file_path: str,
-        old_string: str,
-        new_string: str,
-        replace_all: bool = False
+        self, file_path: str, old_string: str, new_string: str, replace_all: bool = False
     ) -> ToolResult:
         """Preview an edit without applying it"""
         return await self.execute_tool(
@@ -258,40 +252,26 @@ class ToolManager:
             file_path=file_path,
             old_string=old_string,
             new_string=new_string,
-            replace_all=replace_all
+            replace_all=replace_all,
         )
 
-    async def preview_write(
-        self,
-        file_path: str,
-        new_content: str
-    ) -> ToolResult:
+    async def preview_write(self, file_path: str, new_content: str) -> ToolResult:
         """Preview a file write without applying it"""
         return await self.execute_tool(
-            "diffpreviewtool",
-            file_path=file_path,
-            new_content=new_content
+            "diffpreviewtool", file_path=file_path, new_content=new_content
         )
 
     async def apply_change(self, proposal_id: str, force: bool = False) -> ToolResult:
         """Apply a previously previewed change"""
-        return await self.execute_tool(
-            "applychangetool",
-            proposal_id=proposal_id,
-            force=force
-        )
+        return await self.execute_tool("applychangetool", proposal_id=proposal_id, force=force)
 
     async def reject_change(self, proposal_id: str, reason: str = None) -> ToolResult:
         """Reject a previously previewed change"""
-        return await self.execute_tool(
-            "rejectchangetool",
-            proposal_id=proposal_id,
-            reason=reason
-        )
+        return await self.execute_tool("rejectchangetool", proposal_id=proposal_id, reason=reason)
 
     def get_pending_proposals(self) -> Dict[str, Any]:
         """Get all pending change proposals"""
-        if hasattr(self, 'diff_preview_tool'):
+        if hasattr(self, "diff_preview_tool"):
             return self.diff_preview_tool._pending_proposals
         return {}
 
@@ -316,7 +296,7 @@ class ToolExecutionContext:
         tool_manager: ToolManager,
         safety_enabled: bool = True,
         require_confirmation: bool = True,
-        console=None
+        console=None,
     ):
         """
         Initialize execution context.
@@ -336,10 +316,7 @@ class ToolExecutionContext:
 
     def add_pending_operation(self, tool_name: str, **kwargs):
         """Add operation to pending queue for batch confirmation"""
-        self.pending_operations.append({
-            "tool": tool_name,
-            "params": kwargs
-        })
+        self.pending_operations.append({"tool": tool_name, "params": kwargs})
 
     async def confirm_and_execute_pending(self) -> List[ToolResult]:
         """Show pending operations to user, get confirmation, and execute"""
@@ -380,10 +357,15 @@ class ToolExecutionContext:
 
                 ops_text.append("\n")
 
-            self.console.print(Panel(ops_text, title="[bold]Confirm Operations[/bold]", border_style="yellow"))
+            self.console.print(
+                Panel(ops_text, title="[bold]Confirm Operations[/bold]", border_style="yellow")
+            )
 
             # Ask for confirmation (default is Yes - press Enter to accept)
-            self.console.print("[bold yellow]Execute these operations?[/bold yellow] [[green]Ok[/green]/n]: ", end="")
+            self.console.print(
+                "[bold yellow]Execute these operations?[/bold yellow] [[green]Ok[/green]/n]: ",
+                end="",
+            )
             try:
                 response = input().strip().lower()
             except (EOFError, KeyboardInterrupt):
@@ -407,7 +389,9 @@ class ToolExecutionContext:
         self.pending_operations = []
         return results
 
-    async def execute(self, tool_name: str, skip_confirmation: bool = False, **kwargs) -> ToolResult:
+    async def execute(
+        self, tool_name: str, skip_confirmation: bool = False, **kwargs
+    ) -> ToolResult:
         """Execute tool with logging and optional confirmation"""
         import time
 
@@ -421,20 +405,22 @@ class ToolExecutionContext:
                 return ToolResult(
                     success=True,
                     output=f"Operation queued for confirmation: {tool_name}",
-                    metadata={"queued": True, "tool": tool_name}
+                    metadata={"queued": True, "tool": tool_name},
                 )
 
         # Execute tool
         result = await self.tool_manager.execute_tool(tool_name, **kwargs)
 
         # Log execution
-        self.execution_log.append({
-            "tool": tool_name,
-            "params": kwargs,
-            "success": result.success,
-            "duration": time.time() - start_time,
-            "error": result.error
-        })
+        self.execution_log.append(
+            {
+                "tool": tool_name,
+                "params": kwargs,
+                "success": result.success,
+                "duration": time.time() - start_time,
+                "error": result.error,
+            }
+        )
 
         return result
 
@@ -450,5 +436,5 @@ class ToolExecutionContext:
             "failed": sum(1 for log in self.execution_log if not log["success"]),
             "total_duration": sum(log["duration"] for log in self.execution_log),
             "tools_used": list(set(log["tool"] for log in self.execution_log)),
-            "pending_operations": len(self.pending_operations)
+            "pending_operations": len(self.pending_operations),
         }

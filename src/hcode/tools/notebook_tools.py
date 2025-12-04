@@ -13,12 +13,14 @@ from .base_tool import BaseTool, ToolResult, ToolParameter, ToolCategory
 
 class CellType(Enum):
     """Jupyter cell types"""
+
     CODE = "code"
     MARKDOWN = "markdown"
 
 
 class EditMode(Enum):
     """Edit modes for notebook cells"""
+
     REPLACE = "replace"
     INSERT = "insert"
     DELETE = "delete"
@@ -41,7 +43,9 @@ class NotebookEditTool(BaseTool):
             ToolParameter("cell_id", "string", "ID of cell to edit", default=None),
             ToolParameter("cell_type", "string", "Type of cell (code or markdown)", default="code"),
             ToolParameter("new_source", "string", "New source for the cell", required=True),
-            ToolParameter("edit_mode", "string", "Edit mode (replace, insert, delete)", default="replace"),
+            ToolParameter(
+                "edit_mode", "string", "Edit mode (replace, insert, delete)", default="replace"
+            ),
         ]
 
     async def execute(
@@ -50,7 +54,7 @@ class NotebookEditTool(BaseTool):
         new_source: str,
         cell_id: Optional[str] = None,
         cell_type: str = "code",
-        edit_mode: str = "replace"
+        edit_mode: str = "replace",
     ) -> ToolResult:
         """Edit notebook cell"""
         try:
@@ -58,21 +62,15 @@ class NotebookEditTool(BaseTool):
 
             if not path.exists():
                 return ToolResult(
-                    success=False,
-                    output=None,
-                    error=f"Notebook not found: {notebook_path}"
+                    success=False, output=None, error=f"Notebook not found: {notebook_path}"
                 )
 
             # Read notebook
-            with open(path, 'r', encoding='utf-8') as f:
+            with open(path, "r", encoding="utf-8") as f:
                 notebook = json.load(f)
 
             if "cells" not in notebook:
-                return ToolResult(
-                    success=False,
-                    output=None,
-                    error="Invalid notebook format"
-                )
+                return ToolResult(success=False, output=None, error="Invalid notebook format")
 
             # Find cell by ID or index
             cell_idx = None
@@ -84,9 +82,7 @@ class NotebookEditTool(BaseTool):
 
                 if cell_idx is None:
                     return ToolResult(
-                        success=False,
-                        output=None,
-                        error=f"Cell not found: {cell_id}"
+                        success=False, output=None, error=f"Cell not found: {cell_id}"
                     )
             else:
                 # Use first cell if no ID specified
@@ -105,7 +101,7 @@ class NotebookEditTool(BaseTool):
                     "cell_type": cell_type,
                     "id": f"new_cell_{len(notebook['cells'])}",
                     "metadata": {},
-                    "source": new_source.splitlines(keepends=True)
+                    "source": new_source.splitlines(keepends=True),
                 }
 
                 if cell_type == "code":
@@ -122,13 +118,11 @@ class NotebookEditTool(BaseTool):
 
             else:
                 return ToolResult(
-                    success=False,
-                    output=None,
-                    error=f"Invalid edit mode: {edit_mode}"
+                    success=False, output=None, error=f"Invalid edit mode: {edit_mode}"
                 )
 
             # Write notebook back
-            with open(path, 'w', encoding='utf-8') as f:
+            with open(path, "w", encoding="utf-8") as f:
                 json.dump(notebook, f, indent=1, ensure_ascii=False)
 
             return ToolResult(
@@ -138,16 +132,12 @@ class NotebookEditTool(BaseTool):
                     "notebook_path": str(path),
                     "cell_index": cell_idx,
                     "edit_mode": edit_mode,
-                    "total_cells": len(notebook["cells"])
-                }
+                    "total_cells": len(notebook["cells"]),
+                },
             )
 
         except json.JSONDecodeError:
-            return ToolResult(
-                success=False,
-                output=None,
-                error="Invalid JSON in notebook file"
-            )
+            return ToolResult(success=False, output=None, error="Invalid JSON in notebook file")
         except Exception as e:
             return ToolResult(success=False, output=None, error=str(e))
 
@@ -169,32 +159,22 @@ class NotebookReadTool(BaseTool):
             ToolParameter("include_outputs", "boolean", "Include cell outputs", default=True),
         ]
 
-    async def execute(
-        self,
-        notebook_path: str,
-        include_outputs: bool = True
-    ) -> ToolResult:
+    async def execute(self, notebook_path: str, include_outputs: bool = True) -> ToolResult:
         """Read notebook contents"""
         try:
             path = Path(notebook_path)
 
             if not path.exists():
                 return ToolResult(
-                    success=False,
-                    output=None,
-                    error=f"Notebook not found: {notebook_path}"
+                    success=False, output=None, error=f"Notebook not found: {notebook_path}"
                 )
 
             # Read notebook
-            with open(path, 'r', encoding='utf-8') as f:
+            with open(path, "r", encoding="utf-8") as f:
                 notebook = json.load(f)
 
             if "cells" not in notebook:
-                return ToolResult(
-                    success=False,
-                    output=None,
-                    error="Invalid notebook format"
-                )
+                return ToolResult(success=False, output=None, error="Invalid notebook format")
 
             # Format output
             output = f"# Notebook: {path.name}\n\n"
@@ -227,16 +207,14 @@ class NotebookReadTool(BaseTool):
                     "notebook_path": str(path),
                     "total_cells": len(notebook["cells"]),
                     "code_cells": sum(1 for c in notebook["cells"] if c.get("cell_type") == "code"),
-                    "markdown_cells": sum(1 for c in notebook["cells"] if c.get("cell_type") == "markdown")
-                }
+                    "markdown_cells": sum(
+                        1 for c in notebook["cells"] if c.get("cell_type") == "markdown"
+                    ),
+                },
             )
 
         except json.JSONDecodeError:
-            return ToolResult(
-                success=False,
-                output=None,
-                error="Invalid JSON in notebook file"
-            )
+            return ToolResult(success=False, output=None, error="Invalid JSON in notebook file")
         except Exception as e:
             return ToolResult(success=False, output=None, error=str(e))
 
@@ -258,65 +236,46 @@ class NotebookExecuteTool(BaseTool):
             ToolParameter("timeout", "integer", "Execution timeout in seconds", default=600),
         ]
 
-    async def execute(
-        self,
-        notebook_path: str,
-        timeout: int = 600
-    ) -> ToolResult:
+    async def execute(self, notebook_path: str, timeout: int = 600) -> ToolResult:
         """Execute notebook"""
         try:
             path = Path(notebook_path)
 
             if not path.exists():
                 return ToolResult(
-                    success=False,
-                    output=None,
-                    error=f"Notebook not found: {notebook_path}"
+                    success=False, output=None, error=f"Notebook not found: {notebook_path}"
                 )
 
             # Use nbconvert to execute
             import subprocess
 
             result = subprocess.run(
-                [
-                    "jupyter", "nbconvert",
-                    "--to", "notebook",
-                    "--execute",
-                    "--inplace",
-                    str(path)
-                ],
+                ["jupyter", "nbconvert", "--to", "notebook", "--execute", "--inplace", str(path)],
                 capture_output=True,
                 text=True,
-                timeout=timeout
+                timeout=timeout,
             )
 
             if result.returncode == 0:
                 return ToolResult(
                     success=True,
                     output="Notebook executed successfully",
-                    metadata={
-                        "notebook_path": str(path),
-                        "execution_time": timeout
-                    }
+                    metadata={"notebook_path": str(path), "execution_time": timeout},
                 )
             else:
                 return ToolResult(
-                    success=False,
-                    output=None,
-                    error=f"Execution failed: {result.stderr}"
+                    success=False, output=None, error=f"Execution failed: {result.stderr}"
                 )
 
         except subprocess.TimeoutExpired:
             return ToolResult(
-                success=False,
-                output=None,
-                error=f"Execution timed out after {timeout} seconds"
+                success=False, output=None, error=f"Execution timed out after {timeout} seconds"
             )
         except FileNotFoundError:
             return ToolResult(
                 success=False,
                 output=None,
-                error="Jupyter not installed. Run: pip install jupyter nbconvert"
+                error="Jupyter not installed. Run: pip install jupyter nbconvert",
             )
         except Exception as e:
             return ToolResult(success=False, output=None, error=str(e))

@@ -20,16 +20,14 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import (
-    Any, Callable, Dict, List, Optional,
-    Set, Tuple, TypeVar, Generic
-)
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple, TypeVar, Generic
 import json
 
 
 # =============================================================================
 # TOKEN COUNTING WITH CACHING
 # =============================================================================
+
 
 class CachedTokenCounter:
     """
@@ -65,6 +63,7 @@ class CachedTokenCounter:
         # Try tiktoken (works for approximating Claude tokens)
         try:
             import tiktoken
+
             # cl100k_base is close to Claude's tokenization
             self._tokenizer = tiktoken.get_encoding("cl100k_base")
             return
@@ -74,6 +73,7 @@ class CachedTokenCounter:
         # Try anthropic tokenizer
         try:
             from anthropic import Anthropic
+
             self._anthropic_client = Anthropic()
             self._tokenizer = "anthropic"
             return
@@ -158,7 +158,7 @@ class CachedTokenCounter:
             "hit_rate": self._hits / total if total > 0 else 0,
             "cache_size": len(self._cache),
             "max_size": self._max_size,
-            "using_tokenizer": self._tokenizer is not None
+            "using_tokenizer": self._tokenizer is not None,
         }
 
     def clear_cache(self):
@@ -183,6 +183,7 @@ def get_token_counter() -> CachedTokenCounter:
 # BATCH CONTEXT WRITER
 # =============================================================================
 
+
 class BatchContextWriter:
     """
     Batches context writes to reduce I/O overhead.
@@ -195,7 +196,7 @@ class BatchContextWriter:
         self,
         flush_threshold: int = 10,
         flush_interval: float = 5.0,
-        write_callback: Optional[Callable[[List[Dict]], None]] = None
+        write_callback: Optional[Callable[[List[Dict]], None]] = None,
     ):
         """
         Initialize batch writer.
@@ -276,7 +277,7 @@ class BatchContextWriter:
             "buffered": len(self._buffer),
             "total_messages": self._message_count,
             "flush_count": self._flush_count,
-            "avg_batch_size": self._message_count / max(1, self._flush_count)
+            "avg_batch_size": self._message_count / max(1, self._flush_count),
         }
 
 
@@ -296,9 +297,11 @@ def get_context_writer() -> BatchContextWriter:
 # PARALLEL TOOL EXECUTOR
 # =============================================================================
 
+
 @dataclass
 class ToolCall:
     """Represents a tool call request"""
+
     tool_name: str
     parameters: Dict[str, Any]
     call_id: str = ""
@@ -313,6 +316,7 @@ class ToolCall:
 @dataclass
 class ToolResult:
     """Result of a tool execution"""
+
     call_id: str
     tool_name: str
     success: bool
@@ -370,10 +374,7 @@ class ParallelToolExecutor:
             self._file_locks[file_path] = asyncio.Lock()
         return self._file_locks[file_path]
 
-    def _group_by_independence(
-        self,
-        calls: List[ToolCall]
-    ) -> List[List[ToolCall]]:
+    def _group_by_independence(self, calls: List[ToolCall]) -> List[List[ToolCall]]:
         """
         Group tool calls by independence.
 
@@ -428,9 +429,7 @@ class ParallelToolExecutor:
                             call.tool_name, **call.parameters
                         )
                 else:
-                    result = await self.tool_manager.execute_tool(
-                        call.tool_name, **call.parameters
-                    )
+                    result = await self.tool_manager.execute_tool(call.tool_name, **call.parameters)
 
             duration_ms = int((time.time() - start_time) * 1000)
 
@@ -440,7 +439,7 @@ class ParallelToolExecutor:
                 success=result.success,
                 output=result.output,
                 error=result.error,
-                duration_ms=duration_ms
+                duration_ms=duration_ms,
             )
 
         except Exception as e:
@@ -451,13 +450,10 @@ class ParallelToolExecutor:
                 success=False,
                 output=None,
                 error=str(e),
-                duration_ms=duration_ms
+                duration_ms=duration_ms,
             )
 
-    async def execute_parallel(
-        self,
-        calls: List[ToolCall]
-    ) -> List[ToolResult]:
+    async def execute_parallel(self, calls: List[ToolCall]) -> List[ToolResult]:
         """
         Execute tool calls with maximum parallelism.
 
@@ -490,9 +486,9 @@ class ParallelToolExecutor:
                 sequential_estimate += result.duration_ms
             else:
                 # Execute group in parallel
-                group_results = await asyncio.gather(*[
-                    self._execute_single(call) for call in group
-                ])
+                group_results = await asyncio.gather(
+                    *[self._execute_single(call) for call in group]
+                )
 
                 for result in group_results:
                     results_map[result.call_id] = result
@@ -510,7 +506,7 @@ class ParallelToolExecutor:
             "total_calls": self._total_calls,
             "parallel_batches": self._parallel_batches,
             "time_saved_ms": self._time_saved_ms,
-            "avg_parallelism": self._total_calls / max(1, self._parallel_batches)
+            "avg_parallelism": self._total_calls / max(1, self._parallel_batches),
         }
 
 
@@ -518,9 +514,11 @@ class ParallelToolExecutor:
 # TOOL RESULT CACHE
 # =============================================================================
 
+
 @dataclass
 class CachedResult:
     """Cached tool result with metadata"""
+
     result: Any
     timestamp: float
     hit_count: int = 0
@@ -638,16 +636,12 @@ class ToolResultCache:
                 self._file_mtimes[file_path] = self._get_file_mtime(file_path)
 
             # Add to cache
-            self._cache[key] = CachedResult(
-                result=result,
-                timestamp=time.time()
-            )
+            self._cache[key] = CachedResult(result=result, timestamp=time.time())
 
             # Evict oldest if over capacity
             while len(self._cache) > self._max_size:
                 # Remove least recently used (lowest hit count)
-                min_key = min(self._cache.keys(),
-                             key=lambda k: self._cache[k].hit_count)
+                min_key = min(self._cache.keys(), key=lambda k: self._cache[k].hit_count)
                 del self._cache[min_key]
 
     def invalidate_file(self, file_path: str):
@@ -684,7 +678,7 @@ class ToolResultCache:
             "misses": self._misses,
             "hit_rate": self._hits / total if total > 0 else 0,
             "cache_size": len(self._cache),
-            "tracked_files": len(self._file_mtimes)
+            "tracked_files": len(self._file_mtimes),
         }
 
 
@@ -692,8 +686,10 @@ class ToolResultCache:
 # EXECUTION STATE MACHINE
 # =============================================================================
 
+
 class ExecutionState(Enum):
     """States in the execution state machine"""
+
     IDLE = "idle"
     PLANNING = "planning"
     EXECUTING = "executing"
@@ -707,6 +703,7 @@ class ExecutionState(Enum):
 @dataclass
 class StateTransition:
     """A state transition record"""
+
     from_state: ExecutionState
     to_state: ExecutionState
     trigger: str
@@ -723,40 +720,37 @@ class ExecutionStateMachine:
 
     # Valid state transitions
     TRANSITIONS = {
-        ExecutionState.IDLE: {
-            ExecutionState.PLANNING,
-            ExecutionState.FAILED
-        },
+        ExecutionState.IDLE: {ExecutionState.PLANNING, ExecutionState.FAILED},
         ExecutionState.PLANNING: {
             ExecutionState.EXECUTING,
             ExecutionState.AWAITING_INPUT,
-            ExecutionState.FAILED
+            ExecutionState.FAILED,
         },
         ExecutionState.EXECUTING: {
             ExecutionState.VERIFYING,
             ExecutionState.RECOVERING,
             ExecutionState.AWAITING_INPUT,
-            ExecutionState.FAILED
+            ExecutionState.FAILED,
         },
         ExecutionState.VERIFYING: {
             ExecutionState.COMPLETED,
             ExecutionState.EXECUTING,
             ExecutionState.RECOVERING,
-            ExecutionState.FAILED
+            ExecutionState.FAILED,
         },
         ExecutionState.RECOVERING: {
             ExecutionState.PLANNING,
             ExecutionState.EXECUTING,
-            ExecutionState.FAILED
+            ExecutionState.FAILED,
         },
         ExecutionState.AWAITING_INPUT: {
             ExecutionState.PLANNING,
             ExecutionState.EXECUTING,
             ExecutionState.COMPLETED,
-            ExecutionState.FAILED
+            ExecutionState.FAILED,
         },
         ExecutionState.COMPLETED: set(),
-        ExecutionState.FAILED: set()
+        ExecutionState.FAILED: set(),
     }
 
     def __init__(self):
@@ -807,11 +801,7 @@ class ExecutionStateMachine:
         if not self.can_transition(to_state):
             return False
 
-        transition = StateTransition(
-            from_state=self._state,
-            to_state=to_state,
-            trigger=trigger
-        )
+        transition = StateTransition(from_state=self._state, to_state=to_state, trigger=trigger)
         self._history.append(transition)
         self._state = to_state
         self._iteration_count += 1
@@ -841,7 +831,7 @@ class ExecutionStateMachine:
             "error_count": self._error_count,
             "is_terminal": self.is_terminal,
             "should_continue": self.should_continue,
-            "transition_count": len(self._history)
+            "transition_count": len(self._history),
         }
 
     def get_history(self) -> List[Dict[str, Any]]:
@@ -851,7 +841,7 @@ class ExecutionStateMachine:
                 "from": t.from_state.value,
                 "to": t.to_state.value,
                 "trigger": t.trigger,
-                "timestamp": t.timestamp.isoformat()
+                "timestamp": t.timestamp.isoformat(),
             }
             for t in self._history
         ]
@@ -860,6 +850,7 @@ class ExecutionStateMachine:
 # =============================================================================
 # SMART CONTEXT OPTIMIZER
 # =============================================================================
+
 
 class SmartContextOptimizer:
     """
@@ -874,7 +865,7 @@ class SmartContextOptimizer:
     def __init__(
         self,
         token_counter: CachedTokenCounter,
-        summarizer: Optional[Callable[[List[Dict]], str]] = None
+        summarizer: Optional[Callable[[List[Dict]], str]] = None,
     ):
         """
         Initialize optimizer.
@@ -939,10 +930,7 @@ class SmartContextOptimizer:
         return compressed
 
     def optimize(
-        self,
-        messages: List[Dict],
-        max_tokens: int,
-        preserve_recent: int = 10
+        self, messages: List[Dict], max_tokens: int, preserve_recent: int = 10
     ) -> List[Dict]:
         """
         Optimize messages to fit within token limit.
@@ -987,8 +975,7 @@ class SmartContextOptimizer:
         # Strategy 3: Drop by importance
         total = len(messages)
         scored = [
-            (self._calculate_importance(msg, i, total), i, msg)
-            for i, msg in enumerate(messages)
+            (self._calculate_importance(msg, i, total), i, msg) for i, msg in enumerate(messages)
         ]
 
         # Sort by importance (keep highest)
@@ -1018,23 +1005,18 @@ __all__ = [
     # Token counting
     "CachedTokenCounter",
     "get_token_counter",
-
     # Batch writing
     "BatchContextWriter",
     "get_context_writer",
-
     # Parallel execution
     "ToolCall",
     "ToolResult",
     "ParallelToolExecutor",
-
     # Result caching
     "ToolResultCache",
-
     # State machine
     "ExecutionState",
     "ExecutionStateMachine",
-
     # Context optimization
     "SmartContextOptimizer",
 ]

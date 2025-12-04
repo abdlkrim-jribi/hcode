@@ -26,31 +26,29 @@ class ReadTool(BaseTool):
 
     def get_parameters(self) -> List[ToolParameter]:
         return [
-            ToolParameter("file_path", "string", "Absolute path to the file to read", required=True),
-            ToolParameter("offset", "integer", "Line number to start reading from (1-indexed)", default=1),
+            ToolParameter(
+                "file_path", "string", "Absolute path to the file to read", required=True
+            ),
+            ToolParameter(
+                "offset", "integer", "Line number to start reading from (1-indexed)", default=1
+            ),
             ToolParameter("limit", "integer", "Number of lines to read", default=None),
         ]
 
-    async def execute(self, file_path: str, offset: int = 1, limit: Optional[int] = None, **kwargs) -> ToolResult:
+    async def execute(
+        self, file_path: str, offset: int = 1, limit: Optional[int] = None, **kwargs
+    ) -> ToolResult:
         """Read file contents with line numbers"""
         try:
             path = Path(file_path)
 
             if not path.exists():
-                return ToolResult(
-                    success=False,
-                    output=None,
-                    error=f"File not found: {file_path}"
-                )
+                return ToolResult(success=False, output=None, error=f"File not found: {file_path}")
 
             if not path.is_file():
-                return ToolResult(
-                    success=False,
-                    output=None,
-                    error=f"Not a file: {file_path}"
-                )
+                return ToolResult(success=False, output=None, error=f"Not a file: {file_path}")
 
-            with open(path, 'r', encoding='utf-8', errors='ignore') as f:
+            with open(path, "r", encoding="utf-8", errors="ignore") as f:
                 lines = f.readlines()
 
             # Apply offset and limit
@@ -70,8 +68,8 @@ class ReadTool(BaseTool):
                     "file_path": str(path),
                     "total_lines": len(lines),
                     "lines_read": len(selected_lines),
-                    "offset": offset
-                }
+                    "offset": offset,
+                },
             )
 
         except Exception as e:
@@ -93,7 +91,12 @@ class WriteTool(BaseTool):
     # Class-level tracking of partial writes for continuation
     _partial_writes: Dict[str, str] = {}
 
-    def __init__(self, root_dir: Optional[str] = None, preview_mode: bool = False, console: Optional[Any] = None):
+    def __init__(
+        self,
+        root_dir: Optional[str] = None,
+        preview_mode: bool = False,
+        console: Optional[Any] = None,
+    ):
         super().__init__()
         self.category = ToolCategory.FILE_OPERATION
         self.root_dir = Path(root_dir or os.getcwd())
@@ -105,9 +108,24 @@ class WriteTool(BaseTool):
         return [
             ToolParameter("file_path", "string", "Absolute path to write to", required=True),
             ToolParameter("content", "string", "Content to write", required=True),
-            ToolParameter("mode", "string", "Write mode: 'overwrite' (default) or 'append' for chunked writes", default="overwrite"),
-            ToolParameter("is_partial", "boolean", "Indicates this is partial content that may be continued", default=False),
-            ToolParameter("preview", "boolean", "Preview changes before applying (requires approval)", default=False),
+            ToolParameter(
+                "mode",
+                "string",
+                "Write mode: 'overwrite' (default) or 'append' for chunked writes",
+                default="overwrite",
+            ),
+            ToolParameter(
+                "is_partial",
+                "boolean",
+                "Indicates this is partial content that may be continued",
+                default=False,
+            ),
+            ToolParameter(
+                "preview",
+                "boolean",
+                "Preview changes before applying (requires approval)",
+                default=False,
+            ),
         ]
 
     def _validate_content(self, content: str, file_path: str) -> List[str]:
@@ -119,17 +137,19 @@ class WriteTool(BaseTool):
         issues = []
 
         # Check for escaped newlines that should be actual newlines
-        if '\\n' in content and '\n' not in content:
-            issues.append("Content contains escaped newlines (\\n) but no actual newlines - may be incorrectly escaped")
+        if "\\n" in content and "\n" not in content:
+            issues.append(
+                "Content contains escaped newlines (\\n) but no actual newlines - may be incorrectly escaped"
+            )
 
         # Check for Python syntax issues (basic check for .py files)
-        if file_path.endswith('.py'):
+        if file_path.endswith(".py"):
             # Check for obvious syntax issues
-            if content.count('(') != content.count(')'):
+            if content.count("(") != content.count(")"):
                 issues.append("Mismatched parentheses")
-            if content.count('[') != content.count(']'):
+            if content.count("[") != content.count("]"):
                 issues.append("Mismatched brackets")
-            if content.count('{') != content.count('}'):
+            if content.count("{") != content.count("}"):
                 issues.append("Mismatched braces")
 
             # Check for triple-quoted strings being properly closed
@@ -155,26 +175,25 @@ class WriteTool(BaseTool):
         # Check for common truncation indicators
         truncation_indicators = [
             # Ends with incomplete syntax
-            (content.rstrip().endswith(','), "ends with trailing comma"),
-            (content.rstrip().endswith('{'), "ends with open brace"),
-            (content.rstrip().endswith('['), "ends with open bracket"),
-            (content.rstrip().endswith(':'), "ends with colon"),
-            (content.rstrip().endswith('\\'), "ends with backslash"),
-
+            (content.rstrip().endswith(","), "ends with trailing comma"),
+            (content.rstrip().endswith("{"), "ends with open brace"),
+            (content.rstrip().endswith("["), "ends with open bracket"),
+            (content.rstrip().endswith(":"), "ends with colon"),
+            (content.rstrip().endswith("\\"), "ends with backslash"),
             # Unclosed brackets/braces (for code files)
-            (content.count('{') > content.count('}'), "unclosed braces"),
-            (content.count('[') > content.count(']'), "unclosed brackets"),
-            (content.count('(') > content.count(')'), "unclosed parentheses"),
-
+            (content.count("{") > content.count("}"), "unclosed braces"),
+            (content.count("[") > content.count("]"), "unclosed brackets"),
+            (content.count("(") > content.count(")"), "unclosed parentheses"),
             # Unclosed quotes
             (content.count('"') % 2 == 1, "unclosed double quotes"),
-
             # Unclosed code blocks (for markdown)
-            (content.count('```') % 2 == 1, "unclosed code block"),
-
+            (content.count("```") % 2 == 1, "unclosed code block"),
             # HTML/XML unclosed tags (basic check)
-            (file_path.endswith(('.html', '.xml', '.htm')) and
-             content.count('<') > content.count('>'), "unclosed HTML tags"),
+            (
+                file_path.endswith((".html", ".xml", ".htm"))
+                and content.count("<") > content.count(">"),
+                "unclosed HTML tags",
+            ),
         ]
 
         for is_truncated, reason in truncation_indicators:
@@ -190,7 +209,7 @@ class WriteTool(BaseTool):
         mode: str = "overwrite",
         is_partial: bool = False,
         preview: bool = False,
-        **kwargs
+        **kwargs,
     ) -> ToolResult:
         """
         Write content to file with validation and robustness features.
@@ -216,7 +235,7 @@ class WriteTool(BaseTool):
                 # Append to existing file or partial write buffer
                 existing_content = ""
                 if path.exists():
-                    with open(path, 'r', encoding='utf-8', errors='ignore') as f:
+                    with open(path, "r", encoding="utf-8", errors="ignore") as f:
                         existing_content = f.read()
                 elif file_key in self._partial_writes:
                     existing_content = self._partial_writes[file_key]
@@ -228,6 +247,7 @@ class WriteTool(BaseTool):
             if issues:
                 # Log warnings but still proceed
                 import sys
+
                 for issue in issues:
                     print(f"Warning: {issue}", file=sys.stderr)
 
@@ -242,12 +262,12 @@ class WriteTool(BaseTool):
             path.parent.mkdir(parents=True, exist_ok=True)
 
             # Write file
-            with open(path, 'w', encoding='utf-8') as f:
+            with open(path, "w", encoding="utf-8") as f:
                 f.write(content)
 
             # Verify the file was written correctly
             try:
-                with open(path, 'r', encoding='utf-8') as f:
+                with open(path, "r", encoding="utf-8") as f:
                     written_content = f.read()
 
                 if written_content != content:
@@ -257,7 +277,7 @@ class WriteTool(BaseTool):
                 issues.append(f"File verification skipped: {verify_error}")
 
             # Count lines for info
-            line_count = content.count('\n') + 1
+            line_count = content.count("\n") + 1
 
             # Clear partial write buffer on successful full write
             if not is_partial and not is_truncated and file_key in self._partial_writes:
@@ -275,14 +295,14 @@ class WriteTool(BaseTool):
                 output=result_msg,
                 metadata={
                     "file_path": str(path),
-                    "bytes_written": len(content.encode('utf-8')),
+                    "bytes_written": len(content.encode("utf-8")),
                     "line_count": line_count,
                     "warnings": issues if issues else None,
                     "verified": True,
                     "is_truncated": is_truncated,
                     "truncation_reason": truncation_reason if is_truncated else None,
-                    "mode": mode
-                }
+                    "mode": mode,
+                },
             )
 
         except Exception as e:
@@ -295,11 +315,7 @@ class WriteTool(BaseTool):
             return ToolResult(success=False, output=None, error=str(e))
 
     async def _execute_with_preview(
-        self,
-        file_path: str,
-        content: str,
-        mode: str = "overwrite",
-        is_partial: bool = False
+        self, file_path: str, content: str, mode: str = "overwrite", is_partial: bool = False
     ) -> ToolResult:
         """Execute write with preview mode - shows diff before applying"""
         from .diff_tools import ChangeProposal, ChangeOperation
@@ -309,7 +325,7 @@ class WriteTool(BaseTool):
         # Get existing content
         old_content = ""
         if path.exists():
-            with open(path, 'r', encoding='utf-8', errors='ignore') as f:
+            with open(path, "r", encoding="utf-8", errors="ignore") as f:
                 old_content = f.read()
 
         # Handle append mode
@@ -324,7 +340,7 @@ class WriteTool(BaseTool):
             file_path=str(path),
             operation=operation,
             old_content=old_content,
-            new_content=final_content
+            new_content=final_content,
         )
 
         # Compute diff and analyze
@@ -340,8 +356,8 @@ class WriteTool(BaseTool):
         return ToolResult(
             success=True,
             output=f"Preview generated for: {path}\nProposal ID: {proposal.id}\n"
-                   f"+{proposal.additions} additions, -{proposal.deletions} deletions\n"
-                   f"Use apply_proposal('{proposal.id}') to apply this change.",
+            f"+{proposal.additions} additions, -{proposal.deletions} deletions\n"
+            f"Use apply_proposal('{proposal.id}') to apply this change.",
             metadata={
                 "proposal_id": proposal.id,
                 "preview_mode": True,
@@ -350,8 +366,8 @@ class WriteTool(BaseTool):
                 "additions": proposal.additions,
                 "deletions": proposal.deletions,
                 "warnings": len(proposal.safety_warnings),
-                "has_critical": proposal.has_critical_warnings()
-            }
+                "has_critical": proposal.has_critical_warnings(),
+            },
         )
 
     def _display_preview(self, proposal) -> None:
@@ -370,7 +386,7 @@ class WriteTool(BaseTool):
                 old_content=proposal.old_content,
                 new_content=proposal.new_content,
                 context_lines=3,
-                show_stats=True
+                show_stats=True,
             )
             self._console.print(diff_panel)
 
@@ -396,23 +412,21 @@ class WriteTool(BaseTool):
         proposal = self._pending_proposals.get(proposal_id)
         if not proposal:
             return ToolResult(
-                success=False,
-                output=None,
-                error=f"No pending proposal with ID: {proposal_id}"
+                success=False, output=None, error=f"No pending proposal with ID: {proposal_id}"
             )
 
         if proposal.has_critical_warnings() and not force:
             return ToolResult(
                 success=False,
                 output=None,
-                error="Critical warnings present. Use force=True to override."
+                error="Critical warnings present. Use force=True to override.",
             )
 
         # Apply the change
         path = Path(proposal.file_path)
         path.parent.mkdir(parents=True, exist_ok=True)
 
-        with open(path, 'w', encoding='utf-8') as f:
+        with open(path, "w", encoding="utf-8") as f:
             f.write(proposal.new_content)
 
         # Clean up
@@ -421,7 +435,7 @@ class WriteTool(BaseTool):
         return ToolResult(
             success=True,
             output=f"Change applied: {proposal.file_path} (+{proposal.additions}/-{proposal.deletions})",
-            metadata={"applied": True, "proposal_id": proposal_id}
+            metadata={"applied": True, "proposal_id": proposal_id},
         )
 
     @classmethod
@@ -458,7 +472,12 @@ class EditTool(BaseTool):
     Supports preview mode for reviewing changes before applying.
     """
 
-    def __init__(self, root_dir: Optional[str] = None, console: Optional[Any] = None, preview_mode: bool = False):
+    def __init__(
+        self,
+        root_dir: Optional[str] = None,
+        console: Optional[Any] = None,
+        preview_mode: bool = False,
+    ):
         super().__init__()
         self.category = ToolCategory.FILE_OPERATION
         self.root_dir = Path(root_dir or os.getcwd())
@@ -473,7 +492,12 @@ class EditTool(BaseTool):
             ToolParameter("old_string", "string", "Exact string to replace", required=True),
             ToolParameter("new_string", "string", "Replacement string", required=True),
             ToolParameter("replace_all", "boolean", "Replace all occurrences", default=False),
-            ToolParameter("preview", "boolean", "Preview changes before applying (requires approval)", default=False),
+            ToolParameter(
+                "preview",
+                "boolean",
+                "Preview changes before applying (requires approval)",
+                default=False,
+            ),
         ]
 
     def _show_diff(self, file_path: str, old_content: str, new_content: str) -> str:
@@ -490,7 +514,7 @@ class EditTool(BaseTool):
                 old_content=old_content,
                 new_content=new_content,
                 context_lines=3,
-                show_stats=True
+                show_stats=True,
             )
 
             # Display the diff
@@ -498,16 +522,23 @@ class EditTool(BaseTool):
 
             # Also return a text summary
             import difflib
-            diff_lines = list(difflib.unified_diff(
-                old_content.splitlines(keepends=True),
-                new_content.splitlines(keepends=True),
-                fromfile='before',
-                tofile='after',
-                lineterm=''
-            ))
 
-            additions = sum(1 for line in diff_lines if line.startswith('+') and not line.startswith('+++'))
-            deletions = sum(1 for line in diff_lines if line.startswith('-') and not line.startswith('---'))
+            diff_lines = list(
+                difflib.unified_diff(
+                    old_content.splitlines(keepends=True),
+                    new_content.splitlines(keepends=True),
+                    fromfile="before",
+                    tofile="after",
+                    lineterm="",
+                )
+            )
+
+            additions = sum(
+                1 for line in diff_lines if line.startswith("+") and not line.startswith("+++")
+            )
+            deletions = sum(
+                1 for line in diff_lines if line.startswith("-") and not line.startswith("---")
+            )
 
             return f"+{additions} -{deletions}"
 
@@ -524,7 +555,7 @@ class EditTool(BaseTool):
         new_string: str,
         replace_all: bool = False,
         preview: bool = False,
-        **kwargs  # Accept and ignore unknown parameters for model compatibility
+        **kwargs,  # Accept and ignore unknown parameters for model compatibility
     ) -> ToolResult:
         """Edit file by replacing old_string with new_string"""
         try:
@@ -539,14 +570,10 @@ class EditTool(BaseTool):
             path = Path(file_path)
 
             if not path.exists():
-                return ToolResult(
-                    success=False,
-                    output=None,
-                    error=f"File not found: {file_path}"
-                )
+                return ToolResult(success=False, output=None, error=f"File not found: {file_path}")
 
             # Read file
-            with open(path, 'r', encoding='utf-8') as f:
+            with open(path, "r", encoding="utf-8") as f:
                 content = f.read()
 
             # Store original content for diff
@@ -557,7 +584,7 @@ class EditTool(BaseTool):
                 return ToolResult(
                     success=False,
                     output=None,
-                    error=f"String not found in file: {old_string[:100]}..."
+                    error=f"String not found in file: {old_string[:100]}...",
                 )
 
             # Check if replacement would be ambiguous
@@ -565,7 +592,7 @@ class EditTool(BaseTool):
                 return ToolResult(
                     success=False,
                     output=None,
-                    error=f"String appears {content.count(old_string)} times. Use replace_all=True or provide more context."
+                    error=f"String appears {content.count(old_string)} times. Use replace_all=True or provide more context.",
                 )
 
             # Perform replacement
@@ -577,7 +604,7 @@ class EditTool(BaseTool):
                 replacements = 1
 
             # Write back
-            with open(path, 'w', encoding='utf-8') as f:
+            with open(path, "w", encoding="utf-8") as f:
                 f.write(new_content)
 
             # Show diff
@@ -591,19 +618,15 @@ class EditTool(BaseTool):
                     "replacements": replacements,
                     "old_length": len(old_string),
                     "new_length": len(new_string),
-                    "diff_summary": diff_summary
-                }
+                    "diff_summary": diff_summary,
+                },
             )
 
         except Exception as e:
             return ToolResult(success=False, output=None, error=str(e))
 
     async def _execute_with_preview(
-        self,
-        file_path: str,
-        old_string: str,
-        new_string: str,
-        replace_all: bool = False
+        self, file_path: str, old_string: str, new_string: str, replace_all: bool = False
     ) -> ToolResult:
         """Execute edit with preview mode - shows diff before applying"""
         from .diff_tools import ChangeProposal, ChangeOperation
@@ -611,14 +634,10 @@ class EditTool(BaseTool):
         path = Path(file_path)
 
         if not path.exists():
-            return ToolResult(
-                success=False,
-                output=None,
-                error=f"File not found: {file_path}"
-            )
+            return ToolResult(success=False, output=None, error=f"File not found: {file_path}")
 
         # Read file
-        with open(path, 'r', encoding='utf-8') as f:
+        with open(path, "r", encoding="utf-8") as f:
             content = f.read()
 
         # Store original content
@@ -627,9 +646,7 @@ class EditTool(BaseTool):
         # Check if old_string exists
         if old_string not in content:
             return ToolResult(
-                success=False,
-                output=None,
-                error=f"String not found in file: {old_string[:100]}..."
+                success=False, output=None, error=f"String not found in file: {old_string[:100]}..."
             )
 
         # Check if replacement would be ambiguous
@@ -637,7 +654,7 @@ class EditTool(BaseTool):
             return ToolResult(
                 success=False,
                 output=None,
-                error=f"String appears {content.count(old_string)} times. Use replace_all=True or provide more context."
+                error=f"String appears {content.count(old_string)} times. Use replace_all=True or provide more context.",
             )
 
         # Perform replacement (in memory only)
@@ -656,7 +673,7 @@ class EditTool(BaseTool):
             new_content=new_content,
             old_string=old_string,
             new_string=new_string,
-            replace_all=replace_all
+            replace_all=replace_all,
         )
 
         # Compute diff and analyze
@@ -672,9 +689,9 @@ class EditTool(BaseTool):
         return ToolResult(
             success=True,
             output=f"Preview generated for: {path}\nProposal ID: {proposal.id}\n"
-                   f"Replacing {replacements} occurrence(s)\n"
-                   f"+{proposal.additions} additions, -{proposal.deletions} deletions\n"
-                   f"Use apply_proposal('{proposal.id}') to apply this change.",
+            f"Replacing {replacements} occurrence(s)\n"
+            f"+{proposal.additions} additions, -{proposal.deletions} deletions\n"
+            f"Use apply_proposal('{proposal.id}') to apply this change.",
             metadata={
                 "proposal_id": proposal.id,
                 "preview_mode": True,
@@ -684,8 +701,8 @@ class EditTool(BaseTool):
                 "additions": proposal.additions,
                 "deletions": proposal.deletions,
                 "warnings": len(proposal.safety_warnings),
-                "has_critical": proposal.has_critical_warnings()
-            }
+                "has_critical": proposal.has_critical_warnings(),
+            },
         )
 
     def _display_preview(self, proposal) -> None:
@@ -703,7 +720,7 @@ class EditTool(BaseTool):
                 old_content=proposal.old_content,
                 new_content=proposal.new_content,
                 context_lines=3,
-                show_stats=True
+                show_stats=True,
             )
             self._console.print(diff_panel)
 
@@ -729,21 +746,19 @@ class EditTool(BaseTool):
         proposal = self._pending_proposals.get(proposal_id)
         if not proposal:
             return ToolResult(
-                success=False,
-                output=None,
-                error=f"No pending proposal with ID: {proposal_id}"
+                success=False, output=None, error=f"No pending proposal with ID: {proposal_id}"
             )
 
         if proposal.has_critical_warnings() and not force:
             return ToolResult(
                 success=False,
                 output=None,
-                error="Critical warnings present. Use force=True to override."
+                error="Critical warnings present. Use force=True to override.",
             )
 
         # Apply the change
         path = Path(proposal.file_path)
-        with open(path, 'w', encoding='utf-8') as f:
+        with open(path, "w", encoding="utf-8") as f:
             f.write(proposal.new_content)
 
         # Show diff after applying
@@ -755,7 +770,7 @@ class EditTool(BaseTool):
         return ToolResult(
             success=True,
             output=f"Change applied: {proposal.file_path} (+{proposal.additions}/-{proposal.deletions}) ({diff_summary})",
-            metadata={"applied": True, "proposal_id": proposal_id}
+            metadata={"applied": True, "proposal_id": proposal_id},
         )
 
 
@@ -785,20 +800,27 @@ class MultiEditTool(BaseTool):
                 old_content=old_content,
                 new_content=new_content,
                 context_lines=3,
-                show_stats=True
+                show_stats=True,
             )
 
             display_console.print(diff_panel)
 
             import difflib
-            diff_lines = list(difflib.unified_diff(
-                old_content.splitlines(keepends=True),
-                new_content.splitlines(keepends=True),
-                lineterm=''
-            ))
 
-            additions = sum(1 for line in diff_lines if line.startswith('+') and not line.startswith('+++'))
-            deletions = sum(1 for line in diff_lines if line.startswith('-') and not line.startswith('---'))
+            diff_lines = list(
+                difflib.unified_diff(
+                    old_content.splitlines(keepends=True),
+                    new_content.splitlines(keepends=True),
+                    lineterm="",
+                )
+            )
+
+            additions = sum(
+                1 for line in diff_lines if line.startswith("+") and not line.startswith("+++")
+            )
+            deletions = sum(
+                1 for line in diff_lines if line.startswith("-") and not line.startswith("---")
+            )
 
             return f"+{additions} -{deletions}"
 
@@ -810,16 +832,13 @@ class MultiEditTool(BaseTool):
     def get_parameters(self) -> List[ToolParameter]:
         return [
             ToolParameter(
-                name="file_path",
-                type="string",
-                description="Absolute path to file",
-                required=True
+                name="file_path", type="string", description="Absolute path to file", required=True
             ),
             ToolParameter(
                 name="edits",
                 type="array",
                 description="Array of edit objects with old_string, new_string, and optional replace_all",
-                required=True
+                required=True,
             ),
         ]
 
@@ -829,14 +848,10 @@ class MultiEditTool(BaseTool):
             path = Path(file_path)
 
             if not path.exists():
-                return ToolResult(
-                    success=False,
-                    output=None,
-                    error=f"File not found: {file_path}"
-                )
+                return ToolResult(success=False, output=None, error=f"File not found: {file_path}")
 
             # Read file once
-            with open(path, 'r', encoding='utf-8') as f:
+            with open(path, "r", encoding="utf-8") as f:
                 content = f.read()
 
             original_content = content
@@ -853,7 +868,7 @@ class MultiEditTool(BaseTool):
                     return ToolResult(
                         success=False,
                         output=None,
-                        error=f"Edit {i+1}: old_string and new_string are required"
+                        error=f"Edit {i+1}: old_string and new_string are required",
                     )
 
                 # Check if old_string exists
@@ -861,7 +876,7 @@ class MultiEditTool(BaseTool):
                     return ToolResult(
                         success=False,
                         output=None,
-                        error=f"Edit {i+1}: String not found in file: {old_string[:100]}..."
+                        error=f"Edit {i+1}: String not found in file: {old_string[:100]}...",
                     )
 
                 # Check if replacement would be ambiguous
@@ -870,7 +885,7 @@ class MultiEditTool(BaseTool):
                     return ToolResult(
                         success=False,
                         output=None,
-                        error=f"Edit {i+1}: String appears {count} times. Use replace_all=true or provide more context."
+                        error=f"Edit {i+1}: String appears {count} times. Use replace_all=true or provide more context.",
                     )
 
                 # Perform replacement
@@ -882,16 +897,18 @@ class MultiEditTool(BaseTool):
                     replacements = 1
 
                 total_replacements += replacements
-                edit_results.append({
-                    "edit_number": i + 1,
-                    "replacements": replacements,
-                    "old_length": len(old_string),
-                    "new_length": len(new_string)
-                })
+                edit_results.append(
+                    {
+                        "edit_number": i + 1,
+                        "replacements": replacements,
+                        "old_length": len(old_string),
+                        "new_length": len(new_string),
+                    }
+                )
 
             # Write back only if changes were made
             if content != original_content:
-                with open(path, 'w', encoding='utf-8') as f:
+                with open(path, "w", encoding="utf-8") as f:
                     f.write(content)
 
                 # Show diff
@@ -905,18 +922,14 @@ class MultiEditTool(BaseTool):
                         "total_edits": len(edits),
                         "total_replacements": total_replacements,
                         "edit_results": edit_results,
-                        "diff_summary": diff_summary
-                    }
+                        "diff_summary": diff_summary,
+                    },
                 )
             else:
                 return ToolResult(
                     success=True,
                     output="No changes were needed.",
-                    metadata={
-                        "file_path": str(path),
-                        "total_edits": 0,
-                        "total_replacements": 0
-                    }
+                    metadata={"file_path": str(path), "total_edits": 0, "total_replacements": 0},
                 )
 
         except Exception as e:
@@ -946,9 +959,7 @@ class GlobTool(BaseTool):
 
             if not search_dir.exists():
                 return ToolResult(
-                    success=False,
-                    output=None,
-                    error=f"Directory not found: {search_dir}"
+                    success=False, output=None, error=f"Directory not found: {search_dir}"
                 )
 
             # Find matching files
@@ -974,8 +985,8 @@ class GlobTool(BaseTool):
                 metadata={
                     "pattern": pattern,
                     "search_dir": str(search_dir),
-                    "matches": len(relative_matches)
-                }
+                    "matches": len(relative_matches),
+                },
             )
 
         except Exception as e:
@@ -998,7 +1009,12 @@ class GrepTool(BaseTool):
             ToolParameter("path", "string", "File or directory to search", default=None),
             ToolParameter("glob", "string", "Glob pattern to filter files", default=None),
             ToolParameter("case_insensitive", "boolean", "Case insensitive search", default=False),
-            ToolParameter("output_mode", "string", "Output mode: content, files_with_matches, count", default="files_with_matches"),
+            ToolParameter(
+                "output_mode",
+                "string",
+                "Output mode: content, files_with_matches, count",
+                default="files_with_matches",
+            ),
             ToolParameter("context_before", "integer", "Lines of context before match", default=0),
             ToolParameter("context_after", "integer", "Lines of context after match", default=0),
         ]
@@ -1012,7 +1028,7 @@ class GrepTool(BaseTool):
         output_mode: str = "files_with_matches",
         context_before: int = 0,
         context_after: int = 0,
-        **kwargs  # Accept and ignore unknown parameters for model compatibility
+        **kwargs,  # Accept and ignore unknown parameters for model compatibility
     ) -> ToolResult:
         """Search for pattern in files"""
         import re
@@ -1039,13 +1055,13 @@ class GrepTool(BaseTool):
             # Search in files
             for file_path in files_to_search:
                 # Skip binary files and common ignore patterns
-                if any(part.startswith('.') for part in file_path.parts):
+                if any(part.startswith(".") for part in file_path.parts):
                     continue
-                if 'node_modules' in file_path.parts or '__pycache__' in file_path.parts:
+                if "node_modules" in file_path.parts or "__pycache__" in file_path.parts:
                     continue
 
                 try:
-                    with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                    with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
                         lines = f.readlines()
 
                     matches_in_file = []
@@ -1054,7 +1070,11 @@ class GrepTool(BaseTool):
                             matches_in_file.append((line_num, line.rstrip()))
 
                     if matches_in_file:
-                        rel_path = file_path.relative_to(self.root_dir) if file_path.is_relative_to(self.root_dir) else file_path
+                        rel_path = (
+                            file_path.relative_to(self.root_dir)
+                            if file_path.is_relative_to(self.root_dir)
+                            else file_path
+                        )
 
                         if output_mode == "files_with_matches":
                             results.append(str(rel_path))
@@ -1072,11 +1092,7 @@ class GrepTool(BaseTool):
             return ToolResult(
                 success=True,
                 output=output,
-                metadata={
-                    "pattern": pattern,
-                    "matches": len(results),
-                    "output_mode": output_mode
-                }
+                metadata={"pattern": pattern, "matches": len(results), "output_mode": output_mode},
             )
 
         except Exception as e:

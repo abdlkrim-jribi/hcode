@@ -5,8 +5,8 @@ Provides mode-specific system prompts matching Claude Code behavior.
 """
 
 from typing import Dict, Any, Optional
-from .modes import AgentMode
 
+from .modes import AgentMode
 
 # Base autonomous prompt
 BASE_AUTONOMOUS_PROMPT = """You are an expert autonomous coding assistant with advanced execution capabilities.
@@ -112,7 +112,6 @@ Then wait for user input before proceeding.
 This will change line 42 from `str` to `Optional[str]`.
 No other files affected. Proceed? (y/n)"
 """,
-
     AgentMode.AUTO: """
 # AUTO MODE
 
@@ -151,7 +150,6 @@ You are in AUTO mode. Execute efficiently with minimal interruption.
 - Continue with other tasks if possible
 - Ask user only if stuck
 """,
-
     AgentMode.PLAN: """
 # PLAN MODE
 
@@ -193,7 +191,6 @@ EXECUTION PLAN
 [OK]=Safe  [!]=Caution  [!!]=Dangerous
 ```
 """,
-
     AgentMode.REVIEW: """
 # REVIEW MODE
 
@@ -229,13 +226,12 @@ If rejected:
 - "yes", "approve", "go ahead" = approved
 - Any other response = not approved
 - Be patient, wait for clear confirmation
-"""
+""",
 }
 
 
 def get_autonomous_prompt(
-    mode: AgentMode,
-    additional_context: Optional[Dict[str, Any]] = None
+    mode: AgentMode, additional_context: Optional[Dict[str, Any]] = None
 ) -> str:
     """
     Get complete system prompt for autonomous operation.
@@ -249,9 +245,7 @@ def get_autonomous_prompt(
     """
     mode_instructions = MODE_INSTRUCTIONS.get(mode, MODE_INSTRUCTIONS[AgentMode.INTERACTIVE])
 
-    prompt = BASE_AUTONOMOUS_PROMPT.format(
-        mode_specific_instructions=mode_instructions
-    )
+    prompt = BASE_AUTONOMOUS_PROMPT.format(mode_specific_instructions=mode_instructions)
 
     # Add additional context if provided
     if additional_context:
@@ -285,35 +279,46 @@ def get_mode_transition_prompt(old_mode: AgentMode, new_mode: AgentMode) -> str:
         Transition guidance prompt
     """
     transitions = {
-        (AgentMode.INTERACTIVE, AgentMode.AUTO): """
+        (
+            AgentMode.INTERACTIVE,
+            AgentMode.AUTO,
+        ): """
 Mode changed to AUTO.
 - Now executing safe operations automatically
 - Only dangerous operations will require confirmation
 - Track progress with TodoWrite
 - Complete current task efficiently""",
-
-        (AgentMode.AUTO, AgentMode.INTERACTIVE): """
+        (
+            AgentMode.AUTO,
+            AgentMode.INTERACTIVE,
+        ): """
 Mode changed to INTERACTIVE.
 - Now asking permission for each action
 - Will explain reasoning before actions
 - Wait for your confirmation before proceeding
 - Safety first approach""",
-
-        (AgentMode.INTERACTIVE, AgentMode.PLAN): """
+        (
+            AgentMode.INTERACTIVE,
+            AgentMode.PLAN,
+        ): """
 Mode changed to PLAN.
 - Will create complete execution plan first
 - Show plan before starting execution
 - Then execute automatically
 - Dangerous operations still require confirmation""",
-
-        (AgentMode.AUTO, AgentMode.PLAN): """
+        (
+            AgentMode.AUTO,
+            AgentMode.PLAN,
+        ): """
 Mode changed to PLAN.
 - Will show execution plan before continuing
 - Plan includes all remaining steps
 - Then continue automatic execution
 - Better visibility into upcoming actions""",
-
-        (AgentMode.PLAN, AgentMode.REVIEW): """
+        (
+            AgentMode.PLAN,
+            AgentMode.REVIEW,
+        ): """
 Mode changed to REVIEW.
 - Plan will require explicit approval
 - Must confirm with "approve" or "yes"
@@ -322,8 +327,7 @@ Mode changed to REVIEW.
     }
 
     return transitions.get(
-        (old_mode, new_mode),
-        f"Mode changed from {old_mode.value} to {new_mode.value}."
+        (old_mode, new_mode), f"Mode changed from {old_mode.value} to {new_mode.value}."
     )
 
 
@@ -342,7 +346,6 @@ This operation:
 This cannot be undone. Are you sure you want to proceed?
 (Type 'yes' to confirm, anything else to cancel)
 """,
-
     "protected_file": """
 ⚠️ PROTECTED FILE MODIFICATION
 
@@ -358,7 +361,6 @@ Current content preview:
 Proceed with modification?
 (Type 'yes' to confirm, anything else to cancel)
 """,
-
     "multiple_files": """
 📁 MULTIPLE FILE CHANGES
 
@@ -370,7 +372,6 @@ This is a significant change. Please review the list above.
 Proceed with all modifications?
 (Type 'yes' to confirm, anything else to cancel)
 """,
-
     "git_push": """
 ⚠️ GIT PUSH CONFIRMATION
 
@@ -383,14 +384,11 @@ About to push to remote:
 
 Proceed with push?
 (Type 'yes' to confirm, anything else to cancel)
-"""
+""",
 }
 
 
-def get_confirmation_prompt(
-    confirmation_type: str,
-    **kwargs
-) -> str:
+def get_confirmation_prompt(confirmation_type: str, **kwargs) -> str:
     """
     Get confirmation prompt for dangerous operations.
 
@@ -401,10 +399,7 @@ def get_confirmation_prompt(
     Returns:
         Formatted confirmation prompt
     """
-    template = CONFIRMATION_PROMPTS.get(
-        confirmation_type,
-        "Confirm this operation? (yes/no)"
-    )
+    template = CONFIRMATION_PROMPTS.get(confirmation_type, "Confirm this operation? (yes/no)")
 
     return template.format(**kwargs)
 
@@ -428,10 +423,7 @@ What would you like to do?
 
 
 def get_error_recovery_prompt(
-    operation: str,
-    error: str,
-    retry_count: int,
-    max_retries: int
+    operation: str, error: str, retry_count: int, max_retries: int
 ) -> str:
     """
     Get error recovery prompt.
@@ -446,8 +438,5 @@ def get_error_recovery_prompt(
         Error recovery prompt
     """
     return ERROR_RECOVERY_PROMPT.format(
-        operation=operation,
-        error=error,
-        retry_count=retry_count,
-        max_retries=max_retries
+        operation=operation, error=error, retry_count=retry_count, max_retries=max_retries
     )

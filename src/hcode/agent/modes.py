@@ -21,24 +21,27 @@ class AgentMode(Enum):
     - PLAN: Show plan first, then auto-execute
     - REVIEW: Show plan, require approval, then auto-execute
     """
+
     INTERACTIVE = "interactive"  # Ask before each action
-    AUTO = "auto"                # Execute without asking (except dangerous)
-    PLAN = "plan"                # Create plan first, then auto
-    REVIEW = "review"            # Show plan, get approval, then auto
+    AUTO = "auto"  # Execute without asking (except dangerous)
+    PLAN = "plan"  # Create plan first, then auto
+    REVIEW = "review"  # Show plan, get approval, then auto
 
 
 class ConfirmationLevel(Enum):
     """How much confirmation to require"""
-    NONE = "none"                      # Never ask
+
+    NONE = "none"  # Never ask
     DANGEROUS_ONLY = "dangerous_only"  # Ask only for dangerous ops
-    ALL = "all"                        # Ask for everything
-    FIRST_ONLY = "first_only"          # Ask once per task
+    ALL = "all"  # Ask for everything
+    FIRST_ONLY = "first_only"  # Ask once per task
 
 
 class RiskLevel(Enum):
     """Risk levels for actions"""
-    SAFE = "safe"           # No risk, execute freely
-    CAUTION = "caution"     # Some risk, may need attention
+
+    SAFE = "safe"  # No risk, execute freely
+    CAUTION = "caution"  # Some risk, may need attention
     DANGEROUS = "dangerous"  # High risk, requires confirmation
 
 
@@ -78,9 +81,8 @@ MODE_CONFIGS: Dict[AgentMode, ModeConfig] = {
         execute_after_plan=False,
         require_approval=False,
         max_actions_without_confirm=1,
-        description="Asks permission for each action (safest)"
+        description="Asks permission for each action (safest)",
     ),
-
     # Auto: Execute freely, only confirm dangerous
     AgentMode.AUTO: ModeConfig(
         ask_permission=False,
@@ -89,9 +91,8 @@ MODE_CONFIGS: Dict[AgentMode, ModeConfig] = {
         execute_after_plan=True,
         require_approval=False,
         max_actions_without_confirm=999,
-        description="Executes automatically (asks for dangerous operations)"
+        description="Executes automatically (asks for dangerous operations)",
     ),
-
     # Plan: Show plan, then execute automatically
     AgentMode.PLAN: ModeConfig(
         ask_permission=False,
@@ -100,9 +101,8 @@ MODE_CONFIGS: Dict[AgentMode, ModeConfig] = {
         execute_after_plan=True,
         require_approval=False,
         max_actions_without_confirm=999,
-        description="Shows plan first, then executes automatically"
+        description="Shows plan first, then executes automatically",
     ),
-
     # Review: Show plan, get approval, then execute
     AgentMode.REVIEW: ModeConfig(
         ask_permission=False,
@@ -111,7 +111,7 @@ MODE_CONFIGS: Dict[AgentMode, ModeConfig] = {
         execute_after_plan=True,
         require_approval=True,
         max_actions_without_confirm=999,
-        description="Shows plan and requires approval before execution"
+        description="Shows plan and requires approval before execution",
     ),
 }
 
@@ -126,113 +126,135 @@ class SafetyConfig:
     """
 
     # Commands that always require confirmation
-    dangerous_commands: Set[str] = field(default_factory=lambda: {
-        # Destructive file operations
-        "rm", "rm -rf", "del", "rmdir", "rd",
-
-        # System operations
-        "shutdown", "reboot", "halt", "poweroff",
-        "sudo", "su", "format",
-
-        # Package management (uninstall)
-        "apt-get remove", "apt remove", "apt-get purge",
-        "npm uninstall -g", "pip uninstall",
-        "cargo uninstall",
-
-        # Git operations
-        "git push --force", "git push -f",
-        "git reset --hard",
-        "git clean -fd", "git clean -f",
-        "git checkout --force",
-
-        # Database operations
-        "drop database", "drop table",
-        "truncate", "delete from",
-
-        # Docker operations
-        "docker rm", "docker rmi",
-        "docker system prune",
-        "docker volume rm",
-
-        # Windows-specific
-        "del /f", "rmdir /s",
-    })
+    dangerous_commands: Set[str] = field(
+        default_factory=lambda: {
+            # Destructive file operations
+            "rm",
+            "rm -rf",
+            "del",
+            "rmdir",
+            "rd",
+            # System operations
+            "shutdown",
+            "reboot",
+            "halt",
+            "poweroff",
+            "sudo",
+            "su",
+            "format",
+            # Package management (uninstall)
+            "apt-get remove",
+            "apt remove",
+            "apt-get purge",
+            "npm uninstall -g",
+            "pip uninstall",
+            "cargo uninstall",
+            # Git operations
+            "git push --force",
+            "git push -f",
+            "git reset --hard",
+            "git clean -fd",
+            "git clean -f",
+            "git checkout --force",
+            # Database operations
+            "drop database",
+            "drop table",
+            "truncate",
+            "delete from",
+            # Docker operations
+            "docker rm",
+            "docker rmi",
+            "docker system prune",
+            "docker volume rm",
+            # Windows-specific
+            "del /f",
+            "rmdir /s",
+        }
+    )
 
     # Command patterns that require confirmation (regex)
-    dangerous_patterns: List[str] = field(default_factory=lambda: [
-        r"rm\s+-rf\s+[/\\]",           # Delete from root
-        r"rm\s+.*\*",                   # Wildcard delete
-        r"del\s+.*\*",                  # Windows wildcard delete
-        r"DROP\s+(DATABASE|TABLE)",     # SQL drops
-        r"TRUNCATE\s+TABLE",            # SQL truncate
-        r"DELETE\s+FROM\s+\w+\s*;",    # DELETE without WHERE
-        r"git\s+push.*--force",         # Force push
-        r"git\s+push.*-f\b",            # Force push short
-        r"chmod\s+777",                 # Overly permissive
-        r">\s*/dev/sd[a-z]",            # Write to disk
-        r"mkfs\.",                      # Format filesystem
-        r":>{1,2}\s*/",                 # Redirect to system paths
-    ])
+    dangerous_patterns: List[str] = field(
+        default_factory=lambda: [
+            r"rm\s+-rf\s+[/\\]",  # Delete from root
+            r"rm\s+.*\*",  # Wildcard delete
+            r"del\s+.*\*",  # Windows wildcard delete
+            r"DROP\s+(DATABASE|TABLE)",  # SQL drops
+            r"TRUNCATE\s+TABLE",  # SQL truncate
+            r"DELETE\s+FROM\s+\w+\s*;",  # DELETE without WHERE
+            r"git\s+push.*--force",  # Force push
+            r"git\s+push.*-f\b",  # Force push short
+            r"chmod\s+777",  # Overly permissive
+            r">\s*/dev/sd[a-z]",  # Write to disk
+            r"mkfs\.",  # Format filesystem
+            r":>{1,2}\s*/",  # Redirect to system paths
+        ]
+    )
 
     # Files that should never be modified without confirmation
-    protected_files: Set[str] = field(default_factory=lambda: {
-        ".env",
-        ".env.local",
-        ".env.production",
-        ".env.development",
-        "package.json",
-        "package-lock.json",
-        "yarn.lock",
-        "pnpm-lock.yaml",
-        "requirements.txt",
-        "Pipfile",
-        "Pipfile.lock",
-        "poetry.lock",
-        "pyproject.toml",
-        "Cargo.toml",
-        "Cargo.lock",
-        "go.mod",
-        "go.sum",
-        ".gitignore",
-        ".dockerignore",
-        "Dockerfile",
-        "docker-compose.yml",
-        "docker-compose.yaml",
-        "Makefile",
-        "makefile",
-        "CMakeLists.txt",
-        ".github",
-        ".gitlab-ci.yml",
-        "Jenkinsfile",
-    })
+    protected_files: Set[str] = field(
+        default_factory=lambda: {
+            ".env",
+            ".env.local",
+            ".env.production",
+            ".env.development",
+            "package.json",
+            "package-lock.json",
+            "yarn.lock",
+            "pnpm-lock.yaml",
+            "requirements.txt",
+            "Pipfile",
+            "Pipfile.lock",
+            "poetry.lock",
+            "pyproject.toml",
+            "Cargo.toml",
+            "Cargo.lock",
+            "go.mod",
+            "go.sum",
+            ".gitignore",
+            ".dockerignore",
+            "Dockerfile",
+            "docker-compose.yml",
+            "docker-compose.yaml",
+            "Makefile",
+            "makefile",
+            "CMakeLists.txt",
+            ".github",
+            ".gitlab-ci.yml",
+            "Jenkinsfile",
+        }
+    )
 
     # Directories that should never be deleted
-    protected_directories: Set[str] = field(default_factory=lambda: {
-        ".git",
-        ".svn",
-        ".hg",
-        "node_modules",
-        ".venv",
-        "venv",
-        "env",
-        "__pycache__",
-        ".idea",
-        ".vscode",
-        "dist",
-        "build",
-        "target",
-        ".next",
-        ".nuxt",
-        "vendor",
-    })
+    protected_directories: Set[str] = field(
+        default_factory=lambda: {
+            ".git",
+            ".svn",
+            ".hg",
+            "node_modules",
+            ".venv",
+            "venv",
+            "env",
+            "__pycache__",
+            ".idea",
+            ".vscode",
+            "dist",
+            "build",
+            "target",
+            ".next",
+            ".nuxt",
+            "vendor",
+        }
+    )
 
     # Operations that require backup first
-    backup_before: Set[str] = field(default_factory=lambda: {
-        "database_migration",
-        "schema_change",
-        "config_update",
-        "major_refactor",
-    })
+    backup_before: Set[str] = field(
+        default_factory=lambda: {
+            "database_migration",
+            "schema_change",
+            "config_update",
+            "major_refactor",
+        }
+    )
 
     # Maximum file size to modify without confirmation (bytes)
     max_file_size_auto: int = 50_000  # 50KB
@@ -241,18 +263,20 @@ class SafetyConfig:
     max_files_auto: int = 10
 
     # Require confirmation for operations affecting these paths
-    sensitive_paths: Set[str] = field(default_factory=lambda: {
-        "/etc",
-        "/usr",
-        "/bin",
-        "/sbin",
-        "/var",
-        "/home",
-        "~/.ssh",
-        "~/.config",
-        "C:\\Windows",
-        "C:\\Program Files",
-    })
+    sensitive_paths: Set[str] = field(
+        default_factory=lambda: {
+            "/etc",
+            "/usr",
+            "/bin",
+            "/sbin",
+            "/var",
+            "/home",
+            "~/.ssh",
+            "~/.config",
+            "C:\\Windows",
+            "C:\\Program Files",
+        }
+    )
 
     def is_dangerous_command(self, command: str) -> bool:
         """Check if command is dangerous"""
@@ -277,15 +301,15 @@ class SafetyConfig:
 
     def is_protected_directory(self, dirpath: str) -> bool:
         """Check if directory is protected"""
-        dirname = os.path.basename(dirpath.rstrip('/\\'))
+        dirname = os.path.basename(dirpath.rstrip("/\\"))
         return dirname.lower() in {d.lower() for d in self.protected_directories}
 
     def is_sensitive_path(self, filepath: str) -> bool:
         """Check if path is in sensitive location"""
-        filepath_normalized = filepath.replace('\\', '/').lower()
+        filepath_normalized = filepath.replace("\\", "/").lower()
 
         for sensitive in self.sensitive_paths:
-            sensitive_normalized = sensitive.replace('\\', '/').lower()
+            sensitive_normalized = sensitive.replace("\\", "/").lower()
             if filepath_normalized.startswith(sensitive_normalized):
                 return True
 

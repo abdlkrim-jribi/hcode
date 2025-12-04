@@ -2,6 +2,7 @@
 Layer 1: File-based memory using markdown files.
 Mirrors Claude Code's hcode.md approach with hierarchical loading.
 """
+
 from pathlib import Path
 from typing import Optional, List, Dict
 from dataclasses import dataclass
@@ -13,6 +14,7 @@ from .config import config
 @dataclass
 class MemoryFile:
     """Represents a single memory file."""
+
     path: Path
     content: str
     priority: int  # Lower = loaded first
@@ -20,7 +22,7 @@ class MemoryFile:
     size_bytes: int = 0
 
     def __post_init__(self):
-        self.size_bytes = len(self.content.encode('utf-8'))
+        self.size_bytes = len(self.content.encode("utf-8"))
 
 
 class FileMemory:
@@ -36,9 +38,18 @@ class FileMemory:
 
     # Project root markers
     PROJECT_MARKERS = [
-        ".git", "package.json", "pyproject.toml", "Cargo.toml",
-        "go.mod", "pom.xml", "build.gradle", "Makefile",
-        "CMakeLists.txt", ".hcode", "setup.py", "requirements.txt"
+        ".git",
+        "package.json",
+        "pyproject.toml",
+        "Cargo.toml",
+        "go.mod",
+        "pom.xml",
+        "build.gradle",
+        "Makefile",
+        "CMakeLists.txt",
+        ".hcode",
+        "setup.py",
+        "requirements.txt",
     ]
 
     def __init__(self, project_root: Optional[Path] = None):
@@ -80,13 +91,10 @@ class FileMemory:
         global_file = config.global_memory_path
         if global_file.exists():
             try:
-                content = global_file.read_text(encoding='utf-8')
-                files.append(MemoryFile(
-                    path=global_file,
-                    content=content,
-                    priority=0,
-                    scope="global"
-                ))
+                content = global_file.read_text(encoding="utf-8")
+                files.append(
+                    MemoryFile(path=global_file, content=content, priority=0, scope="global")
+                )
             except Exception:
                 pass  # Skip if unreadable
 
@@ -95,13 +103,10 @@ class FileMemory:
             project_file = config.get_project_memory_path(self.project_root)
             if project_file.exists():
                 try:
-                    content = project_file.read_text(encoding='utf-8')
-                    files.append(MemoryFile(
-                        path=project_file,
-                        content=content,
-                        priority=1,
-                        scope="project"
-                    ))
+                    content = project_file.read_text(encoding="utf-8")
+                    files.append(
+                        MemoryFile(path=project_file, content=content, priority=1, scope="project")
+                    )
                 except Exception:
                     pass
 
@@ -109,13 +114,10 @@ class FileMemory:
             local_file = config.get_local_memory_path(self.project_root)
             if local_file.exists():
                 try:
-                    content = local_file.read_text(encoding='utf-8')
-                    files.append(MemoryFile(
-                        path=local_file,
-                        content=content,
-                        priority=2,
-                        scope="local"
-                    ))
+                    content = local_file.read_text(encoding="utf-8")
+                    files.append(
+                        MemoryFile(path=local_file, content=content, priority=2, scope="local")
+                    )
                 except Exception:
                     pass
 
@@ -124,17 +126,19 @@ class FileMemory:
                 if current_dir.is_relative_to(self.project_root):
                     relative = current_dir.relative_to(self.project_root)
                     for i, part in enumerate(relative.parts):
-                        subdir = self.project_root / Path(*relative.parts[:i + 1])
+                        subdir = self.project_root / Path(*relative.parts[: i + 1])
                         subdir_file = subdir / config.project_memory_file
                         if subdir_file.exists() and subdir_file != project_file:
                             try:
-                                content = subdir_file.read_text(encoding='utf-8')
-                                files.append(MemoryFile(
-                                    path=subdir_file,
-                                    content=content,
-                                    priority=3 + i,
-                                    scope="subdirectory"
-                                ))
+                                content = subdir_file.read_text(encoding="utf-8")
+                                files.append(
+                                    MemoryFile(
+                                        path=subdir_file,
+                                        content=content,
+                                        priority=3 + i,
+                                        scope="subdirectory",
+                                    )
+                                )
                             except Exception:
                                 pass
             except ValueError:
@@ -179,7 +183,7 @@ class FileMemory:
         content: str,
         scope: str = "project",
         append: bool = False,
-        section: Optional[str] = None
+        section: Optional[str] = None,
     ) -> Path:
         """
         Update or create a memory file.
@@ -207,15 +211,15 @@ class FileMemory:
 
         # Handle section update
         if section and file_path.exists():
-            existing = file_path.read_text(encoding='utf-8')
+            existing = file_path.read_text(encoding="utf-8")
             content = self._update_section(existing, section, content)
         elif append and file_path.exists():
-            existing = file_path.read_text(encoding='utf-8')
+            existing = file_path.read_text(encoding="utf-8")
             content = f"{existing}\n\n{content}"
 
         # Ensure parent directory exists
         file_path.parent.mkdir(parents=True, exist_ok=True)
-        file_path.write_text(content, encoding='utf-8')
+        file_path.write_text(content, encoding="utf-8")
 
         # Clear cache for this file
         if file_path in self._cache:
@@ -225,7 +229,7 @@ class FileMemory:
 
     def _update_section(self, existing: str, section: str, new_content: str) -> str:
         """Update a specific section in a markdown file."""
-        lines = existing.split('\n')
+        lines = existing.split("\n")
         result = []
         in_section = False
         section_found = False
@@ -233,9 +237,9 @@ class FileMemory:
 
         for line in lines:
             # Check if this is the target section
-            if line.strip().startswith('#'):
-                heading_match = line.lstrip('#')
-                level = len(line) - len(line.lstrip('#'))
+            if line.strip().startswith("#"):
+                heading_match = line.lstrip("#")
+                level = len(line) - len(line.lstrip("#"))
 
                 if section.lower() in line.lower():
                     # Found the section
@@ -243,7 +247,7 @@ class FileMemory:
                     section_found = True
                     section_level = level
                     result.append(line)
-                    result.append('')
+                    result.append("")
                     result.append(new_content)
                     continue
                 elif in_section and level <= section_level:
@@ -255,12 +259,12 @@ class FileMemory:
 
         # If section not found, append it
         if not section_found:
-            result.append('')
+            result.append("")
             result.append(f"## {section}")
-            result.append('')
+            result.append("")
             result.append(new_content)
 
-        return '\n'.join(result)
+        return "\n".join(result)
 
     def _ensure_gitignored(self, file_path: Path):
         """Ensure local memory files are gitignored."""
@@ -271,17 +275,12 @@ class FileMemory:
         pattern = config.local_memory_file
 
         if gitignore.exists():
-            content = gitignore.read_text(encoding='utf-8')
+            content = gitignore.read_text(encoding="utf-8")
             if pattern not in content:
-                with gitignore.open("a", encoding='utf-8') as f:
-                    f.write(
-                        f"# HCODE agent local memory\n{pattern}\n"
-                    )
+                with gitignore.open("a", encoding="utf-8") as f:
+                    f.write(f"# HCODE agent local memory\n{pattern}\n")
         else:
-            gitignore.write_text(
-                f"# HCODE agent local memory\n{pattern}\n",
-                encoding='utf-8'
-            )
+            gitignore.write_text(f"# HCODE agent local memory\n{pattern}\n", encoding="utf-8")
 
     def create_template(self, scope: str = "project") -> str:
         """
@@ -353,13 +352,8 @@ class FileMemory:
             "file_count": len(files),
             "total_bytes": sum(f.size_bytes for f in files),
             "files": [
-                {
-                    "path": str(f.path),
-                    "scope": f.scope,
-                    "size_bytes": f.size_bytes
-                }
-                for f in files
-            ]
+                {"path": str(f.path), "scope": f.scope, "size_bytes": f.size_bytes} for f in files
+            ],
         }
 
     def search_memory(self, query: str, current_dir: Optional[Path] = None) -> List[Dict]:
@@ -370,8 +364,5 @@ class FileMemory:
         results = []
         for mem in self.get_memory_files(current_dir):
             if query.lower() in mem.content.lower():
-                results.append({
-                    "path": str(mem.path),
-                    "snippet": mem.content[:200]
-                })
+                results.append({"path": str(mem.path), "snippet": mem.content[:200]})
         return results

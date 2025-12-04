@@ -40,6 +40,7 @@ import yaml
 @dataclass
 class PromptVariable:
     """Definition of a variable in a prompt template."""
+
     name: str
     description: str = ""
     required: bool = False
@@ -49,6 +50,7 @@ class PromptVariable:
 @dataclass
 class PromptMetadata:
     """Metadata for a prompt file."""
+
     name: str
     description: str = ""
     author: str = ""
@@ -61,6 +63,7 @@ class PromptMetadata:
 @dataclass
 class LoadedPrompt:
     """A loaded and parsed prompt."""
+
     file_path: Path
     metadata: PromptMetadata
     template: str
@@ -107,7 +110,7 @@ class LoadedPrompt:
 
     def _process_conditionals(self, template: str, variables: Dict[str, Any]) -> str:
         """Process {{#if variable}}...{{/if}} blocks."""
-        pattern = r'\{\{#if\s+(\w+)\}\}(.*?)\{\{/if\}\}'
+        pattern = r"\{\{#if\s+(\w+)\}\}(.*?)\{\{/if\}\}"
 
         def replace_conditional(match):
             var_name = match.group(1)
@@ -120,7 +123,7 @@ class LoadedPrompt:
 
     def _process_loops(self, template: str, variables: Dict[str, Any]) -> str:
         """Process {{#each items}}...{{/each}} blocks."""
-        pattern = r'\{\{#each\s+(\w+)\}\}(.*?)\{\{/each\}\}'
+        pattern = r"\{\{#each\s+(\w+)\}\}(.*?)\{\{/each\}\}"
 
         def replace_loop(match):
             var_name = match.group(1)
@@ -156,11 +159,7 @@ class PromptLoader:
     PROMPT_EXTENSION = ".prompt"
     FRONTMATTER_DELIMITER = "---"
 
-    def __init__(
-        self,
-        prompts_dir: Optional[Path] = None,
-        auto_reload: bool = False
-    ):
+    def __init__(self, prompts_dir: Optional[Path] = None, auto_reload: bool = False):
         """
         Initialize the prompt loader.
 
@@ -230,10 +229,7 @@ class PromptLoader:
         metadata, template = self._parse_prompt_file(content, file_path)
 
         return LoadedPrompt(
-            file_path=file_path,
-            metadata=metadata,
-            template=template,
-            raw_content=content
+            file_path=file_path, metadata=metadata, template=template, raw_content=content
         )
 
     def _parse_prompt_file(self, content: str, file_path: Path) -> tuple:
@@ -255,7 +251,7 @@ class PromptLoader:
             try:
                 end_idx = lines[1:].index(self.FRONTMATTER_DELIMITER) + 1
                 frontmatter = "\n".join(lines[1:end_idx])
-                template = "\n".join(lines[end_idx + 1:])
+                template = "\n".join(lines[end_idx + 1 :])
             except ValueError:
                 # No closing delimiter - treat as no frontmatter
                 frontmatter = ""
@@ -282,9 +278,7 @@ class PromptLoader:
         """
         if not frontmatter.strip():
             # No frontmatter - use filename as name
-            return PromptMetadata(
-                name=file_path.stem
-            )
+            return PromptMetadata(name=file_path.stem)
 
         try:
             data = yaml.safe_load(frontmatter) or {}
@@ -295,12 +289,14 @@ class PromptLoader:
         variables = []
         for var_data in data.get("variables", []):
             if isinstance(var_data, dict):
-                variables.append(PromptVariable(
-                    name=var_data.get("name", ""),
-                    description=var_data.get("description", ""),
-                    required=var_data.get("required", False),
-                    default=var_data.get("default")
-                ))
+                variables.append(
+                    PromptVariable(
+                        name=var_data.get("name", ""),
+                        description=var_data.get("description", ""),
+                        required=var_data.get("required", False),
+                        default=var_data.get("default"),
+                    )
+                )
             elif isinstance(var_data, str):
                 variables.append(PromptVariable(name=var_data))
 
@@ -311,7 +307,7 @@ class PromptLoader:
             version=data.get("version", "1.0"),
             variables=variables,
             tags=data.get("tags", []),
-            category=data.get("category", "general")
+            category=data.get("category", "general"),
         )
 
     def get(self, name: str, reload: bool = False) -> Optional[LoadedPrompt]:
@@ -340,12 +336,7 @@ class PromptLoader:
 
         return None
 
-    def render(
-        self,
-        name: str,
-        variables: Optional[Dict[str, Any]] = None,
-        **kwargs
-    ) -> str:
+    def render(self, name: str, variables: Optional[Dict[str, Any]] = None, **kwargs) -> str:
         """
         Get and render a prompt by name.
 
@@ -411,14 +402,10 @@ class PromptLoader:
                 "category": prompt.metadata.category,
                 "tags": prompt.metadata.tags,
                 "variables": [
-                    {
-                        "name": v.name,
-                        "description": v.description,
-                        "required": v.required
-                    }
+                    {"name": v.name, "description": v.description, "required": v.required}
                     for v in prompt.metadata.variables
                 ],
-                "file": str(prompt.file_path)
+                "file": str(prompt.file_path),
             }
             for prompt in self._prompts_cache.values()
         ]
@@ -430,7 +417,7 @@ class PromptLoader:
         description: str = "",
         variables: Optional[List[Dict[str, Any]]] = None,
         category: str = "general",
-        tags: Optional[List[str]] = None
+        tags: Optional[List[str]] = None,
     ) -> Path:
         """
         Create a new prompt file.

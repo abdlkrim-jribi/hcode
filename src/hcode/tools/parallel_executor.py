@@ -16,6 +16,7 @@ from .base_tool import BaseTool, ToolResult, ToolRegistry
 
 class ExecutionStatus(Enum):
     """Tool execution status"""
+
     PENDING = "pending"
     RUNNING = "running"
     COMPLETED = "completed"
@@ -26,6 +27,7 @@ class ExecutionStatus(Enum):
 @dataclass
 class ToolCall:
     """Represents a single tool call"""
+
     id: str
     tool_name: str
     parameters: Dict[str, Any]
@@ -40,6 +42,7 @@ class ToolCall:
 @dataclass
 class ExecutionPlan:
     """Execution plan for multiple tool calls"""
+
     id: str
     tool_calls: List[ToolCall]
     parallel_groups: List[List[str]]  # Groups of tool IDs that can run in parallel
@@ -73,9 +76,7 @@ class ParallelToolExecutor:
         self.active_executions: Dict[str, ToolCall] = {}
 
     async def execute_parallel(
-        self,
-        tool_calls: List[Dict[str, Any]],
-        auto_detect_dependencies: bool = True
+        self, tool_calls: List[Dict[str, Any]], auto_detect_dependencies: bool = True
     ) -> List[ToolResult]:
         """
         Execute multiple tool calls in parallel when possible.
@@ -100,9 +101,7 @@ class ParallelToolExecutor:
         return results
 
     def _create_execution_plan(
-        self,
-        tool_calls_spec: List[Dict[str, Any]],
-        auto_detect_dependencies: bool
+        self, tool_calls_spec: List[Dict[str, Any]], auto_detect_dependencies: bool
     ) -> ExecutionPlan:
         """Create execution plan with dependency analysis"""
         plan_id = str(uuid.uuid4())
@@ -114,7 +113,7 @@ class ParallelToolExecutor:
                 id=str(uuid.uuid4()),
                 tool_name=spec.get("tool"),
                 parameters=spec.get("parameters", {}),
-                dependencies=set(spec.get("dependencies", []))
+                dependencies=set(spec.get("dependencies", [])),
             )
             tool_calls.append(call)
 
@@ -129,7 +128,7 @@ class ParallelToolExecutor:
             id=plan_id,
             tool_calls=tool_calls,
             parallel_groups=parallel_groups,
-            created_at=datetime.now()
+            created_at=datetime.now(),
         )
 
     def _detect_dependencies(self, tool_calls: List[ToolCall]):
@@ -208,9 +207,7 @@ class ParallelToolExecutor:
         groups = []
         while in_degree:
             # Find all nodes with no dependencies
-            current_group = [
-                node for node, degree in in_degree.items() if degree == 0
-            ]
+            current_group = [node for node, degree in in_degree.items() if degree == 0]
 
             if not current_group:
                 # Circular dependency detected
@@ -234,9 +231,7 @@ class ParallelToolExecutor:
 
         for group in plan.parallel_groups:
             # Get tool calls for this group
-            group_calls = [
-                call for call in plan.tool_calls if call.id in group
-            ]
+            group_calls = [call for call in plan.tool_calls if call.id in group]
 
             # Execute group in parallel
             group_results = await self._execute_group(group_calls)
@@ -245,7 +240,9 @@ class ParallelToolExecutor:
             for call, result in zip(group_calls, group_results):
                 results_map[call.id] = result
                 call.result = result
-                call.status = ExecutionStatus.COMPLETED if result.success else ExecutionStatus.FAILED
+                call.status = (
+                    ExecutionStatus.COMPLETED if result.success else ExecutionStatus.FAILED
+                )
                 call.completed_at = datetime.now()
 
         # Return results in original order
@@ -268,11 +265,7 @@ class ParallelToolExecutor:
         final_results = []
         for result in results:
             if isinstance(result, Exception):
-                final_results.append(ToolResult(
-                    success=False,
-                    output="",
-                    error=str(result)
-                ))
+                final_results.append(ToolResult(success=False, output="", error=str(result)))
             else:
                 final_results.append(result)
 
@@ -291,20 +284,13 @@ class ParallelToolExecutor:
                 raise ValueError(f"Tool not found: {call.tool_name}")
 
             # Execute the tool
-            result = await self.tool_registry.execute_tool(
-                call.tool_name,
-                **call.parameters
-            )
+            result = await self.tool_registry.execute_tool(call.tool_name, **call.parameters)
 
             return result
 
         except Exception as e:
             call.error = str(e)
-            return ToolResult(
-                success=False,
-                output="",
-                error=str(e)
-            )
+            return ToolResult(success=False, output="", error=str(e))
         finally:
             del self.active_executions[call.id]
 
@@ -317,11 +303,11 @@ class ParallelToolExecutor:
                     "id": call.id,
                     "tool": call.tool_name,
                     "status": call.status.value,
-                    "started_at": call.started_at.isoformat() if call.started_at else None
+                    "started_at": call.started_at.isoformat() if call.started_at else None,
                 }
                 for call in self.active_executions.values()
             ],
-            "history_count": len(self.execution_history)
+            "history_count": len(self.execution_history),
         }
 
     def visualize_plan(self, plan: ExecutionPlan) -> str:
@@ -358,7 +344,7 @@ class ParallelToolExecutor:
             ExecutionStatus.RUNNING: "[RUNNING]",
             ExecutionStatus.COMPLETED: "[DONE]",
             ExecutionStatus.FAILED: "[FAILED]",
-            ExecutionStatus.CANCELLED: "[CANCELLED]"
+            ExecutionStatus.CANCELLED: "[CANCELLED]",
         }
         return icons.get(status, "[UNKNOWN]")
 
@@ -385,7 +371,7 @@ class ParallelToolExecutor:
             "parallel_stages": len(plan.parallel_groups),
             "duration_seconds": duration,
             "created_at": plan.created_at.isoformat(),
-            "completed_at": plan.completed_at.isoformat() if plan.completed_at else None
+            "completed_at": plan.completed_at.isoformat() if plan.completed_at else None,
         }
 
 
@@ -406,13 +392,11 @@ class HcodeToolExecutor(ParallelToolExecutor):
         self.retry_config = {
             "max_retries": 3,
             "backoff_factor": 2,
-            "retriable_errors": ["timeout", "rate_limit", "temporary_failure"]
+            "retriable_errors": ["timeout", "rate_limit", "temporary_failure"],
         }
 
     async def execute_with_streaming(
-        self,
-        tool_calls: List[Dict[str, Any]],
-        on_progress: Optional[callable] = None
+        self, tool_calls: List[Dict[str, Any]], on_progress: Optional[callable] = None
     ) -> List[ToolResult]:
         """
         Execute tools with streaming progress updates.
@@ -429,12 +413,14 @@ class HcodeToolExecutor(ParallelToolExecutor):
         # Stream execution progress
         for i, group in enumerate(plan.parallel_groups):
             if on_progress:
-                await on_progress({
-                    "stage": i + 1,
-                    "total_stages": len(plan.parallel_groups),
-                    "tools_in_stage": len(group),
-                    "message": f"Executing stage {i + 1}/{len(plan.parallel_groups)}"
-                })
+                await on_progress(
+                    {
+                        "stage": i + 1,
+                        "total_stages": len(plan.parallel_groups),
+                        "tools_in_stage": len(group),
+                        "message": f"Executing stage {i + 1}/{len(plan.parallel_groups)}",
+                    }
+                )
 
             # Execute group
             group_calls = [tc for tc in plan.tool_calls if tc.id in group]
@@ -443,7 +429,9 @@ class HcodeToolExecutor(ParallelToolExecutor):
             # Update results
             for call, result in zip(group_calls, results):
                 call.result = result
-                call.status = ExecutionStatus.COMPLETED if result.success else ExecutionStatus.FAILED
+                call.status = (
+                    ExecutionStatus.COMPLETED if result.success else ExecutionStatus.FAILED
+                )
 
         return [tc.result for tc in plan.tool_calls]
 
@@ -467,11 +455,11 @@ class HcodeToolExecutor(ParallelToolExecutor):
                 backoff *= self.retry_config["backoff_factor"]
             else:
                 # Max retries exceeded
-                results.append(ToolResult(
-                    success=False,
-                    output="",
-                    error=f"Max retries exceeded: {result.error}"
-                ))
+                results.append(
+                    ToolResult(
+                        success=False, output="", error=f"Max retries exceeded: {result.error}"
+                    )
+                )
 
         return results
 
@@ -481,10 +469,7 @@ class HcodeToolExecutor(ParallelToolExecutor):
             return False
 
         error_lower = error.lower()
-        return any(
-            err in error_lower
-            for err in self.retry_config["retriable_errors"]
-        )
+        return any(err in error_lower for err in self.retry_config["retriable_errors"])
 
     def estimate_cost(self, tool_calls: List[Dict[str, Any]]) -> float:
         """Estimate cost of tool execution"""

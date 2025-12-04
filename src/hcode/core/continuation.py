@@ -16,16 +16,18 @@ from enum import Enum
 
 class FinishReason(Enum):
     """Reasons for generation stopping"""
-    STOP = "stop"           # Natural completion
-    LENGTH = "length"       # Hit max_tokens limit
+
+    STOP = "stop"  # Natural completion
+    LENGTH = "length"  # Hit max_tokens limit
     TOOL_CALLS = "tool_calls"  # Stopped for tool execution
     CONTENT_FILTER = "content_filter"  # Content filtered
-    ERROR = "error"         # Error occurred
+    ERROR = "error"  # Error occurred
 
 
 @dataclass
 class ContinuationState:
     """State for tracking continuation across API calls"""
+
     original_request: str
     accumulated_response: str
     continuation_count: int
@@ -53,22 +55,22 @@ class ContinuationManager:
     # Markers that indicate incomplete output
     INCOMPLETE_MARKERS = [
         # Code blocks
-        "```",           # Unclosed code block
+        "```",  # Unclosed code block
         # HTML/XML tags
-        "<",             # Unclosed tag
+        "<",  # Unclosed tag
         # JSON/Objects
-        "{",             # Unclosed brace
-        "[",             # Unclosed bracket
+        "{",  # Unclosed brace
+        "[",  # Unclosed bracket
         # Strings
-        '"',             # Unclosed quote
-        "'",             # Unclosed single quote
+        '"',  # Unclosed quote
+        "'",  # Unclosed single quote
     ]
 
     def __init__(
         self,
         max_continuations: int = None,
         max_total_tokens: int = None,
-        console: Optional[Any] = None
+        console: Optional[Any] = None,
     ):
         """
         Initialize ContinuationManager.
@@ -80,10 +82,15 @@ class ContinuationManager:
         """
         # Load from config if not provided
         from ..config.prompts import get_models_config
+
         config = get_models_config().get_continuation_config()
 
-        self.max_continuations = max_continuations if max_continuations is not None else config.max_continuations
-        self.max_total_tokens = max_total_tokens if max_total_tokens is not None else config.max_total_tokens
+        self.max_continuations = (
+            max_continuations if max_continuations is not None else config.max_continuations
+        )
+        self.max_total_tokens = (
+            max_total_tokens if max_total_tokens is not None else config.max_total_tokens
+        )
         self.console = console
         self.state: Optional[ContinuationState] = None
 
@@ -93,6 +100,7 @@ class ContinuationManager:
     def _get_continuation_prompts(self) -> List[str]:
         """Get continuation prompts from external config"""
         from ..config.prompts import get_prompts_config
+
         return get_prompts_config().get_continuation_prompts()
 
     def should_continue(self, finish_reason: str, response_text: str) -> bool:
@@ -212,7 +220,7 @@ class ContinuationManager:
 
         for pattern in cleanup_patterns:
             if cleaned.lower().startswith(pattern.lower()):
-                cleaned = cleaned[len(pattern):].strip()
+                cleaned = cleaned[len(pattern) :].strip()
 
         return cleaned
 
@@ -249,9 +257,9 @@ class ContinuationManager:
 
         # No overlap found, simple concatenation
         # Add appropriate separator based on context
-        if first.rstrip().endswith(('.', '!', '?', ':', ';')):
+        if first.rstrip().endswith((".", "!", "?", ":", ";")):
             return first.rstrip() + "\n" + second.lstrip()
-        elif first.rstrip().endswith(','):
+        elif first.rstrip().endswith(","):
             return first.rstrip() + " " + second.lstrip()
         else:
             return first.rstrip() + " " + second.lstrip()
@@ -273,16 +281,12 @@ class ContinuationManager:
             total_input_tokens=0,
             total_output_tokens=0,
             is_complete=False,
-            finish_reason=FinishReason.STOP
+            finish_reason=FinishReason.STOP,
         )
         return self.state
 
     def update_state(
-        self,
-        response_text: str,
-        finish_reason: str,
-        input_tokens: int,
-        output_tokens: int
+        self, response_text: str, finish_reason: str, input_tokens: int, output_tokens: int
     ) -> ContinuationState:
         """
         Update continuation state after a response.
@@ -301,10 +305,9 @@ class ContinuationManager:
 
         # Update accumulated response
         if self.state.accumulated_response:
-            self.state.accumulated_response = self.merge_responses([
-                self.state.accumulated_response,
-                response_text
-            ])
+            self.state.accumulated_response = self.merge_responses(
+                [self.state.accumulated_response, response_text]
+            )
         else:
             self.state.accumulated_response = response_text
 
@@ -359,17 +362,11 @@ class ContinuationManager:
         messages = list(context_messages)
 
         if self.state.accumulated_response:
-            messages.append(Message(
-                role="assistant",
-                content=self.state.accumulated_response
-            ))
+            messages.append(Message(role="assistant", content=self.state.accumulated_response))
 
         # Add continuation prompt
         continuation_prompt = self.get_continuation_prompt(self.state.continuation_count)
-        messages.append(Message(
-            role="user",
-            content=continuation_prompt
-        ))
+        messages.append(Message(role="user", content=continuation_prompt))
 
         return messages
 
@@ -398,7 +395,7 @@ class ContextWindowManager:
         self,
         max_context_tokens: int = 128000,
         reserve_output_tokens: int = 4096,
-        summarization_threshold: float = 0.8
+        summarization_threshold: float = 0.8,
     ):
         """
         Initialize ContextWindowManager.
@@ -415,10 +412,7 @@ class ContextWindowManager:
         self.available_input_tokens = max_context_tokens - reserve_output_tokens
 
     def calculate_token_budget(
-        self,
-        system_tokens: int,
-        history_tokens: int,
-        new_message_tokens: int
+        self, system_tokens: int, history_tokens: int, new_message_tokens: int
     ) -> Dict[str, int]:
         """
         Calculate token budget allocation.
@@ -442,7 +436,7 @@ class ContextWindowManager:
             "available": self.available_input_tokens,
             "remaining": remaining,
             "output_reserved": self.reserve_output_tokens,
-            "needs_truncation": remaining < 0
+            "needs_truncation": remaining < 0,
         }
 
     def needs_summarization(self, current_tokens: int) -> bool:

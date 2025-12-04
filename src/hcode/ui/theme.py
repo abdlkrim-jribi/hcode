@@ -2,6 +2,7 @@
 HCode Futuristic Theme Engine
 Supports multiple themes with smooth color transitions and glow effects.
 """
+
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Dict, Optional, Tuple, List
@@ -12,6 +13,7 @@ from rich.style import Style
 
 class ThemeMode(Enum):
     """Available futuristic theme modes."""
+
     CYBERPUNK = "cyberpunk"
     NEON_NIGHTS = "neon_nights"
     MATRIX = "matrix"
@@ -29,64 +31,64 @@ class ColorPalette:
     # PRIMARY COLORS
     # ═══════════════════════════════════════════════════════════════
 
-    primary: str = "#00FFFF"          # Cyan neon
-    secondary: str = "#FF00FF"        # Magenta neon
-    accent: str = "#FFFF00"           # Electric yellow
+    primary: str = "#00FFFF"  # Cyan neon
+    secondary: str = "#FF00FF"  # Magenta neon
+    accent: str = "#FFFF00"  # Electric yellow
 
     # ═══════════════════════════════════════════════════════════════
     # BACKGROUND LAYERS
     # ═══════════════════════════════════════════════════════════════
 
-    bg_dark: str = "#0D0D0D"          # Deep black
-    bg_medium: str = "#1A1A2E"        # Dark blue-black
-    bg_light: str = "#16213E"         # Navy accent
-    bg_elevated: str = "#1F1F3D"      # Elevated surfaces
-    bg_hover: str = "#2A2A4A"         # Hover states
+    bg_dark: str = "#0D0D0D"  # Deep black
+    bg_medium: str = "#1A1A2E"  # Dark blue-black
+    bg_light: str = "#16213E"  # Navy accent
+    bg_elevated: str = "#1F1F3D"  # Elevated surfaces
+    bg_hover: str = "#2A2A4A"  # Hover states
 
     # ═══════════════════════════════════════════════════════════════
     # SEMANTIC COLORS
     # ═══════════════════════════════════════════════════════════════
 
-    success: str = "#00FF88"          # Neon green
-    error: str = "#FF0055"            # Hot pink/red
-    warning: str = "#FFB800"          # Amber
-    info: str = "#00D4FF"             # Sky cyan
+    success: str = "#00FF88"  # Neon green
+    error: str = "#FF0055"  # Hot pink/red
+    warning: str = "#FFB800"  # Amber
+    info: str = "#00D4FF"  # Sky cyan
 
     # ═══════════════════════════════════════════════════════════════
     # TEXT COLORS
     # ═══════════════════════════════════════════════════════════════
 
-    text_primary: str = "#FFFFFF"     # Pure white
-    text_secondary: str = "#B8B8B8"   # Soft gray
-    text_muted: str = "#6B6B6B"       # Muted gray
-    text_glow: str = "#00FFFF"        # Glowing cyan
-    text_highlight: str = "#FF00FF"   # Highlight magenta
+    text_primary: str = "#FFFFFF"  # Pure white
+    text_secondary: str = "#B8B8B8"  # Soft gray
+    text_muted: str = "#6B6B6B"  # Muted gray
+    text_glow: str = "#00FFFF"  # Glowing cyan
+    text_highlight: str = "#FF00FF"  # Highlight magenta
 
     # ═══════════════════════════════════════════════════════════════
     # SPECIAL EFFECTS
     # ═══════════════════════════════════════════════════════════════
 
-    gradient_start: str = "#FF00FF"   # Magenta
-    gradient_mid: str = "#8000FF"     # Purple
-    gradient_end: str = "#00FFFF"     # Cyan
-    glow_color: str = "#00FFFF"       # Glow effect color
-    border_glow: str = "#FF00FF"      # Border glow
-    pulse_color: str = "#00FF88"      # Pulse effect
+    gradient_start: str = "#FF00FF"  # Magenta
+    gradient_mid: str = "#8000FF"  # Purple
+    gradient_end: str = "#00FFFF"  # Cyan
+    glow_color: str = "#00FFFF"  # Glow effect color
+    border_glow: str = "#FF00FF"  # Border glow
+    pulse_color: str = "#00FF88"  # Pulse effect
 
     # ═══════════════════════════════════════════════════════════════
     # CODE SYNTAX
     # ═══════════════════════════════════════════════════════════════
 
-    code_keyword: str = "#FF79C6"     # Pink
-    code_string: str = "#F1FA8C"      # Yellow
-    code_function: str = "#50FA7B"    # Green
-    code_comment: str = "#6272A4"     # Muted blue
-    code_number: str = "#BD93F9"      # Purple
-    code_operator: str = "#FF79C6"    # Pink
-    code_class: str = "#8BE9FD"       # Cyan
-    code_variable: str = "#F8F8F2"    # White
-    code_constant: str = "#BD93F9"    # Purple
-    code_parameter: str = "#FFB86C"   # Orange
+    code_keyword: str = "#FF79C6"  # Pink
+    code_string: str = "#F1FA8C"  # Yellow
+    code_function: str = "#50FA7B"  # Green
+    code_comment: str = "#6272A4"  # Muted blue
+    code_number: str = "#BD93F9"  # Purple
+    code_operator: str = "#FF79C6"  # Pink
+    code_class: str = "#8BE9FD"  # Cyan
+    code_variable: str = "#F8F8F2"  # White
+    code_constant: str = "#BD93F9"  # Purple
+    code_parameter: str = "#FFB86C"  # Orange
 
     # ═══════════════════════════════════════════════════════════════
     # DIFF COLORS
@@ -129,7 +131,6 @@ THEMES: Dict[ThemeMode, ColorPalette] = {
         glow_color="#00FFFF",
         border_glow="#FF00FF",
     ),
-
     ThemeMode.NEON_NIGHTS: ColorPalette(
         primary="#F72585",
         secondary="#7209B7",
@@ -147,7 +148,6 @@ THEMES: Dict[ThemeMode, ColorPalette] = {
         glow_color="#F72585",
         border_glow="#7209B7",
     ),
-
     ThemeMode.MATRIX: ColorPalette(
         primary="#00FF00",
         secondary="#008F11",
@@ -171,7 +171,6 @@ THEMES: Dict[ThemeMode, ColorPalette] = {
         code_function="#00FF00",
         code_comment="#006600",
     ),
-
     ThemeMode.SYNTHWAVE: ColorPalette(
         primary="#FF6AD5",
         secondary="#C774E8",
@@ -189,7 +188,6 @@ THEMES: Dict[ThemeMode, ColorPalette] = {
         glow_color="#FF6AD5",
         border_glow="#C774E8",
     ),
-
     ThemeMode.FROST: ColorPalette(
         primary="#88C0D0",
         secondary="#81A1C1",
@@ -209,7 +207,6 @@ THEMES: Dict[ThemeMode, ColorPalette] = {
         glow_color="#88C0D0",
         border_glow="#81A1C1",
     ),
-
     ThemeMode.MINIMAL: ColorPalette(
         primary="#FFFFFF",
         secondary="#888888",
@@ -228,7 +225,6 @@ THEMES: Dict[ThemeMode, ColorPalette] = {
         glow_color="#FFFFFF",
         border_glow="#444444",
     ),
-
     ThemeMode.HACKER: ColorPalette(
         primary="#20C20E",
         secondary="#0FFF50",
@@ -261,8 +257,8 @@ class ColorUtils:
     @staticmethod
     def hex_to_rgb(hex_color: str) -> Tuple[int, int, int]:
         """Convert hex color to RGB tuple."""
-        hex_color = hex_color.lstrip('#')
-        return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
+        hex_color = hex_color.lstrip("#")
+        return tuple(int(hex_color[i : i + 2], 16) for i in (0, 2, 4))
 
     @staticmethod
     def rgb_to_hex(r: int, g: int, b: int) -> str:
@@ -310,7 +306,7 @@ class ColorUtils:
 class ThemeEngine:
     """Manages theme switching and Rich console styling."""
 
-    _instance: Optional['ThemeEngine'] = None
+    _instance: Optional["ThemeEngine"] = None
 
     def __new__(cls, mode: ThemeMode = ThemeMode.CYBERPUNK):
         if cls._instance is None:
@@ -329,104 +325,87 @@ class ThemeEngine:
     def get_rich_theme(self) -> Theme:
         """Generate Rich theme from current palette."""
         p = self.palette
-        return Theme({
-            # ═══════════════════════════════════════════════════════
-            # CORE STYLES
-            # ═══════════════════════════════════════════════════════
-
-            "primary": Style(color=p.primary, bold=True),
-            "secondary": Style(color=p.secondary),
-            "accent": Style(color=p.accent, bold=True),
-
-            # ═══════════════════════════════════════════════════════
-            # STATUS STYLES
-            # ═══════════════════════════════════════════════════════
-
-            "success": Style(color=p.success, bold=True),
-            "error": Style(color=p.error, bold=True),
-            "warning": Style(color=p.warning, bold=True),
-            "info": Style(color=p.info),
-
-            # ═══════════════════════════════════════════════════════
-            # TEXT STYLES
-            # ═══════════════════════════════════════════════════════
-
-            "text": Style(color=p.text_primary),
-            "text.muted": Style(color=p.text_muted),
-            "text.secondary": Style(color=p.text_secondary),
-            "text.glow": Style(color=p.text_glow, bold=True),
-            "text.highlight": Style(color=p.text_highlight, bold=True),
-
-            # ═══════════════════════════════════════════════════════
-            # UI ELEMENTS
-            # ═══════════════════════════════════════════════════════
-
-            "panel.border": Style(color=p.primary),
-            "panel.title": Style(color=p.accent, bold=True),
-            "progress.bar": Style(color=p.primary),
-            "progress.remaining": Style(color=p.bg_light),
-            "progress.complete": Style(color=p.success),
-
-            # ═══════════════════════════════════════════════════════
-            # CODE HIGHLIGHTING
-            # ═══════════════════════════════════════════════════════
-
-            "code.keyword": Style(color=p.code_keyword, bold=True),
-            "code.string": Style(color=p.code_string),
-            "code.function": Style(color=p.code_function),
-            "code.comment": Style(color=p.code_comment, italic=True),
-            "code.number": Style(color=p.code_number),
-            "code.operator": Style(color=p.code_operator),
-            "code.class": Style(color=p.code_class, bold=True),
-            "code.variable": Style(color=p.code_variable),
-            "code.constant": Style(color=p.code_constant),
-            "code.parameter": Style(color=p.code_parameter),
-
-            # ═══════════════════════════════════════════════════════
-            # DIFF STYLES
-            # ═══════════════════════════════════════════════════════
-
-            "diff.added": Style(color=p.diff_added),
-            "diff.removed": Style(color=p.diff_removed),
-            "diff.changed": Style(color=p.diff_changed),
-
-            # ═══════════════════════════════════════════════════════
-            # SPECIAL STYLES
-            # ═══════════════════════════════════════════════════════
-
-            "prompt": Style(color=p.primary, bold=True),
-            "prompt.input": Style(color=p.text_primary),
-            "ai.response": Style(color=p.text_primary),
-            "ai.thinking": Style(color=p.warning, italic=True),
-            "tool.name": Style(color=p.accent, bold=True),
-            "tool.input": Style(color=p.text_secondary),
-            "file.path": Style(color=p.secondary, underline=True),
-            "file.name": Style(color=p.primary),
-            "command": Style(color=p.warning, bold=True),
-
-            # ═══════════════════════════════════════════════════════
-            # BORDER STYLES
-            # ═══════════════════════════════════════════════════════
-
-            "border": Style(color=p.border_default),
-            "border.focus": Style(color=p.border_focus, bold=True),
-            "border.glow": Style(color=p.border_glow, bold=True),
-
-            # ═══════════════════════════════════════════════════════
-            # GRADIENT SIMULATION
-            # ═══════════════════════════════════════════════════════
-
-            "gradient.start": Style(color=p.gradient_start, bold=True),
-            "gradient.mid": Style(color=p.gradient_mid, bold=True),
-            "gradient.end": Style(color=p.gradient_end, bold=True),
-
-            # ═══════════════════════════════════════════════════════
-            # GLOW EFFECTS
-            # ═══════════════════════════════════════════════════════
-
-            "glow": Style(color=p.glow_color, bold=True),
-            "pulse": Style(color=p.pulse_color, bold=True),
-        })
+        return Theme(
+            {
+                # ═══════════════════════════════════════════════════════
+                # CORE STYLES
+                # ═══════════════════════════════════════════════════════
+                "primary": Style(color=p.primary, bold=True),
+                "secondary": Style(color=p.secondary),
+                "accent": Style(color=p.accent, bold=True),
+                # ═══════════════════════════════════════════════════════
+                # STATUS STYLES
+                # ═══════════════════════════════════════════════════════
+                "success": Style(color=p.success, bold=True),
+                "error": Style(color=p.error, bold=True),
+                "warning": Style(color=p.warning, bold=True),
+                "info": Style(color=p.info),
+                # ═══════════════════════════════════════════════════════
+                # TEXT STYLES
+                # ═══════════════════════════════════════════════════════
+                "text": Style(color=p.text_primary),
+                "text.muted": Style(color=p.text_muted),
+                "text.secondary": Style(color=p.text_secondary),
+                "text.glow": Style(color=p.text_glow, bold=True),
+                "text.highlight": Style(color=p.text_highlight, bold=True),
+                # ═══════════════════════════════════════════════════════
+                # UI ELEMENTS
+                # ═══════════════════════════════════════════════════════
+                "panel.border": Style(color=p.primary),
+                "panel.title": Style(color=p.accent, bold=True),
+                "progress.bar": Style(color=p.primary),
+                "progress.remaining": Style(color=p.bg_light),
+                "progress.complete": Style(color=p.success),
+                # ═══════════════════════════════════════════════════════
+                # CODE HIGHLIGHTING
+                # ═══════════════════════════════════════════════════════
+                "code.keyword": Style(color=p.code_keyword, bold=True),
+                "code.string": Style(color=p.code_string),
+                "code.function": Style(color=p.code_function),
+                "code.comment": Style(color=p.code_comment, italic=True),
+                "code.number": Style(color=p.code_number),
+                "code.operator": Style(color=p.code_operator),
+                "code.class": Style(color=p.code_class, bold=True),
+                "code.variable": Style(color=p.code_variable),
+                "code.constant": Style(color=p.code_constant),
+                "code.parameter": Style(color=p.code_parameter),
+                # ═══════════════════════════════════════════════════════
+                # DIFF STYLES
+                # ═══════════════════════════════════════════════════════
+                "diff.added": Style(color=p.diff_added),
+                "diff.removed": Style(color=p.diff_removed),
+                "diff.changed": Style(color=p.diff_changed),
+                # ═══════════════════════════════════════════════════════
+                # SPECIAL STYLES
+                # ═══════════════════════════════════════════════════════
+                "prompt": Style(color=p.primary, bold=True),
+                "prompt.input": Style(color=p.text_primary),
+                "ai.response": Style(color=p.text_primary),
+                "ai.thinking": Style(color=p.warning, italic=True),
+                "tool.name": Style(color=p.accent, bold=True),
+                "tool.input": Style(color=p.text_secondary),
+                "file.path": Style(color=p.secondary, underline=True),
+                "file.name": Style(color=p.primary),
+                "command": Style(color=p.warning, bold=True),
+                # ═══════════════════════════════════════════════════════
+                # BORDER STYLES
+                # ═══════════════════════════════════════════════════════
+                "border": Style(color=p.border_default),
+                "border.focus": Style(color=p.border_focus, bold=True),
+                "border.glow": Style(color=p.border_glow, bold=True),
+                # ═══════════════════════════════════════════════════════
+                # GRADIENT SIMULATION
+                # ═══════════════════════════════════════════════════════
+                "gradient.start": Style(color=p.gradient_start, bold=True),
+                "gradient.mid": Style(color=p.gradient_mid, bold=True),
+                "gradient.end": Style(color=p.gradient_end, bold=True),
+                # ═══════════════════════════════════════════════════════
+                # GLOW EFFECTS
+                # ═══════════════════════════════════════════════════════
+                "glow": Style(color=p.glow_color, bold=True),
+                "pulse": Style(color=p.pulse_color, bold=True),
+            }
+        )
 
     @property
     def console(self) -> Console:
@@ -444,9 +423,7 @@ class ThemeEngine:
     def get_gradient_colors(self, steps: int = 10) -> List[str]:
         """Get gradient colors from current palette."""
         return ColorUtils.create_gradient(
-            self.palette.gradient_start,
-            self.palette.gradient_end,
-            steps
+            self.palette.gradient_start, self.palette.gradient_end, steps
         )
 
     def get_rainbow_gradient(self, steps: int = 20) -> List[str]:

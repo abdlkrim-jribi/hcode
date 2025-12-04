@@ -25,37 +25,14 @@ class LLMSettings(BaseSettings):
     )
 
     provider: Literal["anthropic", "openai", "ollama", "auto"] = Field(
-        default="auto",
-        description="Default LLM provider"
+        default="auto", description="Default LLM provider"
     )
-    anthropic_api_key: str | None = Field(
-        default=None,
-        description="Anthropic API key"
-    )
-    openai_api_key: str | None = Field(
-        default=None,
-        description="OpenAI API key"
-    )
-    ollama_base_url: str = Field(
-        default="http://localhost:11434",
-        description="Ollama base URL"
-    )
-    model: str = Field(
-        default="claude-sonnet-4-20250514",
-        description="Default model name"
-    )
-    max_tokens: int = Field(
-        default=4096,
-        ge=1,
-        le=100000,
-        description="Maximum tokens in response"
-    )
-    temperature: float = Field(
-        default=0.7,
-        ge=0.0,
-        le=2.0,
-        description="Sampling temperature"
-    )
+    anthropic_api_key: str | None = Field(default=None, description="Anthropic API key")
+    openai_api_key: str | None = Field(default=None, description="OpenAI API key")
+    ollama_base_url: str = Field(default="http://localhost:11434", description="Ollama base URL")
+    model: str = Field(default="claude-sonnet-4-20250514", description="Default model name")
+    max_tokens: int = Field(default=4096, ge=1, le=100000, description="Maximum tokens in response")
+    temperature: float = Field(default=0.7, ge=0.0, le=2.0, description="Sampling temperature")
 
     @field_validator("anthropic_api_key", "openai_api_key", mode="before")
     @classmethod
@@ -80,31 +57,16 @@ class AgentSettings(BaseSettings):
     )
 
     max_context_tokens: int = Field(
-        default=100000,
-        ge=1000,
-        description="Maximum context window tokens"
+        default=100000, ge=1000, description="Maximum context window tokens"
     )
     auto_confirm_commands: bool = Field(
-        default=False,
-        description="Auto-confirm shell commands without prompting"
+        default=False, description="Auto-confirm shell commands without prompting"
     )
-    streaming: bool = Field(
-        default=True,
-        description="Enable streaming responses"
-    )
-    verbose: bool = Field(
-        default=False,
-        description="Verbose output mode"
-    )
-    use_sub_agents: bool = Field(
-        default=False,
-        description="Use specialized sub-agents for tasks"
-    )
+    streaming: bool = Field(default=True, description="Enable streaming responses")
+    verbose: bool = Field(default=False, description="Verbose output mode")
+    use_sub_agents: bool = Field(default=False, description="Use specialized sub-agents for tasks")
     max_iterations: int = Field(
-        default=50,
-        ge=1,
-        le=200,
-        description="Maximum agent iterations per task"
+        default=50, ge=1, le=200, description="Maximum agent iterations per task"
     )
 
 
@@ -116,42 +78,21 @@ class UISettings(BaseSettings):
         extra="ignore",
     )
 
-    theme: Literal["dark", "light", "auto"] = Field(
-        default="auto",
-        description="Color theme"
-    )
-    show_tokens: bool = Field(
-        default=False,
-        description="Show token usage in output"
-    )
-    show_cost: bool = Field(
-        default=True,
-        description="Show cost estimation in output"
-    )
+    theme: Literal["dark", "light", "auto"] = Field(default="auto", description="Color theme")
+    show_tokens: bool = Field(default=False, description="Show token usage in output")
+    show_cost: bool = Field(default=True, description="Show cost estimation in output")
     syntax_highlighting: bool = Field(
-        default=True,
-        description="Enable syntax highlighting for code"
+        default=True, description="Enable syntax highlighting for code"
     )
-    markdown_rendering: bool = Field(
-        default=True,
-        description="Enable markdown rendering"
-    )
-    emoji_enabled: bool = Field(
-        default=True,
-        description="Enable emoji in output"
-    )
+    markdown_rendering: bool = Field(default=True, description="Enable markdown rendering")
+    emoji_enabled: bool = Field(default=True, description="Enable emoji in output")
     debug_mode: bool = Field(
-        default=False,
-        description="Show verbose debug output (thinking panels, detailed messages)"
+        default=False, description="Show verbose debug output (thinking panels, detailed messages)"
     )
     show_thinking: bool = Field(
-        default=False,
-        description="Show model thinking/reasoning steps (debug mode enables this)"
+        default=False, description="Show model thinking/reasoning steps (debug mode enables this)"
     )
-    minimal_output: bool = Field(
-        default=True,
-        description="Use Claude Code-style minimal output"
-    )
+    minimal_output: bool = Field(default=True, description="Use Claude Code-style minimal output")
 
 
 class LoggingSettings(BaseSettings):
@@ -163,29 +104,17 @@ class LoggingSettings(BaseSettings):
     )
 
     level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = Field(
-        default="INFO",
-        description="Logging level"
+        default="INFO", description="Logging level"
     )
-    file_enabled: bool = Field(
-        default=True,
-        description="Enable file logging"
-    )
+    file_enabled: bool = Field(default=True, description="Enable file logging")
     log_dir: Path = Field(
-        default=Path.home() / ".hcode" / "logs",
-        description="Log files directory"
+        default=Path.home() / ".hcode" / "logs", description="Log files directory"
     )
     max_file_size: int = Field(
-        default=10 * 1024 * 1024,  # 10MB
-        description="Maximum log file size in bytes"
+        default=10 * 1024 * 1024, description="Maximum log file size in bytes"  # 10MB
     )
-    backup_count: int = Field(
-        default=5,
-        description="Number of backup log files to keep"
-    )
-    debug_requests: bool = Field(
-        default=False,
-        description="Log full API requests/responses"
-    )
+    backup_count: int = Field(default=5, description="Number of backup log files to keep")
+    debug_requests: bool = Field(default=False, description="Log full API requests/responses")
 
 
 class MemorySettings(BaseSettings):
@@ -196,21 +125,13 @@ class MemorySettings(BaseSettings):
         extra="ignore",
     )
 
-    enabled: bool = Field(
-        default=True,
-        description="Enable conversation memory"
-    )
+    enabled: bool = Field(default=True, description="Enable conversation memory")
     db_path: Path = Field(
-        default=Path.home() / ".hcode" / "memory.db",
-        description="SQLite database path for memory"
+        default=Path.home() / ".hcode" / "memory.db", description="SQLite database path for memory"
     )
-    max_history: int = Field(
-        default=100,
-        description="Maximum conversation history entries"
-    )
+    max_history: int = Field(default=100, description="Maximum conversation history entries")
     embeddings_enabled: bool = Field(
-        default=False,
-        description="Enable semantic memory with embeddings"
+        default=False, description="Enable semantic memory with embeddings"
     )
 
 
@@ -222,13 +143,9 @@ class SafetySettings(BaseSettings):
         extra="ignore",
     )
 
-    enable_sandbox: bool = Field(
-        default=True,
-        description="Enable sandboxed command execution"
-    )
+    enable_sandbox: bool = Field(default=True, description="Enable sandboxed command execution")
     allowed_directories: list[str] = Field(
-        default_factory=list,
-        description="Allowed directories for file operations"
+        default_factory=list, description="Allowed directories for file operations"
     )
     blocked_commands: list[str] = Field(
         default_factory=lambda: [
@@ -239,7 +156,7 @@ class SafetySettings(BaseSettings):
             "mkfs",
             "dd if=/dev/zero",
         ],
-        description="Blocked dangerous commands"
+        description="Blocked dangerous commands",
     )
     require_confirmation_patterns: list[str] = Field(
         default_factory=lambda: [
@@ -250,7 +167,7 @@ class SafetySettings(BaseSettings):
             "git push --force",
             "git reset --hard",
         ],
-        description="Patterns requiring user confirmation"
+        description="Patterns requiring user confirmation",
     )
 
 
@@ -262,26 +179,17 @@ class PromptsSettings(BaseSettings):
         extra="ignore",
     )
 
-    enabled: bool = Field(
-        default=True,
-        description="Enable custom prompts loading"
-    )
+    enabled: bool = Field(default=True, description="Enable custom prompts loading")
     directory: Path = Field(
-        default=Path.home() / ".hcode" / "prompts",
-        description="Directory containing .prompt files"
+        default=Path.home() / ".hcode" / "prompts", description="Directory containing .prompt files"
     )
     project_directory: Path | None = Field(
-        default=None,
-        description="Project-local prompts directory (e.g., .hcode/prompts)"
+        default=None, description="Project-local prompts directory (e.g., .hcode/prompts)"
     )
     auto_reload: bool = Field(
-        default=False,
-        description="Automatically reload prompts when files change"
+        default=False, description="Automatically reload prompts when files change"
     )
-    extension: str = Field(
-        default=".prompt",
-        description="File extension for prompt files"
-    )
+    extension: str = Field(default=".prompt", description="File extension for prompt files")
 
 
 class HCodeSettings(BaseSettings):
@@ -318,14 +226,8 @@ class HCodeSettings(BaseSettings):
     prompts: PromptsSettings = Field(default_factory=PromptsSettings)
 
     # Project-specific settings
-    project_root: Path = Field(
-        default_factory=Path.cwd,
-        description="Project root directory"
-    )
-    config_dir: Path = Field(
-        default=Path.home() / ".hcode",
-        description="Global config directory"
-    )
+    project_root: Path = Field(default_factory=Path.cwd, description="Project root directory")
+    config_dir: Path = Field(default=Path.home() / ".hcode", description="Global config directory")
 
     @model_validator(mode="after")
     def ensure_directories(self) -> "HCodeSettings":
@@ -457,9 +359,10 @@ def is_debug_mode() -> bool:
     - Environment variable HCODE_DEBUG is set
     """
     import os
+
     settings = get_settings()
     return (
-        settings.ui.debug_mode or
-        settings.ui.show_thinking or
-        os.getenv('HCODE_DEBUG', '').lower() in ('1', 'true', 'yes')
+        settings.ui.debug_mode
+        or settings.ui.show_thinking
+        or os.getenv("HCODE_DEBUG", "").lower() in ("1", "true", "yes")
     )

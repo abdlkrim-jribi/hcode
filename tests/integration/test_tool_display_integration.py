@@ -23,13 +23,14 @@ from src.hcode.core.output_handler import OutputHandler, OutputType
 
 def strip_ansi(text: str) -> str:
     """Remove ANSI escape codes from text for easier assertion"""
-    ansi_pattern = re.compile(r'\x1b\[[0-9;]*m')
-    return ansi_pattern.sub('', text)
+    ansi_pattern = re.compile(r"\x1b\[[0-9;]*m")
+    return ansi_pattern.sub("", text)
 
 
 # ============================================================
 # FIXTURES
 # ============================================================
+
 
 @pytest.fixture
 def mock_console():
@@ -49,17 +50,20 @@ def tool_display(mock_console):
 @pytest.fixture
 def mock_result():
     """Factory for creating mock tool results"""
+
     class MockResult:
         def __init__(self, success=True, output="", error=None):
             self.success = success
             self.output = output
             self.error = error
+
     return MockResult
 
 
 # ============================================================
 # OUTPUT HANDLER CONFIGURATION TESTS
 # ============================================================
+
 
 class TestOutputHandlerConfiguration:
     """Tests for output handler configuration"""
@@ -86,21 +90,16 @@ class TestOutputHandlerConfiguration:
 # BASH DISPLAY TESTS
 # ============================================================
 
+
 class TestBashDisplay:
     """Tests for bash command output display"""
 
     def test_bash_small_output(self, tool_display, mock_result, mock_console):
         """Small bash output should display completely"""
         _, output = mock_console
-        result = mock_result(
-            success=True,
-            output="Line 1\nLine 2\nLine 3"
-        )
+        result = mock_result(success=True, output="Line 1\nLine 2\nLine 3")
 
-        tool_display._display_bash(
-            {"command": "echo test"},
-            result
-        )
+        tool_display._display_bash({"command": "echo test"}, result)
 
         displayed = output.getvalue()
         assert "Bash" in displayed
@@ -112,10 +111,7 @@ class TestBashDisplay:
         large_output = "\n".join([f"Build step {i}" for i in range(200)])
         result = mock_result(success=True, output=large_output)
 
-        tool_display._display_bash(
-            {"command": "npm run build"},
-            result
-        )
+        tool_display._display_bash({"command": "npm run build"}, result)
 
         displayed = output.getvalue()
         # Should show truncation indicator
@@ -126,18 +122,17 @@ class TestBashDisplay:
     def test_bash_error_extraction(self, tool_display, mock_result, mock_console):
         """Bash output with errors should highlight them"""
         _, output = mock_console
-        error_output = "\n".join([
-            "Starting build...",
-            "Compiling...",
-            "ERROR: Module not found: 'missing'",
-            "Build failed"
-        ])
+        error_output = "\n".join(
+            [
+                "Starting build...",
+                "Compiling...",
+                "ERROR: Module not found: 'missing'",
+                "Build failed",
+            ]
+        )
         result = mock_result(success=True, output=error_output)
 
-        tool_display._display_bash(
-            {"command": "npm run build"},
-            result
-        )
+        tool_display._display_bash({"command": "npm run build"}, result)
 
         displayed = output.getvalue()
         # Should detect and show error
@@ -149,10 +144,7 @@ class TestBashDisplay:
         long_command = "a" * 100
         result = mock_result(success=True, output="Done")
 
-        tool_display._display_bash(
-            {"command": long_command},
-            result
-        )
+        tool_display._display_bash({"command": long_command}, result)
 
         displayed = output.getvalue()
         # Command should be truncated with ...
@@ -161,16 +153,9 @@ class TestBashDisplay:
     def test_bash_failed_command(self, tool_display, mock_result, mock_console):
         """Failed command should show error"""
         _, output = mock_console
-        result = mock_result(
-            success=False,
-            output="",
-            error="Command not found: xyz"
-        )
+        result = mock_result(success=False, output="", error="Command not found: xyz")
 
-        tool_display._display_bash(
-            {"command": "xyz"},
-            result
-        )
+        tool_display._display_bash({"command": "xyz"}, result)
 
         displayed = output.getvalue()
         assert "Error" in displayed or "failed" in displayed.lower()
@@ -180,10 +165,7 @@ class TestBashDisplay:
         _, output = mock_console
         result = mock_result(success=True, output="")
 
-        tool_display._display_bash(
-            {"command": "mkdir test"},
-            result
-        )
+        tool_display._display_bash({"command": "mkdir test"}, result)
 
         displayed = output.getvalue()
         assert "no output" in displayed.lower() or "completed" in displayed.lower()
@@ -193,21 +175,16 @@ class TestBashDisplay:
 # READ DISPLAY TESTS
 # ============================================================
 
+
 class TestReadDisplay:
     """Tests for file read display"""
 
     def test_read_small_file(self, tool_display, mock_result, mock_console):
         """Small file should show line count"""
         _, output = mock_console
-        result = mock_result(
-            success=True,
-            output="line 1\nline 2\nline 3"
-        )
+        result = mock_result(success=True, output="line 1\nline 2\nline 3")
 
-        tool_display._display_read(
-            {"file_path": "/path/to/file.py"},
-            result
-        )
+        tool_display._display_read({"file_path": "/path/to/file.py"}, result)
 
         displayed = strip_ansi(output.getvalue())
         assert "Read" in displayed
@@ -220,10 +197,7 @@ class TestReadDisplay:
         large_content = "\n".join([f"Line {i}" for i in range(200)])
         result = mock_result(success=True, output=large_content)
 
-        tool_display._display_read(
-            {"file_path": "/path/to/large_file.py"},
-            result
-        )
+        tool_display._display_read({"file_path": "/path/to/large_file.py"}, result)
 
         displayed = strip_ansi(output.getvalue())
         assert "200 lines" in displayed
@@ -231,16 +205,9 @@ class TestReadDisplay:
     def test_read_failed(self, tool_display, mock_result, mock_console):
         """Failed read should show error"""
         _, output = mock_console
-        result = mock_result(
-            success=False,
-            output=None,
-            error="File not found"
-        )
+        result = mock_result(success=False, output=None, error="File not found")
 
-        tool_display._display_read(
-            {"file_path": "/path/to/missing.py"},
-            result
-        )
+        tool_display._display_read({"file_path": "/path/to/missing.py"}, result)
 
         displayed = output.getvalue()
         assert "failed" in displayed.lower() or "not found" in displayed.lower()
@@ -250,21 +217,16 @@ class TestReadDisplay:
 # GREP DISPLAY TESTS
 # ============================================================
 
+
 class TestGrepDisplay:
     """Tests for grep results display"""
 
     def test_grep_small_results(self, tool_display, mock_result, mock_console):
         """Small grep results should display completely"""
         _, output = mock_console
-        result = mock_result(
-            success=True,
-            output="file1.py:10: match\nfile2.py:20: match"
-        )
+        result = mock_result(success=True, output="file1.py:10: match\nfile2.py:20: match")
 
-        tool_display._display_grep(
-            {"pattern": "match", "path": "."},
-            result
-        )
+        tool_display._display_grep({"pattern": "match", "path": "."}, result)
 
         displayed = strip_ansi(output.getvalue())
         assert "Grep" in displayed
@@ -276,10 +238,7 @@ class TestGrepDisplay:
         large_results = "\n".join([f"file{i}.py:10: match" for i in range(100)])
         result = mock_result(success=True, output=large_results)
 
-        tool_display._display_grep(
-            {"pattern": "match"},
-            result
-        )
+        tool_display._display_grep({"pattern": "match"}, result)
 
         displayed = strip_ansi(output.getvalue())
         assert "100 matches" in displayed
@@ -291,10 +250,7 @@ class TestGrepDisplay:
         _, output = mock_console
         result = mock_result(success=True, output="")
 
-        tool_display._display_grep(
-            {"pattern": "notfound"},
-            result
-        )
+        tool_display._display_grep({"pattern": "notfound"}, result)
 
         displayed = strip_ansi(output.getvalue())
         assert "0 matches" in displayed
@@ -304,21 +260,16 @@ class TestGrepDisplay:
 # GLOB DISPLAY TESTS
 # ============================================================
 
+
 class TestGlobDisplay:
     """Tests for glob results display"""
 
     def test_glob_results(self, tool_display, mock_result, mock_console):
         """Glob results should show file count"""
         _, output = mock_console
-        result = mock_result(
-            success=True,
-            output="file1.py\nfile2.py\nfile3.py"
-        )
+        result = mock_result(success=True, output="file1.py\nfile2.py\nfile3.py")
 
-        tool_display._display_glob(
-            {"pattern": "*.py", "path": "."},
-            result
-        )
+        tool_display._display_glob({"pattern": "*.py", "path": "."}, result)
 
         displayed = strip_ansi(output.getvalue())
         assert "Glob" in displayed
@@ -330,10 +281,7 @@ class TestGlobDisplay:
         many_files = "\n".join([f"file{i}.py" for i in range(20)])
         result = mock_result(success=True, output=many_files)
 
-        tool_display._display_glob(
-            {"pattern": "**/*.py"},
-            result
-        )
+        tool_display._display_glob({"pattern": "**/*.py"}, result)
 
         displayed = strip_ansi(output.getvalue())
         assert "20 files" in displayed
@@ -345,6 +293,7 @@ class TestGlobDisplay:
 # EDIT DISPLAY TESTS
 # ============================================================
 
+
 class TestEditDisplay:
     """Tests for edit display"""
 
@@ -354,12 +303,7 @@ class TestEditDisplay:
         result = mock_result(success=True, output="Edited")
 
         tool_display._display_edit(
-            {
-                "file_path": "/path/to/file.py",
-                "old_string": "old",
-                "new_string": "new"
-            },
-            result
+            {"file_path": "/path/to/file.py", "old_string": "old", "new_string": "new"}, result
         )
 
         displayed = output.getvalue()
@@ -372,12 +316,8 @@ class TestEditDisplay:
         result = mock_result(success=True, output="")
 
         tool_display._display_edit(
-            {
-                "file_path": "/path/to/file.py",
-                "old_string": "old_value",
-                "new_string": "new_value"
-            },
-            result
+            {"file_path": "/path/to/file.py", "old_string": "old_value", "new_string": "new_value"},
+            result,
         )
 
         displayed = output.getvalue()
@@ -389,6 +329,7 @@ class TestEditDisplay:
 # WRITE DISPLAY TESTS
 # ============================================================
 
+
 class TestWriteDisplay:
     """Tests for write display"""
 
@@ -398,11 +339,7 @@ class TestWriteDisplay:
         result = mock_result(success=True, output="")
 
         tool_display._display_write(
-            {
-                "file_path": "/path/to/file.py",
-                "content": "Hello World"
-            },
-            result
+            {"file_path": "/path/to/file.py", "content": "Hello World"}, result
         )
 
         displayed = output.getvalue()
@@ -415,6 +352,7 @@ class TestWriteDisplay:
 # GENERIC DISPLAY TESTS
 # ============================================================
 
+
 class TestGenericDisplay:
     """Tests for generic tool display"""
 
@@ -423,11 +361,7 @@ class TestGenericDisplay:
         _, output = mock_console
         result = mock_result(success=True, output="Done")
 
-        tool_display._display_generic(
-            "CustomTool",
-            {"param": "value"},
-            result
-        )
+        tool_display._display_generic("CustomTool", {"param": "value"}, result)
 
         displayed = output.getvalue()
         assert "CustomTool" in displayed
@@ -436,17 +370,9 @@ class TestGenericDisplay:
     def test_generic_failure(self, tool_display, mock_result, mock_console):
         """Generic failure should show error"""
         _, output = mock_console
-        result = mock_result(
-            success=False,
-            output=None,
-            error="Something went wrong"
-        )
+        result = mock_result(success=False, output=None, error="Something went wrong")
 
-        tool_display._display_generic(
-            "CustomTool",
-            {},
-            result
-        )
+        tool_display._display_generic("CustomTool", {}, result)
 
         displayed = output.getvalue()
         assert "failed" in displayed.lower()
@@ -455,6 +381,7 @@ class TestGenericDisplay:
 # ============================================================
 # STYLE TESTS
 # ============================================================
+
 
 class TestHcodeStyle:
     """Tests for HcodeStyle constants"""
@@ -489,6 +416,7 @@ class TestHcodeStyle:
 # STREAMING DISPLAY TESTS
 # ============================================================
 
+
 class TestStreamingDisplay:
     """Tests for streaming display"""
 
@@ -518,6 +446,7 @@ class TestStreamingDisplay:
 # STATUS LINE TESTS
 # ============================================================
 
+
 class TestStatusLineDisplay:
     """Tests for status line display"""
 
@@ -526,11 +455,7 @@ class TestStatusLineDisplay:
         display = StatusLineDisplay()
 
         line = display.render(
-            model="claude-3",
-            tokens=1000,
-            cost=0.05,
-            status="ready",
-            cwd="/home/user/project"
+            model="claude-3", tokens=1000, cost=0.05, status="ready", cwd="/home/user/project"
         )
 
         assert "claude-3" in line
@@ -550,6 +475,7 @@ class TestStatusLineDisplay:
 # TOOL CALL ROUTING TESTS
 # ============================================================
 
+
 class TestToolCallRouting:
     """Tests for tool call routing"""
 
@@ -558,11 +484,7 @@ class TestToolCallRouting:
         _, output = mock_console
         result = mock_result(success=True, output="content")
 
-        tool_display.display_tool_call(
-            "Read",
-            {"file_path": "/test.py"},
-            result
-        )
+        tool_display.display_tool_call("Read", {"file_path": "/test.py"}, result)
 
         displayed = output.getvalue()
         assert "Read" in displayed
@@ -572,11 +494,7 @@ class TestToolCallRouting:
         _, output = mock_console
         result = mock_result(success=True, output="output")
 
-        tool_display.display_tool_call(
-            "Bash",
-            {"command": "ls"},
-            result
-        )
+        tool_display.display_tool_call("Bash", {"command": "ls"}, result)
 
         displayed = output.getvalue()
         assert "Bash" in displayed
@@ -586,11 +504,7 @@ class TestToolCallRouting:
         _, output = mock_console
         result = mock_result(success=True, output="result")
 
-        tool_display.display_tool_call(
-            "UnknownTool",
-            {"param": "value"},
-            result
-        )
+        tool_display.display_tool_call("UnknownTool", {"param": "value"}, result)
 
         displayed = output.getvalue()
         assert "UnknownTool" in displayed
@@ -600,6 +514,7 @@ class TestToolCallRouting:
 # INTEGRATION WITH OUTPUT HANDLER
 # ============================================================
 
+
 class TestOutputHandlerIntegration:
     """Tests for integration between tool display and output handler"""
 
@@ -608,21 +523,20 @@ class TestOutputHandlerIntegration:
         _, output = mock_console
 
         # Create output with error that should be extracted
-        error_output = "\n".join([
-            "Starting...",
-            "Processing...",
-            "Traceback (most recent call last):",
-            '  File "test.py", line 10, in main',
-            "    raise ValueError('test')",
-            "ValueError: test",
-        ])
+        error_output = "\n".join(
+            [
+                "Starting...",
+                "Processing...",
+                "Traceback (most recent call last):",
+                '  File "test.py", line 10, in main',
+                "    raise ValueError('test')",
+                "ValueError: test",
+            ]
+        )
 
         result = mock_result(success=True, output=error_output)
 
-        tool_display._display_bash(
-            {"command": "python test.py"},
-            result
-        )
+        tool_display._display_bash({"command": "python test.py"}, result)
 
         displayed = output.getvalue()
         # Should detect error
@@ -636,10 +550,7 @@ class TestOutputHandlerIntegration:
         large_output = "\n".join([f"Step {i}" for i in range(1, 201)])
         result = mock_result(success=True, output=large_output)
 
-        tool_display._display_bash(
-            {"command": "long-command"},
-            result
-        )
+        tool_display._display_bash({"command": "long-command"}, result)
 
         displayed = strip_ansi(output.getvalue())
         # Should show the very last line

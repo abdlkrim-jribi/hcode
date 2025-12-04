@@ -2,6 +2,7 @@
 Unified Memory Manager combining all three layers.
 Provides a single interface for the agent to interact with memory.
 """
+
 from pathlib import Path
 from typing import Optional, List, Dict, Any, Tuple
 from dataclasses import dataclass
@@ -18,12 +19,13 @@ from .semantic_memory import SemanticMemory, Memory, MemoryType
 @dataclass
 class ContextWindow:
     """Represents the assembled context for the agent."""
-    file_memory: str           # From AGENT.md files
-    session_summary: str       # Compressed history
+
+    file_memory: str  # From AGENT.md files
+    session_summary: str  # Compressed history
     recent_messages: List[Dict[str, str]]  # Recent uncompressed messages
-    semantic_context: str      # Retrieved relevant memories
-    total_tokens: int          # Estimated token count
-    metadata: Dict[str, Any]   # Additional info
+    semantic_context: str  # Retrieved relevant memories
+    total_tokens: int  # Estimated token count
+    metadata: Dict[str, Any]  # Additional info
 
 
 class MemoryManager:
@@ -40,7 +42,7 @@ class MemoryManager:
         self,
         project_root: Optional[Path] = None,
         session_id: Optional[str] = None,
-        config: Optional[MemoryConfig] = None
+        config: Optional[MemoryConfig] = None,
     ):
         """
         Initialize the memory manager.
@@ -50,7 +52,7 @@ class MemoryManager:
             session_id: Session identifier (auto-generated if not provided)
             config: Optional custom configuration
         """
-        self.config = config or globals()['config']
+        self.config = config or globals()["config"]
         self.project_root = project_root or Path.cwd()
 
         # Generate project ID from path
@@ -72,11 +74,7 @@ class MemoryManager:
         return hashlib.md5(str(path.resolve()).encode()).hexdigest()[:12]
 
     def add_message(
-        self,
-        role: str,
-        content: str,
-        is_anchor: bool = False,
-        extract_memories: bool = True
+        self, role: str, content: str, is_anchor: bool = False, extract_memories: bool = True
     ) -> None:
         """
         Add a message to the conversation.
@@ -92,7 +90,7 @@ class MemoryManager:
             role=role,
             content=content,
             is_anchor=is_anchor,
-            auto_anchor=True  # Auto-detect important messages
+            auto_anchor=True,  # Auto-detect important messages
         )
 
         # Extract and store memories periodically
@@ -104,7 +102,7 @@ class MemoryManager:
     def _extract_memories_from_recent(self):
         """Extract facts and patterns from recent messages."""
         # Get recent messages for extraction
-        recent = self.session.messages[-self.config.extraction_interval:]
+        recent = self.session.messages[-self.config.extraction_interval :]
 
         for msg in recent:
             content = msg.content
@@ -116,7 +114,7 @@ class MemoryManager:
                     content=fact,
                     memory_type=MemoryType.FACT,
                     source=f"session:{self.session.session_id}",
-                    importance=0.6
+                    importance=0.6,
                 )
 
             # Extract preferences
@@ -127,7 +125,7 @@ class MemoryManager:
                         content=pref,
                         memory_type=MemoryType.PREFERENCE,
                         source=f"session:{self.session.session_id}",
-                        importance=0.7
+                        importance=0.7,
                     )
 
             # Extract code patterns
@@ -138,7 +136,7 @@ class MemoryManager:
                         content=pattern,
                         memory_type=MemoryType.CODE_PATTERN,
                         source=f"session:{self.session.session_id}",
-                        importance=0.5
+                        importance=0.5,
                     )
 
     def _extract_facts(self, content: str) -> List[str]:
@@ -152,7 +150,7 @@ class MemoryManager:
             r"(?:always|never|must|should)\s+.+",
         ]
 
-        sentences = re.split(r'[.!?]\s+', content)
+        sentences = re.split(r"[.!?]\s+", content)
         for sentence in sentences:
             sentence = sentence.strip()
             if len(sentence) < 20 or len(sentence) > 200:
@@ -176,7 +174,7 @@ class MemoryManager:
             r"(?:my |our )(?:style|preference|convention)\s+.+",
         ]
 
-        sentences = re.split(r'[.!?]\s+', content)
+        sentences = re.split(r"[.!?]\s+", content)
         for sentence in sentences:
             sentence = sentence.strip()
             for pattern in pref_patterns:
@@ -209,7 +207,7 @@ class MemoryManager:
         include_file_memory: bool = True,
         include_session: bool = True,
         include_semantic: bool = True,
-        max_tokens: Optional[int] = None
+        max_tokens: Optional[int] = None,
     ) -> ContextWindow:
         """
         Assemble context for the agent from all memory layers.
@@ -247,7 +245,7 @@ class MemoryManager:
 
             recent_messages = messages
             for msg in recent_messages:
-                total_tokens += self._estimate_tokens(msg.get('content', ''))
+                total_tokens += self._estimate_tokens(msg.get("content", ""))
 
         # Layer 3: Semantic memory
         semantic_context = ""
@@ -256,7 +254,7 @@ class MemoryManager:
                 query=query,
                 top_k=self.config.max_retrieval_results,
                 project_id=self.project_id,
-                include_global=True
+                include_global=True,
             )
 
             if results:
@@ -276,8 +274,8 @@ class MemoryManager:
                 "session_id": self.session.session_id,
                 "project_id": self.project_id,
                 "message_count": len(self.session.messages),
-                "has_summaries": len(self.session.summaries) > 0
-            }
+                "has_summaries": len(self.session.summaries) > 0,
+            },
         )
 
     def build_system_context(self, query: Optional[str] = None) -> str:
@@ -313,7 +311,7 @@ class MemoryManager:
         content: str,
         memory_type: MemoryType = MemoryType.CONTEXT,
         importance: float = 0.5,
-        source: str = "user"
+        source: str = "user",
     ) -> Memory:
         """
         Explicitly add something to long-term memory.
@@ -332,14 +330,11 @@ class MemoryManager:
             memory_type=memory_type,
             importance=importance,
             source=source,
-            project_id=self.project_id
+            project_id=self.project_id,
         )
 
     def recall(
-        self,
-        query: str,
-        top_k: int = 5,
-        memory_types: Optional[List[MemoryType]] = None
+        self, query: str, top_k: int = 5, memory_types: Optional[List[MemoryType]] = None
     ) -> List[Tuple[Memory, float]]:
         """
         Search long-term memory for relevant information.
@@ -357,7 +352,7 @@ class MemoryManager:
             top_k=top_k,
             memory_types=memory_types,
             project_id=self.project_id,
-            include_global=True
+            include_global=True,
         )
 
     def forget(self, memory_id: int) -> bool:
@@ -372,10 +367,7 @@ class MemoryManager:
             pass
 
     def update_file_memory(
-        self,
-        content: str,
-        scope: str = "project",
-        section: Optional[str] = None
+        self, content: str, scope: str = "project", section: Optional[str] = None
     ) -> Path:
         """
         Update an AGENT.md file.
@@ -388,11 +380,7 @@ class MemoryManager:
         Returns:
             Path to updated file
         """
-        return self.file_memory.update_memory(
-            content=content,
-            scope=scope,
-            section=section
-        )
+        return self.file_memory.update_memory(content=content, scope=scope, section=section)
 
     def mark_important(self, message_id: str) -> None:
         """Mark a message as important (anchor)."""
@@ -420,25 +408,19 @@ class MemoryManager:
     def get_stats(self) -> Dict[str, Any]:
         """Get statistics about all memory layers."""
         return {
-            "project": {
-                "root": str(self.project_root),
-                "id": self.project_id
-            },
+            "project": {"root": str(self.project_root), "id": self.project_id},
             "file_memory": self.file_memory.get_memory_stats(),
             "session": {
                 "id": self.session.session_id,
                 "message_count": len(self.session.messages),
                 "summary_count": len(self.session.summaries),
-                "anchor_count": sum(1 for m in self.session.messages if m.is_anchor)
+                "anchor_count": sum(1 for m in self.session.messages if m.is_anchor),
             },
-            "semantic_memory": self.semantic_memory.get_stats()
+            "semantic_memory": self.semantic_memory.get_stats(),
         }
 
     def cleanup(
-        self,
-        prune_semantic: bool = True,
-        compact_session: bool = True,
-        apply_decay: bool = True
+        self, prune_semantic: bool = True, compact_session: bool = True, apply_decay: bool = True
     ) -> Dict[str, int]:
         """
         Perform cleanup on all memory layers.
@@ -456,7 +438,7 @@ class MemoryManager:
         if prune_semantic:
             stats["memories_pruned"] = self.semantic_memory.prune(
                 max_memories=self.config.max_memories,
-                min_importance=self.config.min_importance_for_retention
+                min_importance=self.config.min_importance_for_retention,
             )
 
         if apply_decay:
@@ -505,8 +487,7 @@ class MemoryManager:
 
 
 def get_memory_manager(
-    project_root: Optional[Path] = None,
-    session_id: Optional[str] = None
+    project_root: Optional[Path] = None, session_id: Optional[str] = None
 ) -> MemoryManager:
     """
     Convenience function to get a memory manager instance.
@@ -518,7 +499,4 @@ def get_memory_manager(
     Returns:
         MemoryManager instance
     """
-    return MemoryManager(
-        project_root=project_root,
-        session_id=session_id
-    )
+    return MemoryManager(project_root=project_root, session_id=session_id)

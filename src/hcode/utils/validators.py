@@ -153,9 +153,7 @@ def validate_api_key(
     if provider in patterns:
         pattern = patterns[provider]
         if not re.match(pattern, key):
-            return ValidationResult.failure(
-                f"Invalid {provider} API key format"
-            )
+            return ValidationResult.failure(f"Invalid {provider} API key format")
 
     # Mask the key for security
     masked = key[:8] + "..." + key[-4:] if len(key) > 12 else "***"
@@ -246,14 +244,10 @@ def validate_prompt(
     prompt = prompt.strip()
 
     if len(prompt) < min_length:
-        return ValidationResult.failure(
-            f"Prompt too short (min: {min_length} characters)"
-        )
+        return ValidationResult.failure(f"Prompt too short (min: {min_length} characters)")
 
     if len(prompt) > max_length:
-        return ValidationResult.failure(
-            f"Prompt too long (max: {max_length:,} characters)"
-        )
+        return ValidationResult.failure(f"Prompt too long (max: {max_length:,} characters)")
 
     warnings = []
 
@@ -410,9 +404,7 @@ def validate_command(
 
     for pattern in blocked:
         if re.search(pattern, command, re.IGNORECASE):
-            return ValidationResult.failure(
-                f"Potentially dangerous command blocked: {pattern}"
-            )
+            return ValidationResult.failure(f"Potentially dangerous command blocked: {pattern}")
 
     # Warn about potentially risky commands
     risky_patterns = [
@@ -449,8 +441,7 @@ def validate_glob_pattern(pattern: str) -> ValidationResult:
         # Basic validation - make sure it's not too broad
         if pattern in ("*", "**", "**/*"):
             return ValidationResult.success(
-                pattern,
-                warnings=["Very broad pattern - may match many files"]
+                pattern, warnings=["Very broad pattern - may match many files"]
             )
 
         # Check for invalid characters

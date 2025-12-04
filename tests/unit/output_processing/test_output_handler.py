@@ -23,6 +23,7 @@ from src.hcode.core.output_handler import (
 # FIXTURES
 # ============================================================
 
+
 @pytest.fixture
 def handler():
     """Default output handler instance"""
@@ -49,7 +50,7 @@ def sample_output():
 @pytest.fixture
 def python_error_output():
     """Sample Python error output"""
-    return '''Running tests...
+    return """Running tests...
 Collecting tests
 Traceback (most recent call last):
   File "/path/to/test.py", line 42, in test_function
@@ -57,13 +58,13 @@ Traceback (most recent call last):
   File "/path/to/module.py", line 15, in process_data
     return data.strip()
 AttributeError: 'NoneType' object has no attribute 'strip'
-'''
+"""
 
 
 @pytest.fixture
 def multi_error_output():
     """Output with multiple errors"""
-    return '''Building project...
+    return """Building project...
 Step 1: Compiling
 WARNING: Deprecated function used at line 10
 Step 2: Linking
@@ -71,12 +72,13 @@ ERROR: undefined reference to 'missing_function'
 Step 3: Packaging
 FAILED: Package validation error
 Critical: Build cannot continue
-'''
+"""
 
 
 # ============================================================
 # TRUNCATION TESTS
 # ============================================================
+
 
 class TestTruncation:
     """Tests for output truncation functionality"""
@@ -154,15 +156,14 @@ class TestTruncation:
 # ERROR EXTRACTION TESTS
 # ============================================================
 
+
 class TestErrorExtraction:
     """Tests for error extraction functionality"""
 
     def test_extract_python_exception(self, handler, python_error_output):
         """Should extract Python exceptions"""
         result = handler.process_output(
-            python_error_output,
-            output_type=OutputType.STDOUT,
-            extract_errors=True
+            python_error_output, output_type=OutputType.STDOUT, extract_errors=True
         )
 
         assert len(result.errors_found) > 0
@@ -172,10 +173,7 @@ class TestErrorExtraction:
 
     def test_detect_stack_trace(self, handler, python_error_output):
         """Should detect stack traces"""
-        result = handler.process_output(
-            python_error_output,
-            extract_errors=True
-        )
+        result = handler.process_output(python_error_output, extract_errors=True)
 
         assert result.has_stack_trace is True
 
@@ -188,10 +186,7 @@ class TestErrorExtraction:
 
     def test_extract_generic_errors(self, handler, multi_error_output):
         """Should extract generic error patterns"""
-        result = handler.process_output(
-            multi_error_output,
-            extract_errors=True
-        )
+        result = handler.process_output(multi_error_output, extract_errors=True)
 
         assert len(result.errors_found) > 0
         # Check that we found different severity levels
@@ -200,11 +195,11 @@ class TestErrorExtraction:
 
     def test_error_severity_levels(self, handler):
         """Should correctly classify error severities"""
-        output = '''
+        output = """
 WARNING: This is a warning
 ERROR: This is an error
 CRITICAL: This is critical
-'''
+"""
         result = handler.process_output(output, extract_errors=True)
 
         errors = result.errors_found
@@ -212,10 +207,7 @@ CRITICAL: This is critical
 
     def test_extract_errors_disabled(self, handler, python_error_output):
         """When extract_errors=False, should not extract errors"""
-        result = handler.process_output(
-            python_error_output,
-            extract_errors=False
-        )
+        result = handler.process_output(python_error_output, extract_errors=False)
 
         assert len(result.errors_found) == 0
 
@@ -239,6 +231,7 @@ CRITICAL: This is critical
 # ============================================================
 # SEARCH TESTS
 # ============================================================
+
 
 class TestSearch:
     """Tests for output search functionality"""
@@ -318,6 +311,7 @@ class TestSearch:
 # CONVENIENCE FUNCTION TESTS
 # ============================================================
 
+
 class TestConvenienceFunctions:
     """Tests for convenience functions"""
 
@@ -361,6 +355,7 @@ class TestConvenienceFunctions:
 # ============================================================
 # HELPER METHOD TESTS
 # ============================================================
+
 
 class TestHelperMethods:
     """Tests for helper methods"""
@@ -406,6 +401,7 @@ class TestHelperMethods:
 # OUTPUT TYPE TESTS
 # ============================================================
 
+
 class TestOutputTypes:
     """Tests for different output types"""
 
@@ -434,6 +430,7 @@ class TestOutputTypes:
 # ============================================================
 # EDGE CASES
 # ============================================================
+
 
 class TestEdgeCases:
     """Tests for edge cases"""
@@ -477,10 +474,7 @@ class TestEdgeCases:
     def test_preserve_important_disabled(self, handler, sample_output):
         """preserve_important=False should skip important line detection"""
         output_with_error = sample_output + "\nERROR: Test error"
-        result = handler.process_output(
-            output_with_error,
-            preserve_important=False
-        )
+        result = handler.process_output(output_with_error, preserve_important=False)
 
         assert result is not None
 
@@ -488,6 +482,7 @@ class TestEdgeCases:
 # ============================================================
 # TRUNCATED OUTPUT DATACLASS TESTS
 # ============================================================
+
 
 class TestTruncatedOutput:
     """Tests for TruncatedOutput dataclass"""
@@ -520,6 +515,7 @@ class TestTruncatedOutput:
 # EXTRACTED ERROR DATACLASS TESTS
 # ============================================================
 
+
 class TestExtractedError:
     """Tests for ExtractedError dataclass"""
 
@@ -530,7 +526,7 @@ class TestExtractedError:
             severity=ErrorSeverity.ERROR,
             line_number=42,
             file_path="/path/to/file.py",
-            error_type="ValueError"
+            error_type="ValueError",
         )
 
         str_repr = str(error)
@@ -541,10 +537,7 @@ class TestExtractedError:
 
     def test_error_without_file_path(self):
         """ExtractedError should work without file path"""
-        error = ExtractedError(
-            message="Generic error",
-            severity=ErrorSeverity.WARNING
-        )
+        error = ExtractedError(message="Generic error", severity=ErrorSeverity.WARNING)
 
         str_repr = str(error)
         assert "WARNING" in str_repr
@@ -554,6 +547,7 @@ class TestExtractedError:
 # ============================================================
 # SEARCH MATCH DATACLASS TESTS
 # ============================================================
+
 
 class TestSearchMatch:
     """Tests for SearchMatch dataclass"""
@@ -566,7 +560,7 @@ class TestSearchMatch:
             match_start=5,
             match_end=9,
             context_before=["Line before"],
-            context_after=["Line after"]
+            context_after=["Line after"],
         )
 
         assert match.line_number == 10

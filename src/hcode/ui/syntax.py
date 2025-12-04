@@ -2,6 +2,7 @@
 HCode Custom Syntax Highlighting
 Cyberpunk-themed code rendering.
 """
+
 from rich.syntax import Syntax
 from rich.console import Console
 from rich.panel import Panel
@@ -132,6 +133,7 @@ def detect_language(filename: str) -> str:
 # CYBER SYNTAX HIGHLIGHTER
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class CyberSyntax:
     """Cyberpunk-styled syntax highlighter."""
 
@@ -229,6 +231,7 @@ class CyberSyntax:
 # DIFF HIGHLIGHTER
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class DiffHighlighter:
     """Highlight code diffs with additions/deletions."""
 
@@ -244,14 +247,14 @@ class DiffHighlighter:
         """Highlight a diff string."""
         result = Text()
 
-        for line in diff.split('\n'):
-            if line.startswith('+') and not line.startswith('+++'):
+        for line in diff.split("\n"):
+            if line.startswith("+") and not line.startswith("+++"):
                 result.append(f"  {line}\n", style=self.added_style)
-            elif line.startswith('-') and not line.startswith('---'):
+            elif line.startswith("-") and not line.startswith("---"):
                 result.append(f"  {line}\n", style=self.removed_style)
-            elif line.startswith('@@'):
+            elif line.startswith("@@"):
                 result.append(f"  {line}\n", style=self.header_style)
-            elif line.startswith('+++') or line.startswith('---'):
+            elif line.startswith("+++") or line.startswith("---"):
                 result.append(f"  {line}\n", style=self.header_style)
             else:
                 result.append(f"  {line}\n", style=self.context_style)
@@ -277,6 +280,7 @@ class DiffHighlighter:
 # ═══════════════════════════════════════════════════════════════════════
 # CODE BLOCK FORMATTER
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class CodeBlock:
     """Format code blocks with various styles."""
@@ -318,10 +322,10 @@ class CodeBlock:
     ) -> Panel:
         """Create a truncated code snippet."""
         palette = get_palette()
-        lines = code.split('\n')
+        lines = code.split("\n")
 
         if len(lines) > max_lines:
-            truncated = '\n'.join(lines[:max_lines])
+            truncated = "\n".join(lines[:max_lines])
             truncated += f"\n... ({len(lines) - max_lines} more lines)"
         else:
             truncated = code
@@ -346,6 +350,7 @@ class CodeBlock:
 # HELPER FUNCTIONS
 # ═══════════════════════════════════════════════════════════════════════
 
+
 def highlight_code(
     code: str,
     language: str = "python",
@@ -365,7 +370,7 @@ def highlight_file(
     """Highlight code from a file."""
     language = detect_language(filepath)
 
-    with open(filepath, 'r', encoding='utf-8') as f:
+    with open(filepath, "r", encoding="utf-8") as f:
         code = f.read()
 
     display_title = title or os.path.basename(filepath)

@@ -19,6 +19,7 @@ from .base_tool import BaseTool, ToolResult, ToolParameter, ToolCategory
 @dataclass
 class BackgroundShell:
     """Represents a background shell process"""
+
     shell_id: str
     process: asyncio.subprocess.Process
     command: str
@@ -34,7 +35,9 @@ class BashShellManager:
     def __init__(self):
         self.shells: Dict[str, BackgroundShell] = {}
 
-    def create_shell(self, shell_id: str, process: asyncio.subprocess.Process, command: str) -> BackgroundShell:
+    def create_shell(
+        self, shell_id: str, process: asyncio.subprocess.Process, command: str
+    ) -> BackgroundShell:
         """Create and register a new background shell"""
         shell = BackgroundShell(
             shell_id=shell_id,
@@ -42,7 +45,7 @@ class BashShellManager:
             command=command,
             started_at=time.time(),
             output_buffer=[],
-            error_buffer=[]
+            error_buffer=[],
         )
         self.shells[shell_id] = shell
         return shell
@@ -92,25 +95,25 @@ class BashTool(BaseTool):
                 name="command",
                 type="string",
                 description="The bash command to execute",
-                required=True
+                required=True,
             ),
             ToolParameter(
                 name="description",
                 type="string",
                 description="Clear, concise description of what this command does in 5-10 words",
-                required=False
+                required=False,
             ),
             ToolParameter(
                 name="timeout",
                 type="number",
                 description="Optional timeout in milliseconds (max 600000ms / 10 minutes). Default: 120000ms (2 minutes)",
-                required=False
+                required=False,
             ),
             ToolParameter(
                 name="run_in_background",
                 type="boolean",
                 description="Set to true to run this command in the background. Allows you to continue working while command runs.",
-                required=False
+                required=False,
             ),
         ]
 
@@ -122,11 +125,7 @@ class BashTool(BaseTool):
         description = kwargs.get("description", command[:50])
 
         if not command:
-            return ToolResult(
-                success=False,
-                output="",
-                error="Command is required"
-            )
+            return ToolResult(success=False, output="", error="Command is required")
 
         # Validate timeout
         max_timeout = 600000 / 1000  # 10 minutes in seconds
@@ -141,20 +140,17 @@ class BashTool(BaseTool):
 
         except asyncio.TimeoutError:
             return ToolResult(
-                success=False,
-                output="",
-                error=f"Command timed out after {timeout}s: {command}"
+                success=False, output="", error=f"Command timed out after {timeout}s: {command}"
             )
         except Exception as e:
-            return ToolResult(
-                success=False,
-                output="",
-                error=f"Command execution failed: {str(e)}"
-            )
+            return ToolResult(success=False, output="", error=f"Command execution failed: {str(e)}")
 
-    async def _execute_foreground(self, command: str, timeout: float, description: str) -> ToolResult:
+    async def _execute_foreground(
+        self, command: str, timeout: float, description: str
+    ) -> ToolResult:
         """Execute command in foreground with timeout"""
         import sys
+
         start_time = time.time()
 
         # Platform-specific shell handling
@@ -167,7 +163,13 @@ class BashTool(BaseTool):
                 success=True,
                 output=f"stdout:\n{cwd}",
                 error=None,
-                metadata={"exit_code": 0, "duration": 0.0, "description": description, "stdout": cwd, "stderr": ""}
+                metadata={
+                    "exit_code": 0,
+                    "duration": 0.0,
+                    "description": description,
+                    "stdout": cwd,
+                    "stderr": "",
+                },
             )
 
         try:
@@ -178,7 +180,7 @@ class BashTool(BaseTool):
                     stdout=asyncio.subprocess.PIPE,
                     stderr=asyncio.subprocess.PIPE,
                     cwd=str(self.root_dir),
-                    shell=True
+                    shell=True,
                 )
             else:
                 # On Unix, use bash
@@ -187,13 +189,12 @@ class BashTool(BaseTool):
                     stdout=asyncio.subprocess.PIPE,
                     stderr=asyncio.subprocess.PIPE,
                     cwd=str(self.root_dir),
-                    shell=True
+                    shell=True,
                 )
 
             # Wait for completion with timeout
             stdout_data, stderr_data = await asyncio.wait_for(
-                process.communicate(),
-                timeout=timeout
+                process.communicate(), timeout=timeout
             )
 
             # Decode output with fallback encodings
@@ -218,7 +219,9 @@ class BashTool(BaseTool):
                 if exit_code == 0:
                     output_parts.append("(command completed with no output)")
                 else:
-                    output_parts.append(f"(command failed with exit code {exit_code}, no output captured)")
+                    output_parts.append(
+                        f"(command failed with exit code {exit_code}, no output captured)"
+                    )
 
             output_parts.append(f"\nDuration: {duration:.2f}s")
             output = "\n\n".join(output_parts)
@@ -240,8 +243,8 @@ class BashTool(BaseTool):
                     "duration": duration,
                     "description": description,
                     "stdout": stdout,
-                    "stderr": stderr
-                }
+                    "stderr": stderr,
+                },
             )
 
         except asyncio.TimeoutError:
@@ -255,14 +258,14 @@ class BashTool(BaseTool):
                 success=False,
                 output="",
                 error=f"Command timed out after {timeout}s",
-                metadata={"timeout": True, "description": description}
+                metadata={"timeout": True, "description": description},
             )
         except Exception as e:
             return ToolResult(
                 success=False,
                 output="",
                 error=f"Failed to execute command: {str(e)}",
-                metadata={"exception": str(e), "description": description}
+                metadata={"exception": str(e), "description": description},
             )
 
     def _decode_output(self, data: bytes) -> str:
@@ -271,7 +274,7 @@ class BashTool(BaseTool):
             return ""
 
         # Try multiple encodings
-        encodings = ['utf-8', 'cp1252', 'latin-1', 'cp437']
+        encodings = ["utf-8", "cp1252", "latin-1", "cp437"]
         for encoding in encodings:
             try:
                 return data.decode(encoding)
@@ -279,7 +282,7 @@ class BashTool(BaseTool):
                 continue
 
         # Last resort: decode with errors replaced
-        return data.decode('utf-8', errors='replace')
+        return data.decode("utf-8", errors="replace")
 
     async def _execute_background(self, command: str, description: str) -> ToolResult:
         """Execute command in background"""
@@ -291,7 +294,7 @@ class BashTool(BaseTool):
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             cwd=str(self.root_dir),
-            shell=True
+            shell=True,
         )
 
         # Register shell
@@ -303,11 +306,7 @@ class BashTool(BaseTool):
         return ToolResult(
             success=True,
             output=f"Command started in background with shell ID: {shell_id}\nUse BashOutput tool to read output.",
-            metadata={
-                "shell_id": shell_id,
-                "command": command,
-                "description": description
-            }
+            metadata={"shell_id": shell_id, "command": command, "description": description},
         )
 
     async def _collect_output(self, shell: BackgroundShell):
@@ -318,13 +317,13 @@ class BashTool(BaseTool):
                 if shell.process.stdout:
                     line = await shell.process.stdout.readline()
                     if line:
-                        shell.output_buffer.append(line.decode('utf-8', errors='replace'))
+                        shell.output_buffer.append(line.decode("utf-8", errors="replace"))
 
                 # Read stderr
                 if shell.process.stderr:
                     line = await shell.process.stderr.readline()
                     if line:
-                        shell.error_buffer.append(line.decode('utf-8', errors='replace'))
+                        shell.error_buffer.append(line.decode("utf-8", errors="replace"))
 
                 # Check if process finished
                 if shell.process.returncode is not None:
@@ -354,25 +353,25 @@ class BashOutputTool(BaseTool):
                 name="bash_id",
                 type="string",
                 description="The ID of the background shell to retrieve output from",
-                required=True
+                required=True,
             ),
             ToolParameter(
                 name="filter",
                 type="string",
                 description="Optional regular expression to filter the output lines. Only matching lines will be included.",
-                required=False
+                required=False,
             ),
             ToolParameter(
                 name="tail",
                 type="number",
                 description="Only return the last N lines of output",
-                required=False
+                required=False,
             ),
             ToolParameter(
                 name="head",
                 type="number",
                 description="Only return the first N lines of output",
-                required=False
+                required=False,
             ),
         ]
 
@@ -382,23 +381,15 @@ class BashOutputTool(BaseTool):
         filter_regex = kwargs.get("filter")
 
         if not bash_id:
-            return ToolResult(
-                success=False,
-                output="",
-                error="bash_id is required"
-            )
+            return ToolResult(success=False, output="", error="bash_id is required")
 
         shell = self.shell_manager.get_shell(bash_id)
         if not shell:
-            return ToolResult(
-                success=False,
-                output="",
-                error=f"Shell not found: {bash_id}"
-            )
+            return ToolResult(success=False, output="", error=f"Shell not found: {bash_id}")
 
         # Get new output since last read
-        new_stdout = shell.output_buffer[shell.last_read_position:]
-        new_stderr = shell.error_buffer[shell.last_read_position:]
+        new_stdout = shell.output_buffer[shell.last_read_position :]
+        new_stderr = shell.error_buffer[shell.last_read_position :]
 
         # Update read position
         shell.last_read_position = len(shell.output_buffer)
@@ -406,6 +397,7 @@ class BashOutputTool(BaseTool):
         # Apply filter if provided
         if filter_regex:
             import re
+
             pattern = re.compile(filter_regex)
             new_stdout = [line for line in new_stdout if pattern.search(line)]
             new_stderr = [line for line in new_stderr if pattern.search(line)]
@@ -435,8 +427,8 @@ class BashOutputTool(BaseTool):
                 "shell_id": bash_id,
                 "is_running": is_running,
                 "exit_code": shell.process.returncode,
-                "duration": time.time() - shell.started_at
-            }
+                "duration": time.time() - shell.started_at,
+            },
         )
 
 
@@ -457,7 +449,7 @@ class KillShellTool(BaseTool):
                 name="shell_id",
                 type="string",
                 description="The ID of the background shell to kill",
-                required=True
+                required=True,
             ),
         ]
 
@@ -466,19 +458,11 @@ class KillShellTool(BaseTool):
         shell_id = kwargs.get("shell_id")
 
         if not shell_id:
-            return ToolResult(
-                success=False,
-                output="",
-                error="shell_id is required"
-            )
+            return ToolResult(success=False, output="", error="shell_id is required")
 
         shell = self.shell_manager.get_shell(shell_id)
         if not shell:
-            return ToolResult(
-                success=False,
-                output="",
-                error=f"Shell not found: {shell_id}"
-            )
+            return ToolResult(success=False, output="", error=f"Shell not found: {shell_id}")
 
         try:
             # Try graceful termination first
@@ -499,16 +483,12 @@ class KillShellTool(BaseTool):
                 metadata={
                     "shell_id": shell_id,
                     "command": shell.command,
-                    "duration": time.time() - shell.started_at
-                }
+                    "duration": time.time() - shell.started_at,
+                },
             )
 
         except Exception as e:
-            return ToolResult(
-                success=False,
-                output="",
-                error=f"Failed to kill shell: {str(e)}"
-            )
+            return ToolResult(success=False, output="", error=f"Failed to kill shell: {str(e)}")
 
 
 class LSTool(BaseTool):
@@ -528,28 +508,25 @@ class LSTool(BaseTool):
                 name="path",
                 type="string",
                 description="Absolute directory path to list",
-                required=True
+                required=True,
             ),
             ToolParameter(
                 name="ignore",
                 type="string",
                 description="Optional glob patterns to exclude (comma-separated)",
-                required=False
+                required=False,
             ),
         ]
 
     async def execute(self, **kwargs) -> ToolResult:
         """List directory contents"""
         import sys
+
         path_str = kwargs.get("path")
         ignore_patterns = kwargs.get("ignore", "")
 
         if not path_str:
-            return ToolResult(
-                success=False,
-                output="",
-                error="path is required"
-            )
+            return ToolResult(success=False, output="", error="path is required")
 
         # Handle "/" on Windows - convert to current working directory
         if sys.platform == "win32" and path_str == "/":
@@ -566,18 +543,10 @@ class LSTool(BaseTool):
             path = self.root_dir / path
 
         if not path.exists():
-            return ToolResult(
-                success=False,
-                output="",
-                error=f"Path does not exist: {path}"
-            )
+            return ToolResult(success=False, output="", error=f"Path does not exist: {path}")
 
         if not path.is_dir():
-            return ToolResult(
-                success=False,
-                output="",
-                error=f"Path is not a directory: {path}"
-            )
+            return ToolResult(success=False, output="", error=f"Path is not a directory: {path}")
 
         try:
             # Parse ignore patterns
@@ -604,7 +573,7 @@ class LSTool(BaseTool):
                     "name": item.name,
                     "type": "directory" if is_dir else "file",
                     "size": size,
-                    "path": str(item)
+                    "path": str(item),
                 }
                 entries.append(entry)
 
@@ -614,7 +583,7 @@ class LSTool(BaseTool):
 
             for entry in entries:
                 type_indicator = "📁" if entry["type"] == "directory" else "📄"
-                size_str = f"{entry['size']:,} bytes" if entry['type'] == 'file' else ""
+                size_str = f"{entry['size']:,} bytes" if entry["type"] == "file" else ""
                 output_lines.append(f"{type_indicator} {entry['name']:<40} {size_str}")
 
             output_lines.append("")
@@ -623,19 +592,11 @@ class LSTool(BaseTool):
             return ToolResult(
                 success=True,
                 output="\n".join(output_lines),
-                metadata={
-                    "path": str(path),
-                    "count": len(entries),
-                    "entries": entries
-                }
+                metadata={"path": str(path), "count": len(entries), "entries": entries},
             )
 
         except Exception as e:
-            return ToolResult(
-                success=False,
-                output="",
-                error=f"Failed to list directory: {str(e)}"
-            )
+            return ToolResult(success=False, output="", error=f"Failed to list directory: {str(e)}")
 
 
 # Global storage for last command output (for search capability)
@@ -645,13 +606,13 @@ _last_command_output: Dict[str, str] = {}
 def store_last_output(output: str, command: str = ""):
     """Store the last command output for search capability"""
     global _last_command_output
-    _last_command_output['output'] = output
-    _last_command_output['command'] = command
+    _last_command_output["output"] = output
+    _last_command_output["command"] = command
 
 
 def get_last_output() -> str:
     """Get the last command output"""
-    return _last_command_output.get('output', '')
+    return _last_command_output.get("output", "")
 
 
 class SearchOutputTool(BaseTool):
@@ -673,19 +634,19 @@ class SearchOutputTool(BaseTool):
                 name="pattern",
                 type="string",
                 description="Pattern to search for (regex supported)",
-                required=True
+                required=True,
             ),
             ToolParameter(
                 name="context_lines",
                 type="number",
                 description="Number of lines to show before and after each match (default: 2)",
-                required=False
+                required=False,
             ),
             ToolParameter(
                 name="case_sensitive",
                 type="boolean",
                 description="Whether search is case-sensitive (default: false)",
-                required=False
+                required=False,
             ),
         ]
 
@@ -698,18 +659,14 @@ class SearchOutputTool(BaseTool):
         case_sensitive = kwargs.get("case_sensitive", False)
 
         if not pattern:
-            return ToolResult(
-                success=False,
-                output="",
-                error="pattern is required"
-            )
+            return ToolResult(success=False, output="", error="pattern is required")
 
         output = get_last_output()
         if not output:
             return ToolResult(
                 success=False,
                 output="",
-                error="No previous command output available. Run a Bash command first."
+                error="No previous command output available. Run a Bash command first.",
             )
 
         # Compile pattern
@@ -717,14 +674,10 @@ class SearchOutputTool(BaseTool):
         try:
             regex = re.compile(pattern, flags)
         except re.error as e:
-            return ToolResult(
-                success=False,
-                output="",
-                error=f"Invalid regex pattern: {e}"
-            )
+            return ToolResult(success=False, output="", error=f"Invalid regex pattern: {e}")
 
         # Search through lines
-        lines = output.split('\n')
+        lines = output.split("\n")
         matches = []
 
         for i, line in enumerate(lines):
@@ -738,17 +691,15 @@ class SearchOutputTool(BaseTool):
                     prefix = ">>> " if j == i else "    "
                     match_block.append(f"{j + 1:4}: {prefix}{lines[j]}")
 
-                matches.append({
-                    "line_number": i + 1,
-                    "line": line,
-                    "context": "\n".join(match_block)
-                })
+                matches.append(
+                    {"line_number": i + 1, "line": line, "context": "\n".join(match_block)}
+                )
 
         if not matches:
             return ToolResult(
                 success=True,
                 output=f"No matches found for pattern: {pattern}\n(Searched {len(lines)} lines)",
-                metadata={"matches": 0, "total_lines": len(lines)}
+                metadata={"matches": 0, "total_lines": len(lines)},
             )
 
         # Format output
@@ -756,7 +707,7 @@ class SearchOutputTool(BaseTool):
 
         for i, match in enumerate(matches[:20]):  # Limit to first 20 matches
             output_parts.append(f"--- Match {i + 1} (line {match['line_number']}) ---")
-            output_parts.append(match['context'])
+            output_parts.append(match["context"])
             output_parts.append("")
 
         if len(matches) > 20:
@@ -765,9 +716,5 @@ class SearchOutputTool(BaseTool):
         return ToolResult(
             success=True,
             output="\n".join(output_parts),
-            metadata={
-                "matches": len(matches),
-                "total_lines": len(lines),
-                "pattern": pattern
-            }
+            metadata={"matches": len(matches), "total_lines": len(lines), "pattern": pattern},
         )

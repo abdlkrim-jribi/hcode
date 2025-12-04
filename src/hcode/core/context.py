@@ -17,6 +17,7 @@ from ..providers import Message, AIProvider
 @dataclass
 class ContextEntry:
     """Represents a single entry in the conversation context"""
+
     role: str
     content: str
     timestamp: str
@@ -27,14 +28,19 @@ class ContextEntry:
         return asdict(self)
 
     @staticmethod
-    def from_dict(data: Dict) -> 'ContextEntry':
+    def from_dict(data: Dict) -> "ContextEntry":
         return ContextEntry(**data)
 
 
 class ContextManager:
     """Manages conversation context and history"""
 
-    def __init__(self, root_dir: Optional[str] = None, session_id: Optional[str] = None, fresh_session: bool = True):
+    def __init__(
+        self,
+        root_dir: Optional[str] = None,
+        session_id: Optional[str] = None,
+        fresh_session: bool = True,
+    ):
         """
         Initialize ContextManager.
 
@@ -75,7 +81,8 @@ class ContextManager:
         conn = sqlite3.connect(self.session_file)
         cursor = conn.cursor()
 
-        cursor.execute('''
+        cursor.execute(
+            """
             CREATE TABLE IF NOT EXISTS messages (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 role TEXT NOT NULL,
@@ -84,14 +91,17 @@ class ContextManager:
                 tokens INTEGER,
                 importance REAL DEFAULT 1.0
             )
-        ''')
+        """
+        )
 
-        cursor.execute('''
+        cursor.execute(
+            """
             CREATE TABLE IF NOT EXISTS metadata (
                 key TEXT PRIMARY KEY,
                 value TEXT
             )
-        ''')
+        """
+        )
 
         conn.commit()
         conn.close()
@@ -102,20 +112,20 @@ class ContextManager:
         cursor = conn.cursor()
 
         # Load messages
-        cursor.execute('SELECT role, content, timestamp, tokens, importance FROM messages ORDER BY id')
+        cursor.execute(
+            "SELECT role, content, timestamp, tokens, importance FROM messages ORDER BY id"
+        )
         rows = cursor.fetchall()
 
         for row in rows:
-            self.context.append(ContextEntry(
-                role=row[0],
-                content=row[1],
-                timestamp=row[2],
-                tokens=row[3],
-                importance=row[4]
-            ))
+            self.context.append(
+                ContextEntry(
+                    role=row[0], content=row[1], timestamp=row[2], tokens=row[3], importance=row[4]
+                )
+            )
 
         # Load system prompt
-        cursor.execute('SELECT value FROM metadata WHERE key = ?', ('system_prompt',))
+        cursor.execute("SELECT value FROM metadata WHERE key = ?", ("system_prompt",))
         result = cursor.fetchone()
         if result:
             self.system_prompt = result[0]
@@ -127,7 +137,7 @@ class ContextManager:
         role: str,
         content: str,
         importance: float = 1.0,
-        provider: Optional[AIProvider] = None
+        provider: Optional[AIProvider] = None,
     ):
         """
         Add a message to the context.
@@ -146,7 +156,7 @@ class ContextManager:
             content=content,
             timestamp=datetime.now().isoformat(),
             tokens=tokens,
-            importance=importance
+            importance=importance,
         )
 
         self.context.append(entry)
@@ -157,10 +167,13 @@ class ContextManager:
         conn = sqlite3.connect(self.session_file)
         cursor = conn.cursor()
 
-        cursor.execute('''
+        cursor.execute(
+            """
             INSERT INTO messages (role, content, timestamp, tokens, importance)
             VALUES (?, ?, ?, ?, ?)
-        ''', (entry.role, entry.content, entry.timestamp, entry.tokens, entry.importance))
+        """,
+            (entry.role, entry.content, entry.timestamp, entry.tokens, entry.importance),
+        )
 
         conn.commit()
         conn.close()
@@ -177,18 +190,19 @@ class ContextManager:
         conn = sqlite3.connect(self.session_file)
         cursor = conn.cursor()
 
-        cursor.execute('''
+        cursor.execute(
+            """
             INSERT OR REPLACE INTO metadata (key, value)
             VALUES (?, ?)
-        ''', ('system_prompt', prompt))
+        """,
+            ("system_prompt", prompt),
+        )
 
         conn.commit()
         conn.close()
 
     def get_messages(
-        self,
-        max_tokens: Optional[int] = None,
-        include_system: bool = True
+        self, max_tokens: Optional[int] = None, include_system: bool = True
     ) -> List[Message]:
         """
         Get messages for AI provider.
@@ -218,11 +232,7 @@ class ContextManager:
 
         return messages
 
-    def _smart_truncate(
-        self,
-        context: List[ContextEntry],
-        max_tokens: int
-    ) -> List[ContextEntry]:
+    def _smart_truncate(self, context: List[ContextEntry], max_tokens: int) -> List[ContextEntry]:
         """
         Smart truncation of context based on importance and recency.
 
@@ -256,7 +266,7 @@ class ContextManager:
         sorted_messages = sorted(
             remaining_messages,
             key=lambda x: x.importance * 0.7 + 0.3,  # Weight importance heavily
-            reverse=True
+            reverse=True,
         )
 
         # Add messages until we hit token limit
@@ -276,11 +286,7 @@ class ContextManager:
 
         return all_messages
 
-    def convert_for_provider(
-        self,
-        provider_name: str,
-        messages: List[Message]
-    ) -> List[Message]:
+    def convert_for_provider(self, provider_name: str, messages: List[Message]) -> List[Message]:
         """
         Convert message format for specific provider.
 
@@ -335,7 +341,11 @@ class ContextManager:
             Statistics dictionary
         """
         total_tokens = sum(entry.tokens for entry in self.context)
-        avg_importance = sum(entry.importance for entry in self.context) / len(self.context) if self.context else 0
+        avg_importance = (
+            sum(entry.importance for entry in self.context) / len(self.context)
+            if self.context
+            else 0
+        )
 
         role_counts = {}
         for entry in self.context:
@@ -364,10 +374,10 @@ class ContextManager:
         conn = sqlite3.connect(self.session_file)
         cursor = conn.cursor()
 
-        cursor.execute('DELETE FROM messages')
+        cursor.execute("DELETE FROM messages")
 
         if not keep_system:
-            cursor.execute('DELETE FROM metadata WHERE key = ?', ('system_prompt',))
+            cursor.execute("DELETE FROM metadata WHERE key = ?", ("system_prompt",))
             self.system_prompt = None
 
         conn.commit()
@@ -384,10 +394,10 @@ class ContextManager:
             "session_id": self.session_id,
             "system_prompt": self.system_prompt,
             "messages": [entry.to_dict() for entry in self.context],
-            "stats": self.get_context_stats()
+            "stats": self.get_context_stats(),
         }
 
-        with open(output_path, 'w') as f:
+        with open(output_path, "w") as f:
             json.dump(data, f, indent=2)
 
     def import_session(self, input_path: str):
@@ -397,7 +407,7 @@ class ContextManager:
         Args:
             input_path: Path to import file
         """
-        with open(input_path, 'r') as f:
+        with open(input_path, "r") as f:
             data = json.load(f)
 
         self.session_id = data.get("session_id", self._create_session_id())

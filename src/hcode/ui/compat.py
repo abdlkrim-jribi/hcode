@@ -24,6 +24,7 @@ from .icons import Icons as NewIcons
 # COLORS COMPATIBILITY
 # ============================================================
 
+
 class Colors:
     """Legacy color constants - maps to theme palette."""
 
@@ -80,8 +81,10 @@ Colors.TODO_SKIPPED = get_palette().text_muted
 # LINES / BORDERS COMPATIBILITY
 # ============================================================
 
+
 class Lines:
     """Border line characters."""
+
     HORIZONTAL = "─"
     VERTICAL = "│"
     CORNER_TL = "╭"
@@ -106,6 +109,7 @@ def get_default_box():
 # STATUS ICONS
 # ============================================================
 
+
 def get_status_icon(status: str) -> str:
     """Get icon for status."""
     icons = NewIcons()
@@ -125,6 +129,7 @@ def get_status_icon(status: str) -> str:
 # STYLED PANEL
 # ============================================================
 
+
 class StyledPanel:
     """Factory for creating styled panels - legacy compatibility."""
 
@@ -138,7 +143,7 @@ class StyledPanel:
             title=f"[bold {palette.success}]{icons.CHECK} {title}[/]",
             border_style=palette.success,
             box=ROUNDED,
-            padding=(0, 1)
+            padding=(0, 1),
         )
 
     @staticmethod
@@ -151,7 +156,7 @@ class StyledPanel:
             title=f"[bold {palette.error}]{icons.ERROR} {title}[/]",
             border_style=palette.error,
             box=ROUNDED,
-            padding=(0, 1)
+            padding=(0, 1),
         )
 
     @staticmethod
@@ -164,7 +169,7 @@ class StyledPanel:
             title=f"[bold {palette.warning}]{icons.WARNING} {title}[/]",
             border_style=palette.warning,
             box=ROUNDED,
-            padding=(0, 1)
+            padding=(0, 1),
         )
 
     @staticmethod
@@ -177,7 +182,7 @@ class StyledPanel:
             title=f"[{palette.info}]{icons.INFO} {title}[/]",
             border_style=palette.info,
             box=ROUNDED,
-            padding=(0, 1)
+            padding=(0, 1),
         )
 
     @staticmethod
@@ -190,7 +195,7 @@ class StyledPanel:
             title=f"[bold {palette.secondary}]{icons.THINKING} {title}[/]",
             border_style=palette.secondary,
             box=ROUNDED,
-            padding=(0, 1)
+            padding=(0, 1),
         )
 
     @staticmethod
@@ -204,7 +209,7 @@ class StyledPanel:
             title=f"[{palette.text_secondary}]{icons.CODE} {title}[/]",
             border_style=palette.border_default,
             box=ROUNDED,
-            padding=(0, 1)
+            padding=(0, 1),
         )
 
     @staticmethod
@@ -217,7 +222,7 @@ class StyledPanel:
             title=f"[bold {palette.primary}]{icons.AGENT} {title}[/]",
             border_style=palette.primary,
             box=ROUNDED,
-            padding=(0, 1)
+            padding=(0, 1),
         )
 
     @staticmethod
@@ -230,7 +235,7 @@ class StyledPanel:
             title=f"[{palette.text_secondary}]{icons.USER} {title}[/]",
             border_style=palette.border_default,
             box=ROUNDED,
-            padding=(0, 1)
+            padding=(0, 1),
         )
 
     @staticmethod
@@ -243,7 +248,7 @@ class StyledPanel:
             title=f"[{palette.secondary}]{icons.TOOL} {tool_name}[/]",
             border_style=palette.secondary,
             box=ROUNDED,
-            padding=(0, 1)
+            padding=(0, 1),
         )
 
 
@@ -251,9 +256,11 @@ class StyledPanel:
 # TODO DISPLAY
 # ============================================================
 
+
 @dataclass
 class TodoItem:
     """Represents a todo item."""
+
     content: str
     status: str = "pending"  # pending, in_progress, completed
     active_form: str = ""  # Present tense form of the task (e.g., "Running tests")
@@ -300,13 +307,14 @@ class TodoDisplay:
             title=f"[{palette.primary}]{icons.TODO} {title}[/]",
             border_style=palette.border_default,
             box=ROUNDED,
-            padding=(0, 1)
+            padding=(0, 1),
         )
 
 
 # ============================================================
 # HEADER / FOOTER / STATUS LINE
 # ============================================================
+
 
 class Header:
     """Application header display."""
@@ -328,10 +336,7 @@ class Header:
             content.append(f"\n{subtitle}", style=palette.text_secondary)
 
         return Panel(
-            Align.center(content),
-            border_style=palette.primary,
-            box=ROUNDED,
-            padding=(0, 2)
+            Align.center(content), border_style=palette.primary, box=ROUNDED, padding=(0, 2)
         )
 
 
@@ -401,6 +406,7 @@ class StatusLine:
 # PROMPT
 # ============================================================
 
+
 class Prompt:
     """Input prompt styling."""
 
@@ -425,6 +431,7 @@ class Prompt:
 # SEPARATOR
 # ============================================================
 
+
 class Separator:
     """Visual separator."""
 
@@ -432,41 +439,25 @@ class Separator:
     def render(label: Optional[str] = None, style: Optional[str] = None) -> Rule:
         """Render separator rule."""
         palette = get_palette()
-        return Rule(
-            title=label,
-            style=style or palette.text_muted,
-            characters="─"
-        )
+        return Rule(title=label, style=style or palette.text_muted, characters="─")
 
     @staticmethod
     def thin(label: Optional[str] = None) -> Rule:
         """Render a thin separator."""
         palette = get_palette()
-        return Rule(
-            title=label,
-            style=palette.text_muted,
-            characters="─"
-        )
+        return Rule(title=label, style=palette.text_muted, characters="─")
 
     @staticmethod
     def thick(label: Optional[str] = None) -> Rule:
         """Render a thick separator."""
         palette = get_palette()
-        return Rule(
-            title=label,
-            style=palette.text_muted,
-            characters="━"
-        )
+        return Rule(title=label, style=palette.text_muted, characters="━")
 
     @staticmethod
     def double(label: Optional[str] = None) -> Rule:
         """Render a double-line separator."""
         palette = get_palette()
-        return Rule(
-            title=label,
-            style=palette.text_muted,
-            characters="═"
-        )
+        return Rule(title=label, style=palette.text_muted, characters="═")
 
 
 # ============================================================
@@ -503,6 +494,7 @@ def progress_bar(
 # SPINNER (Compatible wrapper)
 # ============================================================
 
+
 @contextmanager
 def spinner(message: str = "Processing", spinner_type: str = "dots"):
     """
@@ -511,6 +503,7 @@ def spinner(message: str = "Processing", spinner_type: str = "dots"):
     This is a compatibility wrapper that uses the global console.
     """
     from rich.console import Console
+
     palette = get_palette()
     console = Console()
 

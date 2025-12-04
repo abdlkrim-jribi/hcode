@@ -38,7 +38,9 @@ def get_platform_info() -> dict:
         "system": system,
         "machine": machine,
         "exe_extension": ".exe" if system == "windows" else "",
-        "icon_extension": ".ico" if system == "windows" else ".icns" if system == "darwin" else ".png",
+        "icon_extension": (
+            ".ico" if system == "windows" else ".icns" if system == "darwin" else ".png"
+        ),
     }
 
     # Determine output name
@@ -56,6 +58,7 @@ def check_pyinstaller() -> bool:
     """Check if PyInstaller is installed."""
     try:
         import PyInstaller
+
         print(f"PyInstaller version: {PyInstaller.__version__}")
         return True
     except ImportError:
@@ -164,7 +167,9 @@ def build_executable(
 
     # Build PyInstaller command
     cmd = [
-        sys.executable, "-m", "PyInstaller",
+        sys.executable,
+        "-m",
+        "PyInstaller",
         str(ENTRY_POINT),
         f"--name=hcode",
         f"--distpath={DIST_DIR / platform_info['platform_name']}",
@@ -352,7 +357,9 @@ def main():
     print("\n" + "=" * 60)
     print("BUILD SUCCESSFUL!")
     print("=" * 60)
-    print(f"\nExecutable: dist/{platform_info['platform_name']}/hcode{platform_info['exe_extension']}")
+    print(
+        f"\nExecutable: dist/{platform_info['platform_name']}/hcode{platform_info['exe_extension']}"
+    )
 
     return 0
 

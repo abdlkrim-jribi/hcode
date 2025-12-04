@@ -2,6 +2,7 @@
 HCode Futuristic UI Components
 Custom panels, boxes, and interactive elements.
 """
+
 from rich.console import Console, RenderableType, Group
 from rich.panel import Panel
 from rich.box import Box, ROUNDED, DOUBLE, HEAVY, SIMPLE
@@ -24,73 +25,30 @@ from .theme import get_theme, get_palette
 # ═══════════════════════════════════════════════════════════════════════
 
 # Futuristic double-edge box (8 lines required by Rich)
-CYBER_BOX = Box(
-    "╔═╤╗\n"
-    "║ │║\n"
-    "╠═╪╣\n"
-    "║ │║\n"
-    "╠═╪╣\n"
-    "╠═╪╣\n"
-    "║ │║\n"
-    "╚═╧╝\n"
-)
+CYBER_BOX = Box("╔═╤╗\n" "║ │║\n" "╠═╪╣\n" "║ │║\n" "╠═╪╣\n" "╠═╪╣\n" "║ │║\n" "╚═╧╝\n")
 
 # Neon glow simulation box
-NEON_BOX = Box(
-    "▛▀▀▜\n"
-    "▌  ▐\n"
-    "▌──▐\n"
-    "▌  ▐\n"
-    "▌──▐\n"
-    "▌──▐\n"
-    "▌  ▐\n"
-    "▙▄▄▟\n"
-)
+NEON_BOX = Box("▛▀▀▜\n" "▌  ▐\n" "▌──▐\n" "▌  ▐\n" "▌──▐\n" "▌──▐\n" "▌  ▐\n" "▙▄▄▟\n")
 
 # Minimal tech box
-TECH_BOX = Box(
-    "┏━┳┓\n"
-    "┃ ┃┃\n"
-    "┣━╋┫\n"
-    "┃ ┃┃\n"
-    "┣━╋┫\n"
-    "┣━╋┫\n"
-    "┃ ┃┃\n"
-    "┗━┻┛\n"
-)
+TECH_BOX = Box("┏━┳┓\n" "┃ ┃┃\n" "┣━╋┫\n" "┃ ┃┃\n" "┣━╋┫\n" "┣━╋┫\n" "┃ ┃┃\n" "┗━┻┛\n")
 
 # Rounded modern box
-MODERN_BOX = Box(
-    "╭──╮\n"
-    "│  │\n"
-    "├──┤\n"
-    "│  │\n"
-    "├──┤\n"
-    "├──┤\n"
-    "│  │\n"
-    "╰──╯\n"
-)
+MODERN_BOX = Box("╭──╮\n" "│  │\n" "├──┤\n" "│  │\n" "├──┤\n" "├──┤\n" "│  │\n" "╰──╯\n")
 
 # ASCII fallback box
-ASCII_BOX = Box(
-    "+--+\n"
-    "|  |\n"
-    "+--+\n"
-    "|  |\n"
-    "+--+\n"
-    "+--+\n"
-    "|  |\n"
-    "+--+\n"
-)
+ASCII_BOX = Box("+--+\n" "|  |\n" "+--+\n" "|  |\n" "+--+\n" "+--+\n" "|  |\n" "+--+\n")
 
 
 # ═══════════════════════════════════════════════════════════════════════
 # STATUS INDICATOR
 # ═══════════════════════════════════════════════════════════════════════
 
+
 @dataclass
 class StatusIndicator:
     """Futuristic status indicator with glow effect."""
+
     status: str
     color: str
     icon: str
@@ -129,6 +87,7 @@ class StatusIndicator:
 # ═══════════════════════════════════════════════════════════════════════
 # CYBER PANEL
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class CyberPanel:
     """Futuristic panel with customizable glow and styling."""
@@ -194,6 +153,7 @@ class CyberPanel:
 # METRIC CARD
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class MetricCard:
     """Futuristic metric display card."""
 
@@ -246,6 +206,7 @@ class MetricCard:
 # COMMAND PALETTE
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class CommandPalette:
     """Futuristic command palette display."""
 
@@ -287,6 +248,7 @@ class CommandPalette:
 # PROGRESS RING
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class ProgressRing:
     """Futuristic circular progress indicator (ASCII representation)."""
 
@@ -322,6 +284,7 @@ class ProgressRing:
 # ═══════════════════════════════════════════════════════════════════════
 # TOKEN COUNTER
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class TokenCounter:
     """Futuristic token usage display."""
@@ -364,6 +327,7 @@ class TokenCounter:
 # ═══════════════════════════════════════════════════════════════════════
 # INFO CARD
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class InfoCard:
     """Information display card with icon and content."""
@@ -413,6 +377,7 @@ class InfoCard:
 # STATS ROW
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class StatsRow:
     """Horizontal row of stats/metrics."""
 
@@ -442,6 +407,7 @@ class StatsRow:
 # KEYBOARD SHORTCUT
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class KeyboardShortcut:
     """Display keyboard shortcut in styled format."""
 
@@ -463,6 +429,7 @@ class KeyboardShortcut:
 # ═══════════════════════════════════════════════════════════════════════
 # QUICK ACTION BAR
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class QuickActionBar:
     """Bar displaying available quick actions."""
@@ -493,6 +460,7 @@ class QuickActionBar:
 # TIMESTAMP
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class Timestamp:
     """Styled timestamp display."""
 
@@ -514,15 +482,11 @@ class Timestamp:
 # BADGE
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class Badge:
     """Small colored badge/tag."""
 
-    def __init__(
-        self,
-        label: str,
-        color: Optional[str] = None,
-        icon: Optional[str] = None
-    ):
+    def __init__(self, label: str, color: Optional[str] = None, icon: Optional[str] = None):
         self.label = label
         self.color = color
         self.icon = icon
@@ -545,6 +509,7 @@ class Badge:
 # ═══════════════════════════════════════════════════════════════════════
 # TOOL EXECUTION DISPLAY
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class ToolExecution:
     """Display for tool execution status."""
@@ -595,6 +560,7 @@ class ToolExecution:
 # ═══════════════════════════════════════════════════════════════════════
 # HELPER FUNCTIONS
 # ═══════════════════════════════════════════════════════════════════════
+
 
 def create_info_table(data: Dict[str, str], title: Optional[str] = None) -> Table:
     """Create a simple info table from key-value pairs."""

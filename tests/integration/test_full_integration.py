@@ -25,6 +25,7 @@ import pytest
 # FIXTURES
 # =============================================================================
 
+
 @pytest.fixture
 def temp_workspace():
     """Create a temporary workspace directory"""
@@ -38,7 +39,8 @@ def sample_files(temp_workspace):
     """Create sample files for testing"""
     # Create Python file
     py_file = temp_workspace / "sample.py"
-    py_file.write_text('''
+    py_file.write_text(
+        '''
 def hello():
     """Say hello"""
     print("Hello, World!")
@@ -49,11 +51,13 @@ def add(a, b):
 
 if __name__ == "__main__":
     hello()
-''')
+'''
+    )
 
     # Create JavaScript file
     js_file = temp_workspace / "app.js"
-    js_file.write_text('''
+    js_file.write_text(
+        """
 function greet(name) {
     console.log(`Hello, ${name}!`);
 }
@@ -61,7 +65,8 @@ function greet(name) {
 const sum = (a, b) => a + b;
 
 module.exports = { greet, sum };
-''')
+"""
+    )
 
     # Create config file
     config_file = temp_workspace / "config.json"
@@ -71,7 +76,7 @@ module.exports = { greet, sum };
     subdir = temp_workspace / "src"
     subdir.mkdir()
     (subdir / "main.py").write_text('print("main")')
-    (subdir / "utils.py").write_text('def util(): pass')
+    (subdir / "utils.py").write_text("def util(): pass")
 
     return {
         "py_file": py_file,
@@ -106,6 +111,7 @@ def mock_provider():
 # =============================================================================
 # CONFIGURATION TESTS
 # =============================================================================
+
 
 class TestConfiguration:
     """Test configuration loading"""
@@ -153,10 +159,16 @@ class TestConfiguration:
         tool_names = config.get_tool_names()
 
         required_tools = [
-            "Read", "Write", "Edit",
-            "Glob", "Grep", "LS",
-            "Bash", "Think",
-            "TodoWrite", "Task"
+            "Read",
+            "Write",
+            "Edit",
+            "Glob",
+            "Grep",
+            "LS",
+            "Bash",
+            "Think",
+            "TodoWrite",
+            "Task",
         ]
 
         for tool in required_tools:
@@ -229,6 +241,7 @@ class TestConfiguration:
 # FILE TOOLS TESTS
 # =============================================================================
 
+
 class TestFileTools:
     """Test file operation tools"""
 
@@ -250,14 +263,11 @@ class TestFileTools:
         from hcode.tools.file_tools import ReadTool
 
         tool = ReadTool(root_dir=str(temp_workspace))
-        result = await tool.execute(
-            file_path=str(sample_files["py_file"]),
-            limit=3
-        )
+        result = await tool.execute(file_path=str(sample_files["py_file"]), limit=3)
 
         assert result.success
         # Should only have first few lines
-        lines = result.output.strip().split('\n')
+        lines = result.output.strip().split("\n")
         assert len(lines) <= 5  # Account for line numbers
 
     @pytest.mark.asyncio
@@ -268,10 +278,7 @@ class TestFileTools:
         tool = WriteTool(root_dir=str(temp_workspace))
         new_file = temp_workspace / "new_file.txt"
 
-        result = await tool.execute(
-            file_path=str(new_file),
-            content="Hello, World!\nLine 2"
-        )
+        result = await tool.execute(file_path=str(new_file), content="Hello, World!\nLine 2")
 
         assert result.success
         assert new_file.exists()
@@ -285,10 +292,7 @@ class TestFileTools:
         tool = WriteTool(root_dir=str(temp_workspace))
         new_file = temp_workspace / "deep" / "nested" / "file.txt"
 
-        result = await tool.execute(
-            file_path=str(new_file),
-            content="Nested content"
-        )
+        result = await tool.execute(file_path=str(new_file), content="Nested content")
 
         assert result.success
         assert new_file.exists()
@@ -303,7 +307,7 @@ class TestFileTools:
         result = await tool.execute(
             file_path=str(sample_files["py_file"]),
             old_string='print("Hello, World!")',
-            new_string='print("Hello, Hcode!")'
+            new_string='print("Hello, Hcode!")',
         )
 
         assert result.success
@@ -321,7 +325,7 @@ class TestFileTools:
         result = await tool.execute(
             file_path=str(sample_files["py_file"]),
             old_string="this text does not exist",
-            new_string="replacement"
+            new_string="replacement",
         )
 
         assert not result.success
@@ -347,10 +351,7 @@ class TestFileTools:
 
         tool = GlobTool(root_dir=str(temp_workspace))
 
-        result = await tool.execute(
-            pattern="*.py",
-            path=str(sample_files["subdir"])
-        )
+        result = await tool.execute(pattern="*.py", path=str(sample_files["subdir"]))
 
         assert result.success
         assert "main.py" in result.output
@@ -375,10 +376,7 @@ class TestFileTools:
         tool = GrepTool(root_dir=str(temp_workspace))
 
         # Use glob parameter instead of include
-        result = await tool.execute(
-            pattern="function",
-            glob="*.js"
-        )
+        result = await tool.execute(pattern="function", glob="*.js")
 
         assert result.success
         assert "app.js" in result.output
@@ -400,6 +398,7 @@ class TestFileTools:
 # =============================================================================
 # BASH TOOL TESTS
 # =============================================================================
+
 
 class TestBashTool:
     """Test Bash command execution"""
@@ -449,10 +448,7 @@ class TestBashTool:
 
         tool = BashTool(root_dir=str(temp_workspace))
 
-        result = await tool.execute(
-            command="echo 'quick'",
-            timeout=5000
-        )
+        result = await tool.execute(command="echo 'quick'", timeout=5000)
 
         assert result.success
 
@@ -460,6 +456,7 @@ class TestBashTool:
 # =============================================================================
 # THINK TOOL TESTS (Note: ThinkTool not implemented - using config definition)
 # =============================================================================
+
 
 class TestThinkTool:
     """Test Think/reasoning tool definition"""
@@ -488,6 +485,7 @@ class TestThinkTool:
 # =============================================================================
 # TODO TOOL TESTS
 # =============================================================================
+
 
 class TestTodoTool:
     """Test TodoWrite tool"""
@@ -546,6 +544,7 @@ class TestTodoTool:
 # WEB TOOLS TESTS
 # =============================================================================
 
+
 class TestWebTools:
     """Test web operation tools"""
 
@@ -557,10 +556,7 @@ class TestWebTools:
         tool = WebFetchTool()
 
         # Use a reliable test URL
-        result = await tool.execute(
-            url="https://httpbin.org/html",
-            prompt="Extract the title"
-        )
+        result = await tool.execute(url="https://httpbin.org/html", prompt="Extract the title")
 
         # May fail due to network, so just check it runs
         assert result is not None
@@ -582,6 +578,7 @@ class TestWebTools:
 # PROVIDER TESTS
 # =============================================================================
 
+
 class TestProviders:
     """Test AI provider integration"""
 
@@ -597,7 +594,7 @@ class TestProviders:
         selector = ProviderSelector(
             openai_key=api_key,
             openai_base_url=os.getenv("OPENAI_BASE_URL"),
-            openai_model=os.getenv("OPENAI_MODEL", "gpt-4o")
+            openai_model=os.getenv("OPENAI_MODEL", "gpt-4o"),
         )
 
         providers = selector.get_available_providers()
@@ -614,12 +611,11 @@ class TestProviders:
         selector = ProviderSelector(
             openai_key=api_key,
             openai_base_url=os.getenv("OPENAI_BASE_URL"),
-            openai_model=os.getenv("OPENAI_MODEL", "gpt-4o")
+            openai_model=os.getenv("OPENAI_MODEL", "gpt-4o"),
         )
 
         provider = selector.select_provider(
-            complexity=TaskComplexity.MODERATE,
-            task_type=TaskType.CODE_GENERATION
+            complexity=TaskComplexity.MODERATE, task_type=TaskType.CODE_GENERATION
         )
 
         assert provider is not None
@@ -637,14 +633,12 @@ class TestProviders:
             pytest.skip("No OPENAI_API_KEY set")
 
         selector = ProviderSelector(
-            openai_key=api_key,
-            openai_base_url=base_url,
-            openai_model=model
+            openai_key=api_key, openai_base_url=base_url, openai_model=model
         )
 
         provider = selector.select_provider()
 
-        if hasattr(provider, 'test_connection'):
+        if hasattr(provider, "test_connection"):
             success, msg = await provider.test_connection()
             if not success and "connection" in msg.lower():
                 pytest.skip(f"Network unavailable: {msg}")
@@ -654,6 +648,7 @@ class TestProviders:
 # =============================================================================
 # AGENT TESTS
 # =============================================================================
+
 
 class TestEnhancedAgent:
     """Test enhanced agent functionality"""
@@ -671,7 +666,7 @@ class TestEnhancedAgent:
             openai_key=api_key,
             openai_base_url=os.getenv("OPENAI_BASE_URL"),
             openai_model=os.getenv("OPENAI_MODEL", "gpt-4o"),
-            root_dir=str(temp_workspace)
+            root_dir=str(temp_workspace),
         )
 
         assert agent is not None
@@ -692,13 +687,12 @@ class TestEnhancedAgent:
             openai_key=api_key,
             openai_base_url=os.getenv("OPENAI_BASE_URL"),
             openai_model=os.getenv("OPENAI_MODEL", "gpt-4o"),
-            root_dir=str(temp_workspace)
+            root_dir=str(temp_workspace),
         )
 
         # Select provider
         agent.current_provider = agent.provider_selector.select_provider(
-            complexity=TaskComplexity.MODERATE,
-            task_type=TaskType.CODE_GENERATION
+            complexity=TaskComplexity.MODERATE, task_type=TaskType.CODE_GENERATION
         )
 
         prompt = agent._build_system_prompt()
@@ -712,6 +706,7 @@ class TestEnhancedAgent:
 # =============================================================================
 # TOOL MANAGER TESTS
 # =============================================================================
+
 
 class TestToolManager:
     """Test tool manager functionality"""
@@ -744,10 +739,7 @@ class TestToolManager:
 
         manager = ToolManager(root_dir=str(temp_workspace))
 
-        result = await manager.execute_tool(
-            "ReadTool",
-            file_path=str(sample_files["py_file"])
-        )
+        result = await manager.execute_tool("ReadTool", file_path=str(sample_files["py_file"]))
 
         assert result.success
         assert "hello" in result.output.lower()
@@ -756,6 +748,7 @@ class TestToolManager:
 # =============================================================================
 # CONTINUATION TESTS
 # =============================================================================
+
 
 class TestContinuation:
     """Test automatic continuation system"""
@@ -805,10 +798,7 @@ class TestContinuation:
 
         manager = ContinuationManager()
 
-        responses = [
-            "This is the first part",
-            "and this is the second part."
-        ]
+        responses = ["This is the first part", "and this is the second part."]
 
         merged = manager.merge_responses(responses)
 
@@ -819,6 +809,7 @@ class TestContinuation:
 # =============================================================================
 # CONTEXT MANAGER TESTS
 # =============================================================================
+
 
 class TestContextManager:
     """Test context management"""
@@ -837,10 +828,7 @@ class TestContextManager:
 
         manager = ContextManager(root_dir=str(temp_workspace))
 
-        manager.add_message(
-            role="user",
-            content="Hello, how are you?"
-        )
+        manager.add_message(role="user", content="Hello, how are you?")
 
         messages = manager.get_messages()
 
@@ -863,6 +851,7 @@ class TestContextManager:
 # =============================================================================
 # SAFETY GUARD TESTS
 # =============================================================================
+
 
 class TestSafetyGuard:
     """Test safety features"""
@@ -891,6 +880,7 @@ class TestSafetyGuard:
 # =============================================================================
 # HCODE CHAT TESTS
 # =============================================================================
+
 
 class TestHcodeChat:
     """Test main chat interface"""
@@ -932,6 +922,7 @@ class TestHcodeChat:
 # END-TO-END TESTS
 # =============================================================================
 
+
 class TestEndToEnd:
     """End-to-end integration tests"""
 
@@ -943,25 +934,21 @@ class TestEndToEnd:
         manager = ToolManager(root_dir=str(temp_workspace))
 
         # Read the file
-        read_result = await manager.execute_tool(
-            "ReadTool",
-            file_path=str(sample_files["py_file"])
-        )
+        read_result = await manager.execute_tool("ReadTool", file_path=str(sample_files["py_file"]))
         assert read_result.success
 
         # Edit the file
         edit_result = await manager.execute_tool(
             "EditTool",
             file_path=str(sample_files["py_file"]),
-            old_string='def hello():',
-            new_string='def greet():'
+            old_string="def hello():",
+            new_string="def greet():",
         )
         assert edit_result.success
 
         # Verify the change
         verify_result = await manager.execute_tool(
-            "ReadTool",
-            file_path=str(sample_files["py_file"])
+            "ReadTool", file_path=str(sample_files["py_file"])
         )
         assert "def greet():" in verify_result.output
 
@@ -973,18 +960,12 @@ class TestEndToEnd:
         manager = ToolManager(root_dir=str(temp_workspace))
 
         # Find Python files
-        glob_result = await manager.execute_tool(
-            "GlobTool",
-            pattern="**/*.py"
-        )
+        glob_result = await manager.execute_tool("GlobTool", pattern="**/*.py")
         assert glob_result.success
         assert "sample.py" in glob_result.output
 
         # Search for content
-        grep_result = await manager.execute_tool(
-            "GrepTool",
-            pattern="def.*\\("
-        )
+        grep_result = await manager.execute_tool("GrepTool", pattern="def.*\\(")
         assert grep_result.success
 
     @pytest.mark.asyncio
@@ -1000,7 +981,7 @@ class TestEndToEnd:
         write_result = await manager.execute_tool(
             "WriteTool",
             file_path=str(new_file),
-            content='def created():\n    return "Created by Hcode"\n'
+            content='def created():\n    return "Created by Hcode"\n',
         )
         assert write_result.success
 
@@ -1008,10 +989,7 @@ class TestEndToEnd:
         assert new_file.exists()
 
         # Read and verify content
-        read_result = await manager.execute_tool(
-            "ReadTool",
-            file_path=str(new_file)
-        )
+        read_result = await manager.execute_tool("ReadTool", file_path=str(new_file))
         assert "Created by Hcode" in read_result.output
 
 

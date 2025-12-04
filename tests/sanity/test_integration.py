@@ -3,6 +3,7 @@ Sanity Check: Integration Tests.
 
 Tests integration between multiple HCode components.
 """
+
 import pytest
 import asyncio
 import tempfile
@@ -16,6 +17,7 @@ class TestCoreAgentIntegration:
     def test_agent_module_exists(self):
         """Test agent module can be imported."""
         from hcode.core import agent
+
         assert agent is not None
 
 
@@ -60,13 +62,13 @@ class TestMemorySystemIntegration:
             mm.remember(
                 content="Important fact about the project",
                 memory_type=MemoryType.FACT,
-                importance=0.8
+                importance=0.8,
             )
 
             # Get stats
             stats = mm.get_stats()
             assert stats is not None
-            assert 'session' in stats
+            assert "session" in stats
 
 
 class TestToolChainIntegration:
@@ -94,7 +96,7 @@ class TestToolChainIntegration:
             await edit_tool.execute(
                 file_path=str(test_file),
                 old_string="Original content",
-                new_string="Modified content"
+                new_string="Modified content",
             )
 
             # Verify edit
@@ -142,6 +144,7 @@ class TestProviderIntegration:
     def test_provider_selector_class_exists(self):
         """Test ProviderSelector class exists."""
         from hcode.providers.provider_selector import ProviderSelector
+
         assert ProviderSelector is not None
 
 
@@ -184,11 +187,10 @@ class TestEndToEndFlow:
             write_tool = WriteTool()
             await write_tool.execute(
                 file_path=str(Path(tmpdir) / "main.py"),
-                content="def main():\n    print('Hello')\n\nmain()"
+                content="def main():\n    print('Hello')\n\nmain()",
             )
             await write_tool.execute(
-                file_path=str(Path(tmpdir) / "utils.py"),
-                content="def helper():\n    return 42"
+                file_path=str(Path(tmpdir) / "utils.py"), content="def helper():\n    return 42"
             )
 
             # Find Python files
@@ -220,4 +222,4 @@ class TestEndToEndFlow:
 
             # Get stats
             stats = mm.get_stats()
-            assert stats['session']['message_count'] >= 2
+            assert stats["session"]["message_count"] >= 2

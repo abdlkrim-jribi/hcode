@@ -27,7 +27,7 @@ from ..providers import (
     TaskComplexity,
     TaskType,
     Message,
-    AIProvider
+    AIProvider,
 )
 from ..tools import ToolManager, ToolExecutionContext
 from ..agents import HcodeAgentOrchestrator, HcodeAgentType
@@ -51,6 +51,7 @@ from .analytics import (
 # Import memory system
 try:
     from ..memory import MemoryManager, get_memory_manager
+
     MEMORY_AVAILABLE = True
 except ImportError:
     MEMORY_AVAILABLE = False
@@ -76,36 +77,37 @@ class ThinkingBlock:
     - Adversarial self-critique
     - Confidence calibration
     """
+
     # === PHASE 1: PERCEPTION ===
-    observe: str = ""           # What do I literally see/read?
-    interpret: str = ""         # What does this mean?
+    observe: str = ""  # What do I literally see/read?
+    interpret: str = ""  # What does this mean?
 
     # === PHASE 2: COMPREHENSION ===
-    understand: str = ""        # Core understanding of the request
-    context: str = ""           # Relevant context and constraints
-    assumptions: str = ""       # What am I assuming? (NEW)
+    understand: str = ""  # Core understanding of the request
+    context: str = ""  # Relevant context and constraints
+    assumptions: str = ""  # What am I assuming? (NEW)
 
     # === PHASE 3: ANALYSIS ===
-    decompose: str = ""         # Break into sub-problems (NEW)
-    dependencies: str = ""      # What depends on what? (NEW)
-    options: str = ""           # Possible approaches
+    decompose: str = ""  # Break into sub-problems (NEW)
+    dependencies: str = ""  # What depends on what? (NEW)
+    options: str = ""  # Possible approaches
 
     # === PHASE 4: REASONING ===
-    hypothesis: str = ""        # My best hypothesis (NEW)
-    evidence: str = ""          # Evidence for/against (NEW)
-    counterargument: str = ""   # Devil's advocate - why might I be wrong? (NEW)
+    hypothesis: str = ""  # My best hypothesis (NEW)
+    evidence: str = ""  # Evidence for/against (NEW)
+    counterargument: str = ""  # Devil's advocate - why might I be wrong? (NEW)
 
     # === PHASE 5: DECISION ===
-    decision: str = ""          # Final decision
-    confidence: str = ""        # How confident am I? (NEW)
-    fallback: str = ""          # What if this fails? (NEW)
+    decision: str = ""  # Final decision
+    confidence: str = ""  # How confident am I? (NEW)
+    fallback: str = ""  # What if this fails? (NEW)
 
     # === PHASE 6: VERIFICATION ===
-    risk_check: str = ""        # Safety and risk assessment
-    verify: str = ""            # How will I verify success? (NEW)
+    risk_check: str = ""  # Safety and risk assessment
+    verify: str = ""  # How will I verify success? (NEW)
 
     # === META ===
-    reflection: str = ""        # What did I learn? (NEW)
+    reflection: str = ""  # What did I learn? (NEW)
     raw_content: str = ""
 
     def is_valid(self) -> bool:
@@ -117,13 +119,22 @@ class ThinkingBlock:
         """Extract confidence level from thinking"""
         if self.confidence:
             confidence_lower = self.confidence.lower()
-            if any(word in confidence_lower for word in ['very high', 'certain', '95%', '100%', 'absolutely']):
+            if any(
+                word in confidence_lower
+                for word in ["very high", "certain", "95%", "100%", "absolutely"]
+            ):
                 return "very_high"
-            elif any(word in confidence_lower for word in ['high', 'confident', '80%', '85%', '90%']):
+            elif any(
+                word in confidence_lower for word in ["high", "confident", "80%", "85%", "90%"]
+            ):
                 return "high"
-            elif any(word in confidence_lower for word in ['medium', 'moderate', '60%', '70%', 'likely']):
+            elif any(
+                word in confidence_lower for word in ["medium", "moderate", "60%", "70%", "likely"]
+            ):
                 return "medium"
-            elif any(word in confidence_lower for word in ['low', 'uncertain', 'unsure', '40%', '50%']):
+            elif any(
+                word in confidence_lower for word in ["low", "uncertain", "unsure", "40%", "50%"]
+            ):
                 return "low"
             else:
                 return "unknown"
@@ -141,9 +152,13 @@ class ThinkingBlock:
         """Get a short summary of the decision"""
         if self.decision:
             # Extract the key decision
-            lines = self.decision.strip().split('\n')
+            lines = self.decision.strip().split("\n")
             for line in lines:
-                if 'best choice' in line.lower() or 'reason' in line.lower() or 'choose' in line.lower():
+                if (
+                    "best choice" in line.lower()
+                    or "reason" in line.lower()
+                    or "choose" in line.lower()
+                ):
                     return line.strip()
             return lines[0] if lines else ""
         if self.hypothesis:
@@ -154,16 +169,16 @@ class ThinkingBlock:
         """Calculate thinking quality score (0-1)"""
         score = 0.0
         weights = {
-            'understand': 0.15,
-            'context': 0.10,
-            'assumptions': 0.10,
-            'decompose': 0.10,
-            'options': 0.10,
-            'hypothesis': 0.10,
-            'counterargument': 0.10,
-            'decision': 0.15,
-            'confidence': 0.05,
-            'risk_check': 0.05,
+            "understand": 0.15,
+            "context": 0.10,
+            "assumptions": 0.10,
+            "decompose": 0.10,
+            "options": 0.10,
+            "hypothesis": 0.10,
+            "counterargument": 0.10,
+            "decision": 0.15,
+            "confidence": 0.05,
+            "risk_check": 0.05,
         }
         for field, weight in weights.items():
             value = getattr(self, field, "")
@@ -185,14 +200,14 @@ def parse_thinking_block(text: str) -> Tuple[Optional[ThinkingBlock], str]:
         Tuple of (ThinkingBlock or None, remaining text without thinking block)
     """
     # Pattern to match <thinking>...</thinking> blocks
-    pattern = r'<thinking>(.*?)</thinking>'
+    pattern = r"<thinking>(.*?)</thinking>"
     match = re.search(pattern, text, re.DOTALL | re.IGNORECASE)
 
     if not match:
         return None, text
 
     thinking_content = match.group(1).strip()
-    remaining_text = text[:match.start()] + text[match.end():]
+    remaining_text = text[: match.start()] + text[match.end() :]
     remaining_text = remaining_text.strip()
 
     # Parse sections within thinking block
@@ -204,89 +219,89 @@ def parse_thinking_block(text: str) -> Tuple[Optional[ThinkingBlock], str]:
     # Phase 1: Perception
     section_patterns = {
         # Perception phase
-        'observe': [
-            r'(?:OBSERVE|PERCEPTION|SEE|INPUT):?\s*(.*?)(?=(?:INTERPRET|UNDERSTAND|CONTEXT|ANALYZE|$))',
-            r'\[OBSERVE\]:?\s*(.*?)(?=\[|$)',
+        "observe": [
+            r"(?:OBSERVE|PERCEPTION|SEE|INPUT):?\s*(.*?)(?=(?:INTERPRET|UNDERSTAND|CONTEXT|ANALYZE|$))",
+            r"\[OBSERVE\]:?\s*(.*?)(?=\[|$)",
         ],
-        'interpret': [
-            r'(?:INTERPRET|MEANING|IMPLIES):?\s*(.*?)(?=(?:UNDERSTAND|CONTEXT|ANALYZE|$))',
+        "interpret": [
+            r"(?:INTERPRET|MEANING|IMPLIES):?\s*(.*?)(?=(?:UNDERSTAND|CONTEXT|ANALYZE|$))",
         ],
         # Comprehension phase
-        'understand': [
-            r'(?:\d+\.\s*)?UNDERSTAND(?:ING)?:?\s*(.*?)(?=(?:\d+\.\s*)?(?:CONTEXT|ASSUMPTIONS|ANALYZE|DECOMPOSE|OPTIONS|$))',
-            r'\[UNDERSTAND\]:?\s*(.*?)(?=\[|$)',
-            r'GOAL:?\s*(.*?)(?=(?:CONTEXT|$))',
+        "understand": [
+            r"(?:\d+\.\s*)?UNDERSTAND(?:ING)?:?\s*(.*?)(?=(?:\d+\.\s*)?(?:CONTEXT|ASSUMPTIONS|ANALYZE|DECOMPOSE|OPTIONS|$))",
+            r"\[UNDERSTAND\]:?\s*(.*?)(?=\[|$)",
+            r"GOAL:?\s*(.*?)(?=(?:CONTEXT|$))",
         ],
-        'context': [
-            r'(?:\d+\.\s*)?CONTEXT:?\s*(.*?)(?=(?:\d+\.\s*)?(?:ASSUMPTIONS|ANALYZE|DECOMPOSE|OPTIONS|$))',
-            r'\[CONTEXT\]:?\s*(.*?)(?=\[|$)',
-            r'KNOWN:?\s*(.*?)(?=(?:ASSUMPTIONS|OPTIONS|$))',
+        "context": [
+            r"(?:\d+\.\s*)?CONTEXT:?\s*(.*?)(?=(?:\d+\.\s*)?(?:ASSUMPTIONS|ANALYZE|DECOMPOSE|OPTIONS|$))",
+            r"\[CONTEXT\]:?\s*(.*?)(?=\[|$)",
+            r"KNOWN:?\s*(.*?)(?=(?:ASSUMPTIONS|OPTIONS|$))",
         ],
-        'assumptions': [
-            r'(?:\d+\.\s*)?ASSUMPTIONS?:?\s*(.*?)(?=(?:\d+\.\s*)?(?:ANALYZE|DECOMPOSE|OPTIONS|HYPOTHESIS|$))',
-            r'\[ASSUMPTIONS?\]:?\s*(.*?)(?=\[|$)',
-            r'ASSUMING:?\s*(.*?)(?=(?:OPTIONS|$))',
+        "assumptions": [
+            r"(?:\d+\.\s*)?ASSUMPTIONS?:?\s*(.*?)(?=(?:\d+\.\s*)?(?:ANALYZE|DECOMPOSE|OPTIONS|HYPOTHESIS|$))",
+            r"\[ASSUMPTIONS?\]:?\s*(.*?)(?=\[|$)",
+            r"ASSUMING:?\s*(.*?)(?=(?:OPTIONS|$))",
         ],
         # Analysis phase
-        'decompose': [
-            r'(?:\d+\.\s*)?(?:DECOMPOSE|BREAKDOWN|SUB.?PROBLEMS?|STEPS?):?\s*(.*?)(?=(?:\d+\.\s*)?(?:DEPENDENCIES|OPTIONS|HYPOTHESIS|$))',
-            r'\[DECOMPOSE\]:?\s*(.*?)(?=\[|$)',
+        "decompose": [
+            r"(?:\d+\.\s*)?(?:DECOMPOSE|BREAKDOWN|SUB.?PROBLEMS?|STEPS?):?\s*(.*?)(?=(?:\d+\.\s*)?(?:DEPENDENCIES|OPTIONS|HYPOTHESIS|$))",
+            r"\[DECOMPOSE\]:?\s*(.*?)(?=\[|$)",
         ],
-        'dependencies': [
-            r'(?:\d+\.\s*)?(?:DEPENDENCIES|DEPENDS|ORDER|SEQUENCE):?\s*(.*?)(?=(?:\d+\.\s*)?(?:OPTIONS|HYPOTHESIS|$))',
-            r'\[DEPENDENCIES\]:?\s*(.*?)(?=\[|$)',
+        "dependencies": [
+            r"(?:\d+\.\s*)?(?:DEPENDENCIES|DEPENDS|ORDER|SEQUENCE):?\s*(.*?)(?=(?:\d+\.\s*)?(?:OPTIONS|HYPOTHESIS|$))",
+            r"\[DEPENDENCIES\]:?\s*(.*?)(?=\[|$)",
         ],
-        'options': [
-            r'(?:\d+\.\s*)?OPTIONS?:?\s*(.*?)(?=(?:\d+\.\s*)?(?:HYPOTHESIS|EVIDENCE|DECISION|CHOOSE|$))',
-            r'\[OPTIONS?\]:?\s*(.*?)(?=\[|$)',
-            r'ALTERNATIVES?:?\s*(.*?)(?=(?:DECISION|$))',
+        "options": [
+            r"(?:\d+\.\s*)?OPTIONS?:?\s*(.*?)(?=(?:\d+\.\s*)?(?:HYPOTHESIS|EVIDENCE|DECISION|CHOOSE|$))",
+            r"\[OPTIONS?\]:?\s*(.*?)(?=\[|$)",
+            r"ALTERNATIVES?:?\s*(.*?)(?=(?:DECISION|$))",
         ],
         # Reasoning phase
-        'hypothesis': [
-            r'(?:\d+\.\s*)?HYPOTHESIS:?\s*(.*?)(?=(?:\d+\.\s*)?(?:EVIDENCE|COUNTER|DECISION|$))',
-            r'\[HYPOTHESIS\]:?\s*(.*?)(?=\[|$)',
-            r'THEORY:?\s*(.*?)(?=(?:EVIDENCE|$))',
+        "hypothesis": [
+            r"(?:\d+\.\s*)?HYPOTHESIS:?\s*(.*?)(?=(?:\d+\.\s*)?(?:EVIDENCE|COUNTER|DECISION|$))",
+            r"\[HYPOTHESIS\]:?\s*(.*?)(?=\[|$)",
+            r"THEORY:?\s*(.*?)(?=(?:EVIDENCE|$))",
         ],
-        'evidence': [
-            r'(?:\d+\.\s*)?EVIDENCE:?\s*(.*?)(?=(?:\d+\.\s*)?(?:COUNTER|DECISION|$))',
-            r'\[EVIDENCE\]:?\s*(.*?)(?=\[|$)',
-            r'SUPPORT(?:ING)?:?\s*(.*?)(?=(?:COUNTER|$))',
+        "evidence": [
+            r"(?:\d+\.\s*)?EVIDENCE:?\s*(.*?)(?=(?:\d+\.\s*)?(?:COUNTER|DECISION|$))",
+            r"\[EVIDENCE\]:?\s*(.*?)(?=\[|$)",
+            r"SUPPORT(?:ING)?:?\s*(.*?)(?=(?:COUNTER|$))",
         ],
-        'counterargument': [
-            r'(?:\d+\.\s*)?(?:COUNTER.?ARGUMENT|COUNTER|CHALLENGE|DEVIL.?S?.?ADVOCATE|WHY.?WRONG|CRITIQUE):?\s*(.*?)(?=(?:\d+\.\s*)?(?:DECISION|CONFIDENCE|$))',
-            r'\[COUNTER\]:?\s*(.*?)(?=\[|$)',
-            r'(?:BUT|HOWEVER|ALTERNATIVELY):?\s*(.*?)(?=(?:DECISION|$))',
+        "counterargument": [
+            r"(?:\d+\.\s*)?(?:COUNTER.?ARGUMENT|COUNTER|CHALLENGE|DEVIL.?S?.?ADVOCATE|WHY.?WRONG|CRITIQUE):?\s*(.*?)(?=(?:\d+\.\s*)?(?:DECISION|CONFIDENCE|$))",
+            r"\[COUNTER\]:?\s*(.*?)(?=\[|$)",
+            r"(?:BUT|HOWEVER|ALTERNATIVELY):?\s*(.*?)(?=(?:DECISION|$))",
         ],
         # Decision phase
-        'decision': [
-            r'(?:\d+\.\s*)?DECISION:?\s*(.*?)(?=(?:\d+\.\s*)?(?:CONFIDENCE|FALLBACK|RISK|VERIFY|$))',
-            r'\[DECISION\]:?\s*(.*?)(?=\[|$)',
-            r'(?:CHOOSE|SELECTED?|FINAL):?\s*(.*?)(?=(?:CONFIDENCE|RISK|$))',
-            r'BEST\s*CHOICE:?\s*(.*?)(?=(?:REASON|CONFIDENCE|$))',
+        "decision": [
+            r"(?:\d+\.\s*)?DECISION:?\s*(.*?)(?=(?:\d+\.\s*)?(?:CONFIDENCE|FALLBACK|RISK|VERIFY|$))",
+            r"\[DECISION\]:?\s*(.*?)(?=\[|$)",
+            r"(?:CHOOSE|SELECTED?|FINAL):?\s*(.*?)(?=(?:CONFIDENCE|RISK|$))",
+            r"BEST\s*CHOICE:?\s*(.*?)(?=(?:REASON|CONFIDENCE|$))",
         ],
-        'confidence': [
-            r'(?:\d+\.\s*)?CONFIDENCE:?\s*(.*?)(?=(?:\d+\.\s*)?(?:FALLBACK|RISK|VERIFY|$))',
-            r'\[CONFIDENCE\]:?\s*(.*?)(?=\[|$)',
-            r'CERTAINTY:?\s*(.*?)(?=(?:FALLBACK|RISK|$))',
+        "confidence": [
+            r"(?:\d+\.\s*)?CONFIDENCE:?\s*(.*?)(?=(?:\d+\.\s*)?(?:FALLBACK|RISK|VERIFY|$))",
+            r"\[CONFIDENCE\]:?\s*(.*?)(?=\[|$)",
+            r"CERTAINTY:?\s*(.*?)(?=(?:FALLBACK|RISK|$))",
         ],
-        'fallback': [
-            r'(?:\d+\.\s*)?(?:FALLBACK|BACKUP|PLAN.?B|IF.?FAILS?|ALTERNATIVE):?\s*(.*?)(?=(?:\d+\.\s*)?(?:RISK|VERIFY|$))',
-            r'\[FALLBACK\]:?\s*(.*?)(?=\[|$)',
+        "fallback": [
+            r"(?:\d+\.\s*)?(?:FALLBACK|BACKUP|PLAN.?B|IF.?FAILS?|ALTERNATIVE):?\s*(.*?)(?=(?:\d+\.\s*)?(?:RISK|VERIFY|$))",
+            r"\[FALLBACK\]:?\s*(.*?)(?=\[|$)",
         ],
         # Verification phase
-        'risk_check': [
-            r'(?:\d+\.\s*)?RISK(?:\s*CHECK)?:?\s*(.*?)(?=(?:\d+\.\s*)?(?:VERIFY|REFLECTION|$))',
-            r'\[RISK\]:?\s*(.*?)(?=\[|$)',
-            r'SAFETY:?\s*(.*?)(?=(?:VERIFY|$))',
+        "risk_check": [
+            r"(?:\d+\.\s*)?RISK(?:\s*CHECK)?:?\s*(.*?)(?=(?:\d+\.\s*)?(?:VERIFY|REFLECTION|$))",
+            r"\[RISK\]:?\s*(.*?)(?=\[|$)",
+            r"SAFETY:?\s*(.*?)(?=(?:VERIFY|$))",
         ],
-        'verify': [
-            r'(?:\d+\.\s*)?(?:VERIFY|VALIDATION?|CHECK|TEST|CONFIRM):?\s*(.*?)(?=(?:\d+\.\s*)?(?:REFLECTION|$))',
-            r'\[VERIFY\]:?\s*(.*?)(?=\[|$)',
+        "verify": [
+            r"(?:\d+\.\s*)?(?:VERIFY|VALIDATION?|CHECK|TEST|CONFIRM):?\s*(.*?)(?=(?:\d+\.\s*)?(?:REFLECTION|$))",
+            r"\[VERIFY\]:?\s*(.*?)(?=\[|$)",
         ],
         # Meta phase
-        'reflection': [
-            r'(?:\d+\.\s*)?(?:REFLECTION?|LEARN(?:ED)?|INSIGHT|META):?\s*(.*?)$',
-            r'\[REFLECT(?:ION)?\]:?\s*(.*?)(?=\[|$)',
+        "reflection": [
+            r"(?:\d+\.\s*)?(?:REFLECTION?|LEARN(?:ED)?|INSIGHT|META):?\s*(.*?)$",
+            r"\[REFLECT(?:ION)?\]:?\s*(.*?)(?=\[|$)",
         ],
     }
 
@@ -303,7 +318,9 @@ def parse_thinking_block(text: str) -> Tuple[Optional[ThinkingBlock], str]:
     return block, remaining_text
 
 
-def format_thinking_display(block: ThinkingBlock, console: Console, debug_mode: bool = False) -> None:
+def format_thinking_display(
+    block: ThinkingBlock, console: Console, debug_mode: bool = False
+) -> None:
     """
     Display a thinking block with quality indicators.
 
@@ -331,8 +348,8 @@ def format_thinking_display(block: ThinkingBlock, console: Console, debug_mode: 
         if block.understand:
             goal_text = block.understand.strip()
             # Get first meaningful line
-            first_line = goal_text.split('\n')[0].strip()
-            if first_line.startswith('-'):
+            first_line = goal_text.split("\n")[0].strip()
+            if first_line.startswith("-"):
                 first_line = first_line[1:].strip()
             # Don't show anything in normal mode - just like Claude Code
             # The goal is conveyed through the actual response
@@ -349,7 +366,9 @@ def format_thinking_display(block: ThinkingBlock, console: Console, debug_mode: 
     quality = block.quality_score()
     confidence = block.get_confidence_level()
     quality_bar = "[" + ("=" * int(quality * 10)) + ("-" * (10 - int(quality * 10))) + "]"
-    quality_color = palette.success if quality > 0.7 else palette.warning if quality > 0.4 else palette.error
+    quality_color = (
+        palette.success if quality > 0.7 else palette.warning if quality > 0.4 else palette.error
+    )
 
     content.append(f"Quality: {quality_bar} {quality:.0%}", style=f"dim {quality_color}")
     if confidence != "unknown":
@@ -357,7 +376,7 @@ def format_thinking_display(block: ThinkingBlock, console: Console, debug_mode: 
             "very_high": palette.success,
             "high": palette.info,
             "medium": palette.warning,
-            "low": palette.error
+            "low": palette.error,
         }
         conf_color = conf_colors.get(confidence, palette.text_muted)
         content.append(f" | Confidence: {confidence}", style=f"dim {conf_color}")
@@ -368,7 +387,7 @@ def format_thinking_display(block: ThinkingBlock, console: Console, debug_mode: 
         content.append(f"{icons.BULLET} GOAL: ", style=f"bold {palette.info}")
         # Show full text in debug mode, not truncated
         goal_text = block.understand.strip()
-        if goal_text.startswith('-'):
+        if goal_text.startswith("-"):
             goal_text = goal_text[1:].strip()
         content.append(goal_text + "\n", style=palette.text_primary)
 
@@ -382,7 +401,7 @@ def format_thinking_display(block: ThinkingBlock, console: Console, debug_mode: 
     if block.counterargument:
         content.append(f"{icons.WARNING} CHALLENGE: ", style=f"bold {palette.error}")
         counter_text = block.counterargument.strip()
-        if counter_text.startswith('-'):
+        if counter_text.startswith("-"):
             counter_text = counter_text[1:].strip()
         # Full text in debug mode
         content.append(counter_text + "\n", style=f"dim {palette.error}")
@@ -403,7 +422,7 @@ def format_thinking_display(block: ThinkingBlock, console: Console, debug_mode: 
     if block.risk_check:
         content.append(f"{icons.WARNING} RISK: ", style=f"bold {palette.warning}")
         risk_text = block.risk_check.strip()
-        if risk_text.startswith('-'):
+        if risk_text.startswith("-"):
             risk_text = risk_text[1:].strip()
         # Full text in debug mode
         content.append(risk_text, style=palette.text_muted)
@@ -424,12 +443,7 @@ def format_thinking_display(block: ThinkingBlock, console: Console, debug_mode: 
     if indicators:
         title.append("  " + " ".join(indicators))
 
-    console.print(Panel(
-        content,
-        title=title,
-        border_style=palette.primary,
-        padding=(0, 1)
-    ))
+    console.print(Panel(content, title=title, border_style=palette.primary, padding=(0, 1)))
 
 
 class HcodeAgent:
@@ -457,7 +471,7 @@ class HcodeAgent:
         root_dir: Optional[str] = None,
         preferences: Optional[ProviderPreferences] = None,
         session_id: Optional[str] = None,
-        config: Optional[Dict[str, Any]] = None
+        config: Optional[Dict[str, Any]] = None,
     ):
         """
         Initialize Hcode agent.
@@ -487,52 +501,42 @@ class HcodeAgent:
             openai_base_url=openai_base_url,
             anthropic_model=anthropic_model,
             openai_model=openai_model,
-            preferences=preferences or ProviderPreferences()
+            preferences=preferences or ProviderPreferences(),
         )
 
         # Initialize tool manager
-        self.tool_manager = ToolManager(
-            root_dir=str(self.root_dir),
-            config=self.config
-        )
+        self.tool_manager = ToolManager(root_dir=str(self.root_dir), config=self.config)
 
         # Initialize agent orchestrator
         self.agent_orchestrator = HcodeAgentOrchestrator(
-            provider_selector=self.provider_selector,
-            tool_registry=self.tool_manager.tool_registry
+            provider_selector=self.provider_selector, tool_registry=self.tool_manager.tool_registry
         )
 
         # Connect agent orchestrator to tool manager
         self.tool_manager.set_agent_orchestrator(self.agent_orchestrator)
 
         # Initialize context and safety
-        self.context_manager = ContextManager(
-            root_dir=str(self.root_dir),
-            session_id=session_id
-        )
+        self.context_manager = ContextManager(root_dir=str(self.root_dir), session_id=session_id)
         self.safety_guard = SafetyGuard(root_dir=str(self.root_dir))
 
         # Initialize continuation manager for long outputs
         from .continuation import ContinuationManager, ContextWindowManager
+
         self.continuation_manager = ContinuationManager(
-            max_continuations=10,
-            max_total_tokens=100000,
-            console=self.console
+            max_continuations=10, max_total_tokens=100000, console=self.console
         )
         self.context_window_manager = ContextWindowManager(
-            max_context_tokens=128000,
-            reserve_output_tokens=8192
+            max_context_tokens=128000, reserve_output_tokens=8192
         )
 
         self.current_provider: Optional[AIProvider] = None
 
         # Initialize memory system (if available)
-        self.memory_manager: Optional['MemoryManager'] = None
+        self.memory_manager: Optional["MemoryManager"] = None
         if MEMORY_AVAILABLE:
             try:
                 self.memory_manager = get_memory_manager(
-                    project_root=self.root_dir,
-                    session_id=session_id
+                    project_root=self.root_dir, session_id=session_id
                 )
                 self._debug_print("[dim]Memory system initialized[/dim]")
             except Exception as e:
@@ -554,10 +558,7 @@ class HcodeAgent:
 
     def _is_debug_mode(self) -> bool:
         """Check if debug mode is enabled."""
-        return (
-            self.config.get('debug', False) or
-            self.config.get('ui', {}).get('debug_mode', False)
-        )
+        return self.config.get("debug", False) or self.config.get("ui", {}).get("debug_mode", False)
 
     def _debug_print(self, message: str):
         """Print message only if debug mode is enabled."""
@@ -568,7 +569,7 @@ class HcodeAgent:
         self,
         anthropic_key: Optional[str],
         openai_key: Optional[str],
-        openai_base_url: Optional[str]
+        openai_base_url: Optional[str],
     ):
         """Initialize resilient provider with automatic failover"""
         self.resilient_provider = None
@@ -580,10 +581,11 @@ class HcodeAgent:
                     ResilientProvider,
                     create_resilient_provider,
                 )
+
                 self.resilient_provider = create_resilient_provider(
                     anthropic_key=anthropic_key,
                     openai_key=openai_key,
-                    primary="anthropic"  # Default to Anthropic
+                    primary="anthropic",  # Default to Anthropic
                 )
 
                 # Set callbacks for failover events
@@ -596,18 +598,18 @@ class HcodeAgent:
                         tool_name="provider_failover",
                         duration=0,
                         success=True,
-                        task_context=f"{from_prov}->{to_prov}"
+                        task_context=f"{from_prov}->{to_prov}",
                     )
 
                 def on_recovery(provider: str):
-                    self.console.print(
-                        f"[green]Provider {provider} recovered[/green]"
-                    )
+                    self.console.print(f"[green]Provider {provider} recovered[/green]")
 
                 self.resilient_provider.set_failover_callback(on_failover)
                 self.resilient_provider.set_recovery_callback(on_recovery)
 
-                self._debug_print("[dim]Resilient provider initialized with automatic failover[/dim]")
+                self._debug_print(
+                    "[dim]Resilient provider initialized with automatic failover[/dim]"
+                )
             except Exception as e:
                 self.console.print(f"[dim yellow]Resilient provider unavailable: {e}[/dim yellow]")
 
@@ -617,7 +619,7 @@ class HcodeAgent:
         complexity: TaskComplexity = TaskComplexity.MODERATE,
         task_type: TaskType = TaskType.CODE_GENERATION,
         stream: bool = True,
-        use_sub_agents: bool = False
+        use_sub_agents: bool = False,
     ) -> str:
         """
         Execute a task using the agent capabilities.
@@ -637,6 +639,7 @@ class HcodeAgent:
 
         # Track execution with analytics
         import time
+
         task_start_time = time.time()
         self.analytics.start_conversation(self.context_manager.session_id)
         self.execution_state.transition(ExecutionState.PLANNING)
@@ -652,27 +655,38 @@ class HcodeAgent:
                 self.analytics.end_conversation(
                     self.context_manager.session_id,
                     success=True,
-                    total_cost=self.current_provider.total_cost if self.current_provider else 0
+                    total_cost=self.current_provider.total_cost if self.current_provider else 0,
                 )
                 self.safety_guard.commit_transaction()
                 return response
 
             # Select provider
             self.current_provider = self.provider_selector.select_provider(
-                complexity=complexity,
-                task_type=task_type
+                complexity=complexity, task_type=task_type
             )
 
             self.console.print(f"[bold green]Using {self.current_provider}[/bold green]")
 
             # Start logging session
-            provider_name = self.current_provider.get_provider_name() if hasattr(self.current_provider, 'get_provider_name') else str(self.current_provider)
-            model_name = self.current_provider.model if hasattr(self.current_provider, 'model') else "unknown"
+            provider_name = (
+                self.current_provider.get_provider_name()
+                if hasattr(self.current_provider, "get_provider_name")
+                else str(self.current_provider)
+            )
+            model_name = (
+                self.current_provider.model
+                if hasattr(self.current_provider, "model")
+                else "unknown"
+            )
             self.logger.start_session(
                 task=task,
                 provider=provider_name,
                 model=model_name,
-                metadata={"complexity": complexity.value if hasattr(complexity, 'value') else str(complexity)}
+                metadata={
+                    "complexity": (
+                        complexity.value if hasattr(complexity, "value") else str(complexity)
+                    )
+                },
             )
 
             # IMPORTANT: Clear context for new unrelated tasks to prevent context pollution
@@ -686,19 +700,14 @@ class HcodeAgent:
             # Add task to context with format guidance for OSS models
             formatted_task = self._format_user_task(task)
             self.context_manager.add_message(
-                role="user",
-                content=formatted_task,
-                importance=1.0,
-                provider=self.current_provider
+                role="user", content=formatted_task, importance=1.0, provider=self.current_provider
             )
 
             # Add message to memory system
             if self.memory_manager:
                 try:
                     self.memory_manager.add_message(
-                        role="user",
-                        content=task,
-                        extract_memories=True
+                        role="user", content=task, extract_memories=True
                     )
                 except Exception:
                     pass  # Memory system is optional
@@ -709,19 +718,14 @@ class HcodeAgent:
 
             # Add response to context
             self.context_manager.add_message(
-                role="assistant",
-                content=response,
-                importance=0.8,
-                provider=self.current_provider
+                role="assistant", content=response, importance=0.8, provider=self.current_provider
             )
 
             # Add response to memory system
             if self.memory_manager:
                 try:
                     self.memory_manager.add_message(
-                        role="assistant",
-                        content=response,
-                        extract_memories=True
+                        role="assistant", content=response, extract_memories=True
                     )
                 except Exception:
                     pass  # Memory system is optional
@@ -736,7 +740,7 @@ class HcodeAgent:
                 self.context_manager.session_id,
                 success=True,
                 total_tokens=self.token_counter.count(response),
-                total_cost=self.current_provider.total_cost if self.current_provider else 0
+                total_cost=self.current_provider.total_cost if self.current_provider else 0,
             )
 
             self.safety_guard.commit_transaction()
@@ -749,17 +753,14 @@ class HcodeAgent:
 
             # Track failure with analytics
             self.execution_state.transition(ExecutionState.IDLE)  # Reset state on error
-            self.analytics.end_conversation(
-                self.context_manager.session_id,
-                success=False
-            )
+            self.analytics.end_conversation(self.context_manager.session_id, success=False)
             self.analytics.record_tool_execution(
                 tool_name="task_execution",
                 duration=time.time() - task_start_time,
                 success=False,
                 error_type=type(e).__name__,
                 error_message=str(e),
-                task_context=task[:100]
+                task_context=task[:100],
             )
 
             self.safety_guard.rollback_transaction()
@@ -773,21 +774,29 @@ class HcodeAgent:
             # Handle LLMConnectionError specifically
             if isinstance(e, LLMConnectionError):
                 self.console.print(f"[bold red][X] LLM Connection Error:[/bold red] {str(e)}")
-                if hasattr(e, 'base_url') and e.base_url:
+                if hasattr(e, "base_url") and e.base_url:
                     self.console.print(f"[dim]API Endpoint: {e.base_url}[/dim]")
-                self.console.print("[dim]Check your network connection and API endpoint configuration.[/dim]")
-                self.console.print("[dim]You can also check your OPENAI_BASE_URL environment variable.[/dim]")
+                self.console.print(
+                    "[dim]Check your network connection and API endpoint configuration.[/dim]"
+                )
+                self.console.print(
+                    "[dim]You can also check your OPENAI_BASE_URL environment variable.[/dim]"
+                )
                 raise
 
             # Handle built-in connection errors
-            elif isinstance(e, ConnectionError) or 'connection' in error_str:
+            elif isinstance(e, ConnectionError) or "connection" in error_str:
                 self.console.print(f"[bold red][X] Connection Error:[/bold red] {str(e)}")
-                self.console.print("[dim]Check your network connection and API endpoint configuration.[/dim]")
+                self.console.print(
+                    "[dim]Check your network connection and API endpoint configuration.[/dim]"
+                )
                 raise
 
-            elif isinstance(e, TimeoutError) or 'timeout' in error_str:
+            elif isinstance(e, TimeoutError) or "timeout" in error_str:
                 self.console.print(f"[bold red][X] Timeout Error:[/bold red] {str(e)}")
-                self.console.print("[dim]The request took too long. Try again or increase timeout in config.[/dim]")
+                self.console.print(
+                    "[dim]The request took too long. Try again or increase timeout in config.[/dim]"
+                )
                 raise
 
             elif isinstance(e, RuntimeError):
@@ -803,7 +812,9 @@ class HcodeAgent:
                 raise
 
             else:
-                self.console.print(f"[bold red][X] Unexpected Error ({error_type}):[/bold red] {str(e)}")
+                self.console.print(
+                    f"[bold red][X] Unexpected Error ({error_type}):[/bold red] {str(e)}"
+                )
                 raise
 
     def _build_system_prompt(self, query: Optional[str] = None) -> str:
@@ -813,6 +824,7 @@ class HcodeAgent:
 
         # Get tool documentation from external config (Claude Code style)
         from ..config.tools import get_tools_config
+
         tools_config = get_tools_config()
         tool_docs = tools_config.get_tool_documentation()
 
@@ -826,7 +838,9 @@ class HcodeAgent:
                 if memory_context:
                     base_prompt += "\n\n" + memory_context
             except Exception as e:
-                self.console.print(f"[dim yellow][!] Could not load memory context: {e}[/dim yellow]")
+                self.console.print(
+                    f"[dim yellow][!] Could not load memory context: {e}[/dim yellow]"
+                )
 
         return base_prompt
 
@@ -931,6 +945,7 @@ When the user says things like "yes", "proceed", "continue", "do it", "ok", or s
 
         # Get tool schemas from external config (Claude Code style)
         from ..config.tools import get_tools_config
+
         tools_config = get_tools_config()
         provider_name = self.current_provider.get_provider_name().lower()
 
@@ -955,7 +970,9 @@ When the user says things like "yes", "proceed", "continue", "do it", "ok", or s
 
         # SUBSTANTIVE ANSWER CHECK: Track prompts for actual user-facing response
         answer_prompts = 0  # Track how many times we've prompted for substantive answer
-        max_answer_prompts = 2  # Safety limit - if model can't provide answer after 2 prompts, accept it
+        max_answer_prompts = (
+            2  # Safety limit - if model can't provide answer after 2 prompts, accept it
+        )
 
         # RETRY LOOP PREVENTION: Track failed commands to prevent infinite retries
         failed_commands: Dict[str, int] = {}  # command -> failure count
@@ -985,9 +1002,13 @@ When the user says things like "yes", "proceed", "continue", "do it", "ok", or s
                 if len(recent_responses) >= stuck_threshold:
                     # Check for repeated responses
                     last_response_hash = hash(recent_responses[-1][:500]) if recent_responses else 0
-                    repeat_count = sum(1 for r in recent_responses if hash(r[:500]) == last_response_hash)
+                    repeat_count = sum(
+                        1 for r in recent_responses if hash(r[:500]) == last_response_hash
+                    )
                     if repeat_count >= stuck_threshold:
-                        self._debug_print(f"[yellow][!] Detected stuck loop (same response {repeat_count} times). Breaking out.[/yellow]")
+                        self._debug_print(
+                            f"[yellow][!] Detected stuck loop (same response {repeat_count} times). Breaking out.[/yellow]"
+                        )
                         break
 
                 # Get messages with context - ensure we leave room for output
@@ -1000,12 +1021,12 @@ When the user says things like "yes", "proceed", "continue", "do it", "ok", or s
 
                 if available_for_context < min_context_tokens:
                     # Context overflow - need to truncate more aggressively
-                    self._debug_print(f"[yellow][!] Context near limit. Truncating older messages.[/yellow]")
+                    self._debug_print(
+                        f"[yellow][!] Context near limit. Truncating older messages.[/yellow]"
+                    )
                     available_for_context = min_context_tokens
 
-                messages = self.context_manager.get_messages(
-                    max_tokens=available_for_context
-                )
+                messages = self.context_manager.get_messages(max_tokens=available_for_context)
 
                 # CLAUDE CODE STYLE: Show thinking indicator on first iteration
                 if iteration == 1:
@@ -1025,7 +1046,7 @@ When the user says things like "yes", "proceed", "continue", "do it", "ok", or s
                             messages=messages,
                             stream=True,
                             functions=tool_schemas if provider_name == "openai" else None,
-                            tools=tool_schemas if provider_name == "anthropic" else None
+                            tools=tool_schemas if provider_name == "anthropic" else None,
                         )
 
                         # Clear thinking indicator
@@ -1046,7 +1067,7 @@ When the user says things like "yes", "proceed", "continue", "do it", "ok", or s
                             messages=messages,
                             stream=False,
                             functions=tool_schemas if provider_name == "openai" else None,
-                            tools=tool_schemas if provider_name == "anthropic" else None
+                            tools=tool_schemas if provider_name == "anthropic" else None,
                         )
 
                         # Clear thinking indicator
@@ -1054,8 +1075,12 @@ When the user says things like "yes", "proceed", "continue", "do it", "ok", or s
                             self.console.print(" " * 20, end="\r")
 
                         response_text = response.content
-                        raw_response = response.raw_response if hasattr(response, 'raw_response') else None
-                        finish_reason = response.finish_reason if hasattr(response, 'finish_reason') else "stop"
+                        raw_response = (
+                            response.raw_response if hasattr(response, "raw_response") else None
+                        )
+                        finish_reason = (
+                            response.finish_reason if hasattr(response, "finish_reason") else "stop"
+                        )
 
                     # Success - reset error counter and save successful response
                     consecutive_errors = 0
@@ -1064,13 +1089,15 @@ When the user says things like "yes", "proceed", "continue", "do it", "ok", or s
 
                     # EMPTY RESPONSE HANDLING: If first response is empty, add explicit instruction
                     if iteration == 1 and not response_text.strip():
-                        self.console.print(f"[dim yellow][!] Empty first response. Adding guidance...[/dim yellow]")
+                        self.console.print(
+                            f"[dim yellow][!] Empty first response. Adding guidance...[/dim yellow]"
+                        )
                         # Add a direct instruction to the context
                         self.context_manager.add_message(
                             role="user",
                             content="Please respond to the task above. Start with a brief explanation of what you'll do, then call a tool.",
                             importance=1.0,
-                            provider=self.current_provider
+                            provider=self.current_provider,
                         )
                         continue  # Retry with the guidance
 
@@ -1078,10 +1105,14 @@ When the user says things like "yes", "proceed", "continue", "do it", "ok", or s
                     # Handle generation errors gracefully
                     consecutive_errors += 1
                     error_msg = str(gen_error)
-                    self.console.print(f"[bold red][!] Generation error (attempt {consecutive_errors}/{max_consecutive_errors}): {error_msg[:100]}[/bold red]")
+                    self.console.print(
+                        f"[bold red][!] Generation error (attempt {consecutive_errors}/{max_consecutive_errors}): {error_msg[:100]}[/bold red]"
+                    )
 
                     if consecutive_errors >= max_consecutive_errors:
-                        self.console.print(f"[bold red][X] Too many consecutive errors. Returning accumulated results.[/bold red]")
+                        self.console.print(
+                            f"[bold red][X] Too many consecutive errors. Returning accumulated results.[/bold red]"
+                        )
                         # Return whatever we have so far
                         if all_response_parts:
                             return "\n".join(all_response_parts)
@@ -1107,7 +1138,9 @@ When the user says things like "yes", "proceed", "continue", "do it", "ok", or s
 
                 if thinking_block and thinking_block.is_valid():
                     # Display the thinking block (only shows verbose panel in debug mode)
-                    debug_mode = self.config.get('debug', False) or self.config.get('ui', {}).get('debug_mode', False)
+                    debug_mode = self.config.get("debug", False) or self.config.get("ui", {}).get(
+                        "debug_mode", False
+                    )
                     format_thinking_display(thinking_block, self.console, debug_mode=debug_mode)
 
                     # Log the thinking for debugging
@@ -1119,7 +1152,7 @@ When the user says things like "yes", "proceed", "continue", "do it", "ok", or s
                         tool_calls_detected=0,
                         continuation_needed=False,
                         pending_work_detected=False,
-                        metadata={"thinking": thinking_block.raw_content}
+                        metadata={"thinking": thinking_block.raw_content},
                     )
 
                     # AUTO-EXTRACT TODOS FROM THINKING BLOCK - DISABLED
@@ -1135,50 +1168,67 @@ When the user says things like "yes", "proceed", "continue", "do it", "ok", or s
                 # ═══════════════════════════════════════════════════════════════════════════════
                 if iteration > 1 or not stream:
                     # Get the response without thinking and without tool call JSON
-                    display_text = response_without_thinking if response_without_thinking else response_text
+                    display_text = (
+                        response_without_thinking if response_without_thinking else response_text
+                    )
 
                     # Strip out tool call JSON patterns (these shouldn't be shown to user)
                     import re
 
                     # Remove JSON blocks inside code fences (```json ... ```)
-                    display_text = re.sub(r'```json\s*\{[\s\S]*?\}\s*```', '', display_text)
+                    display_text = re.sub(r"```json\s*\{[\s\S]*?\}\s*```", "", display_text)
 
                     # Remove multiline JSON tool calls with nested content
                     # This handles: {"tool": "X", "parameters": {...}}
                     display_text = re.sub(
                         r'\{\s*"tool"\s*:\s*"[^"]+"\s*,\s*"parameters"\s*:\s*\{[\s\S]*?\}\s*\}',
-                        '', display_text, flags=re.DOTALL
+                        "",
+                        display_text,
+                        flags=re.DOTALL,
                     )
 
                     # Remove TodoWrite JSON specifically (handles arrays in todos)
                     display_text = re.sub(
                         r'\{\s*"tool"\s*:\s*"TodoWrite"\s*,\s*"parameters"\s*:\s*\{[\s\S]*?"todos"\s*:\s*\[[\s\S]*?\]\s*\}\s*\}',
-                        '', display_text, flags=re.DOTALL
+                        "",
+                        display_text,
+                        flags=re.DOTALL,
                     )
 
                     # Remove simple tool JSON
-                    display_text = re.sub(r'\{\s*"tool"\s*:\s*"[^"]+"\s*\}', '', display_text, flags=re.DOTALL)
+                    display_text = re.sub(
+                        r'\{\s*"tool"\s*:\s*"[^"]+"\s*\}', "", display_text, flags=re.DOTALL
+                    )
 
                     # Remove any remaining JSON objects that look like tool calls
-                    display_text = re.sub(r'\{[^{}]*"tool"[^{}]*\}', '', display_text, flags=re.DOTALL)
+                    display_text = re.sub(
+                        r'\{[^{}]*"tool"[^{}]*\}', "", display_text, flags=re.DOTALL
+                    )
 
                     # Clean up excess whitespace
-                    display_text = re.sub(r'\n\s*\n\s*\n+', '\n\n', display_text)
+                    display_text = re.sub(r"\n\s*\n\s*\n+", "\n\n", display_text)
                     display_text = display_text.strip()
 
                     # Only display if there's substantive content (not just whitespace or tool metadata)
                     if display_text and len(display_text) > 20:
                         # Check it's not just thinking metadata patterns
-                        if not re.match(r'^\s*\[(?:UNDERSTAND|CONTEXT|OPTIONS|DECISION|RISK|ASSUMPTIONS|OK|!)\]', display_text):
+                        if not re.match(
+                            r"^\s*\[(?:UNDERSTAND|CONTEXT|OPTIONS|DECISION|RISK|ASSUMPTIONS|OK|!)\]",
+                            display_text,
+                        ):
                             self.console.print(f"\n{display_text}\n")
 
                 # THINKING ENFORCEMENT: For OpenAI/OSS models, if no thinking block found
                 # on first iteration with a tool call, request thinking first
                 if provider_name == "openai" and iteration == 1:
-                    tool_calls_preview = self._extract_tool_calls(raw_response, response_text, provider_name)
+                    tool_calls_preview = self._extract_tool_calls(
+                        raw_response, response_text, provider_name
+                    )
                     if tool_calls_preview and not thinking_block:
                         # Model skipped thinking - request it thinks first
-                        self._debug_print(f"[dim yellow][!] Requesting deeper thinking before tool use...[/dim yellow]")
+                        self._debug_print(
+                            f"[dim yellow][!] Requesting deeper thinking before tool use...[/dim yellow]"
+                        )
                         self.context_manager.add_message(
                             role="user",
                             content="""STOP! Before using that tool, you MUST think first.
@@ -1192,7 +1242,7 @@ Output a <thinking> block that explains:
 
 Then repeat your tool call.""",
                             importance=1.0,
-                            provider=self.current_provider
+                            provider=self.current_provider,
                         )
                         # Don't execute the tool yet, continue to get thinking
                         continue
@@ -1202,31 +1252,35 @@ Then repeat your tool call.""",
 
                 # Track if TodoWrite has been used
                 has_used_todowrite = any(
-                    tc.get('name', '').lower() == 'todowrite' for tc in (tool_calls or [])
+                    tc.get("name", "").lower() == "todowrite" for tc in (tool_calls or [])
                 ) or any(
-                    action.get('tool', '').lower() == 'todowrite' for action in completed_actions
+                    action.get("tool", "").lower() == "todowrite" for action in completed_actions
                 )
 
                 # ENFORCE TODOWRITE: On iteration 2, if no TodoWrite used, prompt for it
                 if iteration == 2 and not has_used_todowrite and tool_calls:
-                    self._debug_print(f"[dim yellow][!] Reminder: Use TodoWrite to track your tasks![/dim yellow]")
+                    self._debug_print(
+                        f"[dim yellow][!] Reminder: Use TodoWrite to track your tasks![/dim yellow]"
+                    )
                     # Add reminder to context
                     self.context_manager.add_message(
                         role="user",
                         content="IMPORTANT: Please use TodoWrite to create a task list before continuing. Use TodoWrite with todos array to plan your steps.",
                         importance=1.0,
-                        provider=self.current_provider
+                        provider=self.current_provider,
                     )
 
                 # Log this interaction (full response, not truncated)
                 self.logger.log_interaction(
                     iteration=iteration,
-                    request_messages=messages[-3:] if len(messages) > 3 else messages,  # Last 3 for brevity
+                    request_messages=(
+                        messages[-3:] if len(messages) > 3 else messages
+                    ),  # Last 3 for brevity
                     response_text=response_text,  # FULL response
                     finish_reason=finish_reason,
                     tool_calls_detected=len(tool_calls) if tool_calls else 0,
                     continuation_needed=False,  # Will update if needed
-                    pending_work_detected=False  # Will update if needed
+                    pending_work_detected=False,  # Will update if needed
                 )
 
                 if tool_calls:
@@ -1239,17 +1293,19 @@ Then repeat your tool call.""",
                         # Track completed actions for summary
                         for tool_name, result, arguments in tool_results:
                             action = {
-                                'tool': tool_name,
-                                'success': result.success,
-                                'args': arguments,
-                                'iteration': iteration
+                                "tool": tool_name,
+                                "success": result.success,
+                                "args": arguments,
+                                "iteration": iteration,
                             }
                             completed_actions.append(action)
 
                             # AUTO-UPDATE TODOS: Mark matching todos as completed
                             self._auto_update_todos(action)
                     except Exception as tool_error:
-                        self.console.print(f"[bold red][!] Tool execution error: {tool_error}[/bold red]")
+                        self.console.print(
+                            f"[bold red][!] Tool execution error: {tool_error}[/bold red]"
+                        )
                         tool_results = []
                         # Continue anyway - don't crash
 
@@ -1258,7 +1314,7 @@ Then repeat your tool call.""",
                         role="assistant",
                         content=response_text,
                         importance=0.7,
-                        provider=self.current_provider
+                        provider=self.current_provider,
                     )
 
                     # Add tool results to context with continuation guidance
@@ -1270,7 +1326,7 @@ Then repeat your tool call.""",
                             success=result.success,
                             output=result.output,  # FULL output for debugging
                             error=result.error,
-                            metadata=result.metadata if hasattr(result, 'metadata') else {}
+                            metadata=result.metadata if hasattr(result, "metadata") else {},
                         )
 
                         # RETRY LOOP PREVENTION: Track failed commands
@@ -1280,24 +1336,28 @@ Then repeat your tool call.""",
                             failed_commands[cmd_key] = failed_commands.get(cmd_key, 0) + 1
 
                             if failed_commands[cmd_key] > max_command_retries:
-                                self.console.print(f"[bold red][!] Command has failed {failed_commands[cmd_key]} times. Stopping retry loop.[/bold red]")
+                                self.console.print(
+                                    f"[bold red][!] Command has failed {failed_commands[cmd_key]} times. Stopping retry loop.[/bold red]"
+                                )
                                 self.logger.log_error(
                                     f"Retry loop detected: {tool_name} failed {failed_commands[cmd_key]} times",
-                                    context={"command_key": cmd_key, "arguments": arguments}
+                                    context={"command_key": cmd_key, "arguments": arguments},
                                 )
 
                         if result.success:
                             # Check if this was a truncated file write that needs continuation
                             is_truncated_write = (
-                                result.metadata and
-                                result.metadata.get('is_truncated', False) and
-                                tool_name.lower() in ['writetool', 'write']
+                                result.metadata
+                                and result.metadata.get("is_truncated", False)
+                                and tool_name.lower() in ["writetool", "write"]
                             )
 
                             if is_truncated_write:
                                 # Special handling for truncated file writes
-                                file_path = arguments.get('file_path', 'the file')
-                                truncation_reason = result.metadata.get('truncation_reason', 'incomplete content')
+                                file_path = arguments.get("file_path", "the file")
+                                truncation_reason = result.metadata.get(
+                                    "truncation_reason", "incomplete content"
+                                )
                                 result_content = f"""Tool '{tool_name}' wrote PARTIAL content to {file_path}.
 
 [!]️ FILE CONTENT IS TRUNCATED: {truncation_reason}
@@ -1357,7 +1417,9 @@ What will you do next?"""
                                 output_text = result.output
                                 if len(output_text) > MAX_ERROR_OUTPUT_CHARS:
                                     output_text = output_text[:MAX_ERROR_OUTPUT_CHARS]
-                                    output_text += f"\n\n... [TRUNCATED - see full output in log file]"
+                                    output_text += (
+                                        f"\n\n... [TRUNCATED - see full output in log file]"
+                                    )
                                 output_info = f"\n\nFULL OUTPUT (may contain additional error details):\n{output_text}"
 
                             # Check for retry loop
@@ -1393,7 +1455,7 @@ What specific action will you take to address this error?"""
                             role="user",  # Tool results are added as user messages for the next turn
                             content=result_content,
                             importance=0.6,
-                            provider=self.current_provider
+                            provider=self.current_provider,
                         )
 
                         # Display tool execution with tool-specific formatting
@@ -1413,14 +1475,16 @@ What specific action will you take to address this error?"""
 
                 # Get todo state for reference only
                 todos_state = self._get_todos_completion_state()
-                all_todos_completed = todos_state['total'] == 0 or todos_state['completed'] == todos_state['total']
+                all_todos_completed = (
+                    todos_state["total"] == 0 or todos_state["completed"] == todos_state["total"]
+                )
 
                 # Check for truncated/incomplete response (model was cut off)
                 response_stripped = response_text.strip()
                 is_truncated = self._is_response_truncated(response_text, finish_reason)
 
                 # LLM decides: If model stopped and didn't make tool calls, it's signaling completion
-                model_signaled_done = (finish_reason == "stop" and not is_truncated)
+                model_signaled_done = finish_reason == "stop" and not is_truncated
 
                 # Task is complete if:
                 # - Model signaled done (no more tool calls, finish_reason=stop)
@@ -1428,11 +1492,17 @@ What specific action will you take to address this error?"""
                 task_completed = model_signaled_done and len(response_stripped) > 10
 
                 # Debug logging (only in debug mode)
-                self._debug_print(f"[dim][?] Iteration {iteration}: model_signaled_done={model_signaled_done}, all_todos_completed={all_todos_completed}, truncated={is_truncated}, finish={finish_reason}[/dim]")
+                self._debug_print(
+                    f"[dim][?] Iteration {iteration}: model_signaled_done={model_signaled_done}, all_todos_completed={all_todos_completed}, truncated={is_truncated}, finish={finish_reason}[/dim]"
+                )
 
                 # Check if there are incomplete todos that need attention
-                has_incomplete_todos = todos_state['total'] > 0 and todos_state['completed'] < todos_state['total']
-                incomplete_count = todos_state['total'] - todos_state['completed'] if has_incomplete_todos else 0
+                has_incomplete_todos = (
+                    todos_state["total"] > 0 and todos_state["completed"] < todos_state["total"]
+                )
+                incomplete_count = (
+                    todos_state["total"] - todos_state["completed"] if has_incomplete_todos else 0
+                )
 
                 # ═══════════════════════════════════════════════════════════════════════════════
                 # LLM-DRIVEN COMPLETION: Let the model make informed decisions
@@ -1447,14 +1517,16 @@ What specific action will you take to address this error?"""
                     if not has_substantive and answer_prompts < max_answer_prompts:
                         # Model stopped without providing actual answer - prompt for response
                         answer_prompts += 1
-                        self._debug_print(f"[dim yellow][!] No substantive answer detected, prompting for response (prompt {answer_prompts}/{max_answer_prompts})[/dim yellow]")
+                        self._debug_print(
+                            f"[dim yellow][!] No substantive answer detected, prompting for response (prompt {answer_prompts}/{max_answer_prompts})[/dim yellow]"
+                        )
 
                         accumulated = "\n".join(all_response_parts)
                         self.context_manager.add_message(
                             role="assistant",
                             content=accumulated,
                             importance=0.7,
-                            provider=self.current_provider
+                            provider=self.current_provider,
                         )
 
                         self.context_manager.add_message(
@@ -1470,23 +1542,28 @@ DO NOT just think about what to do - actually DO IT now:
 
 Start your response with the actual content the user requested, not with more thinking or tool calls.""",
                             importance=1.0,
-                            provider=self.current_provider
+                            provider=self.current_provider,
                         )
                         continue
 
                     # SECOND: Check if we should inform about incomplete todos
-                    if has_incomplete_todos and todo_continuation_prompts < max_todo_continuation_prompts:
+                    if (
+                        has_incomplete_todos
+                        and todo_continuation_prompts < max_todo_continuation_prompts
+                    ):
                         # Inject todo state and let LLM decide
                         todo_continuation_prompts += 1
                         pending_todos_list = self._format_pending_todos()
-                        self._debug_print(f"[dim yellow][!] Model stopped with {incomplete_count} todo(s) remaining (prompt {todo_continuation_prompts}/{max_todo_continuation_prompts})[/dim yellow]")
+                        self._debug_print(
+                            f"[dim yellow][!] Model stopped with {incomplete_count} todo(s) remaining (prompt {todo_continuation_prompts}/{max_todo_continuation_prompts})[/dim yellow]"
+                        )
 
                         accumulated = "\n".join(all_response_parts)
                         self.context_manager.add_message(
                             role="assistant",
                             content=accumulated,
                             importance=0.7,
-                            provider=self.current_provider
+                            provider=self.current_provider,
                         )
 
                         # LLM-driven: Give context and let model decide
@@ -1504,18 +1581,27 @@ Please review the remaining items:
                             role="user",
                             content=context_message,
                             importance=1.0,
-                            provider=self.current_provider
+                            provider=self.current_provider,
                         )
                         continue
 
                     # Either all checks passed, or we've reached max prompts - trust LLM decision
                     if not has_substantive and answer_prompts >= max_answer_prompts:
-                        self._debug_print(f"[dim yellow][!] Reached max answer prompts ({max_answer_prompts}), accepting response[/dim yellow]")
-                    if has_incomplete_todos and todo_continuation_prompts >= max_todo_continuation_prompts:
-                        self._debug_print(f"[dim yellow][!] Reached max continuation prompts ({max_todo_continuation_prompts}), accepting LLM decision[/dim yellow]")
+                        self._debug_print(
+                            f"[dim yellow][!] Reached max answer prompts ({max_answer_prompts}), accepting response[/dim yellow]"
+                        )
+                    if (
+                        has_incomplete_todos
+                        and todo_continuation_prompts >= max_todo_continuation_prompts
+                    ):
+                        self._debug_print(
+                            f"[dim yellow][!] Reached max continuation prompts ({max_todo_continuation_prompts}), accepting LLM decision[/dim yellow]"
+                        )
 
                     # Only show task completed message in debug mode (Claude Code doesn't show this)
-                    self._debug_print(f"[bold {self._palette.success}]{self._icons.SUCCESS} Task completed![/bold {self._palette.success}]")
+                    self._debug_print(
+                        f"[bold {self._palette.success}]{self._icons.SUCCESS} Task completed![/bold {self._palette.success}]"
+                    )
                     summary = self._generate_task_summary(completed_actions, response_text)
                     if summary and self._is_debug_mode():
                         self.console.print(summary)
@@ -1529,13 +1615,13 @@ Please review the remaining items:
                         role="assistant",
                         content=accumulated,
                         importance=0.7,
-                        provider=self.current_provider
+                        provider=self.current_provider,
                     )
                     self.context_manager.add_message(
                         role="user",
                         content="Please continue.",
                         importance=0.9,
-                        provider=self.current_provider
+                        provider=self.current_provider,
                     )
                     continue
 
@@ -1546,7 +1632,7 @@ Please review the remaining items:
                         role="user",
                         content="Please respond to the user's request.",
                         importance=1.0,
-                        provider=self.current_provider
+                        provider=self.current_provider,
                     )
                     continue
 
@@ -1556,14 +1642,16 @@ Please review the remaining items:
                 if not has_substantive and answer_prompts < max_answer_prompts:
                     # Model stopped without providing actual answer - prompt for response
                     answer_prompts += 1
-                    self.console.print(f"[dim yellow][!] No substantive answer detected, prompting for response (prompt {answer_prompts}/{max_answer_prompts})[/dim yellow]")
+                    self.console.print(
+                        f"[dim yellow][!] No substantive answer detected, prompting for response (prompt {answer_prompts}/{max_answer_prompts})[/dim yellow]"
+                    )
 
                     accumulated = "\n".join(all_response_parts)
                     self.context_manager.add_message(
                         role="assistant",
                         content=accumulated,
                         importance=0.7,
-                        provider=self.current_provider
+                        provider=self.current_provider,
                     )
 
                     self.context_manager.add_message(
@@ -1579,22 +1667,27 @@ DO NOT just think about what to do - actually DO IT now:
 
 Start your response with the actual content the user requested, not with more thinking or tool calls.""",
                         importance=1.0,
-                        provider=self.current_provider
+                        provider=self.current_provider,
                     )
                     continue
 
                 # Model stopped without tool calls - inform about incomplete todos if any
-                if has_incomplete_todos and todo_continuation_prompts < max_todo_continuation_prompts:
+                if (
+                    has_incomplete_todos
+                    and todo_continuation_prompts < max_todo_continuation_prompts
+                ):
                     todo_continuation_prompts += 1
                     pending_todos_list = self._format_pending_todos()
-                    self.console.print(f"[dim yellow][!] {incomplete_count} todo(s) remaining, informing LLM (prompt {todo_continuation_prompts}/{max_todo_continuation_prompts})[/dim yellow]")
+                    self.console.print(
+                        f"[dim yellow][!] {incomplete_count} todo(s) remaining, informing LLM (prompt {todo_continuation_prompts}/{max_todo_continuation_prompts})[/dim yellow]"
+                    )
 
                     accumulated = "\n".join(all_response_parts)
                     self.context_manager.add_message(
                         role="assistant",
                         content=accumulated,
                         importance=0.7,
-                        provider=self.current_provider
+                        provider=self.current_provider,
                     )
 
                     context_message = f"""[System Notice: Task Status Check]
@@ -1610,12 +1703,14 @@ Please review and decide:
                         role="user",
                         content=context_message,
                         importance=1.0,
-                        provider=self.current_provider
+                        provider=self.current_provider,
                     )
                     continue
 
                 # All done - model stopped, trust its decision
-                self._debug_print(f"[bold {self._palette.success}]{self._icons.SUCCESS} Task completed![/bold {self._palette.success}]")
+                self._debug_print(
+                    f"[bold {self._palette.success}]{self._icons.SUCCESS} Task completed![/bold {self._palette.success}]"
+                )
                 summary = self._generate_task_summary(completed_actions, response_text)
                 if summary and self._is_debug_mode():
                     self.console.print(summary)
@@ -1625,10 +1720,14 @@ Please review and decide:
                 # ROBUSTNESS: Catch any unexpected errors in the iteration
                 consecutive_errors += 1
                 error_msg = str(iteration_error)
-                self.console.print(f"[bold red][!] Iteration error ({consecutive_errors}/{max_consecutive_errors}): {error_msg[:150]}[/bold red]")
+                self.console.print(
+                    f"[bold red][!] Iteration error ({consecutive_errors}/{max_consecutive_errors}): {error_msg[:150]}[/bold red]"
+                )
 
                 if consecutive_errors >= max_consecutive_errors:
-                    self.console.print(f"[bold red][X] Too many errors. Returning partial results.[/bold red]")
+                    self.console.print(
+                        f"[bold red][X] Too many errors. Returning partial results.[/bold red]"
+                    )
                     break
 
                 # Try to recover by continuing
@@ -1637,7 +1736,9 @@ Please review and decide:
 
         # Check if we hit max iterations (safety limit)
         if iteration >= max_iterations:
-            self._debug_print(f"[bold yellow][!] Reached maximum iterations ({max_iterations}). Stopping.[/bold yellow]")
+            self._debug_print(
+                f"[bold yellow][!] Reached maximum iterations ({max_iterations}). Stopping.[/bold yellow]"
+            )
             summary = self._generate_task_summary(completed_actions, response_text)
             if summary and self._is_debug_mode():
                 self.console.print(summary)
@@ -1673,90 +1774,106 @@ Please review and decide:
         # Check for pending todos - but only as a soft signal, not absolute
         # If model has provided substantive answer, pending todos shouldn't block completion
         todos_state = self._get_todos_completion_state()
-        if todos_state['total'] > 0 and todos_state['completed'] < todos_state['total']:
-            pending_count = todos_state['total'] - todos_state['completed']
+        if todos_state["total"] > 0 and todos_state["completed"] < todos_state["total"]:
+            pending_count = todos_state["total"] - todos_state["completed"]
             # Check if model has provided a substantive answer despite pending todos
             # If yes, allow completion - the model may have decided to answer without completing all todos
             if self._has_substantive_answer(response_text):
-                self.console.print(f"[dim cyan][!] {pending_count} pending todos but substantive answer provided - allowing completion[/dim cyan]")
+                self.console.print(
+                    f"[dim cyan][!] {pending_count} pending todos but substantive answer provided - allowing completion[/dim cyan]"
+                )
                 # Don't return True - let other checks proceed
             else:
                 # No substantive answer and pending todos - should continue
-                self.console.print(f"[dim yellow][!] {pending_count} pending todos remain - continuing...[/dim yellow]")
+                self.console.print(
+                    f"[dim yellow][!] {pending_count} pending todos remain - continuing...[/dim yellow]"
+                )
                 return True
 
         # CRITICAL: Check if response looks like an incomplete tool call or JSON fragment
         # GPT-OSS often outputs partial JSON when trying to continue
         json_fragment_patterns = [
-            r'^\s*\{[^}]*$',  # Opening brace without closing
-            r'^\s*\[[^\]]*$',  # Opening bracket without closing
+            r"^\s*\{[^}]*$",  # Opening brace without closing
+            r"^\s*\[[^\]]*$",  # Opening bracket without closing
             r'^\s*\{"[^"]+"\s*:\s*"[^"]*"\s*\}?\s*$',  # Simple JSON object like {"path": "..."}
             r'^\s*\{"(?:path|file_path|command|pattern|content)"',  # Looks like tool parameters
         ]
 
         for pattern in json_fragment_patterns:
             if re.match(pattern, response_stripped, re.DOTALL):
-                self.console.print(f"[dim yellow][!] Detected JSON fragment pattern - continuing...[/dim yellow]")
+                self.console.print(
+                    f"[dim yellow][!] Detected JSON fragment pattern - continuing...[/dim yellow]"
+                )
                 # Store the fragment so we can help the model fix it
                 self._last_json_fragment = response_stripped
                 return True
 
         # Also detect incomplete JSON that lacks the "tool" key
-        if response_stripped.startswith('{') and response_stripped.endswith('}'):
+        if response_stripped.startswith("{") and response_stripped.endswith("}"):
             try:
                 parsed = json.loads(response_stripped)
-                if isinstance(parsed, dict) and 'tool' not in parsed:
-                    self.console.print(f"[dim yellow][!] Detected incomplete JSON (no tool key) - continuing...[/dim yellow]")
+                if isinstance(parsed, dict) and "tool" not in parsed:
+                    self.console.print(
+                        f"[dim yellow][!] Detected incomplete JSON (no tool key) - continuing...[/dim yellow]"
+                    )
                     self._last_json_fragment = response_stripped
                     return True
             except json.JSONDecodeError:
                 pass
 
         # Check if response is ONLY JSON (model trying to make a tool call but malformed)
-        if response_stripped.startswith('{') and response_stripped.endswith('}'):
+        if response_stripped.startswith("{") and response_stripped.endswith("}"):
             # Try to parse as JSON
             try:
                 parsed = json.loads(response_stripped)
                 # If it's valid JSON but NOT a proper tool call, the model is stuck
                 if isinstance(parsed, dict):
                     # Check if it looks like a proper tool call
-                    has_tool_key = 'tool' in parsed or 'name' in parsed or 'function' in parsed
+                    has_tool_key = "tool" in parsed or "name" in parsed or "function" in parsed
                     if not has_tool_key:
                         # It's just a JSON object without tool designation - model is stuck
-                        self.console.print(f"[dim yellow][!] Detected incomplete JSON (no tool key) - continuing...[/dim yellow]")
+                        self.console.print(
+                            f"[dim yellow][!] Detected incomplete JSON (no tool key) - continuing...[/dim yellow]"
+                        )
                         return True
             except json.JSONDecodeError:
                 # Invalid JSON - might be trying to output something
                 pass
 
             # Also check if it's just JSON without any natural language explanation
-            non_json_text = re.sub(r'\{[^{}]*\}', '', response_stripped).strip()
+            non_json_text = re.sub(r"\{[^{}]*\}", "", response_stripped).strip()
             if len(non_json_text) < 20:  # Very little non-JSON text
-                self.console.print(f"[dim yellow][!] Response is mostly JSON without explanation - continuing...[/dim yellow]")
+                self.console.print(
+                    f"[dim yellow][!] Response is mostly JSON without explanation - continuing...[/dim yellow]"
+                )
                 return True
 
         # Check for visual todo list formatting - model outputting display instead of executing
         # Patterns like "[ ] Task" or "[~] Task" indicate model is showing a todo but not executing
         visual_todo_patterns = [
-            r'\[\s*\]\s+\w+',  # [ ] Task
-            r'\[\s*~\s*\]\s+\w+',  # [~] Task
-            r'\[\s*x\s*\]\s+\w+',  # [x] Task
-            r'\[\s*✓\s*\]\s+\w+',  # [✓] Task
-            r'○\s+Pending',  # ○ Pending
-            r'⟳\s+In\s+Progress',  # ⟳ In Progress
-            r'\|\s+\[\s*\]',  # Table with checkbox
-            r'\|\s+○\s+',  # Table with pending symbol
+            r"\[\s*\]\s+\w+",  # [ ] Task
+            r"\[\s*~\s*\]\s+\w+",  # [~] Task
+            r"\[\s*x\s*\]\s+\w+",  # [x] Task
+            r"\[\s*✓\s*\]\s+\w+",  # [✓] Task
+            r"○\s+Pending",  # ○ Pending
+            r"⟳\s+In\s+Progress",  # ⟳ In Progress
+            r"\|\s+\[\s*\]",  # Table with checkbox
+            r"\|\s+○\s+",  # Table with pending symbol
         ]
 
         for pattern in visual_todo_patterns:
             if re.search(pattern, response_text, re.IGNORECASE):
                 # Model is outputting a visual todo list instead of executing
-                self.console.print(f"[dim yellow][!] Detected visual todo list - model needs to execute tools[/dim yellow]")
+                self.console.print(
+                    f"[dim yellow][!] Detected visual todo list - model needs to execute tools[/dim yellow]"
+                )
                 return True
 
         # FIRST: Check if all todos are completed - if so, be much more lenient about stopping
         todos_state = self._get_todos_completion_state()
-        all_todos_completed = todos_state['total'] > 0 and todos_state['completed'] == todos_state['total']
+        all_todos_completed = (
+            todos_state["total"] > 0 and todos_state["completed"] == todos_state["total"]
+        )
 
         # Check if the response appears to be a COMPLETE answer (should NOT continue)
         # This prevents the model from continuing when it has already answered the user
@@ -1796,51 +1913,61 @@ Please review and decide:
             "## summary",
         ]
 
-        has_strong_completion = any(signal in response_lower for signal in strong_completion_signals)
-        has_completion_indicator = any(indicator in response_lower for indicator in completion_indicators)
+        has_strong_completion = any(
+            signal in response_lower for signal in strong_completion_signals
+        )
+        has_completion_indicator = any(
+            indicator in response_lower for indicator in completion_indicators
+        )
 
         # If all todos are completed AND we have a strong completion signal, definitely stop
         if all_todos_completed and has_strong_completion:
-            self.console.print(f"[dim green][✓] All todos completed with strong completion signal - stopping[/dim green]")
+            self.console.print(
+                f"[dim green][✓] All todos completed with strong completion signal - stopping[/dim green]"
+            )
             return False
 
         # If all todos completed AND we have any completion indicator, also stop
         if all_todos_completed and has_completion_indicator:
-            self.console.print(f"[dim green][✓] All todos completed with completion indicator - stopping[/dim green]")
+            self.console.print(
+                f"[dim green][✓] All todos completed with completion indicator - stopping[/dim green]"
+            )
             return False
 
         # NOW check for ACTIVE error investigation (not past-tense completions)
         # These indicate the model is CURRENTLY working on a problem
         active_investigation_indicators = [
-            'investigating',
-            'looking into',
-            'need to fix',
-            'trying to',
-            'attempting to',
-            'working on',
-            'debugging',
-            'still need',
-            'must resolve',
-            'cannot import',
-            'not found',
-            'does not exist',
+            "investigating",
+            "looking into",
+            "need to fix",
+            "trying to",
+            "attempting to",
+            "working on",
+            "debugging",
+            "still need",
+            "must resolve",
+            "cannot import",
+            "not found",
+            "does not exist",
         ]
 
         # These are PAST-TENSE or completion words that should NOT trigger continuation
         completion_words_to_ignore = [
-            'fixed',
-            'resolved',
-            'solved',
-            'addressed',
-            'corrected',
-            'handled',
-            'completed',
-            'done',
-            'finished',
+            "fixed",
+            "resolved",
+            "solved",
+            "addressed",
+            "corrected",
+            "handled",
+            "completed",
+            "done",
+            "finished",
         ]
 
         # Check for active investigation (but not if it's past-tense)
-        is_actively_investigating = any(indicator in response_lower for indicator in active_investigation_indicators)
+        is_actively_investigating = any(
+            indicator in response_lower for indicator in active_investigation_indicators
+        )
         has_completion_words = any(word in response_lower for word in completion_words_to_ignore)
 
         # Only continue for error investigation if:
@@ -1848,7 +1975,9 @@ Please review and decide:
         # 2. No strong completion signals
         # 3. Todos are NOT all completed
         if is_actively_investigating and not has_strong_completion and not all_todos_completed:
-            self.console.print(f"[dim yellow][!] Active error investigation in progress - continuing...[/dim yellow]")
+            self.console.print(
+                f"[dim yellow][!] Active error investigation in progress - continuing...[/dim yellow]"
+            )
             return True
 
         # If we have completion indicators (even weak ones), don't continue
@@ -1880,7 +2009,9 @@ Please review and decide:
 
         # If any pending indicator is found, continue working
         if any(indicator in response_lower for indicator in pending_indicators):
-            self.console.print(f"[dim yellow][!] Detected pending work indicator - continuing...[/dim yellow]")
+            self.console.print(
+                f"[dim yellow][!] Detected pending work indicator - continuing...[/dim yellow]"
+            )
             return True
 
         # Check for unclosed code blocks
@@ -1901,7 +2032,7 @@ Please review and decide:
 
         # Check for pending todos in the tool manager
         # IMPORTANT: Skip this check for read-only tasks to prevent unwanted continuations
-        if hasattr(self, '_current_task_is_readonly') and self._current_task_is_readonly:
+        if hasattr(self, "_current_task_is_readonly") and self._current_task_is_readonly:
             # For read-only tasks, don't force continuation based on todos
             return False
 
@@ -1934,33 +2065,43 @@ Please review and decide:
         cleaned = response
 
         # 1. Remove all <thinking>...</thinking> blocks
-        cleaned = re.sub(r'<thinking>.*?</thinking>', '', cleaned, flags=re.DOTALL | re.IGNORECASE)
+        cleaned = re.sub(r"<thinking>.*?</thinking>", "", cleaned, flags=re.DOTALL | re.IGNORECASE)
 
         # 2. Remove raw JSON tool calls (already executed, shown in tool display)
         # Pattern: {"tool": "...", "parameters": {...}}
-        cleaned = re.sub(r'\{\s*"tool"\s*:\s*"[^"]+"\s*,\s*"parameters"\s*:\s*\{[^}]*\}\s*\}', '', cleaned, flags=re.DOTALL)
+        cleaned = re.sub(
+            r'\{\s*"tool"\s*:\s*"[^"]+"\s*,\s*"parameters"\s*:\s*\{[^}]*\}\s*\}',
+            "",
+            cleaned,
+            flags=re.DOTALL,
+        )
 
         # 3. Remove incomplete/fragment JSON that looks like tool calls
-        cleaned = re.sub(r'\{\s*"(?:tool|path|file_path|command)"\s*:\s*"[^"]*"\s*(?:,\s*"[^"]+"\s*:\s*[^}]*)?\}?', '', cleaned, flags=re.DOTALL)
+        cleaned = re.sub(
+            r'\{\s*"(?:tool|path|file_path|command)"\s*:\s*"[^"]*"\s*(?:,\s*"[^"]+"\s*:\s*[^}]*)?\}?',
+            "",
+            cleaned,
+            flags=re.DOTALL,
+        )
 
         # 4. Remove internal continuation prompts
         internal_phrases = [
-            r'\[UNDERSTAND\].*?(?=\n\n|\[|$)',
-            r'\[CONTEXT\].*?(?=\n\n|\[|$)',
-            r'\[ASSUMPTIONS?\].*?(?=\n\n|\[|$)',
-            r'\[OPTIONS?\].*?(?=\n\n|\[|$)',
-            r'\[DECISION\].*?(?=\n\n|\[|$)',
-            r'\[RISK\].*?(?=\n\n|\[|$)',
-            r'\[PLAN\].*?(?=\n\n|\[|$)',
-            r'UNDERSTAND:.*?(?=\n\n|CONTEXT:|ASSUMPTIONS:|OPTIONS:|DECISION:|$)',
-            r'CONTEXT:.*?(?=\n\n|ASSUMPTIONS:|OPTIONS:|DECISION:|RISK:|$)',
+            r"\[UNDERSTAND\].*?(?=\n\n|\[|$)",
+            r"\[CONTEXT\].*?(?=\n\n|\[|$)",
+            r"\[ASSUMPTIONS?\].*?(?=\n\n|\[|$)",
+            r"\[OPTIONS?\].*?(?=\n\n|\[|$)",
+            r"\[DECISION\].*?(?=\n\n|\[|$)",
+            r"\[RISK\].*?(?=\n\n|\[|$)",
+            r"\[PLAN\].*?(?=\n\n|\[|$)",
+            r"UNDERSTAND:.*?(?=\n\n|CONTEXT:|ASSUMPTIONS:|OPTIONS:|DECISION:|$)",
+            r"CONTEXT:.*?(?=\n\n|ASSUMPTIONS:|OPTIONS:|DECISION:|RISK:|$)",
         ]
 
         for pattern in internal_phrases:
-            cleaned = re.sub(pattern, '', cleaned, flags=re.DOTALL | re.IGNORECASE)
+            cleaned = re.sub(pattern, "", cleaned, flags=re.DOTALL | re.IGNORECASE)
 
         # 5. Clean up multiple consecutive newlines
-        cleaned = re.sub(r'\n{4,}', '\n\n\n', cleaned)
+        cleaned = re.sub(r"\n{4,}", "\n\n\n", cleaned)
 
         # 6. Clean up whitespace at start/end
         cleaned = cleaned.strip()
@@ -1968,14 +2109,14 @@ Please review and decide:
         # 7. If cleaning removed everything meaningful, try to extract just the answer
         if not cleaned or len(cleaned) < 10:
             # Try to find any useful content
-            lines = response.split('\n')
+            lines = response.split("\n")
             useful_lines = []
             for line in lines:
                 line = line.strip()
                 # Skip internal reasoning markers
-                if line.startswith('[') and ']' in line[:50]:
+                if line.startswith("[") and "]" in line[:50]:
                     continue
-                if line.startswith('<thinking') or line.startswith('</thinking'):
+                if line.startswith("<thinking") or line.startswith("</thinking"):
                     continue
                 if line.startswith('{"tool"'):
                     continue
@@ -1983,11 +2124,13 @@ Please review and decide:
                     useful_lines.append(line)
 
             if useful_lines:
-                cleaned = '\n'.join(useful_lines[-5:])  # Take last 5 useful lines
+                cleaned = "\n".join(useful_lines[-5:])  # Take last 5 useful lines
 
         return cleaned
 
-    def _is_task_completed(self, response_text: str, completed_actions: List[Dict[str, Any]] = None, iteration: int = 0) -> bool:
+    def _is_task_completed(
+        self, response_text: str, completed_actions: List[Dict[str, Any]] = None, iteration: int = 0
+    ) -> bool:
         """
         Check if the task has been completed based on the model's response.
 
@@ -2014,9 +2157,13 @@ Please review and decide:
 
         # CRITICAL: Check if there are pending todos - if so, don't complete early!
         todos_state = self._get_todos_completion_state()
-        has_todos = todos_state['total'] > 0
-        todos_completed_ratio = todos_state['completed'] / todos_state['total'] if has_todos else 1.0
-        all_todos_completed = todos_state['completed'] == todos_state['total'] if has_todos else True
+        has_todos = todos_state["total"] > 0
+        todos_completed_ratio = (
+            todos_state["completed"] / todos_state["total"] if has_todos else 1.0
+        )
+        all_todos_completed = (
+            todos_state["completed"] == todos_state["total"] if has_todos else True
+        )
         has_pending_todos = has_todos and not all_todos_completed
 
         # STRICT: If there are ANY pending todos, require substantive content to complete
@@ -2025,14 +2172,33 @@ Please review and decide:
             # Get the pending todos to check if any are "summary" type
             pending_is_summary = False
             try:
-                todo_tool = self.tool_manager.get_tool('TodoWrite')
-                if todo_tool and hasattr(todo_tool, 'todos') and todo_tool.todos:
+                todo_tool = self.tool_manager.get_tool("TodoWrite")
+                if todo_tool and hasattr(todo_tool, "todos") and todo_tool.todos:
                     for todo in todo_tool.todos:
-                        content = todo.content.lower() if hasattr(todo, 'content') else todo.get('content', '').lower()
-                        status = todo.status if hasattr(todo, 'status') else todo.get('status', 'pending')
-                        if status != 'completed':
+                        content = (
+                            todo.content.lower()
+                            if hasattr(todo, "content")
+                            else todo.get("content", "").lower()
+                        )
+                        status = (
+                            todo.status
+                            if hasattr(todo, "status")
+                            else todo.get("status", "pending")
+                        )
+                        if status != "completed":
                             # Check if this pending todo is a summary/compile type
-                            summary_keywords = ['summarize', 'summarise', 'summary', 'compile', 'overview', 'describe', 'provide', 'write', 'generate', 'create']
+                            summary_keywords = [
+                                "summarize",
+                                "summarise",
+                                "summary",
+                                "compile",
+                                "overview",
+                                "describe",
+                                "provide",
+                                "write",
+                                "generate",
+                                "create",
+                            ]
                             if any(kw in content for kw in summary_keywords):
                                 pending_is_summary = True
                                 break
@@ -2044,30 +2210,39 @@ Please review and decide:
 
             if not has_substantive_content:
                 if pending_is_summary:
-                    self.console.print(f"[dim yellow][?] Pending summary task ({todos_state['completed']}/{todos_state['total']}) - MUST provide actual summary/answer to complete[/dim yellow]")
+                    self.console.print(
+                        f"[dim yellow][?] Pending summary task ({todos_state['completed']}/{todos_state['total']}) - MUST provide actual summary/answer to complete[/dim yellow]"
+                    )
                 else:
-                    self.console.print(f"[dim yellow][?] Pending todos ({todos_state['completed']}/{todos_state['total']}) - need substantive answer to complete[/dim yellow]")
+                    self.console.print(
+                        f"[dim yellow][?] Pending todos ({todos_state['completed']}/{todos_state['total']}) - need substantive answer to complete[/dim yellow]"
+                    )
                 return False
 
             # Even with substantive content, if it's a summary task, verify it's REALLY an answer
             if pending_is_summary:
                 # For summary tasks, be extra strict - need markdown headers or explicit summary structure
                 import re
+
                 clean_text = response_text
                 # Strip thinking blocks
-                clean_text = re.sub(r'<thinking>[\s\S]*?</thinking>', '', clean_text, flags=re.IGNORECASE)
-                clean_text = re.sub(r'\{["\']tool["\'][\s\S]*?\}', '', clean_text)
+                clean_text = re.sub(
+                    r"<thinking>[\s\S]*?</thinking>", "", clean_text, flags=re.IGNORECASE
+                )
+                clean_text = re.sub(r'\{["\']tool["\'][\s\S]*?\}', "", clean_text)
                 clean_text = clean_text.strip()
 
                 has_summary_structure = (
-                    '## ' in clean_text or
-                    '### ' in clean_text or
-                    'summary' in clean_text.lower() or
-                    'overview' in clean_text.lower() or
-                    (clean_text.count('\n') > 10 and len(clean_text) > 500)
+                    "## " in clean_text
+                    or "### " in clean_text
+                    or "summary" in clean_text.lower()
+                    or "overview" in clean_text.lower()
+                    or (clean_text.count("\n") > 10 and len(clean_text) > 500)
                 )
                 if not has_summary_structure:
-                    self.console.print(f"[dim yellow][?] Summary task pending - need actual summary output, not just thinking[/dim yellow]")
+                    self.console.print(
+                        f"[dim yellow][?] Summary task pending - need actual summary output, not just thinking[/dim yellow]"
+                    )
                     return False
         else:
             # Check if response contains substantive content (not just "task completed")
@@ -2119,10 +2294,15 @@ Please review and decide:
                     return True
                 else:
                     # Don't return True - need actual answer
-                    self.console.print(f"[dim yellow][?] Completion phrase found but no substantive answer provided yet[/dim yellow]")
+                    self.console.print(
+                        f"[dim yellow][?] Completion phrase found but no substantive answer provided yet[/dim yellow]"
+                    )
 
         # Weak phrases: require more iterations AND no tool calls in response
-        if iteration >= min_iterations_for_phrase_completion and action_count >= min_actions_for_completion:
+        if (
+            iteration >= min_iterations_for_phrase_completion
+            and action_count >= min_actions_for_completion
+        ):
             if any(phrase in response_lower for phrase in weak_completion_phrases):
                 if not self._looks_like_tool_call(response_text) and has_substantive_content:
                     return True
@@ -2132,12 +2312,24 @@ Please review and decide:
             return True
 
         # For read-only tasks, check if a substantive answer was provided
-        if hasattr(self, '_current_task_is_readonly') and self._current_task_is_readonly:
+        if hasattr(self, "_current_task_is_readonly") and self._current_task_is_readonly:
             # Read-only tasks are complete if we have a summary-like response
-            if len(response_text) > 200 and any(word in response_lower for word in [
-                'contains', 'includes', 'structure', 'files', 'directories',
-                'repository', 'project', 'codebase', 'found', 'here is', 'here are'
-            ]):
+            if len(response_text) > 200 and any(
+                word in response_lower
+                for word in [
+                    "contains",
+                    "includes",
+                    "structure",
+                    "files",
+                    "directories",
+                    "repository",
+                    "project",
+                    "codebase",
+                    "found",
+                    "here is",
+                    "here are",
+                ]
+            ):
                 return True
 
         # HEURISTIC: If we've done MANY actions and response looks like a definitive conclusion
@@ -2145,23 +2337,36 @@ Please review and decide:
         if completed_actions and len(completed_actions) >= 5:
             # Check if response looks like it's explicitly wrapping up
             conclusion_indicators = [
-                'completed' in response_lower and ('all' in response_lower or 'task' in response_lower),
-                'finished' in response_lower and 'all' in response_lower,
-                'done' in response_lower and 'all' in response_lower,
-                'successful' in response_lower and ('completed' in response_lower or 'all' in response_lower),
+                "completed" in response_lower
+                and ("all" in response_lower or "task" in response_lower),
+                "finished" in response_lower and "all" in response_lower,
+                "done" in response_lower and "all" in response_lower,
+                "successful" in response_lower
+                and ("completed" in response_lower or "all" in response_lower),
             ]
             # Require stronger signals of completion AND substantive content
-            if len(response_stripped) > 100 and sum(conclusion_indicators) >= 1 and has_substantive_content:
+            if (
+                len(response_stripped) > 100
+                and sum(conclusion_indicators) >= 1
+                and has_substantive_content
+            ):
                 return True
 
         # HEURISTIC: If model gives a VERY long response without tool calls, it might be done
         # Increased threshold to avoid premature termination
         if len(response_stripped) > 500 and not self._looks_like_tool_call(response_text):
             # Check for explicit completion language before marking as done
-            explicit_completion = any(phrase in response_lower for phrase in [
-                'have completed', 'has been completed', 'is now complete',
-                'all tasks done', 'all done', 'finished all'
-            ])
+            explicit_completion = any(
+                phrase in response_lower
+                for phrase in [
+                    "have completed",
+                    "has been completed",
+                    "is now complete",
+                    "all tasks done",
+                    "all done",
+                    "finished all",
+                ]
+            )
             if explicit_completion and has_substantive_content:
                 return True
 
@@ -2170,17 +2375,17 @@ Please review and decide:
         if iteration > 8 and completed_actions and len(completed_actions) > 5:
             # If the last response doesn't look like it needs more work
             continuing_indicators = [
-                'next' in response_lower,
-                'now i' in response_lower,
-                'let me' in response_lower,
-                'i will' in response_lower,
-                'need to' in response_lower,
-                'should' in response_lower,
-                'investigate' in response_lower,
-                'check' in response_lower,
-                'fix' in response_lower,
-                'error' in response_lower,
-                'issue' in response_lower,
+                "next" in response_lower,
+                "now i" in response_lower,
+                "let me" in response_lower,
+                "i will" in response_lower,
+                "need to" in response_lower,
+                "should" in response_lower,
+                "investigate" in response_lower,
+                "check" in response_lower,
+                "fix" in response_lower,
+                "error" in response_lower,
+                "issue" in response_lower,
             ]
             if not any(continuing_indicators) and has_substantive_content:
                 return True
@@ -2190,40 +2395,41 @@ Please review and decide:
     def _get_todos_completion_state(self) -> Dict[str, int]:
         """Get the current state of todos (completed count, total count)."""
         try:
-            todo_tool = self.tool_manager.get_tool('TodoWrite')
-            if todo_tool and hasattr(todo_tool, 'todos') and todo_tool.todos:
+            todo_tool = self.tool_manager.get_tool("TodoWrite")
+            if todo_tool and hasattr(todo_tool, "todos") and todo_tool.todos:
                 todos = todo_tool.todos
                 total = len(todos)
                 completed = sum(
-                    1 for t in todos
-                    if (hasattr(t, 'status') and t.status == 'completed') or
-                       (isinstance(t, dict) and t.get('status') == 'completed')
+                    1
+                    for t in todos
+                    if (hasattr(t, "status") and t.status == "completed")
+                    or (isinstance(t, dict) and t.get("status") == "completed")
                 )
-                return {'total': total, 'completed': completed}
+                return {"total": total, "completed": completed}
         except Exception:
             pass
-        return {'total': 0, 'completed': 0}
+        return {"total": 0, "completed": 0}
 
     def _format_pending_todos(self) -> str:
         """Format the list of pending (incomplete) todos for LLM context injection."""
         try:
-            todo_tool = self.tool_manager.get_tool('TodoWrite')
-            if not todo_tool or not hasattr(todo_tool, 'todos') or not todo_tool.todos:
+            todo_tool = self.tool_manager.get_tool("TodoWrite")
+            if not todo_tool or not hasattr(todo_tool, "todos") or not todo_tool.todos:
                 return "No todos found."
 
             pending_items = []
             for i, todo in enumerate(todo_tool.todos, 1):
                 # Handle both object and dict formats
-                if hasattr(todo, 'status'):
+                if hasattr(todo, "status"):
                     status = todo.status
-                    content = getattr(todo, 'content', str(todo))
+                    content = getattr(todo, "content", str(todo))
                 elif isinstance(todo, dict):
-                    status = todo.get('status', 'unknown')
-                    content = todo.get('content', str(todo))
+                    status = todo.get("status", "unknown")
+                    content = todo.get("content", str(todo))
                 else:
                     continue
 
-                if status != 'completed':
+                if status != "completed":
                     status_icon = "⏳" if status == "in_progress" else "○"
                     pending_items.append(f"  {status_icon} [{status}] {content}")
 
@@ -2251,17 +2457,17 @@ Please review and decide:
 
         # 1. Strip thinking blocks (all formats)
         thinking_patterns = [
-            r'<thinking>[\s\S]*?</thinking>',
-            r'<think>[\s\S]*?</think>',
-            r'\[UNDERSTAND\][\s\S]*?(?=\[(?:CONTEXT|OPTIONS|DECISION|RISK|ASSUMPTIONS)\]|$)',
-            r'\[CONTEXT\][\s\S]*?(?=\[(?:UNDERSTAND|OPTIONS|DECISION|RISK|ASSUMPTIONS)\]|$)',
-            r'\[OPTIONS\][\s\S]*?(?=\[(?:UNDERSTAND|CONTEXT|DECISION|RISK|ASSUMPTIONS)\]|$)',
-            r'\[DECISION\][\s\S]*?(?=\[(?:UNDERSTAND|CONTEXT|OPTIONS|RISK|ASSUMPTIONS)\]|$)',
-            r'\[RISK\][\s\S]*?(?=\[(?:UNDERSTAND|CONTEXT|OPTIONS|DECISION|ASSUMPTIONS)\]|$)',
-            r'\[ASSUMPTIONS\][\s\S]*?(?=\[(?:UNDERSTAND|CONTEXT|OPTIONS|DECISION|RISK)\]|$)',
+            r"<thinking>[\s\S]*?</thinking>",
+            r"<think>[\s\S]*?</think>",
+            r"\[UNDERSTAND\][\s\S]*?(?=\[(?:CONTEXT|OPTIONS|DECISION|RISK|ASSUMPTIONS)\]|$)",
+            r"\[CONTEXT\][\s\S]*?(?=\[(?:UNDERSTAND|OPTIONS|DECISION|RISK|ASSUMPTIONS)\]|$)",
+            r"\[OPTIONS\][\s\S]*?(?=\[(?:UNDERSTAND|CONTEXT|DECISION|RISK|ASSUMPTIONS)\]|$)",
+            r"\[DECISION\][\s\S]*?(?=\[(?:UNDERSTAND|CONTEXT|OPTIONS|RISK|ASSUMPTIONS)\]|$)",
+            r"\[RISK\][\s\S]*?(?=\[(?:UNDERSTAND|CONTEXT|OPTIONS|DECISION|ASSUMPTIONS)\]|$)",
+            r"\[ASSUMPTIONS\][\s\S]*?(?=\[(?:UNDERSTAND|CONTEXT|OPTIONS|DECISION|RISK)\]|$)",
         ]
         for pattern in thinking_patterns:
-            clean_text = re.sub(pattern, '', clean_text, flags=re.IGNORECASE | re.DOTALL)
+            clean_text = re.sub(pattern, "", clean_text, flags=re.IGNORECASE | re.DOTALL)
 
         # 2. Strip ALL JSON-like content (tool calls, parameters, etc.)
         # This is aggressive but necessary - tool calls are NOT answers
@@ -2269,19 +2475,19 @@ Please review and decide:
             r'\{[^{}]*"tool"[^{}]*\}',  # Simple tool call
             r'\{[^{}]*"parameters"[^{}]*\}',  # Parameters block
             r'\{"[^"]+"\s*:\s*"[^"]*"\}',  # Simple key-value JSON
-            r'\{[\s\S]*?\}',  # Any remaining JSON blocks
+            r"\{[\s\S]*?\}",  # Any remaining JSON blocks
         ]
         for pattern in json_patterns:
-            clean_text = re.sub(pattern, '', clean_text, flags=re.DOTALL)
+            clean_text = re.sub(pattern, "", clean_text, flags=re.DOTALL)
 
         # 3. Strip status lines and metadata
-        clean_text = re.sub(r'\*\s*GOAL:.*', '', clean_text)
-        clean_text = re.sub(r'\[OK\].*', '', clean_text)
-        clean_text = re.sub(r'\[!\].*', '', clean_text)
-        clean_text = re.sub(r'\[CHALLENGE\].*', '', clean_text)
+        clean_text = re.sub(r"\*\s*GOAL:.*", "", clean_text)
+        clean_text = re.sub(r"\[OK\].*", "", clean_text)
+        clean_text = re.sub(r"\[!\].*", "", clean_text)
+        clean_text = re.sub(r"\[CHALLENGE\].*", "", clean_text)
 
         # 4. Clean up whitespace
-        clean_text = re.sub(r'\n\s*\n\s*\n+', '\n\n', clean_text)
+        clean_text = re.sub(r"\n\s*\n\s*\n+", "\n\n", clean_text)
         response_stripped = clean_text.strip()
         response_lower = response_stripped.lower()
 
@@ -2292,7 +2498,7 @@ Please review and decide:
 
         # CODE BLOCK CHECK: If response contains code blocks, that's a substantive answer
         # Code blocks are a valid way to answer programming questions
-        if '```' in response_stripped and response_stripped.count('```') >= 2:
+        if "```" in response_stripped and response_stripped.count("```") >= 2:
             # Has at least one complete code block - this is likely an answer
             return True
 
@@ -2300,14 +2506,26 @@ Please review and decide:
         # These indicate the model is DIRECTLY addressing the user with information
         answer_indicators = [
             # Direct summaries
-            'here is a summary', 'here is an overview', 'here is the',
-            'the repository contains', 'this repository is', 'this project is',
-            'the codebase includes', 'the main components are',
+            "here is a summary",
+            "here is an overview",
+            "here is the",
+            "the repository contains",
+            "this repository is",
+            "this project is",
+            "the codebase includes",
+            "the main components are",
             # Explicit answers
-            'in summary,', 'to summarize,', 'overall,', 'in conclusion,',
+            "in summary,",
+            "to summarize,",
+            "overall,",
+            "in conclusion,",
             # Structure descriptions
-            'the structure is', 'it contains the following', 'the following',
-            'consists of', 'is organized as', 'includes:',
+            "the structure is",
+            "it contains the following",
+            "the following",
+            "consists of",
+            "is organized as",
+            "includes:",
         ]
 
         has_answer_indicator = any(ind in response_lower for ind in answer_indicators)
@@ -2316,7 +2534,7 @@ Please review and decide:
 
         # STRICT CHECK 3: Must have prose structure (sentences, not just keywords)
         # Real answers have sentences with periods and proper structure
-        sentence_count = len(re.findall(r'[.!?]\s+[A-Z]', response_stripped))
+        sentence_count = len(re.findall(r"[.!?]\s+[A-Z]", response_stripped))
         if sentence_count < 2:
             return False
 
@@ -2325,6 +2543,7 @@ Please review and decide:
     def _looks_like_tool_call(self, text: str) -> bool:
         """Check if text looks like it contains a tool call"""
         import re
+
         # Check for JSON-like tool call patterns
         patterns = [
             r'\{"tool"',
@@ -2352,20 +2571,20 @@ Please review and decide:
         Returns:
             True if a todo was updated, False otherwise
         """
-        if not completed_action.get('success', False):
+        if not completed_action.get("success", False):
             return False
 
-        tool_name = completed_action.get('tool', '').lower()
-        args = completed_action.get('args', {})
+        tool_name = completed_action.get("tool", "").lower()
+        args = completed_action.get("args", {})
 
         # Skip TodoWrite itself - don't create a loop
-        if tool_name in ['todowrite', 'todo_write', 'todo']:
+        if tool_name in ["todowrite", "todo_write", "todo"]:
             return False
 
         try:
             # Get the TodoWrite tool
-            todo_tool = self.tool_manager.get_tool('TodoWrite')
-            if not todo_tool or not hasattr(todo_tool, 'todos') or not todo_tool.todos:
+            todo_tool = self.tool_manager.get_tool("TodoWrite")
+            if not todo_tool or not hasattr(todo_tool, "todos") or not todo_tool.todos:
                 return False
 
             todos = todo_tool.todos
@@ -2374,40 +2593,44 @@ Please review and decide:
             # Create a description of what we just did
             action_desc = tool_name
             file_name = ""
-            if 'file_path' in args:
-                file_name = Path(args['file_path']).name
+            if "file_path" in args:
+                file_name = Path(args["file_path"]).name
                 action_desc = f"{tool_name} {file_name}"
-            elif 'path' in args:
-                file_name = Path(args['path']).name if args['path'] else ''
+            elif "path" in args:
+                file_name = Path(args["path"]).name if args["path"] else ""
                 action_desc = f"{tool_name} {file_name}"
-            elif 'pattern' in args:
+            elif "pattern" in args:
                 action_desc = f"{tool_name} {args['pattern'][:30]}"
-            elif 'command' in args:
-                cmd = args['command'][:40] if isinstance(args['command'], str) else str(args['command'])[:40]
+            elif "command" in args:
+                cmd = (
+                    args["command"][:40]
+                    if isinstance(args["command"], str)
+                    else str(args["command"])[:40]
+                )
                 action_desc = f"{tool_name} {cmd}"
 
             action_desc_lower = action_desc.lower()
 
             # Helper to get todo info
             def get_todo_info(t):
-                if hasattr(t, 'content'):
+                if hasattr(t, "content"):
                     return t.content.lower(), t.status
                 elif isinstance(t, dict):
-                    return t.get('content', '').lower(), t.get('status', 'pending')
-                return '', 'pending'
+                    return t.get("content", "").lower(), t.get("status", "pending")
+                return "", "pending"
 
             # Helper to set todo status
             def set_todo_status(t, idx, new_status):
-                if hasattr(t, 'status'):
+                if hasattr(t, "status"):
                     t.status = new_status
                 elif isinstance(t, dict):
-                    todos[idx]['status'] = new_status
+                    todos[idx]["status"] = new_status
 
             # Find the current in_progress todo index
             current_in_progress_idx = None
             for i, todo in enumerate(todos):
                 _, status = get_todo_info(todo)
-                if status == 'in_progress':
+                if status == "in_progress":
                     current_in_progress_idx = i
                     break
 
@@ -2415,7 +2638,7 @@ Please review and decide:
             first_pending_idx = None
             for i, todo in enumerate(todos):
                 _, status = get_todo_info(todo)
-                if status == 'pending':
+                if status == "pending":
                     first_pending_idx = i
                     break
 
@@ -2427,7 +2650,7 @@ Please review and decide:
                 content, status = get_todo_info(todo)
 
                 # Only update in_progress or pending todos
-                if status == 'completed':
+                if status == "completed":
                     continue
 
                 # Match based on tool type and content
@@ -2435,12 +2658,30 @@ Please review and decide:
 
                 # Check for tool-type match (expanded keywords)
                 tool_keywords = {
-                    'read': ['read', 'view', 'check', 'look', 'examine', 'inspect', 'review', 'understand', 'analyze', 'explore'],
-                    'grep': ['search', 'find', 'look for', 'grep', 'scan', 'locate', 'identify'],
-                    'glob': ['find files', 'list', 'search files', 'locate', 'identify', 'discover'],
-                    'bash': ['run', 'execute', 'test', 'build', 'install', 'compile', 'check'],
-                    'write': ['write', 'create', 'add', 'implement', 'generate'],
-                    'edit': ['edit', 'modify', 'change', 'update', 'fix', 'refactor', 'improve'],
+                    "read": [
+                        "read",
+                        "view",
+                        "check",
+                        "look",
+                        "examine",
+                        "inspect",
+                        "review",
+                        "understand",
+                        "analyze",
+                        "explore",
+                    ],
+                    "grep": ["search", "find", "look for", "grep", "scan", "locate", "identify"],
+                    "glob": [
+                        "find files",
+                        "list",
+                        "search files",
+                        "locate",
+                        "identify",
+                        "discover",
+                    ],
+                    "bash": ["run", "execute", "test", "build", "install", "compile", "check"],
+                    "write": ["write", "create", "add", "implement", "generate"],
+                    "edit": ["edit", "modify", "change", "update", "fix", "refactor", "improve"],
                 }
 
                 for key, keywords in tool_keywords.items():
@@ -2451,16 +2692,20 @@ Please review and decide:
                                 break
 
                 # Check for file/path match
-                file_path_arg = args.get('file_path') or args.get('path', '')
+                file_path_arg = args.get("file_path") or args.get("path", "")
                 if file_path_arg:
-                    fn = Path(file_path_arg).name.lower() if file_path_arg else ''
+                    fn = Path(file_path_arg).name.lower() if file_path_arg else ""
                     if fn and fn in content:
                         match_score += 4  # Strong match
-                    elif file_path_arg and any(part in content for part in file_path_arg.lower().split('/') if len(part) > 2):
+                    elif file_path_arg and any(
+                        part in content
+                        for part in file_path_arg.lower().split("/")
+                        if len(part) > 2
+                    ):
                         match_score += 2
 
                 # Bonus for in_progress status
-                if status == 'in_progress':
+                if status == "in_progress":
                     match_score += 1
 
                 # Track best match
@@ -2480,14 +2725,40 @@ Please review and decide:
                 # Only auto-complete if the tool type somewhat matches the task
                 current_content, _ = get_todo_info(todos[current_in_progress_idx])
                 # Check if tool type is broadly compatible with task
-                read_tools = ['read', 'grep', 'glob', 'ls']
-                modify_tools = ['write', 'edit', 'bash']
+                read_tools = ["read", "grep", "glob", "ls"]
+                modify_tools = ["write", "edit", "bash"]
 
                 tool_is_read = any(t in tool_name for t in read_tools)
                 tool_is_modify = any(t in tool_name for t in modify_tools)
 
-                task_is_read = any(w in current_content for w in ['read', 'check', 'look', 'examine', 'view', 'find', 'search', 'explore', 'understand', 'identify'])
-                task_is_modify = any(w in current_content for w in ['write', 'create', 'edit', 'modify', 'fix', 'update', 'implement', 'add'])
+                task_is_read = any(
+                    w in current_content
+                    for w in [
+                        "read",
+                        "check",
+                        "look",
+                        "examine",
+                        "view",
+                        "find",
+                        "search",
+                        "explore",
+                        "understand",
+                        "identify",
+                    ]
+                )
+                task_is_modify = any(
+                    w in current_content
+                    for w in [
+                        "write",
+                        "create",
+                        "edit",
+                        "modify",
+                        "fix",
+                        "update",
+                        "implement",
+                        "add",
+                    ]
+                )
 
                 # If tool type matches task type, mark as completed
                 if (tool_is_read and task_is_read) or (tool_is_modify and task_is_modify):
@@ -2495,21 +2766,23 @@ Please review and decide:
 
             # Mark the target todo as completed and advance
             if target_idx is not None:
-                set_todo_status(todos[target_idx], target_idx, 'completed')
+                set_todo_status(todos[target_idx], target_idx, "completed")
 
                 # Find next pending todo and mark as in_progress
                 for j in range(target_idx + 1, len(todos)):
                     _, next_status = get_todo_info(todos[j])
-                    if next_status == 'pending':
-                        set_todo_status(todos[j], j, 'in_progress')
+                    if next_status == "pending":
+                        set_todo_status(todos[j], j, "in_progress")
                         break
 
                 updated = True
 
                 # Display update
-                completed_count = sum(1 for t in todos if get_todo_info(t)[1] == 'completed')
+                completed_count = sum(1 for t in todos if get_todo_info(t)[1] == "completed")
                 total_count = len(todos)
-                self.console.print(f"[dim cyan][{self._icons.SUCCESS}] Todo {target_idx + 1}/{total_count}: completed ({completed_count}/{total_count} total)[/dim cyan]")
+                self.console.print(
+                    f"[dim cyan][{self._icons.SUCCESS}] Todo {target_idx + 1}/{total_count}: completed ({completed_count}/{total_count} total)[/dim cyan]"
+                )
 
             return updated
 
@@ -2518,7 +2791,9 @@ Please review and decide:
             self.console.print(f"[dim red]Todo auto-update error: {e}[/dim red]")
             return False
 
-    def _generate_task_summary(self, completed_actions: List[Dict[str, Any]], final_response: str) -> str:
+    def _generate_task_summary(
+        self, completed_actions: List[Dict[str, Any]], final_response: str
+    ) -> str:
         """
         Generate a clean summary of the completed task.
 
@@ -2544,9 +2819,9 @@ Please review and decide:
         successful = 0
         failed = 0
         for action in completed_actions:
-            tool = action.get('tool', 'Unknown')
+            tool = action.get("tool", "Unknown")
             action_counts[tool] = action_counts.get(tool, 0) + 1
-            if action.get('success', False):
+            if action.get("success", False):
                 successful += 1
             else:
                 failed += 1
@@ -2572,13 +2847,13 @@ Please review and decide:
         # Files modified (if any write/edit actions)
         modified_files = set()
         for action in completed_actions:
-            tool = action.get('tool', '').lower()
-            args = action.get('args', {})
-            if tool in ['write', 'writetool', 'edit', 'edittool'] and action.get('success'):
-                file_path = args.get('file_path', args.get('path', ''))
+            tool = action.get("tool", "").lower()
+            args = action.get("args", {})
+            if tool in ["write", "writetool", "edit", "edittool"] and action.get("success"):
+                file_path = args.get("file_path", args.get("path", ""))
                 if file_path:
                     # Show just filename, not full path
-                    modified_files.add(file_path.split('/')[-1].split('\\')[-1])
+                    modified_files.add(file_path.split("/")[-1].split("\\")[-1])
 
         if modified_files and len(modified_files) <= 5:
             summary_parts.append(f"[dim]Files modified: {', '.join(modified_files)}[/dim]")
@@ -2618,26 +2893,50 @@ Please review and decide:
             if not words:
                 return "Working..."
             verb = words[0].lower()
-            rest = ' '.join(words[1:]) if len(words) > 1 else ''
+            rest = " ".join(words[1:]) if len(words) > 1 else ""
 
             verb_map = {
-                'add': 'Adding', 'create': 'Creating', 'fix': 'Fixing',
-                'update': 'Updating', 'remove': 'Removing', 'delete': 'Deleting',
-                'implement': 'Implementing', 'write': 'Writing', 'read': 'Reading',
-                'test': 'Testing', 'run': 'Running', 'check': 'Checking',
-                'analyze': 'Analyzing', 'review': 'Reviewing', 'refactor': 'Refactoring',
-                'debug': 'Debugging', 'investigate': 'Investigating', 'explore': 'Exploring',
-                'search': 'Searching', 'find': 'Finding', 'look': 'Looking',
-                'build': 'Building', 'compile': 'Compiling', 'install': 'Installing',
-                'configure': 'Configuring', 'setup': 'Setting up', 'set': 'Setting',
-                'get': 'Getting', 'fetch': 'Fetching', 'load': 'Loading',
-                'use': 'Using', 'execute': 'Executing', 'call': 'Calling',
-                'verify': 'Verifying', 'validate': 'Validating', 'ensure': 'Ensuring',
+                "add": "Adding",
+                "create": "Creating",
+                "fix": "Fixing",
+                "update": "Updating",
+                "remove": "Removing",
+                "delete": "Deleting",
+                "implement": "Implementing",
+                "write": "Writing",
+                "read": "Reading",
+                "test": "Testing",
+                "run": "Running",
+                "check": "Checking",
+                "analyze": "Analyzing",
+                "review": "Reviewing",
+                "refactor": "Refactoring",
+                "debug": "Debugging",
+                "investigate": "Investigating",
+                "explore": "Exploring",
+                "search": "Searching",
+                "find": "Finding",
+                "look": "Looking",
+                "build": "Building",
+                "compile": "Compiling",
+                "install": "Installing",
+                "configure": "Configuring",
+                "setup": "Setting up",
+                "set": "Setting",
+                "get": "Getting",
+                "fetch": "Fetching",
+                "load": "Loading",
+                "use": "Using",
+                "execute": "Executing",
+                "call": "Calling",
+                "verify": "Verifying",
+                "validate": "Validating",
+                "ensure": "Ensuring",
             }
 
             if verb in verb_map:
                 return f"{verb_map[verb]} {rest}".strip()
-            elif verb.endswith('e'):
+            elif verb.endswith("e"):
                 return f"{verb[:-1].capitalize()}ing {rest}".strip()
             else:
                 return f"{verb.capitalize()}ing {rest}".strip()
@@ -2645,65 +2944,81 @@ Please review and decide:
         # Pattern 1: Look for explicit step/task lists
         # Matches: "1. Do something" or "- Do something" or "* Do something"
         step_patterns = [
-            r'(?:step|task|action)s?\s*(?:to take|:)?\s*\n((?:\s*[-*•]\s*.+\n?)+)',
-            r'(?:plan|approach|strategy)\s*:\s*\n((?:\s*\d+[\.\)]\s*.+\n?)+)',
-            r'(?:i will|let me|need to)\s*:\s*\n((?:\s*[-*•]\s*.+\n?)+)',
+            r"(?:step|task|action)s?\s*(?:to take|:)?\s*\n((?:\s*[-*•]\s*.+\n?)+)",
+            r"(?:plan|approach|strategy)\s*:\s*\n((?:\s*\d+[\.\)]\s*.+\n?)+)",
+            r"(?:i will|let me|need to)\s*:\s*\n((?:\s*[-*•]\s*.+\n?)+)",
             # Match OPTIONS section with Option A/B format
-            r'\[OPTIONS\][^\[]*?((?:Option\s+[A-Z]:\s*[^\n]+\n?)+)',
-            r'options?\s*:?\s*\n((?:\s*[-*•]\s*Option\s+[A-Z]:\s*[^\n]+\n?)+)',
+            r"\[OPTIONS\][^\[]*?((?:Option\s+[A-Z]:\s*[^\n]+\n?)+)",
+            r"options?\s*:?\s*\n((?:\s*[-*•]\s*Option\s+[A-Z]:\s*[^\n]+\n?)+)",
         ]
 
         for pattern in step_patterns:
             match = re.search(pattern, thinking_content, re.IGNORECASE)
             if match:
                 steps_text = match.group(1)
-                for line in steps_text.split('\n'):
-                    line = re.sub(r'^[\s\d\.\)\-\*•]+', '', line).strip()
+                for line in steps_text.split("\n"):
+                    line = re.sub(r"^[\s\d\.\)\-\*•]+", "", line).strip()
                     if line and len(line) > 5 and len(line) < 200:
                         todos.append(line)
 
         # Pattern 2: Look for actions in DECISION section
-        decision_match = re.search(r'\[DECISION\](.*?)(?:\[|$)', thinking_content, re.IGNORECASE | re.DOTALL)
+        decision_match = re.search(
+            r"\[DECISION\](.*?)(?:\[|$)", thinking_content, re.IGNORECASE | re.DOTALL
+        )
         if decision_match and not todos:
             decision_text = decision_match.group(1)
 
             # Look for "then" separated actions
-            if ' then ' in decision_text.lower():
-                parts = re.split(r',?\s+then\s+', decision_text, flags=re.IGNORECASE)
+            if " then " in decision_text.lower():
+                parts = re.split(r",?\s+then\s+", decision_text, flags=re.IGNORECASE)
                 for part in parts:
                     part = part.strip()
                     if part and len(part) > 5 and len(part) < 200:
-                        part = re.sub(r'^[\s\d\.\)\-\*•:]+', '', part).strip()
-                        part = re.sub(r'^\w+:\s*', '', part).strip()
+                        part = re.sub(r"^[\s\d\.\)\-\*•:]+", "", part).strip()
+                        part = re.sub(r"^\w+:\s*", "", part).strip()
                         if part:
                             todos.append(part)
 
             # If no "then" structure, extract the selected action
             if not todos:
                 # Match "Selected: X" or "Choose Option X: Y"
-                selected_match = re.search(r'(?:selected|chose|choose|picking|using)[:\s]+(.{10,150}?)(?:\.|$|\n)', decision_text, re.IGNORECASE)
+                selected_match = re.search(
+                    r"(?:selected|chose|choose|picking|using)[:\s]+(.{10,150}?)(?:\.|$|\n)",
+                    decision_text,
+                    re.IGNORECASE,
+                )
                 if selected_match:
                     action = selected_match.group(1).strip()
-                    action = re.sub(r'^Option\s+[A-Z]:\s*', '', action, flags=re.IGNORECASE)
+                    action = re.sub(r"^Option\s+[A-Z]:\s*", "", action, flags=re.IGNORECASE)
                     if action and len(action) > 5:
                         todos.append(action)
 
         # Pattern 3: Extract from UNDERSTAND/GOAL section
-        goal_match = re.search(r'\[(?:UNDERSTAND|GOAL)\](.*?)(?:\[|$)', thinking_content, re.IGNORECASE | re.DOTALL)
+        goal_match = re.search(
+            r"\[(?:UNDERSTAND|GOAL)\](.*?)(?:\[|$)", thinking_content, re.IGNORECASE | re.DOTALL
+        )
         if goal_match and not todos:
             goal_text = goal_match.group(1).strip()
             # Extract core goal if mentioned
-            core_match = re.search(r'(?:core goal|main goal|objective)[:\s]+(.{10,100}?)(?:\.|$|\n)', goal_text, re.IGNORECASE)
+            core_match = re.search(
+                r"(?:core goal|main goal|objective)[:\s]+(.{10,100}?)(?:\.|$|\n)",
+                goal_text,
+                re.IGNORECASE,
+            )
             if core_match:
                 todos.append(core_match.group(1).strip())
 
         # Pattern 3: Look for explicit numbered items anywhere
         if not todos:
-            numbered_items = re.findall(r'(?:^|\n)\s*(\d+)[\.\)]\s*(.{10,150}?)(?=\n\s*\d+[\.\)]|\n\n|$)', thinking_content, re.DOTALL)
+            numbered_items = re.findall(
+                r"(?:^|\n)\s*(\d+)[\.\)]\s*(.{10,150}?)(?=\n\s*\d+[\.\)]|\n\n|$)",
+                thinking_content,
+                re.DOTALL,
+            )
             for num, item in numbered_items:
                 item = item.strip()
                 # Skip if it's a section header or too short
-                if item and not item.startswith('[') and not item.endswith(':') and len(item) > 10:
+                if item and not item.startswith("[") and not item.endswith(":") and len(item) > 10:
                     todos.append(item)
 
         # Limit to 5 items and format properly
@@ -2716,13 +3031,15 @@ Please review and decide:
         for i, content in enumerate(todos):
             # Clean up the content
             content = content.strip()
-            content = re.sub(r'\s+', ' ', content)  # Normalize whitespace
+            content = re.sub(r"\s+", " ", content)  # Normalize whitespace
             if content:
-                formatted_todos.append({
-                    'content': content,
-                    'status': 'in_progress' if i == 0 else 'pending',
-                    'activeForm': generate_active_form(content)
-                })
+                formatted_todos.append(
+                    {
+                        "content": content,
+                        "status": "in_progress" if i == 0 else "pending",
+                        "activeForm": generate_active_form(content),
+                    }
+                )
 
         return formatted_todos
 
@@ -2735,13 +3052,16 @@ Please review and decide:
         """
         try:
             # Try to get the TodoWriteTool from the tool manager
-            todo_tool = self.tool_manager.get_tool('todowrite')
-            if todo_tool and hasattr(todo_tool, 'todos') and todo_tool.todos:
+            todo_tool = self.tool_manager.get_tool("todowrite")
+            if todo_tool and hasattr(todo_tool, "todos") and todo_tool.todos:
                 for todo in todo_tool.todos:
-                    if hasattr(todo, 'status'):
-                        if todo.status in ['pending', 'in_progress']:
+                    if hasattr(todo, "status"):
+                        if todo.status in ["pending", "in_progress"]:
                             return True
-                    elif isinstance(todo, dict) and todo.get('status') in ['pending', 'in_progress']:
+                    elif isinstance(todo, dict) and todo.get("status") in [
+                        "pending",
+                        "in_progress",
+                    ]:
                         return True
         except Exception:
             pass
@@ -2762,25 +3082,74 @@ Please review and decide:
         # Check if this is an OpenAI/OSS provider that needs extra guidance
         provider_name = ""
         if self.current_provider:
-            provider_name = self.current_provider.get_provider_name() if hasattr(self.current_provider, 'get_provider_name') else ""
+            provider_name = (
+                self.current_provider.get_provider_name()
+                if hasattr(self.current_provider, "get_provider_name")
+                else ""
+            )
 
         # For OpenAI/OSS models, add explicit format instructions
         if "openai" in provider_name.lower() or "gpt" in str(self.current_provider).lower():
             # Detect if this is a read-only task
             task_lower = task.lower()
-            is_read_only = any(word in task_lower for word in [
-                'what is', 'what are', 'show', 'list', 'display', 'content',
-                'explain', 'describe', 'find', 'search', 'where', 'how many',
-                'tell me', 'check', 'view', 'see', 'repo', 'structure', 'folder'
-            ])
+            is_read_only = any(
+                word in task_lower
+                for word in [
+                    "what is",
+                    "what are",
+                    "show",
+                    "list",
+                    "display",
+                    "content",
+                    "explain",
+                    "describe",
+                    "find",
+                    "search",
+                    "where",
+                    "how many",
+                    "tell me",
+                    "check",
+                    "view",
+                    "see",
+                    "repo",
+                    "structure",
+                    "folder",
+                ]
+            )
 
             # Also check for negative indicators that suggest NOT read-only
-            is_action_task = any(word in task_lower for word in [
-                'run', 'test', 'pytest', 'execute', 'fix', 'modify', 'change',
-                'update', 'create', 'write', 'delete', 'install', 'build',
-                'generate', 'make', 'add', 'implement', 'save', 'put', 'output',
-                'refactor', 'rename', 'move', 'copy', 'edit', 'append', 'insert'
-            ])
+            is_action_task = any(
+                word in task_lower
+                for word in [
+                    "run",
+                    "test",
+                    "pytest",
+                    "execute",
+                    "fix",
+                    "modify",
+                    "change",
+                    "update",
+                    "create",
+                    "write",
+                    "delete",
+                    "install",
+                    "build",
+                    "generate",
+                    "make",
+                    "add",
+                    "implement",
+                    "save",
+                    "put",
+                    "output",
+                    "refactor",
+                    "rename",
+                    "move",
+                    "copy",
+                    "edit",
+                    "append",
+                    "insert",
+                ]
+            )
 
             # Store this flag so continuation logic can use it
             self._current_task_is_readonly = is_read_only and not is_action_task
@@ -2860,27 +3229,57 @@ START NOW - think first, then act:"""
         task_lower = task.lower()
 
         # Detect read-only/exploration tasks
-        is_exploration_task = any(word in task_lower for word in [
-            'what is', 'what are', 'show', 'list', 'display', 'content',
-            'explain', 'describe', 'structure', 'repo', 'folder', 'files',
-            'tell me', 'check', 'view', 'see', 'explore'
-        ])
+        is_exploration_task = any(
+            word in task_lower
+            for word in [
+                "what is",
+                "what are",
+                "show",
+                "list",
+                "display",
+                "content",
+                "explain",
+                "describe",
+                "structure",
+                "repo",
+                "folder",
+                "files",
+                "tell me",
+                "check",
+                "view",
+                "see",
+                "explore",
+            ]
+        )
 
         # Check if previous context contains action commands that might pollute
         context_has_action_commands = False
         for entry in current_context:
             content_lower = entry.content.lower()
-            if any(cmd in content_lower for cmd in [
-                'pytest', 'python -m pytest', 'npm test', 'npm run',
-                'make test', 'cargo test', 'go test', 'jest',
-                'git commit', 'git push', 'pip install'
-            ]):
+            if any(
+                cmd in content_lower
+                for cmd in [
+                    "pytest",
+                    "python -m pytest",
+                    "npm test",
+                    "npm run",
+                    "make test",
+                    "cargo test",
+                    "go test",
+                    "jest",
+                    "git commit",
+                    "git push",
+                    "pip install",
+                ]
+            ):
                 context_has_action_commands = True
                 break
 
         # Clear context if we're switching from action commands to exploration
         if is_exploration_task and context_has_action_commands:
-            self.console.print(f"[dim yellow][!] Clearing old context to prevent pollution (switching to exploration task)[/dim yellow]")
+            self.console.print(
+                f"[dim yellow][!] Clearing old context to prevent pollution (switching to exploration task)[/dim yellow]"
+            )
             self.context_manager.clear_context(keep_system=True)
 
             # Reset the readonly flag
@@ -2896,7 +3295,7 @@ START NOW - think first, then act:"""
             Prompt string to force engagement
         """
         # Check if this is a read-only task
-        if hasattr(self, '_current_task_is_readonly') and self._current_task_is_readonly:
+        if hasattr(self, "_current_task_is_readonly") and self._current_task_is_readonly:
             return """ERROR: You returned an empty response.
 
 You MUST respond with BOTH:
@@ -2934,7 +3333,7 @@ NOW respond with text explanation + tool call:"""
             Prompt string for continuing pending work
         """
         # Check if we have a recent JSON fragment that needs fixing
-        fragment = getattr(self, '_last_json_fragment', None)
+        fragment = getattr(self, "_last_json_fragment", None)
         if fragment:
             # Clear it so we don't repeat
             self._last_json_fragment = None
@@ -2951,18 +3350,18 @@ Fix your response and output a VALID tool call now:"""
 
         # Check for pending todos - most important signal
         todos_state = self._get_todos_completion_state()
-        if todos_state['total'] > 0 and todos_state['completed'] < todos_state['total']:
-            pending_count = todos_state['total'] - todos_state['completed']
+        if todos_state["total"] > 0 and todos_state["completed"] < todos_state["total"]:
+            pending_count = todos_state["total"] - todos_state["completed"]
             # Get the first pending todo content
             pending_todos = []
             try:
-                todo_tool = self.tool_manager.get_tool('TodoWrite')
-                if todo_tool and hasattr(todo_tool, 'todos') and todo_tool.todos:
+                todo_tool = self.tool_manager.get_tool("TodoWrite")
+                if todo_tool and hasattr(todo_tool, "todos") and todo_tool.todos:
                     for todo in todo_tool.todos:
-                        if hasattr(todo, 'status') and todo.status != 'completed':
+                        if hasattr(todo, "status") and todo.status != "completed":
                             pending_todos.append(todo.content)
-                        elif isinstance(todo, dict) and todo.get('status') != 'completed':
-                            pending_todos.append(todo.get('content', ''))
+                        elif isinstance(todo, dict) and todo.get("status") != "completed":
+                            pending_todos.append(todo.get("content", ""))
             except Exception:
                 pass
 
@@ -2978,7 +3377,7 @@ You MUST complete the remaining tasks. If this is the final task (e.g., "compile
 Continue working or provide your final answer:"""
 
         # Check if this appears to be a read-only/exploration task
-        if hasattr(self, '_current_task_is_readonly') and self._current_task_is_readonly:
+        if hasattr(self, "_current_task_is_readonly") and self._current_task_is_readonly:
             return """You have pending work. Continue with READ-ONLY tools to complete the exploration.
 
 Example: {"tool": "Read", "parameters": {"file_path": "README.md"}}
@@ -3034,7 +3433,7 @@ What tool will you call?"""
 
         # Check for ending mid-sentence (ends with comma, colon, or opening bracket)
         stripped = response_text.rstrip()
-        truncation_endings = [',', ':', '{', '[', '(']
+        truncation_endings = [",", ":", "{", "[", "("]
         if stripped and stripped[-1] in truncation_endings:
             return True
 
@@ -3051,6 +3450,7 @@ What tool will you call?"""
             Continuation prompt string
         """
         from ..config.prompts import get_prompts_config
+
         return get_prompts_config().get_continuation_prompt(iteration)
 
     def _extract_tool_calls(self, raw_response, response_text: str, provider_name: str) -> list:
@@ -3061,24 +3461,24 @@ What tool will you call?"""
         tool_calls = []
 
         # Check OpenAI style tool calls from raw response
-        if raw_response and hasattr(raw_response, 'choices'):
+        if raw_response and hasattr(raw_response, "choices"):
             choice = raw_response.choices[0]
-            if hasattr(choice, 'message') and hasattr(choice.message, 'tool_calls') and choice.message.tool_calls:
+            if (
+                hasattr(choice, "message")
+                and hasattr(choice.message, "tool_calls")
+                and choice.message.tool_calls
+            ):
                 for tc in choice.message.tool_calls:
-                    tool_calls.append({
-                        'name': tc.function.name,
-                        'arguments': json.loads(tc.function.arguments)
-                    })
+                    tool_calls.append(
+                        {"name": tc.function.name, "arguments": json.loads(tc.function.arguments)}
+                    )
                 return tool_calls
 
         # Check Anthropic style tool calls from raw response
-        if raw_response and hasattr(raw_response, 'content'):
+        if raw_response and hasattr(raw_response, "content"):
             for block in raw_response.content:
-                if hasattr(block, 'type') and block.type == 'tool_use':
-                    tool_calls.append({
-                        'name': block.name,
-                        'arguments': block.input
-                    })
+                if hasattr(block, "type") and block.type == "tool_use":
+                    tool_calls.append({"name": block.name, "arguments": block.input})
             if tool_calls:
                 return tool_calls
 
@@ -3096,7 +3496,9 @@ What tool will you call?"""
         tool_calls = []
 
         # Check debug mode - only show verbose messages in debug mode
-        debug_mode = self.config.get('debug', False) or self.config.get('ui', {}).get('debug_mode', False)
+        debug_mode = self.config.get("debug", False) or self.config.get("ui", {}).get(
+            "debug_mode", False
+        )
 
         def debug_print(message: str):
             """Print message only if debug mode is enabled."""
@@ -3105,10 +3507,27 @@ What tool will you call?"""
 
         # Valid tool names that we should accept (lowercase for comparison)
         VALID_TOOLS = {
-            'ls', 'lstool', 'read', 'readtool', 'write', 'writetool',
-            'edit', 'edittool', 'bash', 'bashtool', 'glob', 'globtool',
-            'grep', 'greptool', 'todowrite', 'askuserquestion', 'askuser',
-            'notebookedit', 'webfetch', 'websearch', 'task'
+            "ls",
+            "lstool",
+            "read",
+            "readtool",
+            "write",
+            "writetool",
+            "edit",
+            "edittool",
+            "bash",
+            "bashtool",
+            "glob",
+            "globtool",
+            "grep",
+            "greptool",
+            "todowrite",
+            "askuserquestion",
+            "askuser",
+            "notebookedit",
+            "webfetch",
+            "websearch",
+            "task",
         }
 
         def is_valid_tool_name(name: str) -> bool:
@@ -3122,36 +3541,38 @@ What tool will you call?"""
             if not is_valid_tool_name(tool_name):
                 return False
 
-            tool_lower = tool_name.lower().replace('tool', '')
+            tool_lower = tool_name.lower().replace("tool", "")
 
             # Validate based on tool type
-            if tool_lower in ['ls', 'list']:
+            if tool_lower in ["ls", "list"]:
                 # LS needs path, and "/" on Windows is suspicious - fix it
-                path = args.get('path', '')
-                if path == '/' or path == '\\':
-                    self.console.print(f"[dim yellow][!] Fixing LS root path '{path}' to '.' (current directory)[/dim yellow]")
-                    args['path'] = '.'  # This modifies in place
+                path = args.get("path", "")
+                if path == "/" or path == "\\":
+                    self.console.print(
+                        f"[dim yellow][!] Fixing LS root path '{path}' to '.' (current directory)[/dim yellow]"
+                    )
+                    args["path"] = "."  # This modifies in place
                 elif not path:
-                    args['path'] = '.'  # Default to current directory
+                    args["path"] = "."  # Default to current directory
                 return True
 
-            if tool_lower in ['read']:
-                return 'file_path' in args
+            if tool_lower in ["read"]:
+                return "file_path" in args
 
-            if tool_lower in ['write']:
-                return 'file_path' in args and 'content' in args
+            if tool_lower in ["write"]:
+                return "file_path" in args and "content" in args
 
-            if tool_lower in ['edit']:
-                return 'file_path' in args and ('old_string' in args or 'new_string' in args)
+            if tool_lower in ["edit"]:
+                return "file_path" in args and ("old_string" in args or "new_string" in args)
 
-            if tool_lower in ['bash']:
-                return 'command' in args
+            if tool_lower in ["bash"]:
+                return "command" in args
 
-            if tool_lower in ['glob']:
-                return 'pattern' in args
+            if tool_lower in ["glob"]:
+                return "pattern" in args
 
-            if tool_lower in ['grep']:
-                return 'pattern' in args
+            if tool_lower in ["grep"]:
+                return "pattern" in args
 
             # Default: accept if it has at least one argument
             return bool(args)
@@ -3173,11 +3594,11 @@ What tool will you call?"""
 
             # If content already has actual newlines, don't unescape -
             # it's already properly formatted code
-            if '\n' in content:
+            if "\n" in content:
                 return content
 
             # If content has no backslashes at all, nothing to unescape
-            if '\\' not in content:
+            if "\\" not in content:
                 return content
 
             # Only unescape if content appears to be a single-line string
@@ -3187,11 +3608,11 @@ What tool will you call?"""
             result = content
 
             # Replace literal \n with actual newline (only if no real newlines exist)
-            result = result.replace('\\n', '\n')
+            result = result.replace("\\n", "\n")
             # Replace literal \t with actual tab
-            result = result.replace('\\t', '\t')
+            result = result.replace("\\t", "\t")
             # Replace literal \r with actual carriage return
-            result = result.replace('\\r', '\r')
+            result = result.replace("\\r", "\r")
 
             # DON'T unescape quotes or backslashes - these are often
             # intentional in code strings and unescaping them causes
@@ -3209,14 +3630,14 @@ What tool will you call?"""
 
             processed = {}
             for key, value in args.items():
-                if key == 'content' and isinstance(value, str):
+                if key == "content" and isinstance(value, str):
                     # Only unescape content field for file writes, not for edit old_string/new_string
                     # Check if this looks like double-escaped content (no real newlines)
-                    if '\n' not in value and '\\n' in value:
+                    if "\n" not in value and "\\n" in value:
                         processed[key] = unescape_content(value)
                     else:
                         processed[key] = value
-                elif key in ('old_string', 'new_string') and isinstance(value, str):
+                elif key in ("old_string", "new_string") and isinstance(value, str):
                     # For edit operations, DON'T unescape - preserve exact strings
                     # The model should output these with proper escaping already
                     processed[key] = value
@@ -3234,18 +3655,18 @@ What tool will you call?"""
             3. {"tool": "X", "path": "...", "pattern": "..."} - Flat format (params at root level)
             """
             # Check for nested parameters first
-            if 'parameters' in data:
-                return data['parameters']
-            if 'params' in data:
-                return data['params']
-            if 'arguments' in data:
-                return data['arguments']
+            if "parameters" in data:
+                return data["parameters"]
+            if "params" in data:
+                return data["params"]
+            if "arguments" in data:
+                return data["arguments"]
 
             # Flat format - parameters at root level alongside "tool"
             # Extract all keys except "tool" as parameters
             args = {}
             for key, value in data.items():
-                if key != 'tool':
+                if key != "tool":
                     args[key] = value
             return args
 
@@ -3263,16 +3684,26 @@ What tool will you call?"""
                 return {"content": content, "status": status, "activeForm": active_form}
             elif isinstance(item, dict):
                 # Dict item - normalize field names
-                content = (item.get('content') or item.get('title') or
-                          item.get('task') or item.get('text') or
-                          item.get('description') or item.get('name') or '')
+                content = (
+                    item.get("content")
+                    or item.get("title")
+                    or item.get("task")
+                    or item.get("text")
+                    or item.get("description")
+                    or item.get("name")
+                    or ""
+                )
                 if not content:
                     return None
-                status = item.get('status', 'pending')
-                if status not in ['pending', 'in_progress', 'completed', 'blocked', 'skipped']:
-                    status = 'pending'
-                active_form = (item.get('activeForm') or item.get('active_form') or
-                              item.get('activeform') or generate_active_form(content))
+                status = item.get("status", "pending")
+                if status not in ["pending", "in_progress", "completed", "blocked", "skipped"]:
+                    status = "pending"
+                active_form = (
+                    item.get("activeForm")
+                    or item.get("active_form")
+                    or item.get("activeform")
+                    or generate_active_form(content)
+                )
                 return {"content": content, "status": status, "activeForm": active_form}
             return None
 
@@ -3285,28 +3716,54 @@ What tool will you call?"""
             if not words:
                 return "Working..."
             verb = words[0].lower()
-            rest = ' '.join(words[1:]) if len(words) > 1 else ''
+            rest = " ".join(words[1:]) if len(words) > 1 else ""
 
             # Handle common verbs
             verb_map = {
-                'add': 'Adding', 'create': 'Creating', 'fix': 'Fixing',
-                'update': 'Updating', 'remove': 'Removing', 'delete': 'Deleting',
-                'implement': 'Implementing', 'write': 'Writing', 'read': 'Reading',
-                'test': 'Testing', 'run': 'Running', 'check': 'Checking',
-                'analyze': 'Analyzing', 'review': 'Reviewing', 'refactor': 'Refactoring',
-                'debug': 'Debugging', 'investigate': 'Investigating', 'explore': 'Exploring',
-                'search': 'Searching', 'find': 'Finding', 'look': 'Looking',
-                'build': 'Building', 'compile': 'Compiling', 'install': 'Installing',
-                'configure': 'Configuring', 'setup': 'Setting up', 'set': 'Setting',
-                'get': 'Getting', 'fetch': 'Fetching', 'load': 'Loading',
-                'save': 'Saving', 'export': 'Exporting', 'import': 'Importing',
-                'parse': 'Parsing', 'extract': 'Extracting', 'convert': 'Converting',
-                'validate': 'Validating', 'verify': 'Verifying', 'ensure': 'Ensuring',
+                "add": "Adding",
+                "create": "Creating",
+                "fix": "Fixing",
+                "update": "Updating",
+                "remove": "Removing",
+                "delete": "Deleting",
+                "implement": "Implementing",
+                "write": "Writing",
+                "read": "Reading",
+                "test": "Testing",
+                "run": "Running",
+                "check": "Checking",
+                "analyze": "Analyzing",
+                "review": "Reviewing",
+                "refactor": "Refactoring",
+                "debug": "Debugging",
+                "investigate": "Investigating",
+                "explore": "Exploring",
+                "search": "Searching",
+                "find": "Finding",
+                "look": "Looking",
+                "build": "Building",
+                "compile": "Compiling",
+                "install": "Installing",
+                "configure": "Configuring",
+                "setup": "Setting up",
+                "set": "Setting",
+                "get": "Getting",
+                "fetch": "Fetching",
+                "load": "Loading",
+                "save": "Saving",
+                "export": "Exporting",
+                "import": "Importing",
+                "parse": "Parsing",
+                "extract": "Extracting",
+                "convert": "Converting",
+                "validate": "Validating",
+                "verify": "Verifying",
+                "ensure": "Ensuring",
             }
 
             if verb in verb_map:
                 return f"{verb_map[verb]} {rest}".strip()
-            elif verb.endswith('e'):
+            elif verb.endswith("e"):
                 return f"{verb[:-1].capitalize()}ing {rest}".strip()
             else:
                 return f"{verb.capitalize()}ing {rest}".strip()
@@ -3322,7 +3779,7 @@ What tool will you call?"""
             for i, item in enumerate(todos_raw):
                 todo = normalize_todo_item(item, i, not has_in_progress)
                 if todo:
-                    if todo['status'] == 'in_progress':
+                    if todo["status"] == "in_progress":
                         has_in_progress = True
                     normalized.append(todo)
 
@@ -3353,44 +3810,40 @@ What tool will you call?"""
                     todos_raw = json.loads(todos_str)
                     normalized = normalize_todos_list(todos_raw)
                     if normalized:
-                        debug_print(f"[bold blue][+] Detected TodoWrite - normalizing {len(normalized)} items[/bold blue]")
-                        tool_calls.append({
-                            'name': 'TodoWrite',
-                            'arguments': {'todos': normalized}
-                        })
+                        debug_print(
+                            f"[bold blue][+] Detected TodoWrite - normalizing {len(normalized)} items[/bold blue]"
+                        )
+                        tool_calls.append({"name": "TodoWrite", "arguments": {"todos": normalized}})
                         return tool_calls
                 except (json.JSONDecodeError, IndexError) as e:
                     continue
 
         # STRATEGY 1: Look for JSON in code fences (most reliable)
-        json_blocks = re.findall(r'```(?:json)?\s*(\{[\s\S]*?\})\s*```', text, re.DOTALL)
+        json_blocks = re.findall(r"```(?:json)?\s*(\{[\s\S]*?\})\s*```", text, re.DOTALL)
 
         for block in json_blocks:
             try:
                 data = json.loads(block)
-                if 'tool' in data:
+                if "tool" in data:
                     args = extract_tool_args(data)
-                    if is_valid_tool_call(data['tool'], args):
-                        tool_calls.append({
-                            'name': data['tool'],
-                            'arguments': process_arguments(args)
-                        })
-                        debug_print(f"[bold blue][+] Detected {data['tool']} from JSON block[/bold blue]")
-                elif 'todos' in data:
+                    if is_valid_tool_call(data["tool"], args):
+                        tool_calls.append(
+                            {"name": data["tool"], "arguments": process_arguments(args)}
+                        )
+                        debug_print(
+                            f"[bold blue][+] Detected {data['tool']} from JSON block[/bold blue]"
+                        )
+                elif "todos" in data:
                     # This is a TodoWrite without the tool wrapper - normalize it
-                    normalized = normalize_todos_list(data['todos'])
+                    normalized = normalize_todos_list(data["todos"])
                     if normalized:
-                        debug_print(f"[bold blue][+] Detected TodoWrite from JSON block - normalizing {len(normalized)} items[/bold blue]")
-                        tool_calls.append({
-                            'name': 'TodoWrite',
-                            'arguments': {'todos': normalized}
-                        })
-                elif 'file_path' in data and 'content' in data:
+                        debug_print(
+                            f"[bold blue][+] Detected TodoWrite from JSON block - normalizing {len(normalized)} items[/bold blue]"
+                        )
+                        tool_calls.append({"name": "TodoWrite", "arguments": {"todos": normalized}})
+                elif "file_path" in data and "content" in data:
                     # Looks like WriteTool parameters - requires both file_path and content
-                    tool_calls.append({
-                        'name': 'WriteTool',
-                        'arguments': process_arguments(data)
-                    })
+                    tool_calls.append({"name": "WriteTool", "arguments": process_arguments(data)})
                     debug_print(f"[bold blue][+] Detected WriteTool from JSON block[/bold blue]")
             except json.JSONDecodeError:
                 continue
@@ -3409,10 +3862,7 @@ What tool will you call?"""
             try:
                 params = json.loads(params_str)
                 if is_valid_tool_call(tool_name, params):
-                    tool_calls.append({
-                        'name': tool_name,
-                        'arguments': process_arguments(params)
-                    })
+                    tool_calls.append({"name": tool_name, "arguments": process_arguments(params)})
                     debug_print(f"[bold blue][+] Detected {tool_name} from inline JSON[/bold blue]")
             except json.JSONDecodeError:
                 continue
@@ -3422,25 +3872,27 @@ What tool will you call?"""
 
         # STRATEGY 3: Look for any JSON object that could be a tool call
         # Try to find standalone JSON objects
-        json_objects = re.findall(r'(\{[^{}]*(?:"tool"|"file_path"|"content")[^{}]*\})', text, re.DOTALL)
+        json_objects = re.findall(
+            r'(\{[^{}]*(?:"tool"|"file_path"|"content")[^{}]*\})', text, re.DOTALL
+        )
 
         for obj_str in json_objects:
             try:
                 data = json.loads(obj_str)
-                if 'tool' in data:
+                if "tool" in data:
                     args = extract_tool_args(data)
-                    if is_valid_tool_call(data['tool'], args):
-                        tool_calls.append({
-                            'name': data['tool'],
-                            'arguments': process_arguments(args)
-                        })
-                        debug_print(f"[bold blue][+] Detected {data['tool']} from standalone JSON[/bold blue]")
-                elif 'file_path' in data and 'content' in data:
-                    tool_calls.append({
-                        'name': 'WriteTool',
-                        'arguments': process_arguments(data)
-                    })
-                    debug_print(f"[bold blue][+] Detected WriteTool from standalone JSON[/bold blue]")
+                    if is_valid_tool_call(data["tool"], args):
+                        tool_calls.append(
+                            {"name": data["tool"], "arguments": process_arguments(args)}
+                        )
+                        debug_print(
+                            f"[bold blue][+] Detected {data['tool']} from standalone JSON[/bold blue]"
+                        )
+                elif "file_path" in data and "content" in data:
+                    tool_calls.append({"name": "WriteTool", "arguments": process_arguments(data)})
+                    debug_print(
+                        f"[bold blue][+] Detected WriteTool from standalone JSON[/bold blue]"
+                    )
             except json.JSONDecodeError:
                 continue
 
@@ -3453,17 +3905,18 @@ What tool will you call?"""
         for match in re.finditer(r'\{\s*["\']tool["\']', text):
             try:
                 # Try to extract a balanced JSON from this point
-                json_str = self._extract_balanced_json(text[match.start():])
+                json_str = self._extract_balanced_json(text[match.start() :])
                 if json_str:
                     data = json.loads(json_str)
-                    if 'tool' in data:
+                    if "tool" in data:
                         args = extract_tool_args(data)
-                        if is_valid_tool_call(data['tool'], args):
-                            tool_calls.append({
-                                'name': data['tool'],
-                                'arguments': process_arguments(args)
-                            })
-                            debug_print(f"[bold blue][+] Detected {data['tool']} from balanced extraction[/bold blue]")
+                        if is_valid_tool_call(data["tool"], args):
+                            tool_calls.append(
+                                {"name": data["tool"], "arguments": process_arguments(args)}
+                            )
+                            debug_print(
+                                f"[bold blue][+] Detected {data['tool']} from balanced extraction[/bold blue]"
+                            )
             except (json.JSONDecodeError, Exception):
                 continue
 
@@ -3472,17 +3925,18 @@ What tool will you call?"""
 
         # STRATEGY 5: Handle gpt-oss-120b specific patterns
         # Pattern: {"function": "ToolName", "args": {...}}
-        func_pattern = r'\{\s*["\']function["\']\s*:\s*["\'](\w+)["\']\s*,\s*["\']args["\']\s*:\s*(\{[^}]+\})'
+        func_pattern = (
+            r'\{\s*["\']function["\']\s*:\s*["\'](\w+)["\']\s*,\s*["\']args["\']\s*:\s*(\{[^}]+\})'
+        )
         for match in re.finditer(func_pattern, text, re.DOTALL):
             try:
                 tool_name = match.group(1)
                 args = json.loads(match.group(2))
                 if is_valid_tool_call(tool_name, args):
-                    tool_calls.append({
-                        'name': tool_name,
-                        'arguments': process_arguments(args)
-                    })
-                    debug_print(f"[bold blue][+] Detected {tool_name} from function/args pattern[/bold blue]")
+                    tool_calls.append({"name": tool_name, "arguments": process_arguments(args)})
+                    debug_print(
+                        f"[bold blue][+] Detected {tool_name} from function/args pattern[/bold blue]"
+                    )
             except:
                 continue
 
@@ -3491,16 +3945,15 @@ What tool will you call?"""
 
         # STRATEGY 6: Handle labeled tool code blocks
         # Pattern: ```tool:WriteTool\n{...}\n```
-        labeled_blocks = re.findall(r'```tool:(\w+)\s*\n(\{[\s\S]*?\})\s*```', text)
+        labeled_blocks = re.findall(r"```tool:(\w+)\s*\n(\{[\s\S]*?\})\s*```", text)
         for tool_name, json_str in labeled_blocks:
             try:
                 args = json.loads(json_str)
                 if is_valid_tool_call(tool_name, args):
-                    tool_calls.append({
-                        'name': tool_name,
-                        'arguments': process_arguments(args)
-                    })
-                    debug_print(f"[bold blue][+] Detected {tool_name} from labeled code block[/bold blue]")
+                    tool_calls.append({"name": tool_name, "arguments": process_arguments(args)})
+                    debug_print(
+                        f"[bold blue][+] Detected {tool_name} from labeled code block[/bold blue]"
+                    )
             except:
                 continue
 
@@ -3515,11 +3968,10 @@ What tool will you call?"""
                 tool_name = match.group(1)
                 args = json.loads(match.group(2))
                 if is_valid_tool_call(tool_name, args):
-                    tool_calls.append({
-                        'name': tool_name,
-                        'arguments': process_arguments(args)
-                    })
-                    debug_print(f"[bold blue][+] Detected {tool_name} from action/input pattern[/bold blue]")
+                    tool_calls.append({"name": tool_name, "arguments": process_arguments(args)})
+                    debug_print(
+                        f"[bold blue][+] Detected {tool_name} from action/input pattern[/bold blue]"
+                    )
             except:
                 continue
 
@@ -3530,7 +3982,9 @@ What tool will you call?"""
         # This handles cases where the model outputs WriteTool parameters without the wrapper
         # Require BOTH file_path and content, and content must be substantial
         file_path_match = re.search(r'["\']file_path["\']\s*:\s*["\']([^"\']+)["\']', text)
-        content_match = re.search(r'["\']content["\']\s*:\s*["\'](.+?)["\'](?:\s*[,}])', text, re.DOTALL)
+        content_match = re.search(
+            r'["\']content["\']\s*:\s*["\'](.+?)["\'](?:\s*[,}])', text, re.DOTALL
+        )
 
         if file_path_match and content_match:
             file_path = file_path_match.group(1)
@@ -3540,19 +3994,20 @@ What tool will you call?"""
             if file_path and len(content) > 10:  # Minimum content length
                 # Unescape the content using the helper function
                 content = unescape_content(content)
-                tool_calls.append({
-                    'name': 'WriteTool',
-                    'arguments': {
-                        'file_path': file_path,
-                        'content': content
-                    }
-                })
-                debug_print(f"[bold blue][+] Detected WriteTool from scattered JSON fields: {file_path}[/bold blue]")
+                tool_calls.append(
+                    {"name": "WriteTool", "arguments": {"file_path": file_path, "content": content}}
+                )
+                debug_print(
+                    f"[bold blue][+] Detected WriteTool from scattered JSON fields: {file_path}[/bold blue]"
+                )
 
         # STRATEGY 9: Handle command-style tool calls
         # Pattern: "I'll use the Read tool to read file.py" followed by potential JSON
         command_patterns = [
-            (r"(?:use|call|invoke|run)\s+(?:the\s+)?(\w+)(?:\s+tool)?(?:\s+to\s+|\s+on\s+)(?:[^{]*?)\{([^}]+)\}", "command"),
+            (
+                r"(?:use|call|invoke|run)\s+(?:the\s+)?(\w+)(?:\s+tool)?(?:\s+to\s+|\s+on\s+)(?:[^{]*?)\{([^}]+)\}",
+                "command",
+            ),
             (r"Tool:\s*(\w+)\s*(?:\n|:)\s*\{([^}]+)\}", "labeled"),
         ]
 
@@ -3563,11 +4018,10 @@ What tool will you call?"""
                     json_str = "{" + match.group(2) + "}"
                     args = json.loads(json_str)
                     if is_valid_tool_call(tool_name, args):
-                        tool_calls.append({
-                            'name': tool_name,
-                            'arguments': process_arguments(args)
-                        })
-                        debug_print(f"[bold blue][+] Detected {tool_name} from {pattern_name} pattern[/bold blue]")
+                        tool_calls.append({"name": tool_name, "arguments": process_arguments(args)})
+                        debug_print(
+                            f"[bold blue][+] Detected {tool_name} from {pattern_name} pattern[/bold blue]"
+                        )
                 except:
                     continue
 
@@ -3575,7 +4029,7 @@ What tool will you call?"""
 
     def _extract_balanced_json(self, text: str, max_length: int = 10000) -> Optional[str]:
         """Extract a balanced JSON object from text"""
-        if not text or text[0] != '{':
+        if not text or text[0] != "{":
             return None
 
         depth = 0
@@ -3587,7 +4041,7 @@ What tool will you call?"""
                 escape_next = False
                 continue
 
-            if char == '\\':
+            if char == "\\":
                 escape_next = True
                 continue
 
@@ -3598,12 +4052,12 @@ What tool will you call?"""
             if in_string:
                 continue
 
-            if char == '{':
+            if char == "{":
                 depth += 1
-            elif char == '}':
+            elif char == "}":
                 depth -= 1
                 if depth == 0:
-                    return text[:i + 1]
+                    return text[: i + 1]
 
         return None
 
@@ -3616,108 +4070,108 @@ What tool will you call?"""
         # Parameter name mappings for different tools
         # Maps common alternate parameter names to the expected parameter names
         PARAM_MAPPINGS = {
-            'glob': {
+            "glob": {
                 # If 'path' looks like a glob pattern, it's probably meant to be 'pattern'
                 # e.g. {"tool": "Glob", "path": "**/*.html"} -> {"pattern": "**/*.html"}
-                'include': 'pattern',  # Some models use 'include' for glob patterns
-                'file_pattern': 'pattern',
-                'files': 'pattern',
+                "include": "pattern",  # Some models use 'include' for glob patterns
+                "file_pattern": "pattern",
+                "files": "pattern",
             },
-            'grep': {
-                'query': 'pattern',
-                'search': 'pattern',
-                'text': 'pattern',
-                'regex': 'pattern',
-                'include': 'glob',  # File filter pattern
-                'file_pattern': 'glob',
-                'filter': 'glob',
-                '-i': 'case_insensitive',
-                'ignore_case': 'case_insensitive',
-                '-A': 'context_after',
-                '-B': 'context_before',
-                '-C': 'context',  # Will need special handling
-                'directory': 'path',
-                'dir': 'path',
-                'folder': 'path',
+            "grep": {
+                "query": "pattern",
+                "search": "pattern",
+                "text": "pattern",
+                "regex": "pattern",
+                "include": "glob",  # File filter pattern
+                "file_pattern": "glob",
+                "filter": "glob",
+                "-i": "case_insensitive",
+                "ignore_case": "case_insensitive",
+                "-A": "context_after",
+                "-B": "context_before",
+                "-C": "context",  # Will need special handling
+                "directory": "path",
+                "dir": "path",
+                "folder": "path",
             },
-            'read': {
-                'path': 'file_path',
-                'filename': 'file_path',
-                'file': 'file_path',
-                'filepath': 'file_path',
+            "read": {
+                "path": "file_path",
+                "filename": "file_path",
+                "file": "file_path",
+                "filepath": "file_path",
             },
-            'write': {
-                'path': 'file_path',
-                'filename': 'file_path',
-                'file': 'file_path',
-                'filepath': 'file_path',
-                'text': 'content',
-                'data': 'content',
-                'body': 'content',
+            "write": {
+                "path": "file_path",
+                "filename": "file_path",
+                "file": "file_path",
+                "filepath": "file_path",
+                "text": "content",
+                "data": "content",
+                "body": "content",
             },
-            'edit': {
-                'path': 'file_path',
-                'filename': 'file_path',
-                'file': 'file_path',
-                'filepath': 'file_path',
-                'old': 'old_string',
-                'new': 'new_string',
-                'search': 'old_string',
-                'replace': 'new_string',
-                'find': 'old_string',
-                'replacement': 'new_string',
+            "edit": {
+                "path": "file_path",
+                "filename": "file_path",
+                "file": "file_path",
+                "filepath": "file_path",
+                "old": "old_string",
+                "new": "new_string",
+                "search": "old_string",
+                "replace": "new_string",
+                "find": "old_string",
+                "replacement": "new_string",
             },
-            'bash': {
-                'cmd': 'command',
-                'shell': 'command',
-                'run': 'command',
-                'script': 'command',
-                'exec': 'command',
+            "bash": {
+                "cmd": "command",
+                "shell": "command",
+                "run": "command",
+                "script": "command",
+                "exec": "command",
             },
-            'ls': {
-                'dir': 'path',
-                'directory': 'path',
-                'folder': 'path',
-                'file_path': 'path',
+            "ls": {
+                "dir": "path",
+                "directory": "path",
+                "folder": "path",
+                "file_path": "path",
             },
-            'task': {
-                'type': 'subagent_type',
-                'agent_type': 'subagent_type',
-                'agent': 'subagent_type',
+            "task": {
+                "type": "subagent_type",
+                "agent_type": "subagent_type",
+                "agent": "subagent_type",
             },
-            'todowrite': {
-                'items': 'todos',
-                'tasks': 'todos',
-                'list': 'todos',
+            "todowrite": {
+                "items": "todos",
+                "tasks": "todos",
+                "list": "todos",
             },
-            'webfetch': {
-                'query': 'prompt',
-                'question': 'prompt',
+            "webfetch": {
+                "query": "prompt",
+                "question": "prompt",
             },
-            'websearch': {
-                'search': 'query',
-                'q': 'query',
-                'term': 'query',
+            "websearch": {
+                "search": "query",
+                "q": "query",
+                "term": "query",
             },
-            'askuserquestion': {
-                'question': 'questions',  # Single question -> questions array
-                'prompt': 'questions',
-                'message': 'questions',
-                'ask': 'questions',
-                'action': 'questions',  # GPT-OSS sometimes uses 'action'
+            "askuserquestion": {
+                "question": "questions",  # Single question -> questions array
+                "prompt": "questions",
+                "message": "questions",
+                "ask": "questions",
+                "action": "questions",  # GPT-OSS sometimes uses 'action'
             },
-            'askuser': {
-                'question': 'questions',
-                'prompt': 'questions',
-                'message': 'questions',
-                'ask': 'questions',
-                'action': 'questions',
+            "askuser": {
+                "question": "questions",
+                "prompt": "questions",
+                "message": "questions",
+                "ask": "questions",
+                "action": "questions",
             },
         }
 
         # Get tool's base name (without 'tool' suffix)
         base_name = tool_name.lower()
-        if base_name.endswith('tool'):
+        if base_name.endswith("tool"):
             base_name = base_name[:-4]
 
         # Get mappings for this tool
@@ -3733,67 +4187,72 @@ What tool will you call?"""
                 normalized[key] = value
 
         # Special handling for GlobTool: if 'path' contains glob characters, it's probably 'pattern'
-        if base_name == 'glob':
-            if 'path' in normalized and 'pattern' not in normalized:
-                path_val = normalized.get('path', '')
-                if isinstance(path_val, str) and ('*' in path_val or '?' in path_val):
+        if base_name == "glob":
+            if "path" in normalized and "pattern" not in normalized:
+                path_val = normalized.get("path", "")
+                if isinstance(path_val, str) and ("*" in path_val or "?" in path_val):
                     # This looks like a pattern, not a directory path
-                    normalized['pattern'] = path_val
+                    normalized["pattern"] = path_val
                     # Set path to current directory
-                    normalized['path'] = '.'
+                    normalized["path"] = "."
 
         # Special handling for Task tool: ensure subagent_type is set
-        if base_name == 'task':
-            if 'subagent_type' not in normalized:
+        if base_name == "task":
+            if "subagent_type" not in normalized:
                 # Default to 'Explore' for investigation tasks, 'general-purpose' otherwise
-                prompt = normalized.get('prompt', '').lower()
-                if any(word in prompt for word in ['find', 'search', 'look', 'explore', 'where', 'what files']):
-                    normalized['subagent_type'] = 'Explore'
+                prompt = normalized.get("prompt", "").lower()
+                if any(
+                    word in prompt
+                    for word in ["find", "search", "look", "explore", "where", "what files"]
+                ):
+                    normalized["subagent_type"] = "Explore"
                 else:
-                    normalized['subagent_type'] = 'general-purpose'
-                self.console.print(f"[dim]ℹ Task tool: defaulting subagent_type to '{normalized['subagent_type']}'[/dim]")
+                    normalized["subagent_type"] = "general-purpose"
+                self.console.print(
+                    f"[dim]ℹ Task tool: defaulting subagent_type to '{normalized['subagent_type']}'[/dim]"
+                )
 
             # Ensure description is set
-            if 'description' not in normalized:
-                prompt = normalized.get('prompt', '')
-                normalized['description'] = prompt[:50] + '...' if len(prompt) > 50 else prompt
+            if "description" not in normalized:
+                prompt = normalized.get("prompt", "")
+                normalized["description"] = prompt[:50] + "..." if len(prompt) > 50 else prompt
 
         # Special handling for AskUserQuestion: convert simple formats to expected format
-        if base_name in ['askuserquestion', 'askuser', 'ask']:
-            questions = normalized.get('questions')
+        if base_name in ["askuserquestion", "askuser", "ask"]:
+            questions = normalized.get("questions")
 
             # If questions is a string (simple question), convert to proper format
             if isinstance(questions, str):
-                normalized['questions'] = [{
-                    'question': questions,
-                    'header': 'Question',
-                    'type': 'open'  # Open-ended question (no options)
-                }]
+                normalized["questions"] = [
+                    {
+                        "question": questions,
+                        "header": "Question",
+                        "type": "open",  # Open-ended question (no options)
+                    }
+                ]
             # If questions is missing but there's other text-like content, use it
             elif questions is None:
                 # Look for any string value that could be the question
-                for key in ['text', 'query', 'input', 'content']:
+                for key in ["text", "query", "input", "content"]:
                     if key in normalized and isinstance(normalized[key], str):
-                        normalized['questions'] = [{
-                            'question': normalized[key],
-                            'header': 'Question',
-                            'type': 'open'
-                        }]
+                        normalized["questions"] = [
+                            {"question": normalized[key], "header": "Question", "type": "open"}
+                        ]
                         break
                 else:
                     # Last resort: if there's any string argument, use it
                     for key, value in list(arguments.items()):
-                        if isinstance(value, str) and key != 'tool':
-                            normalized['questions'] = [{
-                                'question': value,
-                                'header': 'Question',
-                                'type': 'open'
-                            }]
+                        if isinstance(value, str) and key != "tool":
+                            normalized["questions"] = [
+                                {"question": value, "header": "Question", "type": "open"}
+                            ]
                             break
 
         return normalized
 
-    async def _execute_tool_calls(self, tool_calls: list, require_confirmation: bool = True, max_retries: int = 2) -> list:
+    async def _execute_tool_calls(
+        self, tool_calls: list, require_confirmation: bool = True, max_retries: int = 2
+    ) -> list:
         """
         Execute a list of tool calls and return results with optional confirmation for file operations.
 
@@ -3810,7 +4269,7 @@ What tool will you call?"""
         from ..tools.base_tool import ToolResult
 
         # Transient error patterns that warrant a retry
-        TRANSIENT_ERRORS = ['timeout', 'temporary', 'retry', 'busy', 'unavailable', 'connection']
+        TRANSIENT_ERRORS = ["timeout", "temporary", "retry", "busy", "unavailable", "connection"]
 
         def is_transient_error(error_msg: str) -> bool:
             """Check if error is likely transient and worth retrying"""
@@ -3830,7 +4289,9 @@ What tool will you call?"""
                     # Check for transient errors that might succeed on retry
                     if not result.success and attempt < max_retries:
                         if is_transient_error(result.error):
-                            self.console.print(f"[dim][R] Retrying {tool_name} (attempt {attempt + 2}/{max_retries + 1})...[/dim]")
+                            self.console.print(
+                                f"[dim][R] Retrying {tool_name} (attempt {attempt + 2}/{max_retries + 1})...[/dim]"
+                            )
                             await asyncio.sleep(1)  # Brief delay before retry
                             continue
 
@@ -3847,14 +4308,12 @@ What tool will you call?"""
                     return ToolResult(
                         success=False,
                         output="",
-                        error=f"Failed after {max_retries + 1} attempts: {str(last_error)}"
+                        error=f"Failed after {max_retries + 1} attempts: {str(last_error)}",
                     )
 
             # Should not reach here, but return error just in case
             return ToolResult(
-                success=False,
-                output="",
-                error=f"Unexpected error after {max_retries + 1} attempts"
+                success=False, output="", error=f"Unexpected error after {max_retries + 1} attempts"
             )
 
         results = []
@@ -3863,16 +4322,23 @@ What tool will you call?"""
 
         # Separate write operations (need confirmation) from others
         for tc in tool_calls:
-            tool_name = tc['name'].lower()
-            if tool_name in ['writetool', 'edittool', 'multiedittool', 'write', 'edit', 'multiedit']:
+            tool_name = tc["name"].lower()
+            if tool_name in [
+                "writetool",
+                "edittool",
+                "multiedittool",
+                "write",
+                "edit",
+                "multiedit",
+            ]:
                 write_operations.append(tc)
             else:
                 other_operations.append(tc)
 
         # Execute non-write operations immediately with retry support
         for tc in other_operations:
-            tool_name = tc['name'].lower()
-            arguments = self._normalize_tool_arguments(tool_name, tc['arguments'])
+            tool_name = tc["name"].lower()
+            arguments = self._normalize_tool_arguments(tool_name, tc["arguments"])
 
             # Only show tool call message in debug mode
             self._debug_print(f"[bold yellow][>] Calling tool: {tool_name}[/bold yellow]")
@@ -3887,7 +4353,10 @@ What tool will you call?"""
                 self._display_pending_writes(write_operations)
 
                 # Ask for confirmation (default is Yes - press Enter to accept)
-                self.console.print("[bold yellow]Execute these file operations?[/bold yellow] [[green]Ok[/green]/n]: ", end="")
+                self.console.print(
+                    "[bold yellow]Execute these file operations?[/bold yellow] [[green]Ok[/green]/n]: ",
+                    end="",
+                )
                 try:
                     response = input().strip().lower()
                 except (EOFError, KeyboardInterrupt):
@@ -3900,18 +4369,24 @@ What tool will you call?"""
                 if response not in ["y", "yes", "ok"]:
                     self.console.print("[bold red][X] File operations cancelled by user[/bold red]")
                     for tc in write_operations:
-                        arguments = self._normalize_tool_arguments(tc['name'].lower(), tc['arguments'])
-                        results.append((tc['name'], ToolResult(
-                            success=False,
-                            output="",
-                            error="Operation cancelled by user"
-                        ), arguments))
+                        arguments = self._normalize_tool_arguments(
+                            tc["name"].lower(), tc["arguments"]
+                        )
+                        results.append(
+                            (
+                                tc["name"],
+                                ToolResult(
+                                    success=False, output="", error="Operation cancelled by user"
+                                ),
+                                arguments,
+                            )
+                        )
                     return results
 
             # Execute write operations with retry support
             for tc in write_operations:
-                tool_name = tc['name'].lower()
-                arguments = self._normalize_tool_arguments(tool_name, tc['arguments'])
+                tool_name = tc["name"].lower()
+                arguments = self._normalize_tool_arguments(tool_name, tc["arguments"])
 
                 # Only show writing message in debug mode
                 self._debug_print(f"[bold green][W]  Writing: {tool_name}[/bold green]")
@@ -3937,13 +4412,13 @@ What tool will you call?"""
         import hashlib
         import json
 
-        tool_lower = tool_name.lower().replace('tool', '')
+        tool_lower = tool_name.lower().replace("tool", "")
 
         # For bash commands, use the command itself
-        if tool_lower == 'bash':
-            cmd = arguments.get('command', '')
+        if tool_lower == "bash":
+            cmd = arguments.get("command", "")
             # Normalize whitespace and extract core command
-            normalized = ' '.join(cmd.split())
+            normalized = " ".join(cmd.split())
             return f"bash:{normalized}"
 
         # For other tools, create a hash of the key arguments
@@ -3955,7 +4430,7 @@ What tool will you call?"""
             else:
                 key_parts.append(f"{key}={json.dumps(value)}")
 
-        return ':'.join(key_parts)
+        return ":".join(key_parts)
 
     def _display_pending_writes(self, write_operations: list):
         """
@@ -3976,10 +4451,10 @@ What tool will you call?"""
         icons = self._icons
 
         for tc in write_operations:
-            tool_name = tc['name'].lower()
-            args = tc['arguments']
+            tool_name = tc["name"].lower()
+            args = tc["arguments"]
 
-            if tool_name in ['writetool', 'write']:
+            if tool_name in ["writetool", "write"]:
                 file_path = args.get("file_path", "unknown")
                 content = args.get("content", "")
 
@@ -3991,70 +4466,85 @@ What tool will you call?"""
                 if file_exists:
                     # Read existing content for diff
                     try:
-                        with open(file_path, 'r', encoding='utf-8', errors='replace') as f:
+                        with open(file_path, "r", encoding="utf-8", errors="replace") as f:
                             old_content = f.read()
                         # Show as replacement
-                        for line in old_content.split('\n')[:20]:
-                            diff_lines.append(('remove', line))
-                        if old_content.count('\n') > 20:
-                            diff_lines.append(('info', f'... ({old_content.count(chr(10)) - 20} more lines removed)'))
+                        for line in old_content.split("\n")[:20]:
+                            diff_lines.append(("remove", line))
+                        if old_content.count("\n") > 20:
+                            diff_lines.append(
+                                (
+                                    "info",
+                                    f"... ({old_content.count(chr(10)) - 20} more lines removed)",
+                                )
+                            )
                     except:
                         pass
 
                 # Add new content
-                new_lines = content.split('\n')
+                new_lines = content.split("\n")
                 for line in new_lines[:30]:
-                    diff_lines.append(('add', line))
+                    diff_lines.append(("add", line))
                 if len(new_lines) > 30:
-                    diff_lines.append(('info', f'... ({len(new_lines) - 30} more lines)'))
+                    diff_lines.append(("info", f"... ({len(new_lines) - 30} more lines)"))
 
                 # Display header
                 action = "Edit" if file_exists else "Write"
-                self.console.print(f"\n[bold {palette.warning}]{icons.FILE} {action}: {file_path}[/bold {palette.warning}]")
+                self.console.print(
+                    f"\n[bold {palette.warning}]{icons.FILE} {action}: {file_path}[/bold {palette.warning}]"
+                )
 
                 # Display diff
                 for line_type, line in diff_lines:
-                    if line_type == 'remove':
+                    if line_type == "remove":
                         self.console.print(f"[red]- {line}[/red]")
-                    elif line_type == 'add':
+                    elif line_type == "add":
                         self.console.print(f"[green]+ {line}[/green]")
                     else:
                         self.console.print(f"[dim]{line}[/dim]")
 
-            elif tool_name in ['edittool', 'edit']:
+            elif tool_name in ["edittool", "edit"]:
                 file_path = args.get("file_path", "unknown")
                 old_str = args.get("old_string", "")
                 new_str = args.get("new_string", "")
 
                 # Display header
-                self.console.print(f"\n[bold {palette.warning}]{icons.EDIT} Edit: {file_path}[/bold {palette.warning}]")
+                self.console.print(
+                    f"\n[bold {palette.warning}]{icons.EDIT} Edit: {file_path}[/bold {palette.warning}]"
+                )
 
                 # Show removed lines
-                old_lines = old_str.split('\n')
+                old_lines = old_str.split("\n")
                 for line in old_lines[:15]:
                     self.console.print(f"[red]- {line}[/red]")
                 if len(old_lines) > 15:
                     self.console.print(f"[dim]... ({len(old_lines) - 15} more lines removed)[/dim]")
 
                 # Show added lines
-                new_lines = new_str.split('\n')
+                new_lines = new_str.split("\n")
                 for line in new_lines[:15]:
                     self.console.print(f"[green]+ {line}[/green]")
                 if len(new_lines) > 15:
                     self.console.print(f"[dim]... ({len(new_lines) - 15} more lines added)[/dim]")
 
-            elif tool_name in ['multiedittool', 'multiedit']:
+            elif tool_name in ["multiedittool", "multiedit"]:
                 file_path = args.get("file_path", "unknown")
                 edits = args.get("edits", [])
 
-                self.console.print(f"\n[bold {palette.warning}]{icons.EDIT} MultiEdit: {file_path}[/bold {palette.warning}]")
+                self.console.print(
+                    f"\n[bold {palette.warning}]{icons.EDIT} MultiEdit: {file_path}[/bold {palette.warning}]"
+                )
                 self.console.print(f"[dim]{len(edits)} edit(s) to apply[/dim]")
 
                 for i, edit in enumerate(edits[:3], 1):
-                    old_str = edit.get('old_string', '')[:50]
-                    new_str = edit.get('new_string', '')[:50]
-                    self.console.print(f"[dim]  {i}. [red]-[/red] {old_str}{'...' if len(edit.get('old_string', '')) > 50 else ''}[/dim]")
-                    self.console.print(f"[dim]     [green]+[/green] {new_str}{'...' if len(edit.get('new_string', '')) > 50 else ''}[/dim]")
+                    old_str = edit.get("old_string", "")[:50]
+                    new_str = edit.get("new_string", "")[:50]
+                    self.console.print(
+                        f"[dim]  {i}. [red]-[/red] {old_str}{'...' if len(edit.get('old_string', '')) > 50 else ''}[/dim]"
+                    )
+                    self.console.print(
+                        f"[dim]     [green]+[/green] {new_str}{'...' if len(edit.get('new_string', '')) > 50 else ''}[/dim]"
+                    )
 
                 if len(edits) > 3:
                     self.console.print(f"[dim]  ... and {len(edits) - 3} more edits[/dim]")
@@ -4080,13 +4570,13 @@ What tool will you call?"""
         # Special handling for TodoWrite - skip display here
         # The main_cli.py handles todo display with its own todo bar
         # This prevents duplicate todo displays
-        if tool_name.lower() == 'todowrite':
+        if tool_name.lower() == "todowrite":
             # Only show in debug mode
             if self._is_debug_mode():
-                todos = arguments.get('todos', [])
+                todos = arguments.get("todos", [])
                 if todos:
                     total = len(todos)
-                    completed = sum(1 for t in todos if t.get('status') == 'completed')
+                    completed = sum(1 for t in todos if t.get("status") == "completed")
                     status_text = f"[{self._palette.info}]{self._icons.GEAR} Tasks updated: {completed}/{total} completed[/]"
                     self.console.print(status_text)
             return
@@ -4107,9 +4597,7 @@ What tool will you call?"""
             Exploration results
         """
         result = await self.agent_orchestrator.execute_with_agents(
-            task=query,
-            agent_types=[HcodeAgentType.EXPLORE],
-            parallel=False
+            task=query, agent_types=[HcodeAgentType.EXPLORE], parallel=False
         )
 
         return result[0].output if result else "No results"
@@ -4130,9 +4618,7 @@ What tool will you call?"""
             agent_types.insert(0, HcodeAgentType.EXPLORE)
 
         results = await self.agent_orchestrator.execute_with_agents(
-            task=task,
-            agent_types=agent_types,
-            parallel=False
+            task=task, agent_types=agent_types, parallel=False
         )
 
         return results[-1].output if results else "No plan created"
@@ -4150,7 +4636,7 @@ What tool will you call?"""
         results = await self.agent_orchestrator.execute_with_agents(
             task=task,
             agent_types=[HcodeAgentType.EXPLORE, HcodeAgentType.PLAN, HcodeAgentType.IMPLEMENT],
-            parallel=False
+            parallel=False,
         )
 
         return results[-1].output if results else "Implementation failed"
@@ -4261,12 +4747,10 @@ What tool will you call?"""
 
         try:
             from ..memory import MemoryType
+
             mem_type = MemoryType(memory_type) if isinstance(memory_type, str) else memory_type
             self.memory_manager.remember(
-                content=content,
-                memory_type=mem_type,
-                importance=importance,
-                source="agent"
+                content=content, memory_type=mem_type, importance=importance, source="agent"
             )
             return True
         except Exception as e:
@@ -4294,7 +4778,7 @@ What tool will you call?"""
                     "content": memory.content,
                     "type": memory.memory_type.value,
                     "importance": memory.importance,
-                    "score": score
+                    "score": score,
                 }
                 for memory, score in results
             ]
@@ -4314,7 +4798,9 @@ What tool will you call?"""
         except Exception as e:
             return {"available": False, "error": str(e)}
 
-    def update_agent_memory(self, content: str, scope: str = "project", section: Optional[str] = None) -> bool:
+    def update_agent_memory(
+        self, content: str, scope: str = "project", section: Optional[str] = None
+    ) -> bool:
         """
         Update an AGENT.md memory file.
 
@@ -4332,9 +4818,7 @@ What tool will you call?"""
 
         try:
             path = self.memory_manager.update_file_memory(
-                content=content,
-                scope=scope,
-                section=section
+                content=content, scope=scope, section=section
             )
             self.console.print(f"[green]Updated {scope} memory: {path}[/green]")
             return True
@@ -4370,9 +4854,7 @@ What tool will you call?"""
 
         try:
             return self.memory_manager.cleanup(
-                prune_semantic=True,
-                compact_session=True,
-                apply_decay=True
+                prune_semantic=True, compact_session=True, apply_decay=True
             )
         except Exception as e:
             self.console.print(f"[red]Cleanup failed: {e}[/red]")

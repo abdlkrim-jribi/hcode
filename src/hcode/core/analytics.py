@@ -22,6 +22,7 @@ import statistics
 
 class MetricType(Enum):
     """Types of metrics tracked"""
+
     LATENCY = "latency"
     SUCCESS_RATE = "success_rate"
     TOKEN_USAGE = "token_usage"
@@ -33,6 +34,7 @@ class MetricType(Enum):
 
 class TimeWindow(Enum):
     """Time windows for aggregation"""
+
     MINUTE = 60
     HOUR = 3600
     DAY = 86400
@@ -42,6 +44,7 @@ class TimeWindow(Enum):
 @dataclass
 class ToolExecutionEvent:
     """Single tool execution event"""
+
     tool_name: str
     timestamp: datetime
     duration: float  # seconds
@@ -57,6 +60,7 @@ class ToolExecutionEvent:
 @dataclass
 class ReasoningEvent:
     """Reasoning phase execution event"""
+
     phase: str
     timestamp: datetime
     duration: float
@@ -68,6 +72,7 @@ class ReasoningEvent:
 @dataclass
 class ConversationEvent:
     """Conversation-level event"""
+
     conversation_id: str
     start_time: datetime
     end_time: Optional[datetime] = None
@@ -81,6 +86,7 @@ class ConversationEvent:
 @dataclass
 class AggregatedMetrics:
     """Aggregated metrics for a time window"""
+
     window_start: datetime
     window_end: datetime
     tool_metrics: Dict[str, Dict[str, float]] = field(default_factory=dict)
@@ -110,9 +116,7 @@ class TimeSeriesBuffer:
         self._data = [(ts, v) for ts, v in self._data if ts > cutoff]
 
     def get_window(
-        self,
-        start: Optional[datetime] = None,
-        end: Optional[datetime] = None
+        self, start: Optional[datetime] = None, end: Optional[datetime] = None
     ) -> List[Tuple[datetime, Any]]:
         """Get data within time window"""
         self._cleanup()
@@ -173,11 +177,7 @@ class ToolAnalytics:
 
     def get_top_errors(self, limit: int = 10) -> List[Tuple[str, int]]:
         """Get most common errors"""
-        return sorted(
-            self._error_counts.items(),
-            key=lambda x: x[1],
-            reverse=True
-        )[:limit]
+        return sorted(self._error_counts.items(), key=lambda x: x[1], reverse=True)[:limit]
 
     def get_slowest_tools(self, limit: int = 5) -> List[Tuple[str, float]]:
         """Get tools with highest average latency"""
@@ -185,7 +185,7 @@ class ToolAnalytics:
         return sorted(
             [(name, s["avg_latency"]) for name, s in stats.items()],
             key=lambda x: x[1],
-            reverse=True
+            reverse=True,
         )[:limit]
 
     def _percentile(self, data: List[float], p: float) -> float:
@@ -271,11 +271,7 @@ class CostAnalytics:
         self._by_model: Dict[str, float] = defaultdict(float)
 
     def record_cost(
-        self,
-        cost: float,
-        provider: str,
-        model: str,
-        timestamp: Optional[datetime] = None
+        self, cost: float, provider: str, model: str, timestamp: Optional[datetime] = None
     ):
         """Record cost event"""
         ts = timestamp or datetime.now()
@@ -348,7 +344,7 @@ class ExecutionAnalytics:
         input_tokens: int = 0,
         output_tokens: int = 0,
         file_path: Optional[str] = None,
-        task_context: Optional[str] = None
+        task_context: Optional[str] = None,
     ):
         """Record a tool execution"""
         event = ToolExecutionEvent(
@@ -361,7 +357,7 @@ class ExecutionAnalytics:
             input_tokens=input_tokens,
             output_tokens=output_tokens,
             file_path=file_path,
-            task_context=task_context
+            task_context=task_context,
         )
         self.tool_analytics.record(event)
 
@@ -371,7 +367,7 @@ class ExecutionAnalytics:
         duration: float,
         quality_score: float,
         confidence: float,
-        token_usage: int = 0
+        token_usage: int = 0,
     ):
         """Record a reasoning phase execution"""
         event = ReasoningEvent(
@@ -380,24 +376,18 @@ class ExecutionAnalytics:
             duration=duration,
             quality_score=quality_score,
             confidence=confidence,
-            token_usage=token_usage
+            token_usage=token_usage,
         )
         self.reasoning_analytics.record(event)
 
-    def record_cost(
-        self,
-        cost: float,
-        provider: str,
-        model: str
-    ):
+    def record_cost(self, cost: float, provider: str, model: str):
         """Record cost"""
         self.cost_analytics.record_cost(cost, provider, model)
 
     def start_conversation(self, conversation_id: str):
         """Start tracking a conversation"""
         self._conversations[conversation_id] = ConversationEvent(
-            conversation_id=conversation_id,
-            start_time=datetime.now()
+            conversation_id=conversation_id, start_time=datetime.now()
         )
 
     def end_conversation(
@@ -405,7 +395,7 @@ class ExecutionAnalytics:
         conversation_id: str,
         success: bool = True,
         total_tokens: int = 0,
-        total_cost: float = 0.0
+        total_cost: float = 0.0,
     ):
         """End a conversation"""
         if conversation_id in self._conversations:
@@ -429,11 +419,10 @@ class ExecutionAnalytics:
             "total_cost": self.cost_analytics.get_total_cost(),
             "cost_by_provider": self.cost_analytics.get_cost_by_provider(),
             "cost_trend": self.cost_analytics.get_cost_trend(7),
-            "active_conversations": len([
-                c for c in self._conversations.values()
-                if c.end_time is None
-            ]),
-            "total_conversations": len(self._conversations)
+            "active_conversations": len(
+                [c for c in self._conversations.values() if c.end_time is None]
+            ),
+            "total_conversations": len(self._conversations),
         }
 
     def get_health_report(self) -> Dict[str, Any]:
@@ -443,8 +432,7 @@ class ExecutionAnalytics:
         # Calculate overall success rate
         total_calls = sum(s.get("total_calls", 0) for s in tool_stats.values())
         total_success = sum(
-            s.get("total_calls", 0) * s.get("success_rate", 0)
-            for s in tool_stats.values()
+            s.get("total_calls", 0) * s.get("success_rate", 0) for s in tool_stats.values()
         )
         overall_success_rate = total_success / total_calls if total_calls else 1.0
 
@@ -452,36 +440,42 @@ class ExecutionAnalytics:
         issues = []
 
         if overall_success_rate < 0.9:
-            issues.append({
-                "severity": "high",
-                "message": f"Overall success rate is {overall_success_rate:.1%}",
-                "recommendation": "Review error logs and tool configurations"
-            })
+            issues.append(
+                {
+                    "severity": "high",
+                    "message": f"Overall success rate is {overall_success_rate:.1%}",
+                    "recommendation": "Review error logs and tool configurations",
+                }
+            )
 
         slow_tools = self.tool_analytics.get_slowest_tools(3)
         for tool, latency in slow_tools:
             if latency > 5.0:
-                issues.append({
-                    "severity": "medium",
-                    "message": f"Tool {tool} has high latency ({latency:.2f}s)",
-                    "recommendation": f"Consider optimizing or caching {tool} results"
-                })
+                issues.append(
+                    {
+                        "severity": "medium",
+                        "message": f"Tool {tool} has high latency ({latency:.2f}s)",
+                        "recommendation": f"Consider optimizing or caching {tool} results",
+                    }
+                )
 
         top_errors = self.tool_analytics.get_top_errors(3)
         for error_type, count in top_errors:
             if count > 10:
-                issues.append({
-                    "severity": "medium",
-                    "message": f"Frequent error: {error_type} ({count} occurrences)",
-                    "recommendation": "Investigate root cause of this error"
-                })
+                issues.append(
+                    {
+                        "severity": "medium",
+                        "message": f"Frequent error: {error_type} ({count} occurrences)",
+                        "recommendation": "Investigate root cause of this error",
+                    }
+                )
 
         return {
             "status": "healthy" if not issues else "degraded",
             "overall_success_rate": overall_success_rate,
             "reasoning_quality": self.reasoning_analytics.get_overall_quality(),
             "issues": issues,
-            "recommendations": [i["recommendation"] for i in issues]
+            "recommendations": [i["recommendation"] for i in issues],
         }
 
     def get_performance_insights(self) -> List[Dict[str, Any]]:
@@ -497,21 +491,25 @@ class ExecutionAnalytics:
                 avg = stats.get("avg_latency", 0)
 
                 if p95 > avg * 3:
-                    insights.append({
-                        "type": "latency_variance",
-                        "tool": tool_name,
-                        "insight": f"{tool_name} has high latency variance (p95={p95:.2f}s vs avg={avg:.2f}s)",
-                        "suggestion": "Check for intermittent issues or add caching"
-                    })
+                    insights.append(
+                        {
+                            "type": "latency_variance",
+                            "tool": tool_name,
+                            "insight": f"{tool_name} has high latency variance (p95={p95:.2f}s vs avg={avg:.2f}s)",
+                            "suggestion": "Check for intermittent issues or add caching",
+                        }
+                    )
 
                 success_rate = stats.get("success_rate", 1)
                 if success_rate < 0.95:
-                    insights.append({
-                        "type": "reliability",
-                        "tool": tool_name,
-                        "insight": f"{tool_name} has {success_rate:.1%} success rate",
-                        "suggestion": "Review error patterns and add better error handling"
-                    })
+                    insights.append(
+                        {
+                            "type": "reliability",
+                            "tool": tool_name,
+                            "insight": f"{tool_name} has {success_rate:.1%} success rate",
+                            "suggestion": "Review error patterns and add better error handling",
+                        }
+                    )
 
         # Cost insights
         cost_by_model = self.cost_analytics.get_cost_by_model()
@@ -519,11 +517,13 @@ class ExecutionAnalytics:
             most_expensive = max(cost_by_model.items(), key=lambda x: x[1])
             total_cost = sum(cost_by_model.values())
             if most_expensive[1] > total_cost * 0.8:
-                insights.append({
-                    "type": "cost",
-                    "insight": f"{most_expensive[0]} accounts for {most_expensive[1]/total_cost:.1%} of costs",
-                    "suggestion": "Consider using a cheaper model for simpler tasks"
-                })
+                insights.append(
+                    {
+                        "type": "cost",
+                        "insight": f"{most_expensive[0]} accounts for {most_expensive[1]/total_cost:.1%} of costs",
+                        "suggestion": "Consider using a cheaper model for simpler tasks",
+                    }
+                )
 
         return insights
 
@@ -533,7 +533,7 @@ class ExecutionAnalytics:
             "generated_at": datetime.now().isoformat(),
             "summary": self.get_summary(),
             "health": self.get_health_report(),
-            "insights": self.get_performance_insights()
+            "insights": self.get_performance_insights(),
         }
 
         if format == "json":

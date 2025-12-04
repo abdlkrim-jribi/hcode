@@ -17,7 +17,7 @@ from .embeddings import (
     embed_texts,
     cosine_similarity,
     get_embedding_model_safe,
-    FallbackEmbedding
+    FallbackEmbedding,
 )
 from .semantic_memory import SemanticMemory, Memory, MemoryType
 from .memory_manager import MemoryManager, ContextWindow, get_memory_manager

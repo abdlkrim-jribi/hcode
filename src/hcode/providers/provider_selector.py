@@ -14,6 +14,7 @@ from .openai_provider import OpenAIProvider
 
 class TaskComplexity(Enum):
     """Task complexity levels"""
+
     SIMPLE = "simple"  # Documentation, simple fixes
     MODERATE = "moderate"  # Standard implementation
     COMPLEX = "complex"  # Architecture, refactoring
@@ -21,6 +22,7 @@ class TaskComplexity(Enum):
 
 class TaskType(Enum):
     """Types of coding tasks"""
+
     CODE_GENERATION = "code_generation"
     CODE_ANALYSIS = "code_analysis"
     REFACTORING = "refactoring"
@@ -34,6 +36,7 @@ class TaskType(Enum):
 @dataclass
 class ProviderPreferences:
     """User preferences for provider selection"""
+
     primary_provider: str = "auto"  # "auto", "anthropic", "openai"
     fallback_enabled: bool = True
     cost_optimization: str = "balanced"  # "aggressive", "balanced", "quality"
@@ -51,7 +54,7 @@ class ProviderSelector:
         openai_base_url: Optional[str] = None,
         anthropic_model: Optional[str] = None,
         openai_model: Optional[str] = None,
-        preferences: Optional[ProviderPreferences] = None
+        preferences: Optional[ProviderPreferences] = None,
     ):
         """
         Initialize provider selector.
@@ -98,7 +101,7 @@ class ProviderSelector:
             api_key=api_key,
             model=model,
             base_url=self.openai_base_url,
-            max_tokens=16384  # Maximum output tokens for GPT-4o
+            max_tokens=16384,  # Maximum output tokens for GPT-4o
         )
 
     def _select_anthropic_model(self) -> str:
@@ -125,7 +128,7 @@ class ProviderSelector:
         task_type: TaskType = TaskType.CODE_GENERATION,
         requires_vision: bool = False,
         requires_function_calling: bool = False,
-        estimated_tokens: Optional[int] = None
+        estimated_tokens: Optional[int] = None,
     ) -> AIProvider:
         """
         Select the best provider for a task.
@@ -145,10 +148,7 @@ class ProviderSelector:
             if self.preferences.primary_provider in self.providers:
                 provider = self.providers[self.preferences.primary_provider]
                 if self._is_provider_suitable(
-                    provider,
-                    requires_vision,
-                    requires_function_calling,
-                    estimated_tokens
+                    provider, requires_vision, requires_function_calling, estimated_tokens
                 ):
                     return provider
 
@@ -162,7 +162,7 @@ class ProviderSelector:
                 task_type,
                 requires_vision,
                 requires_function_calling,
-                estimated_tokens
+                estimated_tokens,
             )
             scores[name] = score
 
@@ -177,7 +177,7 @@ class ProviderSelector:
         task_type: TaskType,
         requires_vision: bool,
         requires_function_calling: bool,
-        estimated_tokens: Optional[int]
+        estimated_tokens: Optional[int],
     ) -> float:
         """
         Score a provider for a task (higher is better).
@@ -244,7 +244,7 @@ class ProviderSelector:
         provider: AIProvider,
         requires_vision: bool,
         requires_function_calling: bool,
-        estimated_tokens: Optional[int]
+        estimated_tokens: Optional[int],
     ) -> bool:
         """Check if provider meets basic requirements"""
         if requires_vision and not provider.supports_vision():

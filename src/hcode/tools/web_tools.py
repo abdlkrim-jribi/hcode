@@ -52,10 +52,7 @@ class WebFetchTool(BaseTool):
                     return ToolResult(
                         success=True,
                         output=f"Redirected to: {response.url}",
-                        metadata={
-                            "redirect_url": str(response.url),
-                            "original_url": url
-                        }
+                        metadata={"redirect_url": str(response.url), "original_url": url},
                     )
 
                 response.raise_for_status()
@@ -75,8 +72,8 @@ class WebFetchTool(BaseTool):
                     metadata={
                         "url": str(response.url),
                         "status_code": response.status_code,
-                        "content_length": len(markdown_content)
-                    }
+                        "content_length": len(markdown_content),
+                    },
                 )
 
                 # Cache result
@@ -88,7 +85,7 @@ class WebFetchTool(BaseTool):
             return ToolResult(
                 success=False,
                 output=None,
-                error=f"HTTP {e.response.status_code}: {e.response.reason_phrase}"
+                error=f"HTTP {e.response.status_code}: {e.response.reason_phrase}",
             )
         except Exception as e:
             return ToolResult(success=False, output=None, error=str(e))
@@ -109,8 +106,12 @@ class WebSearchTool(BaseTool):
         return [
             ToolParameter("query", "string", "Search query", required=True),
             ToolParameter("num_results", "integer", "Number of results to return", default=5),
-            ToolParameter("allowed_domains", "array", "Only include results from these domains", default=None),
-            ToolParameter("blocked_domains", "array", "Exclude results from these domains", default=None),
+            ToolParameter(
+                "allowed_domains", "array", "Only include results from these domains", default=None
+            ),
+            ToolParameter(
+                "blocked_domains", "array", "Exclude results from these domains", default=None
+            ),
         ]
 
     async def execute(
@@ -118,7 +119,7 @@ class WebSearchTool(BaseTool):
         query: str,
         num_results: int = 5,
         allowed_domains: Optional[List[str]] = None,
-        blocked_domains: Optional[List[str]] = None
+        blocked_domains: Optional[List[str]] = None,
     ) -> ToolResult:
         """Search the web"""
         try:
@@ -126,21 +127,15 @@ class WebSearchTool(BaseTool):
                 return ToolResult(
                     success=False,
                     output=None,
-                    error="Web search requires API key. Set SEARCH_API_KEY environment variable."
+                    error="Web search requires API key. Set SEARCH_API_KEY environment variable.",
                 )
 
             # Use Brave Search API as an example
             url = "https://api.search.brave.com/res/v1/web/search"
 
-            params = {
-                "q": query,
-                "count": num_results
-            }
+            params = {"q": query, "count": num_results}
 
-            headers = {
-                "Accept": "application/json",
-                "X-Subscription-Token": self.api_key
-            }
+            headers = {"Accept": "application/json", "X-Subscription-Token": self.api_key}
 
             async with httpx.AsyncClient() as client:
                 response = await client.get(url, params=params, headers=headers)
@@ -159,25 +154,21 @@ class WebSearchTool(BaseTool):
                     if any(domain in item["url"] for domain in blocked_domains):
                         continue
 
-                results.append({
-                    "title": item.get("title", ""),
-                    "url": item.get("url", ""),
-                    "description": item.get("description", ""),
-                })
+                results.append(
+                    {
+                        "title": item.get("title", ""),
+                        "url": item.get("url", ""),
+                        "description": item.get("description", ""),
+                    }
+                )
 
             # Format output
-            output = "\n\n".join([
-                f"**{r['title']}**\n{r['url']}\n{r['description']}"
-                for r in results
-            ])
+            output = "\n\n".join(
+                [f"**{r['title']}**\n{r['url']}\n{r['description']}" for r in results]
+            )
 
             return ToolResult(
-                success=True,
-                output=output,
-                metadata={
-                    "query": query,
-                    "num_results": len(results)
-                }
+                success=True, output=output, metadata={"query": query, "num_results": len(results)}
             )
 
         except Exception as e:
@@ -196,15 +187,14 @@ class WebScrapeTool(BaseTool):
     def get_parameters(self) -> List[ToolParameter]:
         return [
             ToolParameter("url", "string", "URL to scrape", required=True),
-            ToolParameter("selector", "string", "CSS selector for elements to extract", default=None),
+            ToolParameter(
+                "selector", "string", "CSS selector for elements to extract", default=None
+            ),
             ToolParameter("extract_links", "boolean", "Extract all links", default=False),
         ]
 
     async def execute(
-        self,
-        url: str,
-        selector: Optional[str] = None,
-        extract_links: bool = False
+        self, url: str, selector: Optional[str] = None, extract_links: bool = False
     ) -> ToolResult:
         """Scrape website content"""
         try:
@@ -214,17 +204,17 @@ class WebScrapeTool(BaseTool):
                 response = await client.get(url)
                 response.raise_for_status()
 
-                soup = BeautifulSoup(response.text, 'html.parser')
+                soup = BeautifulSoup(response.text, "html.parser")
 
                 if extract_links:
-                    links = [a.get('href') for a in soup.find_all('a', href=True)]
+                    links = [a.get("href") for a in soup.find_all("a", href=True)]
                     # Convert relative URLs to absolute
                     base_url = str(response.url)
                     absolute_links = []
                     for link in links:
-                        if link.startswith('http'):
+                        if link.startswith("http"):
                             absolute_links.append(link)
-                        elif link.startswith('/'):
+                        elif link.startswith("/"):
                             absolute_links.append(f"{base_url.rstrip('/')}{link}")
                     output = "\n".join(absolute_links)
 
@@ -233,22 +223,19 @@ class WebScrapeTool(BaseTool):
                     output = "\n\n".join([elem.get_text(strip=True) for elem in elements])
 
                 else:
-                    output = soup.get_text(separator='\n', strip=True)
+                    output = soup.get_text(separator="\n", strip=True)
 
                 return ToolResult(
                     success=True,
                     output=output,
-                    metadata={
-                        "url": url,
-                        "items_extracted": len(output.split('\n'))
-                    }
+                    metadata={"url": url, "items_extracted": len(output.split("\n"))},
                 )
 
         except ImportError:
             return ToolResult(
                 success=False,
                 output=None,
-                error="BeautifulSoup4 not installed. Run: pip install beautifulsoup4"
+                error="BeautifulSoup4 not installed. Run: pip install beautifulsoup4",
             )
         except Exception as e:
             return ToolResult(success=False, output=None, error=str(e))

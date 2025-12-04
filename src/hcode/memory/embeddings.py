@@ -2,6 +2,7 @@
 Local embedding generation using sentence-transformers.
 No external API calls required - runs entirely locally.
 """
+
 from typing import List, Optional, Union
 import numpy as np
 from pathlib import Path
@@ -17,10 +18,10 @@ class EmbeddingModel:
     Lazy loads model on first use to avoid startup overhead.
     """
 
-    _instance: Optional['EmbeddingModel'] = None
+    _instance: Optional["EmbeddingModel"] = None
     _model = None
 
-    def __new__(cls) -> 'EmbeddingModel':
+    def __new__(cls) -> "EmbeddingModel":
         """Singleton pattern for shared model instance."""
         if cls._instance is None:
             cls._instance = super().__new__(cls)
@@ -38,7 +39,7 @@ class EmbeddingModel:
         """Load embedding cache from disk."""
         if self._cache_file.exists():
             try:
-                with open(self._cache_file, 'r', encoding='utf-8') as f:
+                with open(self._cache_file, "r", encoding="utf-8") as f:
                     cached = json.load(f)
                     # Convert lists back to tuples for hashable keys
                     self._cache = {k: np.array(v) for k, v in cached.items()}
@@ -52,7 +53,7 @@ class EmbeddingModel:
             serializable = {k: v.tolist() for k, v in self._cache.items()}
             # Only save if cache is reasonable size
             if len(serializable) <= 10000:
-                with open(self._cache_file, 'w', encoding='utf-8') as f:
+                with open(self._cache_file, "w", encoding="utf-8") as f:
                     json.dump(serializable, f)
         except Exception:
             pass  # Cache save failure is not critical
@@ -62,6 +63,7 @@ class EmbeddingModel:
         if EmbeddingModel._model is None:
             try:
                 from sentence_transformers import SentenceTransformer
+
                 EmbeddingModel._model = SentenceTransformer(self.model_name)
             except ImportError:
                 raise ImportError(
@@ -72,7 +74,7 @@ class EmbeddingModel:
 
     def _hash_text(self, text: str) -> str:
         """Create a hash key for text."""
-        return hashlib.md5(text.encode('utf-8')).hexdigest()
+        return hashlib.md5(text.encode("utf-8")).hexdigest()
 
     def embed(self, text: str, use_cache: bool = True) -> np.ndarray:
         """
@@ -111,7 +113,7 @@ class EmbeddingModel:
         texts: List[str],
         use_cache: bool = True,
         batch_size: int = 32,
-        show_progress: bool = False
+        show_progress: bool = False,
     ) -> np.ndarray:
         """
         Generate embeddings for multiple texts efficiently.
@@ -151,7 +153,7 @@ class EmbeddingModel:
                 texts_to_encode,
                 convert_to_numpy=True,
                 batch_size=batch_size,
-                show_progress_bar=show_progress
+                show_progress_bar=show_progress,
             )
 
             # Store results and update cache
@@ -191,7 +193,7 @@ class EmbeddingModel:
         query_embedding: np.ndarray,
         candidate_embeddings: np.ndarray,
         top_k: int = 10,
-        threshold: float = 0.0
+        threshold: float = 0.0,
     ) -> List[tuple]:
         """
         Find most similar embeddings from candidates.
@@ -243,7 +245,7 @@ class EmbeddingModel:
         return {
             "cached_embeddings": len(self._cache),
             "cache_file": str(self._cache_file),
-            "cache_file_exists": self._cache_file.exists()
+            "cache_file_exists": self._cache_file.exists(),
         }
 
 
@@ -310,6 +312,7 @@ def get_embedding_model_safe() -> Union[EmbeddingModel, FallbackEmbedding]:
     """
     try:
         import sentence_transformers
+
         return EmbeddingModel()
     except ImportError:
         return FallbackEmbedding(config.embedding_dim)

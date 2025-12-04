@@ -24,13 +24,15 @@ import statistics
 
 class ReasoningLevel(Enum):
     """Reasoning depth levels based on task complexity"""
-    QUICK = 1       # Simple operations, fast decisions
-    STANDARD = 2    # Most operations, moderate reasoning
-    DEEP = 3        # Complex tasks, comprehensive analysis
+
+    QUICK = 1  # Simple operations, fast decisions
+    STANDARD = 2  # Most operations, moderate reasoning
+    DEEP = 3  # Complex tasks, comprehensive analysis
 
 
 class ReasoningPhase(Enum):
     """Enhanced reasoning phases for structured thinking"""
+
     # Phase 1: Perception
     PERCEPTION = "perception"
 
@@ -59,6 +61,7 @@ class ReasoningPhase(Enum):
 @dataclass
 class PerceptionOutput:
     """Structured output for perception phase"""
+
     observation: str = ""
     implicit_needs: List[str] = field(default_factory=list)
     key_entities: List[str] = field(default_factory=list)
@@ -72,13 +75,14 @@ class PerceptionOutput:
             "observation": self.observation,
             "implicit_needs": self.implicit_needs,
             "key_entities": self.key_entities,
-            "initial_interpretation": self.initial_interpretation
+            "initial_interpretation": self.initial_interpretation,
         }
 
 
 @dataclass
 class ComprehensionOutput:
     """Structured output for comprehension phase"""
+
     core_understanding: str = ""
     context: str = ""
     assumptions: List[str] = field(default_factory=list)
@@ -94,13 +98,14 @@ class ComprehensionOutput:
             "context": self.context,
             "assumptions": self.assumptions,
             "constraints": self.constraints,
-            "success_criteria": self.success_criteria
+            "success_criteria": self.success_criteria,
         }
 
 
 @dataclass
 class AnalysisOutput:
     """Structured output for analysis phase"""
+
     decomposition: List[str] = field(default_factory=list)
     dependencies: List[Dict[str, str]] = field(default_factory=list)
     options: List[Dict[str, Any]] = field(default_factory=list)
@@ -116,13 +121,14 @@ class AnalysisOutput:
             "dependencies": self.dependencies,
             "options": self.options,
             "risks": self.risks,
-            "complexity_score": self.complexity_score
+            "complexity_score": self.complexity_score,
         }
 
 
 @dataclass
 class ReasoningOutput:
     """Structured output for reasoning phase"""
+
     hypothesis: str = ""
     evidence_for: List[str] = field(default_factory=list)
     evidence_against: List[str] = field(default_factory=list)
@@ -140,13 +146,14 @@ class ReasoningOutput:
             "evidence_against": self.evidence_against,
             "counter_arguments": self.counter_arguments,
             "logical_chain": self.logical_chain,
-            "confidence": self.confidence
+            "confidence": self.confidence,
         }
 
 
 @dataclass
 class DecisionOutput:
     """Structured output for decision phase"""
+
     decision: str = ""
     justification: str = ""
     confidence: float = 0.0
@@ -164,13 +171,14 @@ class DecisionOutput:
             "confidence": self.confidence,
             "fallback_plan": self.fallback_plan,
             "action_items": self.action_items,
-            "expected_outcome": self.expected_outcome
+            "expected_outcome": self.expected_outcome,
         }
 
 
 @dataclass
 class VerificationOutput:
     """Structured output for verification phase"""
+
     safety_check: str = ""
     validation_steps: List[str] = field(default_factory=list)
     potential_issues: List[str] = field(default_factory=list)
@@ -188,13 +196,14 @@ class VerificationOutput:
             "potential_issues": self.potential_issues,
             "risk_mitigation": self.risk_mitigation,
             "final_confidence": self.final_confidence,
-            "ready_to_execute": self.ready_to_execute
+            "ready_to_execute": self.ready_to_execute,
         }
 
 
 @dataclass
 class ChangeImpactOutput:
     """Structured output for change impact analysis phase (NEW)"""
+
     files_affected: List[str] = field(default_factory=list)
     dependencies_affected: List[str] = field(default_factory=list)
     breaking_changes: List[str] = field(default_factory=list)
@@ -214,13 +223,14 @@ class ChangeImpactOutput:
             "side_effects": self.side_effects,
             "rollback_strategy": self.rollback_strategy,
             "impact_score": self.impact_score,
-            "requires_review": self.requires_review
+            "requires_review": self.requires_review,
         }
 
 
 @dataclass
 class PreExecutionReviewOutput:
     """Structured output for pre-execution review phase (NEW)"""
+
     changes_summary: List[str] = field(default_factory=list)
     what_will_change: str = ""
     what_could_go_wrong: List[str] = field(default_factory=list)
@@ -242,13 +252,14 @@ class PreExecutionReviewOutput:
             "confidence_in_approach": self.confidence_in_approach,
             "user_approval_needed": self.user_approval_needed,
             "approval_reason": self.approval_reason,
-            "proceed_recommendation": self.proceed_recommendation
+            "proceed_recommendation": self.proceed_recommendation,
         }
 
 
 @dataclass
 class StructuredReasoning:
     """Complete structured reasoning output across all phases (8 phases)"""
+
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
     level: ReasoningLevel = ReasoningLevel.STANDARD
 
@@ -259,7 +270,9 @@ class StructuredReasoning:
     reasoning: ReasoningOutput = field(default_factory=ReasoningOutput)
     change_impact: ChangeImpactOutput = field(default_factory=ChangeImpactOutput)  # NEW
     decision: DecisionOutput = field(default_factory=DecisionOutput)
-    pre_execution_review: PreExecutionReviewOutput = field(default_factory=PreExecutionReviewOutput)  # NEW
+    pre_execution_review: PreExecutionReviewOutput = field(
+        default_factory=PreExecutionReviewOutput
+    )  # NEW
     verification: VerificationOutput = field(default_factory=VerificationOutput)
 
     # Metadata
@@ -310,7 +323,7 @@ class StructuredReasoning:
             len(self.reasoning.logical_chain) > 0,
             bool(self.decision.fallback_plan),
             len(self.decision.action_items) > 0,
-            self.verification.ready_to_execute or len(self.verification.potential_issues) > 0
+            self.verification.ready_to_execute or len(self.verification.potential_issues) > 0,
         ]
         coherence = sum(coherence_factors) / len(coherence_factors)
         self.coherence_score = coherence
@@ -334,20 +347,20 @@ class StructuredReasoning:
     def is_self_critical(self) -> bool:
         """Check if reasoning includes self-critique"""
         return (
-            len(self.reasoning.evidence_against) > 0 or
-            len(self.reasoning.counter_arguments) > 0 or
-            len(self.verification.potential_issues) > 0 or
-            len(self.pre_execution_review.what_could_go_wrong) > 0 or
-            len(self.change_impact.breaking_changes) > 0
+            len(self.reasoning.evidence_against) > 0
+            or len(self.reasoning.counter_arguments) > 0
+            or len(self.verification.potential_issues) > 0
+            or len(self.pre_execution_review.what_could_go_wrong) > 0
+            or len(self.change_impact.breaking_changes) > 0
         )
 
     def requires_user_approval(self) -> bool:
         """Check if change requires user approval based on impact"""
         return (
-            self.pre_execution_review.user_approval_needed or
-            self.change_impact.requires_review or
-            self.change_impact.impact_score > 0.7 or
-            len(self.change_impact.breaking_changes) > 0
+            self.pre_execution_review.user_approval_needed
+            or self.change_impact.requires_review
+            or self.change_impact.impact_score > 0.7
+            or len(self.change_impact.breaking_changes) > 0
         )
 
     def get_change_summary(self) -> str:
@@ -399,7 +412,7 @@ class StructuredReasoning:
             "change_summary": self.get_change_summary(),
             "timestamp": self.timestamp.isoformat(),
             "tokens_used": self.tokens_used,
-            "duration_ms": self.duration_ms
+            "duration_ms": self.duration_ms,
         }
 
 
@@ -416,110 +429,103 @@ class ReasoningParser:
     # Phase header patterns (8 phases)
     PHASE_PATTERNS = {
         ReasoningPhase.PERCEPTION: [
-            r'\[?PHASE\s*1[:\s-]*PERCEPTION\]?',
-            r'\[PERCEPTION\]',
-            r'##?\s*PERCEPTION',
-            r'OBSERVE:',
-            r'OBSERVATION:'
+            r"\[?PHASE\s*1[:\s-]*PERCEPTION\]?",
+            r"\[PERCEPTION\]",
+            r"##?\s*PERCEPTION",
+            r"OBSERVE:",
+            r"OBSERVATION:",
         ],
         ReasoningPhase.COMPREHENSION: [
-            r'\[?PHASE\s*2[:\s-]*COMPREHENSION\]?',
-            r'\[COMPREHENSION\]',
-            r'##?\s*COMPREHENSION',
-            r'\[UNDERSTAND\]',
-            r'UNDERSTANDING:'
+            r"\[?PHASE\s*2[:\s-]*COMPREHENSION\]?",
+            r"\[COMPREHENSION\]",
+            r"##?\s*COMPREHENSION",
+            r"\[UNDERSTAND\]",
+            r"UNDERSTANDING:",
         ],
         ReasoningPhase.ANALYSIS: [
-            r'\[?PHASE\s*3[:\s-]*ANALYSIS\]?',
-            r'\[ANALYSIS\]',
-            r'##?\s*ANALYSIS',
-            r'DECOMPOSE:',
-            r'ANALYZE:'
+            r"\[?PHASE\s*3[:\s-]*ANALYSIS\]?",
+            r"\[ANALYSIS\]",
+            r"##?\s*ANALYSIS",
+            r"DECOMPOSE:",
+            r"ANALYZE:",
         ],
         ReasoningPhase.REASONING: [
-            r'\[?PHASE\s*4[:\s-]*REASONING\]?',
-            r'\[REASONING\]',
-            r'##?\s*REASONING',
-            r'HYPOTHESIS:',
-            r'REASON:'
+            r"\[?PHASE\s*4[:\s-]*REASONING\]?",
+            r"\[REASONING\]",
+            r"##?\s*REASONING",
+            r"HYPOTHESIS:",
+            r"REASON:",
         ],
         ReasoningPhase.CHANGE_IMPACT: [
-            r'\[?PHASE\s*5[:\s-]*CHANGE[\s_-]*IMPACT\]?',
-            r'\[CHANGE[\s_-]*IMPACT\]',
-            r'##?\s*CHANGE[\s_-]*IMPACT',
-            r'IMPACT[\s_-]*ANALYSIS:',
-            r'FILES[\s_-]*AFFECTED:'
+            r"\[?PHASE\s*5[:\s-]*CHANGE[\s_-]*IMPACT\]?",
+            r"\[CHANGE[\s_-]*IMPACT\]",
+            r"##?\s*CHANGE[\s_-]*IMPACT",
+            r"IMPACT[\s_-]*ANALYSIS:",
+            r"FILES[\s_-]*AFFECTED:",
         ],
         ReasoningPhase.DECISION: [
-            r'\[?PHASE\s*6[:\s-]*DECISION\]?',
-            r'\[DECISION\]',
-            r'##?\s*DECISION',
-            r'DECIDE:',
-            r'CHOICE:'
+            r"\[?PHASE\s*6[:\s-]*DECISION\]?",
+            r"\[DECISION\]",
+            r"##?\s*DECISION",
+            r"DECIDE:",
+            r"CHOICE:",
         ],
         ReasoningPhase.PRE_EXECUTION_REVIEW: [
-            r'\[?PHASE\s*7[:\s-]*PRE[\s_-]*EXECUTION[\s_-]*REVIEW\]?',
-            r'\[PRE[\s_-]*EXECUTION[\s_-]*REVIEW\]',
-            r'##?\s*PRE[\s_-]*EXECUTION',
-            r'WHAT[\s_-]*WILL[\s_-]*CHANGE:',
-            r'BEFORE[\s_-]*EXECUTING:'
+            r"\[?PHASE\s*7[:\s-]*PRE[\s_-]*EXECUTION[\s_-]*REVIEW\]?",
+            r"\[PRE[\s_-]*EXECUTION[\s_-]*REVIEW\]",
+            r"##?\s*PRE[\s_-]*EXECUTION",
+            r"WHAT[\s_-]*WILL[\s_-]*CHANGE:",
+            r"BEFORE[\s_-]*EXECUTING:",
         ],
         ReasoningPhase.VERIFICATION: [
-            r'\[?PHASE\s*8[:\s-]*VERIFICATION\]?',
-            r'\[VERIFICATION\]',
-            r'##?\s*VERIFICATION',
-            r'VERIFY:',
-            r'VALIDATE:'
-        ]
+            r"\[?PHASE\s*8[:\s-]*VERIFICATION\]?",
+            r"\[VERIFICATION\]",
+            r"##?\s*VERIFICATION",
+            r"VERIFY:",
+            r"VALIDATE:",
+        ],
     }
 
     # Field extraction patterns
     FIELD_PATTERNS = {
         # Perception
-        'observation': r'(?:OBSERVE|OBSERVATION|What I see)[:\s]*(.+?)(?=\n[A-Z]|\n\n|$)',
-        'implicit_needs': r'(?:IMPLICIT|Implicit needs?)[:\s]*(.+?)(?=\n[A-Z]|\n\n|$)',
-
+        "observation": r"(?:OBSERVE|OBSERVATION|What I see)[:\s]*(.+?)(?=\n[A-Z]|\n\n|$)",
+        "implicit_needs": r"(?:IMPLICIT|Implicit needs?)[:\s]*(.+?)(?=\n[A-Z]|\n\n|$)",
         # Comprehension
-        'core_understanding': r'(?:UNDERSTAND|Core understanding|CORE)[:\s]*(.+?)(?=\n[A-Z]|\n\n|$)',
-        'context': r'(?:CONTEXT|Context)[:\s]*(.+?)(?=\n[A-Z]|\n\n|$)',
-        'assumptions': r'(?:ASSUMPTIONS?|Assumptions?)[:\s]*(.+?)(?=\n[A-Z]|\n\n|$)',
-
+        "core_understanding": r"(?:UNDERSTAND|Core understanding|CORE)[:\s]*(.+?)(?=\n[A-Z]|\n\n|$)",
+        "context": r"(?:CONTEXT|Context)[:\s]*(.+?)(?=\n[A-Z]|\n\n|$)",
+        "assumptions": r"(?:ASSUMPTIONS?|Assumptions?)[:\s]*(.+?)(?=\n[A-Z]|\n\n|$)",
         # Analysis
-        'decomposition': r'(?:DECOMPOSE|Decomposition|Steps?)[:\s]*(.+?)(?=\n[A-Z]|\n\n|$)',
-        'options': r'(?:OPTIONS?|Alternatives?)[:\s]*(.+?)(?=\n[A-Z]|\n\n|$)',
-        'risks': r'(?:RISKS?|Risk factors?)[:\s]*(.+?)(?=\n[A-Z]|\n\n|$)',
-
+        "decomposition": r"(?:DECOMPOSE|Decomposition|Steps?)[:\s]*(.+?)(?=\n[A-Z]|\n\n|$)",
+        "options": r"(?:OPTIONS?|Alternatives?)[:\s]*(.+?)(?=\n[A-Z]|\n\n|$)",
+        "risks": r"(?:RISKS?|Risk factors?)[:\s]*(.+?)(?=\n[A-Z]|\n\n|$)",
         # Reasoning
-        'hypothesis': r'(?:HYPOTHESIS|Hypothesis)[:\s]*(.+?)(?=\n[A-Z]|\n\n|$)',
-        'evidence_for': r'(?:EVIDENCE FOR|Evidence for|Supporting)[:\s]*(.+?)(?=\n[A-Z]|\n\n|$)',
-        'evidence_against': r'(?:EVIDENCE AGAINST|Evidence against|Opposing)[:\s]*(.+?)(?=\n[A-Z]|\n\n|$)',
-        'counter_arguments': r'(?:COUNTER|Counter-?arguments?)[:\s]*(.+?)(?=\n[A-Z]|\n\n|$)',
-
+        "hypothesis": r"(?:HYPOTHESIS|Hypothesis)[:\s]*(.+?)(?=\n[A-Z]|\n\n|$)",
+        "evidence_for": r"(?:EVIDENCE FOR|Evidence for|Supporting)[:\s]*(.+?)(?=\n[A-Z]|\n\n|$)",
+        "evidence_against": r"(?:EVIDENCE AGAINST|Evidence against|Opposing)[:\s]*(.+?)(?=\n[A-Z]|\n\n|$)",
+        "counter_arguments": r"(?:COUNTER|Counter-?arguments?)[:\s]*(.+?)(?=\n[A-Z]|\n\n|$)",
         # Decision
-        'decision': r'(?:DECISION|Decision|CHOICE|Choice)[:\s]*(.+?)(?=\n[A-Z]|\n\n|$)',
-        'justification': r'(?:JUSTIFICATION|Justification|WHY|Why)[:\s]*(.+?)(?=\n[A-Z]|\n\n|$)',
-        'confidence': r'(?:CONFIDENCE|Confidence)[:\s]*(\d+(?:\.\d+)?)',
-        'fallback': r'(?:FALLBACK|Fallback|Plan B)[:\s]*(.+?)(?=\n[A-Z]|\n\n|$)',
-        'action_items': r'(?:ACTIONS?|Action items?|TODO|Tasks?)[:\s]*(.+?)(?=\n[A-Z]|\n\n|$)',
-
+        "decision": r"(?:DECISION|Decision|CHOICE|Choice)[:\s]*(.+?)(?=\n[A-Z]|\n\n|$)",
+        "justification": r"(?:JUSTIFICATION|Justification|WHY|Why)[:\s]*(.+?)(?=\n[A-Z]|\n\n|$)",
+        "confidence": r"(?:CONFIDENCE|Confidence)[:\s]*(\d+(?:\.\d+)?)",
+        "fallback": r"(?:FALLBACK|Fallback|Plan B)[:\s]*(.+?)(?=\n[A-Z]|\n\n|$)",
+        "action_items": r"(?:ACTIONS?|Action items?|TODO|Tasks?)[:\s]*(.+?)(?=\n[A-Z]|\n\n|$)",
         # Verification
-        'safety_check': r'(?:SAFETY|Safety check|RISK CHECK)[:\s]*(.+?)(?=\n[A-Z]|\n\n|$)',
-        'validation': r'(?:VALIDATE|Validation|VERIFY)[:\s]*(.+?)(?=\n[A-Z]|\n\n|$)',
-        'potential_issues': r'(?:ISSUES?|Potential issues?|Problems?)[:\s]*(.+?)(?=\n[A-Z]|\n\n|$)',
-
+        "safety_check": r"(?:SAFETY|Safety check|RISK CHECK)[:\s]*(.+?)(?=\n[A-Z]|\n\n|$)",
+        "validation": r"(?:VALIDATE|Validation|VERIFY)[:\s]*(.+?)(?=\n[A-Z]|\n\n|$)",
+        "potential_issues": r"(?:ISSUES?|Potential issues?|Problems?)[:\s]*(.+?)(?=\n[A-Z]|\n\n|$)",
         # Change Impact (NEW)
-        'files_affected': r'(?:FILES?\s*AFFECTED|Affected files?)[:\s]*(.+?)(?=\n[A-Z]|\n\n|$)',
-        'dependencies_affected': r'(?:DEPENDENCIES?\s*AFFECTED|Affected dependencies?)[:\s]*(.+?)(?=\n[A-Z]|\n\n|$)',
-        'breaking_changes': r'(?:BREAKING\s*CHANGES?|Breaking changes?)[:\s]*(.+?)(?=\n[A-Z]|\n\n|$)',
-        'side_effects': r'(?:SIDE\s*EFFECTS?|Side effects?)[:\s]*(.+?)(?=\n[A-Z]|\n\n|$)',
-        'rollback_strategy': r'(?:ROLLBACK|Rollback strategy)[:\s]*(.+?)(?=\n[A-Z]|\n\n|$)',
-        'impact_score': r'(?:IMPACT\s*SCORE|Impact score)[:\s]*(\d+(?:\.\d+)?)',
-
+        "files_affected": r"(?:FILES?\s*AFFECTED|Affected files?)[:\s]*(.+?)(?=\n[A-Z]|\n\n|$)",
+        "dependencies_affected": r"(?:DEPENDENCIES?\s*AFFECTED|Affected dependencies?)[:\s]*(.+?)(?=\n[A-Z]|\n\n|$)",
+        "breaking_changes": r"(?:BREAKING\s*CHANGES?|Breaking changes?)[:\s]*(.+?)(?=\n[A-Z]|\n\n|$)",
+        "side_effects": r"(?:SIDE\s*EFFECTS?|Side effects?)[:\s]*(.+?)(?=\n[A-Z]|\n\n|$)",
+        "rollback_strategy": r"(?:ROLLBACK|Rollback strategy)[:\s]*(.+?)(?=\n[A-Z]|\n\n|$)",
+        "impact_score": r"(?:IMPACT\s*SCORE|Impact score)[:\s]*(\d+(?:\.\d+)?)",
         # Pre-Execution Review (NEW)
-        'what_will_change': r'(?:WHAT\s*WILL\s*CHANGE|What will change)[:\s]*(.+?)(?=\n[A-Z]|\n\n|$)',
-        'what_could_go_wrong': r'(?:WHAT\s*COULD\s*GO\s*WRONG|Risks?|What could go wrong)[:\s]*(.+?)(?=\n[A-Z]|\n\n|$)',
-        'alternative_approaches': r'(?:ALTERNATIVES?|Alternative approaches?)[:\s]*(.+?)(?=\n[A-Z]|\n\n|$)',
-        'approval_reason': r'(?:APPROVAL\s*REASON|Why approve)[:\s]*(.+?)(?=\n[A-Z]|\n\n|$)',
+        "what_will_change": r"(?:WHAT\s*WILL\s*CHANGE|What will change)[:\s]*(.+?)(?=\n[A-Z]|\n\n|$)",
+        "what_could_go_wrong": r"(?:WHAT\s*COULD\s*GO\s*WRONG|Risks?|What could go wrong)[:\s]*(.+?)(?=\n[A-Z]|\n\n|$)",
+        "alternative_approaches": r"(?:ALTERNATIVES?|Alternative approaches?)[:\s]*(.+?)(?=\n[A-Z]|\n\n|$)",
+        "approval_reason": r"(?:APPROVAL\s*REASON|Why approve)[:\s]*(.+?)(?=\n[A-Z]|\n\n|$)",
     }
 
     def __init__(self):
@@ -530,8 +536,7 @@ class ReasoningParser:
         """Pre-compile regex patterns for efficiency"""
         for phase, patterns in self.PHASE_PATTERNS.items():
             self._compiled_patterns[phase] = [
-                re.compile(p, re.IGNORECASE | re.MULTILINE)
-                for p in patterns
+                re.compile(p, re.IGNORECASE | re.MULTILINE) for p in patterns
             ]
 
         for name, pattern in self.FIELD_PATTERNS.items():
@@ -566,9 +571,7 @@ class ReasoningParser:
 
         # Parse each phase
         if ReasoningPhase.PERCEPTION in phase_contents:
-            result.perception = self._parse_perception(
-                phase_contents[ReasoningPhase.PERCEPTION]
-            )
+            result.perception = self._parse_perception(phase_contents[ReasoningPhase.PERCEPTION])
 
         if ReasoningPhase.COMPREHENSION in phase_contents:
             result.comprehension = self._parse_comprehension(
@@ -576,14 +579,10 @@ class ReasoningParser:
             )
 
         if ReasoningPhase.ANALYSIS in phase_contents:
-            result.analysis = self._parse_analysis(
-                phase_contents[ReasoningPhase.ANALYSIS]
-            )
+            result.analysis = self._parse_analysis(phase_contents[ReasoningPhase.ANALYSIS])
 
         if ReasoningPhase.REASONING in phase_contents:
-            result.reasoning = self._parse_reasoning(
-                phase_contents[ReasoningPhase.REASONING]
-            )
+            result.reasoning = self._parse_reasoning(phase_contents[ReasoningPhase.REASONING])
 
         if ReasoningPhase.CHANGE_IMPACT in phase_contents:
             result.change_impact = self._parse_change_impact(
@@ -591,9 +590,7 @@ class ReasoningParser:
             )
 
         if ReasoningPhase.DECISION in phase_contents:
-            result.decision = self._parse_decision(
-                phase_contents[ReasoningPhase.DECISION]
-            )
+            result.decision = self._parse_decision(phase_contents[ReasoningPhase.DECISION])
 
         if ReasoningPhase.PRE_EXECUTION_REVIEW in phase_contents:
             result.pre_execution_review = self._parse_pre_execution_review(
@@ -612,7 +609,7 @@ class ReasoningParser:
 
     def _extract_thinking_block(self, content: str) -> Optional[str]:
         """Extract content from <thinking> tags"""
-        pattern = re.compile(r'<thinking>(.*?)</thinking>', re.DOTALL | re.IGNORECASE)
+        pattern = re.compile(r"<thinking>(.*?)</thinking>", re.DOTALL | re.IGNORECASE)
         match = pattern.search(content)
         if match:
             return match.group(1).strip()
@@ -621,7 +618,7 @@ class ReasoningParser:
     def _try_parse_json(self, content: str) -> Optional[Dict[str, Any]]:
         """Try to parse content as JSON"""
         # Look for JSON block
-        json_pattern = re.compile(r'```json\s*(.*?)\s*```', re.DOTALL)
+        json_pattern = re.compile(r"```json\s*(.*?)\s*```", re.DOTALL)
         match = json_pattern.search(content)
         if match:
             try:
@@ -684,47 +681,53 @@ class ReasoningParser:
             return []
 
         # Try numbered list first (e.g., "1. Step one\n2. Step two")
-        numbered_items = re.findall(r'^\s*\d+\.\s*(.+?)(?=(?:^\s*\d+\.|\Z))', raw, re.MULTILINE | re.DOTALL)
+        numbered_items = re.findall(
+            r"^\s*\d+\.\s*(.+?)(?=(?:^\s*\d+\.|\Z))", raw, re.MULTILINE | re.DOTALL
+        )
         if numbered_items:
-            return [item.strip() for item in numbered_items if item.strip() and len(item.strip()) > 3]
+            return [
+                item.strip() for item in numbered_items if item.strip() and len(item.strip()) > 3
+            ]
 
         # Try bullet points (e.g., "- Step one\n- Step two")
-        bullet_items = re.findall(r'^\s*[\-\*]\s*(.+?)(?=(?:^\s*[\-\*]|\Z))', raw, re.MULTILINE | re.DOTALL)
+        bullet_items = re.findall(
+            r"^\s*[\-\*]\s*(.+?)(?=(?:^\s*[\-\*]|\Z))", raw, re.MULTILINE | re.DOTALL
+        )
         if bullet_items:
             return [item.strip() for item in bullet_items if item.strip() and len(item.strip()) > 3]
 
         # Fall back to splitting by newlines for non-list content
-        lines = [line.strip() for line in raw.split('\n') if line.strip() and len(line.strip()) > 5]
+        lines = [line.strip() for line in raw.split("\n") if line.strip() and len(line.strip()) > 5]
         return lines[:10]  # Limit to 10 items
 
     def _parse_perception(self, content: str) -> PerceptionOutput:
         """Parse perception phase content"""
         return PerceptionOutput(
-            observation=self._extract_field(content, 'observation') or content[:200],
-            implicit_needs=self._extract_list(content, 'implicit_needs'),
-            key_entities=self._extract_list(content, 'key_entities'),
-            initial_interpretation=self._extract_field(content, 'interpretation') or ""
+            observation=self._extract_field(content, "observation") or content[:200],
+            implicit_needs=self._extract_list(content, "implicit_needs"),
+            key_entities=self._extract_list(content, "key_entities"),
+            initial_interpretation=self._extract_field(content, "interpretation") or "",
         )
 
     def _parse_comprehension(self, content: str) -> ComprehensionOutput:
         """Parse comprehension phase content"""
         return ComprehensionOutput(
-            core_understanding=self._extract_field(content, 'core_understanding') or content[:200],
-            context=self._extract_field(content, 'context'),
-            assumptions=self._extract_list(content, 'assumptions'),
-            constraints=self._extract_list(content, 'constraints'),
-            success_criteria=self._extract_list(content, 'success_criteria')
+            core_understanding=self._extract_field(content, "core_understanding") or content[:200],
+            context=self._extract_field(content, "context"),
+            assumptions=self._extract_list(content, "assumptions"),
+            constraints=self._extract_list(content, "constraints"),
+            success_criteria=self._extract_list(content, "success_criteria"),
         )
 
     def _parse_analysis(self, content: str) -> AnalysisOutput:
         """Parse analysis phase content"""
-        decomposition = self._extract_list(content, 'decomposition')
+        decomposition = self._extract_list(content, "decomposition")
 
         # Parse options with pros/cons if available
-        options_raw = self._extract_field(content, 'options')
+        options_raw = self._extract_field(content, "options")
         options = []
         if options_raw:
-            option_parts = re.split(r'\n(?=\d+\.|\-)', options_raw)
+            option_parts = re.split(r"\n(?=\d+\.|\-)", options_raw)
             for part in option_parts:
                 if part.strip():
                     options.append({"description": part.strip()})
@@ -733,13 +736,13 @@ class ReasoningParser:
             decomposition=decomposition or self._split_into_steps(content),
             dependencies=self._extract_dependencies(content),
             options=options,
-            risks=self._extract_list(content, 'risks'),
-            complexity_score=self._estimate_complexity(content)
+            risks=self._extract_list(content, "risks"),
+            complexity_score=self._estimate_complexity(content),
         )
 
     def _parse_reasoning(self, content: str) -> ReasoningOutput:
         """Parse reasoning phase content"""
-        confidence_str = self._extract_field(content, 'confidence')
+        confidence_str = self._extract_field(content, "confidence")
         confidence = 0.0
         if confidence_str:
             try:
@@ -750,17 +753,17 @@ class ReasoningParser:
                 pass
 
         return ReasoningOutput(
-            hypothesis=self._extract_field(content, 'hypothesis') or content[:200],
-            evidence_for=self._extract_list(content, 'evidence_for'),
-            evidence_against=self._extract_list(content, 'evidence_against'),
-            counter_arguments=self._extract_list(content, 'counter_arguments'),
+            hypothesis=self._extract_field(content, "hypothesis") or content[:200],
+            evidence_for=self._extract_list(content, "evidence_for"),
+            evidence_against=self._extract_list(content, "evidence_against"),
+            counter_arguments=self._extract_list(content, "counter_arguments"),
             logical_chain=self._extract_logical_chain(content),
-            confidence=confidence
+            confidence=confidence,
         )
 
     def _parse_decision(self, content: str) -> DecisionOutput:
         """Parse decision phase content"""
-        confidence_str = self._extract_field(content, 'confidence')
+        confidence_str = self._extract_field(content, "confidence")
         confidence = 0.0
         if confidence_str:
             try:
@@ -771,17 +774,17 @@ class ReasoningParser:
                 pass
 
         return DecisionOutput(
-            decision=self._extract_field(content, 'decision') or content[:200],
-            justification=self._extract_field(content, 'justification'),
+            decision=self._extract_field(content, "decision") or content[:200],
+            justification=self._extract_field(content, "justification"),
             confidence=confidence,
-            fallback_plan=self._extract_field(content, 'fallback'),
-            action_items=self._extract_list(content, 'action_items'),
-            expected_outcome=self._extract_field(content, 'expected_outcome')
+            fallback_plan=self._extract_field(content, "fallback"),
+            action_items=self._extract_list(content, "action_items"),
+            expected_outcome=self._extract_field(content, "expected_outcome"),
         )
 
     def _parse_verification(self, content: str) -> VerificationOutput:
         """Parse verification phase content"""
-        confidence_str = self._extract_field(content, 'confidence')
+        confidence_str = self._extract_field(content, "confidence")
         confidence = 0.0
         if confidence_str:
             try:
@@ -792,21 +795,21 @@ class ReasoningParser:
                 pass
 
         # Determine if ready to execute
-        ready_indicators = ['ready', 'proceed', 'execute', 'safe to', 'approved']
+        ready_indicators = ["ready", "proceed", "execute", "safe to", "approved"]
         ready = any(ind in content.lower() for ind in ready_indicators)
 
         return VerificationOutput(
-            safety_check=self._extract_field(content, 'safety_check') or "Not specified",
-            validation_steps=self._extract_list(content, 'validation'),
-            potential_issues=self._extract_list(content, 'potential_issues'),
-            risk_mitigation=self._extract_list(content, 'risk_mitigation'),
+            safety_check=self._extract_field(content, "safety_check") or "Not specified",
+            validation_steps=self._extract_list(content, "validation"),
+            potential_issues=self._extract_list(content, "potential_issues"),
+            risk_mitigation=self._extract_list(content, "risk_mitigation"),
             final_confidence=confidence,
-            ready_to_execute=ready
+            ready_to_execute=ready,
         )
 
     def _parse_change_impact(self, content: str) -> ChangeImpactOutput:
         """Parse change impact phase content (NEW)"""
-        impact_str = self._extract_field(content, 'impact_score')
+        impact_str = self._extract_field(content, "impact_score")
         impact_score = 0.0
         if impact_str:
             try:
@@ -817,27 +820,27 @@ class ReasoningParser:
                 pass
 
         # Determine if review is required
-        review_indicators = ['review', 'approval', 'breaking', 'critical', 'major']
+        review_indicators = ["review", "approval", "breaking", "critical", "major"]
         requires_review = any(ind in content.lower() for ind in review_indicators)
 
         # If breaking changes found, always require review
-        breaking_changes = self._extract_list(content, 'breaking_changes')
+        breaking_changes = self._extract_list(content, "breaking_changes")
         if breaking_changes:
             requires_review = True
 
         return ChangeImpactOutput(
-            files_affected=self._extract_list(content, 'files_affected'),
-            dependencies_affected=self._extract_list(content, 'dependencies_affected'),
+            files_affected=self._extract_list(content, "files_affected"),
+            dependencies_affected=self._extract_list(content, "dependencies_affected"),
             breaking_changes=breaking_changes,
-            side_effects=self._extract_list(content, 'side_effects'),
-            rollback_strategy=self._extract_field(content, 'rollback_strategy'),
+            side_effects=self._extract_list(content, "side_effects"),
+            rollback_strategy=self._extract_field(content, "rollback_strategy"),
             impact_score=impact_score,
-            requires_review=requires_review
+            requires_review=requires_review,
         )
 
     def _parse_pre_execution_review(self, content: str) -> PreExecutionReviewOutput:
         """Parse pre-execution review phase content (NEW)"""
-        confidence_str = self._extract_field(content, 'confidence')
+        confidence_str = self._extract_field(content, "confidence")
         confidence = 0.0
         if confidence_str:
             try:
@@ -848,58 +851,64 @@ class ReasoningParser:
                 pass
 
         # Determine if approval needed
-        approval_indicators = ['approval', 'confirm', 'review', 'check']
+        approval_indicators = ["approval", "confirm", "review", "check"]
         approval_needed = any(ind in content.lower() for ind in approval_indicators)
 
         # Determine if proceed is recommended
-        proceed_indicators = ['proceed', 'safe', 'ready', 'recommend']
+        proceed_indicators = ["proceed", "safe", "ready", "recommend"]
         proceed = any(ind in content.lower() for ind in proceed_indicators)
 
         # Extract what could go wrong
-        what_could_go_wrong = self._extract_list(content, 'what_could_go_wrong')
+        what_could_go_wrong = self._extract_list(content, "what_could_go_wrong")
         if not what_could_go_wrong:
             # Also look for risks
-            what_could_go_wrong = self._extract_list(content, 'risks')
+            what_could_go_wrong = self._extract_list(content, "risks")
 
         return PreExecutionReviewOutput(
-            changes_summary=self._extract_list(content, 'changes'),
-            what_will_change=self._extract_field(content, 'what_will_change') or content[:200],
+            changes_summary=self._extract_list(content, "changes"),
+            what_will_change=self._extract_field(content, "what_will_change") or content[:200],
             what_could_go_wrong=what_could_go_wrong,
-            alternative_approaches=self._extract_list(content, 'alternative_approaches'),
+            alternative_approaches=self._extract_list(content, "alternative_approaches"),
             confidence_in_approach=confidence,
             user_approval_needed=approval_needed,
-            approval_reason=self._extract_field(content, 'approval_reason'),
-            proceed_recommendation=proceed
+            approval_reason=self._extract_field(content, "approval_reason"),
+            proceed_recommendation=proceed,
         )
 
     def _split_into_steps(self, content: str) -> List[str]:
         """Split content into logical steps"""
         # Try numbered list (e.g., "1. Create user model\n2. Implement auth")
-        numbered = re.findall(r'^\s*\d+\.\s*(.+?)(?=(?:^\s*\d+\.|\n\n|\Z))', content, re.MULTILINE | re.DOTALL)
+        numbered = re.findall(
+            r"^\s*\d+\.\s*(.+?)(?=(?:^\s*\d+\.|\n\n|\Z))", content, re.MULTILINE | re.DOTALL
+        )
         if numbered:
             return [s.strip() for s in numbered if s.strip() and len(s.strip()) > 5]
 
         # Try bullet points (e.g., "- Create user model\n- Implement auth")
-        bullets = re.findall(r'^\s*[\-\*]\s*(.+?)(?=(?:^\s*[\-\*]|\n\n|\Z))', content, re.MULTILINE | re.DOTALL)
+        bullets = re.findall(
+            r"^\s*[\-\*]\s*(.+?)(?=(?:^\s*[\-\*]|\n\n|\Z))", content, re.MULTILINE | re.DOTALL
+        )
         if bullets:
             return [s.strip() for s in bullets if s.strip() and len(s.strip()) > 5]
 
         # Try splitting by newlines for line-based content
-        lines = [line.strip() for line in content.split('\n') if line.strip() and len(line.strip()) > 10]
+        lines = [
+            line.strip() for line in content.split("\n") if line.strip() and len(line.strip()) > 10
+        ]
         if lines:
             return lines[:10]  # Limit to 10 steps
 
         # Split by sentences as fallback
-        sentences = re.split(r'[.!?]\s+', content)
+        sentences = re.split(r"[.!?]\s+", content)
         return [s.strip() for s in sentences if len(s.strip()) > 10][:5]
 
     def _extract_dependencies(self, content: str) -> List[Dict[str, str]]:
         """Extract dependency relationships"""
         deps = []
         patterns = [
-            r'(\w+)\s+depends on\s+(\w+)',
-            r'(\w+)\s+requires\s+(\w+)',
-            r'before\s+(\w+).*?(\w+)',
+            r"(\w+)\s+depends on\s+(\w+)",
+            r"(\w+)\s+requires\s+(\w+)",
+            r"before\s+(\w+).*?(\w+)",
         ]
 
         for pattern in patterns:
@@ -915,11 +924,11 @@ class ReasoningParser:
 
         # Look for therefore/because/since patterns
         patterns = [
-            r'because\s+(.+?)(?:[,.]|therefore|since|$)',
-            r'therefore\s+(.+?)(?:[,.]|because|$)',
-            r'since\s+(.+?)(?:[,.]|therefore|$)',
-            r'thus\s+(.+?)(?:[,.]|$)',
-            r'hence\s+(.+?)(?:[,.]|$)',
+            r"because\s+(.+?)(?:[,.]|therefore|since|$)",
+            r"therefore\s+(.+?)(?:[,.]|because|$)",
+            r"since\s+(.+?)(?:[,.]|therefore|$)",
+            r"thus\s+(.+?)(?:[,.]|$)",
+            r"hence\s+(.+?)(?:[,.]|$)",
         ]
 
         for pattern in patterns:
@@ -941,19 +950,19 @@ class ReasoningParser:
             score += 0.1
 
         # Multiple options mentioned
-        if re.search(r'option|alternative|approach', content, re.IGNORECASE):
+        if re.search(r"option|alternative|approach", content, re.IGNORECASE):
             score += 0.2
 
         # Dependencies mentioned
-        if re.search(r'depends|requires|before|after', content, re.IGNORECASE):
+        if re.search(r"depends|requires|before|after", content, re.IGNORECASE):
             score += 0.2
 
         # Risks mentioned
-        if re.search(r'risk|danger|careful|warning', content, re.IGNORECASE):
+        if re.search(r"risk|danger|careful|warning", content, re.IGNORECASE):
             score += 0.2
 
         # Multiple files/components
-        file_refs = re.findall(r'\w+\.\w{2,4}', content)
+        file_refs = re.findall(r"\w+\.\w{2,4}", content)
         if len(file_refs) > 3:
             score += 0.1
 
@@ -971,23 +980,21 @@ class ReasoningParser:
             return ReasoningLevel.QUICK
 
     def _populate_from_dict(
-        self,
-        result: StructuredReasoning,
-        data: Dict[str, Any]
+        self, result: StructuredReasoning, data: Dict[str, Any]
     ) -> StructuredReasoning:
         """Populate StructuredReasoning from dictionary"""
-        if 'perception' in data:
-            result.perception = PerceptionOutput(**data['perception'])
-        if 'comprehension' in data:
-            result.comprehension = ComprehensionOutput(**data['comprehension'])
-        if 'analysis' in data:
-            result.analysis = AnalysisOutput(**data['analysis'])
-        if 'reasoning' in data:
-            result.reasoning = ReasoningOutput(**data['reasoning'])
-        if 'decision' in data:
-            result.decision = DecisionOutput(**data['decision'])
-        if 'verification' in data:
-            result.verification = VerificationOutput(**data['verification'])
+        if "perception" in data:
+            result.perception = PerceptionOutput(**data["perception"])
+        if "comprehension" in data:
+            result.comprehension = ComprehensionOutput(**data["comprehension"])
+        if "analysis" in data:
+            result.analysis = AnalysisOutput(**data["analysis"])
+        if "reasoning" in data:
+            result.reasoning = ReasoningOutput(**data["reasoning"])
+        if "decision" in data:
+            result.decision = DecisionOutput(**data["decision"])
+        if "verification" in data:
+            result.verification = VerificationOutput(**data["verification"])
 
         return result
 
@@ -1014,15 +1021,10 @@ class ConfidenceCalibrator:
             "20-40": [],
             "40-60": [],
             "60-80": [],
-            "80-100": []
+            "80-100": [],
         }
 
-    def record_prediction(
-        self,
-        confidence: float,
-        task_type: str,
-        reasoning_id: str
-    ) -> str:
+    def record_prediction(self, confidence: float, task_type: str, reasoning_id: str) -> str:
         """
         Record a confidence prediction.
 
@@ -1035,14 +1037,16 @@ class ConfidenceCalibrator:
             Prediction ID for later outcome recording
         """
         prediction_id = str(uuid.uuid4())
-        self.predictions.append({
-            "id": prediction_id,
-            "confidence": confidence,
-            "task_type": task_type,
-            "reasoning_id": reasoning_id,
-            "timestamp": datetime.now(),
-            "outcome": None
-        })
+        self.predictions.append(
+            {
+                "id": prediction_id,
+                "confidence": confidence,
+                "task_type": task_type,
+                "reasoning_id": reasoning_id,
+                "timestamp": datetime.now(),
+                "outcome": None,
+            }
+        )
         return prediction_id
 
     def record_outcome(self, prediction_id: str, success: bool):
@@ -1117,9 +1121,11 @@ class ConfidenceCalibrator:
         """
         report = {
             "total_predictions": len(self.predictions),
-            "predictions_with_outcomes": sum(1 for p in self.predictions if p["outcome"] is not None),
+            "predictions_with_outcomes": sum(
+                1 for p in self.predictions if p["outcome"] is not None
+            ),
             "expected_calibration_error": self.get_calibration_error(),
-            "buckets": {}
+            "buckets": {},
         }
 
         for bucket_name, samples in self.calibration_buckets.items():
@@ -1130,7 +1136,7 @@ class ConfidenceCalibrator:
                     "count": len(samples),
                     "avg_confidence": avg_conf,
                     "actual_accuracy": accuracy,
-                    "gap": abs(avg_conf - accuracy)
+                    "gap": abs(avg_conf - accuracy),
                 }
 
         return report
@@ -1211,10 +1217,7 @@ class ReasoningToTodoIntegrator:
         """Set the todo manager instance"""
         self.todo_manager = todo_manager
 
-    def extract_todos_from_reasoning(
-        self,
-        reasoning: StructuredReasoning
-    ) -> List[Dict[str, Any]]:
+    def extract_todos_from_reasoning(self, reasoning: StructuredReasoning) -> List[Dict[str, Any]]:
         """
         Extract todo items from structured reasoning.
 
@@ -1228,47 +1231,55 @@ class ReasoningToTodoIntegrator:
 
         # Priority 1: Action items from decision phase
         for item in reasoning.decision.action_items:
-            todos.append({
-                "content": item,
-                "status": "pending",
-                "activeForm": self._to_active_form(item),
-                "source": "decision",
-                "reasoning_id": reasoning.id
-            })
+            todos.append(
+                {
+                    "content": item,
+                    "status": "pending",
+                    "activeForm": self._to_active_form(item),
+                    "source": "decision",
+                    "reasoning_id": reasoning.id,
+                }
+            )
 
         # Priority 2: Decomposition steps from analysis
         for i, step in enumerate(reasoning.analysis.decomposition):
             if step not in [t["content"] for t in todos]:
-                todos.append({
-                    "content": step,
-                    "status": "pending",
-                    "activeForm": self._to_active_form(step),
-                    "source": "analysis",
-                    "reasoning_id": reasoning.id,
-                    "order": i
-                })
+                todos.append(
+                    {
+                        "content": step,
+                        "status": "pending",
+                        "activeForm": self._to_active_form(step),
+                        "source": "analysis",
+                        "reasoning_id": reasoning.id,
+                        "order": i,
+                    }
+                )
 
         # Priority 3: Validation steps from verification
         for step in reasoning.verification.validation_steps:
             if step not in [t["content"] for t in todos]:
-                todos.append({
-                    "content": f"Verify: {step}",
-                    "status": "pending",
-                    "activeForm": f"Verifying: {step}",
-                    "source": "verification",
-                    "reasoning_id": reasoning.id
-                })
+                todos.append(
+                    {
+                        "content": f"Verify: {step}",
+                        "status": "pending",
+                        "activeForm": f"Verifying: {step}",
+                        "source": "verification",
+                        "reasoning_id": reasoning.id,
+                    }
+                )
 
         # Priority 4: Risk mitigation steps
         for mitigation in reasoning.verification.risk_mitigation:
             if mitigation not in [t["content"] for t in todos]:
-                todos.append({
-                    "content": f"Mitigate: {mitigation}",
-                    "status": "pending",
-                    "activeForm": f"Mitigating: {mitigation}",
-                    "source": "risk_mitigation",
-                    "reasoning_id": reasoning.id
-                })
+                todos.append(
+                    {
+                        "content": f"Mitigate: {mitigation}",
+                        "status": "pending",
+                        "activeForm": f"Mitigating: {mitigation}",
+                        "source": "risk_mitigation",
+                        "reasoning_id": reasoning.id,
+                    }
+                )
 
         return todos
 
@@ -1276,12 +1287,15 @@ class ReasoningToTodoIntegrator:
         """Convert imperative to active form"""
         # Common verb transformations
         transformations = [
-            (r'^(Add|Create|Build|Write|Make)\s+', r'\1ing '),
-            (r'^(Fix|Test|Check|Debug)\s+', r'\1ing '),
-            (r'^(Update|Configure|Implement)\s+', r'\1ing '),
-            (r'^(Remove|Delete|Clean)\s+', r'\1ing '),
-            (r'^(Analyze|Optimize|Refactor)\s+', r'\1ing '),
-            (r'^(Run|Set|Get)\s+', lambda m: m.group(1) + 'ning ' if m.group(1) == 'Run' else m.group(1) + 'ting '),
+            (r"^(Add|Create|Build|Write|Make)\s+", r"\1ing "),
+            (r"^(Fix|Test|Check|Debug)\s+", r"\1ing "),
+            (r"^(Update|Configure|Implement)\s+", r"\1ing "),
+            (r"^(Remove|Delete|Clean)\s+", r"\1ing "),
+            (r"^(Analyze|Optimize|Refactor)\s+", r"\1ing "),
+            (
+                r"^(Run|Set|Get)\s+",
+                lambda m: m.group(1) + "ning " if m.group(1) == "Run" else m.group(1) + "ting ",
+            ),
         ]
 
         for pattern, replacement in transformations:
@@ -1292,18 +1306,16 @@ class ReasoningToTodoIntegrator:
         words = content.split()
         if words:
             first = words[0]
-            if first.endswith('e'):
-                words[0] = first[:-1] + 'ing'
+            if first.endswith("e"):
+                words[0] = first[:-1] + "ing"
             else:
-                words[0] = first + 'ing'
-            return ' '.join(words)
+                words[0] = first + "ing"
+            return " ".join(words)
 
         return content
 
     def sync_todos_with_reasoning(
-        self,
-        reasoning: StructuredReasoning,
-        current_todos: List[Dict[str, Any]]
+        self, reasoning: StructuredReasoning, current_todos: List[Dict[str, Any]]
     ) -> List[Dict[str, Any]]:
         """
         Synchronize todos with reasoning output.
@@ -1352,19 +1364,18 @@ class ReasoningToTodoIntegrator:
 
         # Sort by order if available, then by source priority
         source_priority = {"decision": 0, "analysis": 1, "verification": 2, "risk_mitigation": 3}
-        updated_todos.sort(key=lambda t: (
-            0 if t.get("status") == "in_progress" else 1,
-            source_priority.get(t.get("source", ""), 99),
-            t.get("order", 999)
-        ))
+        updated_todos.sort(
+            key=lambda t: (
+                0 if t.get("status") == "in_progress" else 1,
+                source_priority.get(t.get("source", ""), 99),
+                t.get("order", 999),
+            )
+        )
 
         return updated_todos
 
     def update_todo_from_phase(
-        self,
-        phase: ReasoningPhase,
-        phase_output: Any,
-        current_todos: List[Dict[str, Any]]
+        self, phase: ReasoningPhase, phase_output: Any, current_todos: List[Dict[str, Any]]
     ) -> List[Dict[str, Any]]:
         """
         Update todos based on a specific reasoning phase completion.
@@ -1384,32 +1395,38 @@ class ReasoningToTodoIntegrator:
         if phase == ReasoningPhase.ANALYSIS and isinstance(phase_output, AnalysisOutput):
             # Add decomposition steps
             for step in phase_output.decomposition:
-                new_items.append({
-                    "content": step,
-                    "status": "pending",
-                    "activeForm": self._to_active_form(step),
-                    "source": "analysis"
-                })
+                new_items.append(
+                    {
+                        "content": step,
+                        "status": "pending",
+                        "activeForm": self._to_active_form(step),
+                        "source": "analysis",
+                    }
+                )
 
         elif phase == ReasoningPhase.DECISION and isinstance(phase_output, DecisionOutput):
             # Add action items
             for item in phase_output.action_items:
-                new_items.append({
-                    "content": item,
-                    "status": "pending",
-                    "activeForm": self._to_active_form(item),
-                    "source": "decision"
-                })
+                new_items.append(
+                    {
+                        "content": item,
+                        "status": "pending",
+                        "activeForm": self._to_active_form(item),
+                        "source": "decision",
+                    }
+                )
 
         elif phase == ReasoningPhase.VERIFICATION and isinstance(phase_output, VerificationOutput):
             # Add validation steps
             for step in phase_output.validation_steps:
-                new_items.append({
-                    "content": f"Verify: {step}",
-                    "status": "pending",
-                    "activeForm": f"Verifying: {step}",
-                    "source": "verification"
-                })
+                new_items.append(
+                    {
+                        "content": f"Verify: {step}",
+                        "status": "pending",
+                        "activeForm": f"Verifying: {step}",
+                        "source": "verification",
+                    }
+                )
 
         # Merge with existing
         existing_contents = {t["content"].lower() for t in current_todos}
@@ -1435,7 +1452,7 @@ class SelfCritiqueEngine:
         "evidence_quality",
         "assumption_validity",
         "risk_awareness",
-        "alternative_consideration"
+        "alternative_consideration",
     ]
 
     def __init__(self):
@@ -1459,7 +1476,7 @@ class SelfCritiqueEngine:
             "blind_spots": [],
             "weak_points": [],
             "suggestions": [],
-            "strengths": []
+            "strengths": [],
         }
 
         # Analyze each aspect
@@ -1641,7 +1658,10 @@ class SelfCritiqueEngine:
             result["issues"].append("No risks identified in analysis")
 
         # Check safety check
-        if reasoning.verification.safety_check and reasoning.verification.safety_check != "Not specified":
+        if (
+            reasoning.verification.safety_check
+            and reasoning.verification.safety_check != "Not specified"
+        ):
             score += 0.3
         else:
             result["issues"].append("No safety check performed")
@@ -1653,7 +1673,9 @@ class SelfCritiqueEngine:
             result["issues"].append("No risk mitigation strategies")
 
         result["score"] = score
-        result["details"] = f"Risks: {len(reasoning.analysis.risks)}, Mitigations: {len(reasoning.verification.risk_mitigation)}"
+        result["details"] = (
+            f"Risks: {len(reasoning.analysis.risks)}, Mitigations: {len(reasoning.verification.risk_mitigation)}"
+        )
 
         return result
 
@@ -1708,9 +1730,7 @@ class SelfCritiqueEngine:
         return blind_spots
 
     def _identify_weak_points(
-        self,
-        reasoning: StructuredReasoning,
-        aspects: Dict[str, Dict[str, Any]]
+        self, reasoning: StructuredReasoning, aspects: Dict[str, Dict[str, Any]]
     ) -> List[str]:
         """Identify weak points based on aspect scores"""
         weak_points = []
@@ -1723,9 +1743,7 @@ class SelfCritiqueEngine:
         return weak_points
 
     def _generate_suggestions(
-        self,
-        reasoning: StructuredReasoning,
-        critique: Dict[str, Any]
+        self, reasoning: StructuredReasoning, critique: Dict[str, Any]
     ) -> List[str]:
         """Generate improvement suggestions"""
         suggestions = []
@@ -1736,7 +1754,9 @@ class SelfCritiqueEngine:
                 if aspect_name == "completeness":
                     suggestions.append("Complete all reasoning phases for thorough analysis")
                 elif aspect_name == "logical_coherence":
-                    suggestions.append("Add explicit logical chain connecting premises to conclusion")
+                    suggestions.append(
+                        "Add explicit logical chain connecting premises to conclusion"
+                    )
                 elif aspect_name == "evidence_quality":
                     suggestions.append("Gather more evidence and consider counter-arguments")
                 elif aspect_name == "assumption_validity":
@@ -1752,14 +1772,14 @@ class SelfCritiqueEngine:
 
         # Based on confidence
         if reasoning.get_confidence() < 0.5:
-            suggestions.append("Low confidence - consider gathering more information or using fallback")
+            suggestions.append(
+                "Low confidence - consider gathering more information or using fallback"
+            )
 
         return suggestions[:5]  # Limit to top 5
 
     def _identify_strengths(
-        self,
-        reasoning: StructuredReasoning,
-        aspects: Dict[str, Dict[str, Any]]
+        self, reasoning: StructuredReasoning, aspects: Dict[str, Dict[str, Any]]
     ) -> List[str]:
         """Identify reasoning strengths"""
         strengths = []
@@ -1821,7 +1841,9 @@ class ReasoningQualityMetrics:
         metrics["risk_awareness"] = self._calculate_risk_awareness(reasoning)
 
         # Confidence calibration (0-1)
-        metrics["confidence_appropriateness"] = self._calculate_confidence_appropriateness(reasoning)
+        metrics["confidence_appropriateness"] = self._calculate_confidence_appropriateness(
+            reasoning
+        )
 
         # Overall score (weighted average)
         weights = {
@@ -1831,32 +1853,34 @@ class ReasoningQualityMetrics:
             "actionability": 0.15,
             "self_criticism": 0.10,
             "risk_awareness": 0.10,
-            "confidence_appropriateness": 0.10
+            "confidence_appropriateness": 0.10,
         }
 
-        metrics["overall"] = sum(
-            metrics[k] * weights[k] for k in weights.keys()
-        )
+        metrics["overall"] = sum(metrics[k] * weights[k] for k in weights.keys())
 
         # Store in history
-        self.history.append({
-            "reasoning_id": reasoning.id,
-            "timestamp": datetime.now().isoformat(),
-            "metrics": metrics
-        })
+        self.history.append(
+            {
+                "reasoning_id": reasoning.id,
+                "timestamp": datetime.now().isoformat(),
+                "metrics": metrics,
+            }
+        )
 
         return metrics
 
     def _calculate_completeness(self, reasoning: StructuredReasoning) -> float:
         """Calculate phase completeness score"""
-        complete_count = sum([
-            reasoning.perception.is_complete(),
-            reasoning.comprehension.is_complete(),
-            reasoning.analysis.is_complete(),
-            reasoning.reasoning.is_complete(),
-            reasoning.decision.is_complete(),
-            reasoning.verification.is_complete()
-        ])
+        complete_count = sum(
+            [
+                reasoning.perception.is_complete(),
+                reasoning.comprehension.is_complete(),
+                reasoning.analysis.is_complete(),
+                reasoning.reasoning.is_complete(),
+                reasoning.decision.is_complete(),
+                reasoning.verification.is_complete(),
+            ]
+        )
         return complete_count / 6.0
 
     def _calculate_depth(self, reasoning: StructuredReasoning) -> float:
@@ -1864,9 +1888,8 @@ class ReasoningQualityMetrics:
         depth_factors = []
 
         # Evidence depth
-        evidence_count = (
-            len(reasoning.reasoning.evidence_for) +
-            len(reasoning.reasoning.evidence_against)
+        evidence_count = len(reasoning.reasoning.evidence_for) + len(
+            reasoning.reasoning.evidence_against
         )
         depth_factors.append(min(1.0, evidence_count / 4.0))
 
@@ -2015,7 +2038,7 @@ class ReasoningQualityMetrics:
             "averages": {},
             "trends": self.get_trend(),
             "best": {},
-            "worst": {}
+            "worst": {},
         }
 
         # Calculate averages

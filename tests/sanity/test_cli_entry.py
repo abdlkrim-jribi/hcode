@@ -3,6 +3,7 @@ Sanity Check: CLI Entry Point Tests.
 
 Tests CLI entry points and command line interfaces.
 """
+
 import pytest
 import subprocess
 import sys
@@ -15,10 +16,7 @@ class TestModuleEntryPoint:
     def test_module_help(self):
         """Test running hcode module with --help."""
         result = subprocess.run(
-            [sys.executable, "-m", "hcode", "--help"],
-            capture_output=True,
-            text=True,
-            timeout=30
+            [sys.executable, "-m", "hcode", "--help"], capture_output=True, text=True, timeout=30
         )
         # Should either succeed or fail gracefully
         # Just checking it doesn't crash
@@ -27,10 +25,7 @@ class TestModuleEntryPoint:
     def test_module_version(self):
         """Test running hcode module with --version."""
         result = subprocess.run(
-            [sys.executable, "-m", "hcode", "--version"],
-            capture_output=True,
-            text=True,
-            timeout=30
+            [sys.executable, "-m", "hcode", "--version"], capture_output=True, text=True, timeout=30
         )
         # Check it runs without major error
         assert result.returncode in [0, 1, 2]
@@ -42,11 +37,13 @@ class TestCLIImports:
     def test_cli_main_import(self):
         """Test cli.main can be imported."""
         from hcode import cli
-        assert hasattr(cli, 'main') or hasattr(cli, 'cli') or hasattr(cli, 'app')
+
+        assert hasattr(cli, "main") or hasattr(cli, "cli") or hasattr(cli, "app")
 
     def test_cli_enhanced_import(self):
         """Test cli_enhanced can be imported."""
         from hcode import cli_enhanced
+
         assert cli_enhanced is not None
 
 
@@ -57,6 +54,7 @@ class TestExamplesImport:
         """Test basic_usage example imports."""
         try:
             from hcode.examples import basic_usage
+
             assert basic_usage is not None
         except ImportError:
             # Examples may not be included in all builds
@@ -66,6 +64,7 @@ class TestExamplesImport:
         """Test advanced_features example imports."""
         try:
             from hcode.examples import advanced_features
+
             assert advanced_features is not None
         except ImportError:
             # Examples may not be included in all builds
@@ -78,15 +77,19 @@ class TestPackageMetadata:
     def test_package_has_version(self):
         """Test package has version info."""
         import hcode
-        version = getattr(hcode, '__version__', None) or \
-                  getattr(hcode, 'VERSION', None) or \
-                  getattr(hcode, 'version', None)
+
+        version = (
+            getattr(hcode, "__version__", None)
+            or getattr(hcode, "VERSION", None)
+            or getattr(hcode, "version", None)
+        )
         assert version is not None or True  # Allow if not defined
 
     def test_package_name(self):
         """Test package has correct name."""
         import hcode
-        assert hcode.__name__ == 'hcode'
+
+        assert hcode.__name__ == "hcode"
 
 
 class TestSubprocessExecution:
@@ -99,7 +102,7 @@ class TestSubprocessExecution:
             [sys.executable, "-c", "import hcode; print('OK')"],
             capture_output=True,
             text=True,
-            timeout=30
+            timeout=30,
         )
         assert result.returncode == 0
         assert "OK" in result.stdout
@@ -125,6 +128,6 @@ class TestSubprocessExecution:
                 [sys.executable, "-c", f"import {package}; print('OK')"],
                 capture_output=True,
                 text=True,
-                timeout=30
+                timeout=30,
             )
             assert result.returncode == 0, f"Failed to import {package}: {result.stderr}"

@@ -13,13 +13,14 @@ import uuid
 
 class ThinkingPhase(Enum):
     """Phases of thinking matching Claude Code"""
-    UNDERSTANDING = "understanding"     # Understanding the problem
-    PLANNING = "planning"               # Planning the approach
-    ANALYZING = "analyzing"             # Analyzing options
-    REASONING = "reasoning"             # Deep reasoning
-    EVALUATING = "evaluating"           # Evaluating solutions
-    DECIDING = "deciding"               # Making decisions
-    VERIFYING = "verifying"             # Verifying approach
+
+    UNDERSTANDING = "understanding"  # Understanding the problem
+    PLANNING = "planning"  # Planning the approach
+    ANALYZING = "analyzing"  # Analyzing options
+    REASONING = "reasoning"  # Deep reasoning
+    EVALUATING = "evaluating"  # Evaluating solutions
+    DECIDING = "deciding"  # Making decisions
+    VERIFYING = "verifying"  # Verifying approach
 
 
 @dataclass
@@ -29,6 +30,7 @@ class ThinkingBlock:
 
     Matches Claude Code's thinking block structure.
     """
+
     # Unique identifier
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
 
@@ -67,7 +69,7 @@ class ThinkingBlock:
             "tokens_used": self.tokens_used,
             "duration_ms": self.duration_ms,
             "timestamp": self.timestamp.isoformat(),
-            "metadata": self.metadata
+            "metadata": self.metadata,
         }
 
 
@@ -78,6 +80,7 @@ class ThinkingSession:
 
     Manages a complete thinking session from start to finish.
     """
+
     # Session identifier
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
 
@@ -186,7 +189,7 @@ class ThinkingSession:
             "end_time": self.end_time.isoformat() if self.end_time else None,
             "total_tokens": self.total_tokens,
             "duration_ms": self.duration_ms(),
-            "metadata": self.metadata
+            "metadata": self.metadata,
         }
 
     def __str__(self) -> str:

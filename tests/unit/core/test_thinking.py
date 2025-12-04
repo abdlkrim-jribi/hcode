@@ -12,7 +12,7 @@ from datetime import datetime
 from unittest.mock import Mock, AsyncMock, patch, MagicMock
 
 # Add src to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from hcode.agent.thinking import ThinkingBlock, ThinkingSession, ThinkingPhase
 from hcode.agent.thinking_manager import ThinkingManager
@@ -25,8 +25,13 @@ class TestThinkingPhase:
     def test_all_phases_exist(self):
         """Test all expected phases exist"""
         expected_phases = [
-            "understanding", "planning", "analyzing",
-            "reasoning", "evaluating", "deciding", "verifying"
+            "understanding",
+            "planning",
+            "analyzing",
+            "reasoning",
+            "evaluating",
+            "deciding",
+            "verifying",
         ]
         actual_phases = [p.value for p in ThinkingPhase]
         assert sorted(expected_phases) == sorted(actual_phases)
@@ -62,7 +67,7 @@ class TestThinkingBlock:
             summary="Deep analysis",
             tokens_used=150,
             duration_ms=500,
-            metadata={"task": "test"}
+            metadata={"task": "test"},
         )
 
         assert block.phase == ThinkingPhase.REASONING
@@ -77,7 +82,7 @@ class TestThinkingBlock:
         block = ThinkingBlock(
             phase=ThinkingPhase.PLANNING,
             content="Planning the approach to solve this task",
-            summary="Planning approach"
+            summary="Planning approach",
         )
 
         string = str(block)
@@ -89,7 +94,7 @@ class TestThinkingBlock:
         block = ThinkingBlock(
             phase=ThinkingPhase.ANALYZING,
             content="This is a long content that should be truncated in display",
-            summary=""
+            summary="",
         )
 
         string = str(block)
@@ -104,7 +109,7 @@ class TestThinkingBlock:
             summary="Decision made",
             tokens_used=100,
             duration_ms=200,
-            metadata={"key": "value"}
+            metadata={"key": "value"},
         )
 
         result = block.to_dict()
@@ -145,15 +150,9 @@ class TestThinkingSession:
         session = ThinkingSession()
 
         block1 = ThinkingBlock(
-            phase=ThinkingPhase.UNDERSTANDING,
-            content="Understanding",
-            tokens_used=50
+            phase=ThinkingPhase.UNDERSTANDING, content="Understanding", tokens_used=50
         )
-        block2 = ThinkingBlock(
-            phase=ThinkingPhase.PLANNING,
-            content="Planning",
-            tokens_used=75
-        )
+        block2 = ThinkingBlock(phase=ThinkingPhase.PLANNING, content="Planning", tokens_used=75)
 
         session.add_block(block1)
         session.add_block(block2)
@@ -172,14 +171,10 @@ class TestThinkingSession:
     def test_get_summary_with_blocks(self):
         """Test summary with blocks"""
         session = ThinkingSession()
-        session.add_block(ThinkingBlock(
-            phase=ThinkingPhase.UNDERSTANDING,
-            summary="Understood the task"
-        ))
-        session.add_block(ThinkingBlock(
-            phase=ThinkingPhase.PLANNING,
-            summary="Created plan"
-        ))
+        session.add_block(
+            ThinkingBlock(phase=ThinkingPhase.UNDERSTANDING, summary="Understood the task")
+        )
+        session.add_block(ThinkingBlock(phase=ThinkingPhase.PLANNING, summary="Created plan"))
 
         summary = session.get_summary()
 
@@ -191,14 +186,12 @@ class TestThinkingSession:
     def test_get_full_content(self):
         """Test getting full content"""
         session = ThinkingSession()
-        session.add_block(ThinkingBlock(
-            phase=ThinkingPhase.UNDERSTANDING,
-            content="Full understanding content"
-        ))
-        session.add_block(ThinkingBlock(
-            phase=ThinkingPhase.REASONING,
-            content="Full reasoning content"
-        ))
+        session.add_block(
+            ThinkingBlock(phase=ThinkingPhase.UNDERSTANDING, content="Full understanding content")
+        )
+        session.add_block(
+            ThinkingBlock(phase=ThinkingPhase.REASONING, content="Full reasoning content")
+        )
 
         content = session.get_full_content()
 
@@ -253,10 +246,7 @@ class TestThinkingSession:
     def test_to_dict(self):
         """Test conversion to dictionary"""
         session = ThinkingSession(metadata={"task_id": "123"})
-        session.add_block(ThinkingBlock(
-            phase=ThinkingPhase.UNDERSTANDING,
-            tokens_used=50
-        ))
+        session.add_block(ThinkingBlock(phase=ThinkingPhase.UNDERSTANDING, tokens_used=50))
         session.complete()
 
         result = session.to_dict()
@@ -310,11 +300,7 @@ class TestThinkingConfig:
         config = ThinkingConfig(enabled=True)
 
         # Simple tasks should not trigger thinking by default
-        simple_prompts = [
-            "print hello",
-            "read file.txt",
-            "show me x"
-        ]
+        simple_prompts = ["print hello", "read file.txt", "show me x"]
 
         # Without specific keywords, these might not trigger
         # This depends on implementation
@@ -327,7 +313,7 @@ class TestThinkingConfig:
             "refactor the authentication system",
             "implement a caching layer",
             "debug the memory leak",
-            "analyze the performance issues"
+            "analyze the performance issues",
         ]
 
         # Complex tasks should trigger thinking
@@ -462,10 +448,9 @@ class TestThinkingManager:
         config = ThinkingConfig(enabled=True)
 
         mock_llm = Mock()
-        mock_llm.generate = AsyncMock(return_value={
-            "content": "Generated thinking content",
-            "usage": {"total_tokens": 50}
-        })
+        mock_llm.generate = AsyncMock(
+            return_value={"content": "Generated thinking content", "usage": {"total_tokens": 50}}
+        )
 
         manager = ThinkingManager(config, llm_client=mock_llm)
 
@@ -490,10 +475,7 @@ class TestThinkingManager:
     @pytest.mark.asyncio
     async def test_think_notifies_listeners(self):
         """Test that thinking notifies listeners"""
-        config = ThinkingConfig(
-            enabled=True,
-            visibility=ThinkingVisibility.FULL
-        )
+        config = ThinkingConfig(enabled=True, visibility=ThinkingVisibility.FULL)
         manager = ThinkingManager(config)
 
         received_blocks = []
@@ -507,10 +489,7 @@ class TestThinkingManager:
     @pytest.mark.asyncio
     async def test_think_hidden_visibility(self):
         """Test thinking with hidden visibility doesn't notify"""
-        config = ThinkingConfig(
-            enabled=True,
-            visibility=ThinkingVisibility.HIDDEN
-        )
+        config = ThinkingConfig(enabled=True, visibility=ThinkingVisibility.HIDDEN)
         manager = ThinkingManager(config)
 
         received_blocks = []
@@ -554,9 +533,7 @@ class TestThinkingManager:
         manager = ThinkingManager(ThinkingConfig())
 
         prompt = manager._build_phase_prompt(
-            "Solve this problem",
-            ThinkingPhase.UNDERSTANDING,
-            {"context_key": "value"}
+            "Solve this problem", ThinkingPhase.UNDERSTANDING, {"context_key": "value"}
         )
 
         assert "UNDERSTANDING" in prompt
@@ -567,10 +544,7 @@ class TestThinkingManager:
         """Test summary creation with short content"""
         manager = ThinkingManager(ThinkingConfig())
 
-        summary = manager._create_summary(
-            "Short content",
-            ThinkingPhase.UNDERSTANDING
-        )
+        summary = manager._create_summary("Short content", ThinkingPhase.UNDERSTANDING)
 
         assert summary == "Short content"
 
@@ -600,16 +574,13 @@ class TestThinkingIntegration:
     async def test_full_thinking_workflow(self):
         """Test complete thinking workflow"""
         config = ThinkingConfig(
-            enabled=True,
-            visibility=ThinkingVisibility.FULL,
-            budget_tokens=1000
+            enabled=True, visibility=ThinkingVisibility.FULL, budget_tokens=1000
         )
 
         mock_llm = Mock()
-        mock_llm.generate = AsyncMock(return_value={
-            "content": "Thought about the problem",
-            "usage": {"total_tokens": 100}
-        })
+        mock_llm.generate = AsyncMock(
+            return_value={"content": "Thought about the problem", "usage": {"total_tokens": 100}}
+        )
 
         manager = ThinkingManager(config, llm_client=mock_llm)
 
@@ -620,12 +591,8 @@ class TestThinkingIntegration:
         # Execute thinking
         session = await manager.think(
             "Implement a binary search",
-            phases=[
-                ThinkingPhase.UNDERSTANDING,
-                ThinkingPhase.PLANNING,
-                ThinkingPhase.DECIDING
-            ],
-            context={"language": "python"}
+            phases=[ThinkingPhase.UNDERSTANDING, ThinkingPhase.PLANNING, ThinkingPhase.DECIDING],
+            context={"language": "python"},
         )
 
         # Verify session
@@ -652,10 +619,7 @@ class TestThinkingIntegration:
         manager = ThinkingManager(config, llm_client=mock_llm)
 
         # Should not raise, should fallback
-        session = await manager.think(
-            "Test prompt",
-            phases=[ThinkingPhase.UNDERSTANDING]
-        )
+        session = await manager.think("Test prompt", phases=[ThinkingPhase.UNDERSTANDING])
 
         # Should still have blocks (with error content)
         assert len(session.blocks) == 1

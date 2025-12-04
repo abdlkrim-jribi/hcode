@@ -147,8 +147,7 @@ class ProjectAnalyzer:
             Test framework name or None
         """
         # Check for Python test frameworks
-        if (self.root_dir / "pytest.ini").exists() or \
-           (self.root_dir / "pyproject.toml").exists():
+        if (self.root_dir / "pytest.ini").exists() or (self.root_dir / "pyproject.toml").exists():
             return "pytest"
 
         # Check for JavaScript test frameworks
@@ -191,8 +190,7 @@ class ProjectAnalyzer:
         if requirements_file.exists():
             with open(requirements_file) as f:
                 dependencies["python"] = [
-                    line.strip() for line in f
-                    if line.strip() and not line.startswith("#")
+                    line.strip() for line in f if line.strip() and not line.startswith("#")
                 ]
 
         # JavaScript dependencies
@@ -251,8 +249,7 @@ class ProjectAnalyzer:
         # Get largest files
         files.sort(key=lambda x: x[1], reverse=True)
         structure["largest_files"] = [
-            {"path": str(f[0].relative_to(self.root_dir)), "size": f[1]}
-            for f in files[:10]
+            {"path": str(f[0].relative_to(self.root_dir)), "size": f[1]} for f in files[:10]
         ]
 
         return structure
@@ -273,9 +270,22 @@ class ProjectAnalyzer:
 
         # Common code file extensions
         code_extensions = {
-            ".py", ".js", ".ts", ".jsx", ".tsx",
-            ".java", ".cpp", ".c", ".h", ".hpp",
-            ".rs", ".go", ".rb", ".php", ".swift", ".kt"
+            ".py",
+            ".js",
+            ".ts",
+            ".jsx",
+            ".tsx",
+            ".java",
+            ".cpp",
+            ".c",
+            ".h",
+            ".hpp",
+            ".rs",
+            ".go",
+            ".rb",
+            ".php",
+            ".swift",
+            ".kt",
         }
 
         for ext in code_extensions:
@@ -287,7 +297,7 @@ class ProjectAnalyzer:
                     continue
 
                 try:
-                    with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                    with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
                         for line in f:
                             stats["total_lines"] += 1
 
@@ -379,14 +389,14 @@ class ProjectAnalyzer:
         summary += f"Build System: {analysis['build_system'] or 'None detected'}\n"
         summary += f"Test Framework: {analysis['test_framework'] or 'None detected'}\n\n"
 
-        stats = analysis['stats']
+        stats = analysis["stats"]
         summary += f"Code Statistics:\n"
         summary += f"  Total Lines: {stats['total_lines']}\n"
         summary += f"  Code Lines: {stats['code_lines']}\n"
         summary += f"  Comment Lines: {stats['comment_lines']}\n"
         summary += f"  Blank Lines: {stats['blank_lines']}\n\n"
 
-        structure = analysis['structure']
+        structure = analysis["structure"]
         summary += f"Files: {structure['total_files']}\n"
         summary += f"Directories: {structure['total_dirs']}\n"
 

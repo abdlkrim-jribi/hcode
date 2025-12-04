@@ -97,7 +97,7 @@ def check_pyarmor():
         )
         if result.returncode == 0:
             # Extract just the version line
-            version_line = result.stdout.strip().split('\n')[0]
+            version_line = result.stdout.strip().split("\n")[0]
             print(f"PyArmor: {version_line}")
             return True
         else:
@@ -111,9 +111,9 @@ def check_pyarmor():
 
 def obfuscate_code():
     """Obfuscate source code using PyArmor."""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("  Obfuscating source code with PyArmor")
-    print("="*60)
+    print("=" * 60)
 
     # Create protected directory
     PROTECTED_DIR.mkdir(parents=True, exist_ok=True)
@@ -146,9 +146,9 @@ def obfuscate_code():
 
 def build_protected_package():
     """Build Python package from obfuscated code."""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("  Building Protected Python Package")
-    print("="*60)
+    print("=" * 60)
 
     # Create a temporary src structure with obfuscated code
     temp_src = BUILD_DIR / "pkg_src" / "src"
@@ -176,8 +176,11 @@ def build_protected_package():
 
     # Build the package
     build_cmd = [
-        sys.executable, "-m", "build",
-        "--outdir", str(DIST_DIR / "protected"),
+        sys.executable,
+        "-m",
+        "build",
+        "--outdir",
+        str(DIST_DIR / "protected"),
     ]
 
     result = subprocess.run(
@@ -197,11 +200,12 @@ def build_protected_package():
 
 def build_protected_exe():
     """Build executable from obfuscated code using PyInstaller."""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("  Building Protected Executable")
-    print("="*60)
+    print("=" * 60)
 
     import platform
+
     system = platform.system().lower()
     machine = platform.machine().lower()
 
@@ -234,7 +238,8 @@ def build_protected_exe():
 
     # Create entry point script
     entry_point = exe_build_dir / "hcode_main.py"
-    entry_point.write_text('''#!/usr/bin/env python3
+    entry_point.write_text(
+        '''#!/usr/bin/env python3
 """HCode entry point for PyInstaller."""
 import sys
 import os
@@ -246,7 +251,8 @@ from hcode.cli_enhanced import main
 
 if __name__ == "__main__":
     main()
-''')
+'''
+    )
 
     # Hidden imports for PyInstaller
     hidden_imports = [
@@ -288,7 +294,9 @@ if __name__ == "__main__":
 
     # Build PyInstaller command
     cmd = [
-        sys.executable, "-m", "PyInstaller",
+        sys.executable,
+        "-m",
+        "PyInstaller",
         str(entry_point),
         f"--name=hcode",
         f"--distpath={DIST_DIR / 'protected' / platform_name}",
@@ -330,11 +338,12 @@ if __name__ == "__main__":
 
 def verify_builds():
     """Verify that the builds work correctly."""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("  Verifying Builds")
-    print("="*60)
+    print("=" * 60)
 
     import platform
+
     system = platform.system().lower()
     machine = platform.machine().lower()
 
@@ -423,12 +432,14 @@ def main():
     parser.add_argument("--exe", action="store_true", help="Build only executable")
     parser.add_argument("--clean", action="store_true", help="Clean build artifacts only")
     parser.add_argument("--no-verify", action="store_true", help="Skip verification")
-    parser.add_argument("--no-obfuscate", action="store_true", help="Skip obfuscation (use existing)")
+    parser.add_argument(
+        "--no-obfuscate", action="store_true", help="Skip obfuscation (use existing)"
+    )
     args = parser.parse_args()
 
-    print("="*60)
+    print("=" * 60)
     print("  HCode Protected Build")
-    print("="*60)
+    print("=" * 60)
 
     # Clean only
     if args.clean:
@@ -473,7 +484,9 @@ def main():
             import PyInstaller
         except ImportError:
             print("Installing PyInstaller...")
-            subprocess.run([sys.executable, "-m", "pip", "install", "pyinstaller"], capture_output=True)
+            subprocess.run(
+                [sys.executable, "-m", "pip", "install", "pyinstaller"], capture_output=True
+            )
 
         if not build_protected_exe():
             print("\nExecutable build failed!")
@@ -485,9 +498,9 @@ def main():
             print("\nVerification failed!")
             return 1
 
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("  BUILD SUCCESSFUL!")
-    print("="*60)
+    print("=" * 60)
     print(f"\nOutput directory: {DIST_DIR / 'protected'}")
 
     return 0

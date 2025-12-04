@@ -86,7 +86,7 @@ class TestToolCallbackManager:
         test_event = ToolEvent(
             event_type=ToolEventType.TODO_UPDATE,
             tool_name="TodoWrite",
-            todos=[{"content": "Test", "status": "pending", "activeForm": "Testing"}]
+            todos=[{"content": "Test", "status": "pending", "activeForm": "Testing"}],
         )
         manager.emit(test_event)
 
@@ -109,11 +109,7 @@ class TestToolCallbackManager:
         manager.register(ToolEventType.TODO_UPDATE, callback1)
         manager.register(ToolEventType.TODO_UPDATE, callback2)
 
-        manager.emit(ToolEvent(
-            event_type=ToolEventType.TODO_UPDATE,
-            tool_name="Test",
-            todos=[]
-        ))
+        manager.emit(ToolEvent(event_type=ToolEventType.TODO_UPDATE, tool_name="Test", todos=[]))
 
         assert len(received1) == 1
         assert len(received2) == 1
@@ -133,11 +129,7 @@ class TestToolCallbackManager:
         manager.register(ToolEventType.TODO_UPDATE, good_callback)
 
         # Should not raise, and good_callback should still be called
-        manager.emit(ToolEvent(
-            event_type=ToolEventType.TODO_UPDATE,
-            tool_name="Test",
-            todos=[]
-        ))
+        manager.emit(ToolEvent(event_type=ToolEventType.TODO_UPDATE, tool_name="Test", todos=[]))
 
         assert len(received) == 1
 
@@ -204,20 +196,12 @@ class TestToolCallbackManager:
 
         # Disable
         manager.set_enabled(False)
-        manager.emit(ToolEvent(
-            event_type=ToolEventType.TODO_UPDATE,
-            tool_name="Test",
-            todos=[]
-        ))
+        manager.emit(ToolEvent(event_type=ToolEventType.TODO_UPDATE, tool_name="Test", todos=[]))
         assert len(received) == 0
 
         # Re-enable
         manager.set_enabled(True)
-        manager.emit(ToolEvent(
-            event_type=ToolEventType.TODO_UPDATE,
-            tool_name="Test",
-            todos=[]
-        ))
+        manager.emit(ToolEvent(event_type=ToolEventType.TODO_UPDATE, tool_name="Test", todos=[]))
         assert len(received) == 1
 
 
@@ -293,9 +277,9 @@ class TestTodoWriteToolCallback:
         manager.register(ToolEventType.TODO_UPDATE, callback)
 
         tool = TodoWriteTool()
-        result = await tool.execute(todos=[
-            {"content": "Task 1", "status": "in_progress", "activeForm": "Doing task 1"}
-        ])
+        result = await tool.execute(
+            todos=[{"content": "Task 1", "status": "in_progress", "activeForm": "Doing task 1"}]
+        )
 
         assert result.success
         assert len(received) == 1
@@ -316,11 +300,13 @@ class TestTodoWriteToolCallback:
         manager.register(ToolEventType.TODO_UPDATE, callback)
 
         tool = TodoWriteTool()
-        await tool.execute(todos=[
-            {"content": "Done", "status": "completed", "activeForm": "Done"},
-            {"content": "Doing", "status": "in_progress", "activeForm": "Doing"},
-            {"content": "Todo", "status": "pending", "activeForm": "Todo"},
-        ])
+        await tool.execute(
+            todos=[
+                {"content": "Done", "status": "completed", "activeForm": "Done"},
+                {"content": "Doing", "status": "in_progress", "activeForm": "Doing"},
+                {"content": "Todo", "status": "pending", "activeForm": "Todo"},
+            ]
+        )
 
         assert len(received) == 1
         metadata = received[0].metadata
@@ -345,11 +331,9 @@ class TestEventHistory:
 
         # Emit several events
         for i in range(5):
-            manager.emit(ToolEvent(
-                event_type=ToolEventType.TODO_UPDATE,
-                tool_name=f"Test{i}",
-                todos=[]
-            ))
+            manager.emit(
+                ToolEvent(event_type=ToolEventType.TODO_UPDATE, tool_name=f"Test{i}", todos=[])
+            )
 
         history = manager.get_event_history()
         assert len(history) == 5
@@ -359,11 +343,9 @@ class TestEventHistory:
         manager = get_callback_manager()
 
         for i in range(10):
-            manager.emit(ToolEvent(
-                event_type=ToolEventType.TODO_UPDATE,
-                tool_name=f"Test{i}",
-                todos=[]
-            ))
+            manager.emit(
+                ToolEvent(event_type=ToolEventType.TODO_UPDATE, tool_name=f"Test{i}", todos=[])
+            )
 
         history = manager.get_event_history(limit=3)
         assert len(history) == 3

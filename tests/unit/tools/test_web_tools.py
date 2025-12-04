@@ -12,7 +12,7 @@ from unittest.mock import Mock, AsyncMock, patch, MagicMock
 from datetime import datetime, timedelta
 
 # Add src to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from hcode.tools.web_tools import WebFetchTool, WebSearchTool, WebScrapeTool
 from hcode.tools.base_tool import ToolResult, ToolCategory
@@ -54,19 +54,18 @@ class TestWebFetchTool:
         mock_response.url = Mock()
         mock_response.url.host = "example.com"
 
-        with patch('httpx.AsyncClient') as mock_client:
+        with patch("httpx.AsyncClient") as mock_client:
             mock_client_instance = AsyncMock()
             mock_client_instance.get = AsyncMock(return_value=mock_response)
             mock_client.return_value.__aenter__ = AsyncMock(return_value=mock_client_instance)
             mock_client.return_value.__aexit__ = AsyncMock()
 
             # Mock httpx.URL
-            with patch('httpx.URL') as mock_url:
+            with patch("httpx.URL") as mock_url:
                 mock_url.return_value.host = "example.com"
 
                 result = await tool.execute(
-                    url="https://example.com",
-                    prompt="Extract main content"
+                    url="https://example.com", prompt="Extract main content"
                 )
 
         assert result.success == True
@@ -87,18 +86,11 @@ class TestWebFetchTool:
 
         # Manually add to cache
         cache_key = "https://example.com:test prompt"
-        cached_result = ToolResult(
-            success=True,
-            output="Cached content",
-            metadata={"cached": True}
-        )
+        cached_result = ToolResult(success=True, output="Cached content", metadata={"cached": True})
         tool.cache[cache_key] = (datetime.now(), cached_result)
 
         # Fetch should return cached result
-        result = await tool.execute(
-            url="https://example.com",
-            prompt="test prompt"
-        )
+        result = await tool.execute(url="https://example.com", prompt="test prompt")
 
         assert result.success == True
         assert result.output == "Cached content"
@@ -111,11 +103,7 @@ class TestWebFetchTool:
         # Add expired cache entry
         cache_key = "https://example.com:test prompt"
         old_time = datetime.now() - timedelta(minutes=20)  # Expired
-        cached_result = ToolResult(
-            success=True,
-            output="Old cached content",
-            metadata={}
-        )
+        cached_result = ToolResult(success=True, output="Old cached content", metadata={})
         tool.cache[cache_key] = (old_time, cached_result)
 
         # Should not use expired cache (will try to fetch)
@@ -130,14 +118,15 @@ class TestWebFetchTool:
 
         # Test with an invalid URL format to trigger error handling
         # The tool should always return a ToolResult, never None
-        result = await tool.execute(
-            url="not-a-valid-url",
-            prompt="Extract content"
-        )
+        result = await tool.execute(url="not-a-valid-url", prompt="Extract content")
 
         # Tool should return a result (even if failed)
         assert result is not None
-        assert result.success == False or "error" in str(result.output).lower() or result.error is not None
+        assert (
+            result.success == False
+            or "error" in str(result.output).lower()
+            or result.error is not None
+        )
 
     @pytest.mark.asyncio
     async def test_fetch_redirect_different_host(self):
@@ -149,19 +138,16 @@ class TestWebFetchTool:
         mock_response.url.host = "newhost.com"
         mock_response.status_code = 200
 
-        with patch('httpx.AsyncClient') as mock_client:
+        with patch("httpx.AsyncClient") as mock_client:
             mock_client_instance = AsyncMock()
             mock_client_instance.get = AsyncMock(return_value=mock_response)
             mock_client.return_value.__aenter__ = AsyncMock(return_value=mock_client_instance)
             mock_client.return_value.__aexit__ = AsyncMock()
 
-            with patch('httpx.URL') as mock_url:
+            with patch("httpx.URL") as mock_url:
                 mock_url.return_value.host = "example.com"  # Original host
 
-                result = await tool.execute(
-                    url="https://example.com",
-                    prompt="Extract content"
-                )
+                result = await tool.execute(url="https://example.com", prompt="Extract content")
 
         assert result.success == True
         assert "redirect" in result.output.lower()
@@ -174,8 +160,7 @@ class TestWebFetchTool:
         # Test with a URL that will cause a network error
         # Using a non-existent domain to trigger error handling
         result = await tool.execute(
-            url="https://this-domain-does-not-exist-12345.invalid",
-            prompt="Extract content"
+            url="https://this-domain-does-not-exist-12345.invalid", prompt="Extract content"
         )
 
         # Tool should return a result even when network fails
@@ -234,19 +219,19 @@ class TestWebSearchTool:
                     {
                         "title": "Result 1",
                         "url": "https://example1.com",
-                        "description": "Description 1"
+                        "description": "Description 1",
                     },
                     {
                         "title": "Result 2",
                         "url": "https://example2.com",
-                        "description": "Description 2"
-                    }
+                        "description": "Description 2",
+                    },
                 ]
             }
         }
         mock_response.raise_for_status = Mock()
 
-        with patch('httpx.AsyncClient') as mock_client:
+        with patch("httpx.AsyncClient") as mock_client:
             mock_client_instance = AsyncMock()
             mock_client_instance.get = AsyncMock(return_value=mock_response)
             mock_client.return_value.__aenter__ = AsyncMock(return_value=mock_client_instance)
@@ -275,16 +260,13 @@ class TestWebSearchTool:
         }
         mock_response.raise_for_status = Mock()
 
-        with patch('httpx.AsyncClient') as mock_client:
+        with patch("httpx.AsyncClient") as mock_client:
             mock_client_instance = AsyncMock()
             mock_client_instance.get = AsyncMock(return_value=mock_response)
             mock_client.return_value.__aenter__ = AsyncMock(return_value=mock_client_instance)
             mock_client.return_value.__aexit__ = AsyncMock()
 
-            result = await tool.execute(
-                query="test",
-                allowed_domains=["allowed.com"]
-            )
+            result = await tool.execute(query="test", allowed_domains=["allowed.com"])
 
         assert result.success == True
         # Only allowed domain should be in results
@@ -307,16 +289,13 @@ class TestWebSearchTool:
         }
         mock_response.raise_for_status = Mock()
 
-        with patch('httpx.AsyncClient') as mock_client:
+        with patch("httpx.AsyncClient") as mock_client:
             mock_client_instance = AsyncMock()
             mock_client_instance.get = AsyncMock(return_value=mock_response)
             mock_client.return_value.__aenter__ = AsyncMock(return_value=mock_client_instance)
             mock_client.return_value.__aexit__ = AsyncMock()
 
-            result = await tool.execute(
-                query="test",
-                blocked_domains=["bad.com"]
-            )
+            result = await tool.execute(query="test", blocked_domains=["bad.com"])
 
         assert result.success == True
         assert "bad.com" not in result.output
@@ -326,11 +305,9 @@ class TestWebSearchTool:
         """Test API error handling"""
         tool = WebSearchTool(api_key="test_key")
 
-        with patch('httpx.AsyncClient') as mock_client:
+        with patch("httpx.AsyncClient") as mock_client:
             mock_client_instance = AsyncMock()
-            mock_client_instance.get = AsyncMock(
-                side_effect=Exception("API error")
-            )
+            mock_client_instance.get = AsyncMock(side_effect=Exception("API error"))
             mock_client.return_value.__aenter__ = AsyncMock(return_value=mock_client_instance)
             mock_client.return_value.__aexit__ = AsyncMock()
 
@@ -371,7 +348,7 @@ class TestWebScrapeTool:
         mock_response.url = "https://example.com"
         mock_response.raise_for_status = Mock()
 
-        with patch('httpx.AsyncClient') as mock_client:
+        with patch("httpx.AsyncClient") as mock_client:
             mock_client_instance = AsyncMock()
             mock_client_instance.get = AsyncMock(return_value=mock_response)
             mock_client.return_value.__aenter__ = AsyncMock(return_value=mock_client_instance)
@@ -400,16 +377,13 @@ class TestWebScrapeTool:
         mock_response.url = "https://example.com"
         mock_response.raise_for_status = Mock()
 
-        with patch('httpx.AsyncClient') as mock_client:
+        with patch("httpx.AsyncClient") as mock_client:
             mock_client_instance = AsyncMock()
             mock_client_instance.get = AsyncMock(return_value=mock_response)
             mock_client.return_value.__aenter__ = AsyncMock(return_value=mock_client_instance)
             mock_client.return_value.__aexit__ = AsyncMock()
 
-            result = await tool.execute(
-                url="https://example.com",
-                selector=".content"
-            )
+            result = await tool.execute(url="https://example.com", selector=".content")
 
         assert result.success == True
         assert "Target content" in result.output
@@ -433,16 +407,13 @@ class TestWebScrapeTool:
         mock_response.url = "https://example.com"
         mock_response.raise_for_status = Mock()
 
-        with patch('httpx.AsyncClient') as mock_client:
+        with patch("httpx.AsyncClient") as mock_client:
             mock_client_instance = AsyncMock()
             mock_client_instance.get = AsyncMock(return_value=mock_response)
             mock_client.return_value.__aenter__ = AsyncMock(return_value=mock_client_instance)
             mock_client.return_value.__aexit__ = AsyncMock()
 
-            result = await tool.execute(
-                url="https://example.com",
-                extract_links=True
-            )
+            result = await tool.execute(url="https://example.com", extract_links=True)
 
         assert result.success == True
         assert "example.com/page1" in result.output

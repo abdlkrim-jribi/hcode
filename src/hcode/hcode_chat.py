@@ -58,12 +58,13 @@ from hcode.ui import (
     get_default_box,
     console as styled_console,
     spinner,
-    get_status_icon
+    get_status_icon,
 )
 
 
 class MessageRole(Enum):
     """Message roles in conversation"""
+
     USER = "user"
     ASSISTANT = "assistant"
     SYSTEM = "system"
@@ -110,12 +111,12 @@ class HcodeChat:
         # Initialize prompt session with history and autocompletion
         # Handle Windows terminal compatibility
         # Store history in the workspace directory
-        history_file = self.workspace_dir / '.hcode_history'
+        history_file = self.workspace_dir / ".hcode_history"
         try:
             self.prompt_session = PromptSession(
                 history=FileHistory(str(history_file)),
                 auto_suggest=AutoSuggestFromHistory(),
-                completer=WordCompleter(list(self.commands.keys()) + list(self.shortcuts.keys()))
+                completer=WordCompleter(list(self.commands.keys()) + list(self.shortcuts.keys())),
             )
         except Exception:
             # Fallback for incompatible terminals
@@ -143,30 +144,20 @@ class HcodeChat:
 
     def _setup_shortcut_callbacks(self):
         """Set up keyboard shortcut callbacks"""
+        self.shortcut_manager.register_callback(ShortcutAction.TOGGLE_MODE, self._toggle_mode)
         self.shortcut_manager.register_callback(
-            ShortcutAction.TOGGLE_MODE,
-            self._toggle_mode
+            ShortcutAction.SWITCH_TO_AUTO, lambda: self._set_mode(AgentMode.AUTO)
         )
         self.shortcut_manager.register_callback(
-            ShortcutAction.SWITCH_TO_AUTO,
-            lambda: self._set_mode(AgentMode.AUTO)
+            ShortcutAction.SWITCH_TO_INTERACTIVE, lambda: self._set_mode(AgentMode.INTERACTIVE)
         )
         self.shortcut_manager.register_callback(
-            ShortcutAction.SWITCH_TO_INTERACTIVE,
-            lambda: self._set_mode(AgentMode.INTERACTIVE)
+            ShortcutAction.SWITCH_TO_PLAN, lambda: self._set_mode(AgentMode.PLAN)
         )
         self.shortcut_manager.register_callback(
-            ShortcutAction.SWITCH_TO_PLAN,
-            lambda: self._set_mode(AgentMode.PLAN)
+            ShortcutAction.SHOW_HELP, lambda: asyncio.create_task(self.show_help())
         )
-        self.shortcut_manager.register_callback(
-            ShortcutAction.SHOW_HELP,
-            lambda: asyncio.create_task(self.show_help())
-        )
-        self.shortcut_manager.register_callback(
-            ShortcutAction.SHOW_TASKS,
-            self.display_todos
-        )
+        self.shortcut_manager.register_callback(ShortcutAction.SHOW_TASKS, self.display_todos)
 
     def _on_mode_change(self, new_mode: AgentMode):
         """Handle mode change from CLI"""
@@ -244,19 +235,27 @@ class HcodeChat:
     async def initialize_agent(self):
         """Initialize the AI agent with Hcode capabilities"""
         # Get API keys (env vars take priority over config)
-        anthropic_key = os.getenv("ANTHROPIC_API_KEY") or self.config.get("providers", {}).get("anthropic", {}).get("api_key")
-        openai_key = os.getenv("OPENAI_API_KEY") or self.config.get("providers", {}).get("openai", {}).get("api_key")
-        openai_base_url = os.getenv("OPENAI_BASE_URL") or self.config.get("providers", {}).get("openai", {}).get("base_url")
+        anthropic_key = os.getenv("ANTHROPIC_API_KEY") or self.config.get("providers", {}).get(
+            "anthropic", {}
+        ).get("api_key")
+        openai_key = os.getenv("OPENAI_API_KEY") or self.config.get("providers", {}).get(
+            "openai", {}
+        ).get("api_key")
+        openai_base_url = os.getenv("OPENAI_BASE_URL") or self.config.get("providers", {}).get(
+            "openai", {}
+        ).get("base_url")
 
         if not anthropic_key and not openai_key:
-            self.console.print(Panel(
-                "[red]No API keys found![/red]\n\n"
-                "Please set environment variables:\n"
-                "  export ANTHROPIC_API_KEY='your-key'\n"
-                "  export OPENAI_API_KEY='your-key'",
-                title="Configuration Error",
-                border_style="red"
-            ))
+            self.console.print(
+                Panel(
+                    "[red]No API keys found![/red]\n\n"
+                    "Please set environment variables:\n"
+                    "  export ANTHROPIC_API_KEY='your-key'\n"
+                    "  export OPENAI_API_KEY='your-key'",
+                    title="Configuration Error",
+                    border_style="red",
+                )
+            )
             sys.exit(1)
 
         # Get provider preference from config
@@ -264,14 +263,16 @@ class HcodeChat:
         cost_opt = self.config.get("preferences", {}).get("cost_optimization", "balanced")
 
         # Get model configuration (env vars take priority over config)
-        anthropic_model = os.getenv("ANTHROPIC_MODEL") or self.config.get("providers", {}).get("anthropic", {}).get("default_model")
-        openai_model = os.getenv("OPENAI_MODEL") or self.config.get("providers", {}).get("openai", {}).get("default_model")
+        anthropic_model = os.getenv("ANTHROPIC_MODEL") or self.config.get("providers", {}).get(
+            "anthropic", {}
+        ).get("default_model")
+        openai_model = os.getenv("OPENAI_MODEL") or self.config.get("providers", {}).get(
+            "openai", {}
+        ).get("default_model")
 
         # Create agent with preferences
         preferences = ProviderPreferences(
-            primary_provider=provider_pref,
-            prefer_streaming=True,
-            cost_optimization=cost_opt
+            primary_provider=provider_pref, prefer_streaming=True, cost_optimization=cost_opt
         )
 
         self.agent = HcodeAgent(
@@ -282,7 +283,7 @@ class HcodeChat:
             openai_model=openai_model,
             preferences=preferences,
             config=self.config,
-            root_dir=str(self.workspace_dir)  # Always use the workspace directory
+            root_dir=str(self.workspace_dir),  # Always use the workspace directory
         )
 
         # Set Hcode system prompt
@@ -339,7 +340,7 @@ Remember:
             "   / / / /________  ____/ /__",
             "  / /_/ / ___/ __ \\/ __  / _ \\",
             " / __  / /__/ /_/ / /_/ /  __/",
-            "/_/ /_/\\___/\\____/\\__,_/\\___/"
+            "/_/ /_/\\___/\\____/\\__,_/\\___/",
         ]
         for line in logo_lines:
             logo_art.append(line + "\n", style=f"bold {Colors.PRIMARY}")
@@ -349,7 +350,9 @@ Remember:
         header_content.append(logo_art)
 
         # Tagline
-        header_content.append("AI-Powered Coding Assistant\n", style=f"italic {Colors.TEXT_SECONDARY}")
+        header_content.append(
+            "AI-Powered Coding Assistant\n", style=f"italic {Colors.TEXT_SECONDARY}"
+        )
 
         # Version and status
         header_content.append(f"\n{self.icons.LOGO} ", style=f"bold {Colors.PRIMARY}")
@@ -358,13 +361,15 @@ Remember:
         header_content.append("Ready", style=f"bold {Colors.SUCCESS}")
 
         # Print header panel with fixed width
-        self.console.print(Panel(
-            Align.center(header_content),
-            border_style=Colors.PRIMARY,
-            box=get_default_box(),
-            padding=(1, 2),
-            width=PANEL_WIDTH
-        ))
+        self.console.print(
+            Panel(
+                Align.center(header_content),
+                border_style=Colors.PRIMARY,
+                box=get_default_box(),
+                padding=(1, 2),
+                width=PANEL_WIDTH,
+            )
+        )
 
         # Feature highlights in a compact row
         features = [
@@ -439,7 +444,7 @@ Remember:
             border_style=Colors.BORDER_DEFAULT,
             box=get_default_box(),
             padding=(0, 1),
-            width=width
+            width=width,
         )
 
     async def process_message(self, message: str) -> str:
@@ -453,34 +458,38 @@ Remember:
             Assistant response
         """
         # Check for shortcuts and commands
-        if message.startswith('/'):
+        if message.startswith("/"):
             return await self.handle_command(message)
 
-        if message.startswith('@'):
+        if message.startswith("@"):
             return await self.handle_mention(message)
 
         # Process as regular message
         response = await self.execute_with_tools(message)
 
         # Update session history
-        self.session_history.append({
-            "role": MessageRole.USER.value,
-            "content": message,
-            "timestamp": datetime.now().isoformat()
-        })
+        self.session_history.append(
+            {
+                "role": MessageRole.USER.value,
+                "content": message,
+                "timestamp": datetime.now().isoformat(),
+            }
+        )
 
-        self.session_history.append({
-            "role": MessageRole.ASSISTANT.value,
-            "content": response,
-            "timestamp": datetime.now().isoformat()
-        })
+        self.session_history.append(
+            {
+                "role": MessageRole.ASSISTANT.value,
+                "content": response,
+                "timestamp": datetime.now().isoformat(),
+            }
+        )
 
         return response
 
     async def handle_command(self, command: str) -> str:
         """Handle slash commands"""
         cmd = command.split()[0]
-        args = command[len(cmd):].strip()
+        args = command[len(cmd) :].strip()
 
         if cmd in self.commands:
             return await self.commands[cmd](args)
@@ -505,7 +514,9 @@ Remember:
 
                 # Read file and add to context
                 file_content = await self.read_file_content(file_path)
-                context_message = f"File {file_path}:\n{file_content}\n\nUser request: {user_message}"
+                context_message = (
+                    f"File {file_path}:\n{file_content}\n\nUser request: {user_message}"
+                )
                 return await self.execute_with_tools(context_message)
 
         elif message.startswith("@web"):
@@ -525,15 +536,32 @@ Remember:
         message_lower = message.strip().lower()
 
         # Short confirmations
-        if message_lower in ['yes', 'y', 'ok', 'okay', 'sure', 'go ahead', 'proceed',
-                            'continue', 'do it', 'generate', 'create it', 'yes please',
-                            'generate the file', 'create the file', 'write the file',
-                            'make it', 'build it']:
+        if message_lower in [
+            "yes",
+            "y",
+            "ok",
+            "okay",
+            "sure",
+            "go ahead",
+            "proceed",
+            "continue",
+            "do it",
+            "generate",
+            "create it",
+            "yes please",
+            "generate the file",
+            "create the file",
+            "write the file",
+            "make it",
+            "build it",
+        ]:
             return True
 
         # Very short messages are likely confirmations
-        if len(message_lower) < 20 and not any(word in message_lower for word in
-                                                ['create', 'implement', 'build', 'write', 'generate', 'fix', 'debug']):
+        if len(message_lower) < 20 and not any(
+            word in message_lower
+            for word in ["create", "implement", "build", "write", "generate", "fix", "debug"]
+        ):
             return True
 
         return False
@@ -548,17 +576,32 @@ Remember:
         message_lower = message.strip().lower()
 
         # Check if this looks like a confirmation
-        confirmation_words = ['yes', 'y', 'ok', 'okay', 'sure', 'go ahead', 'proceed',
-                             'continue', 'do it', 'generate', 'create it', 'yes please',
-                             'generate the file', 'create the file', 'write the file',
-                             'make it', 'build it']
+        confirmation_words = [
+            "yes",
+            "y",
+            "ok",
+            "okay",
+            "sure",
+            "go ahead",
+            "proceed",
+            "continue",
+            "do it",
+            "generate",
+            "create it",
+            "yes please",
+            "generate the file",
+            "create the file",
+            "write the file",
+            "make it",
+            "build it",
+        ]
 
         if message_lower in confirmation_words:
             # Get the last user message from session history (the original task)
             original_task = None
             for msg in reversed(self.session_history):
-                if msg.get('role') == 'user':
-                    content = msg.get('content', '')
+                if msg.get("role") == "user":
+                    content = msg.get("content", "")
                     # Skip if it's also a short confirmation
                     if content.strip().lower() not in confirmation_words and len(content) > 20:
                         original_task = content
@@ -606,7 +649,7 @@ Remember:
             complexity=self.determine_complexity(message),
             task_type=self.determine_task_type(message),
             stream=self.stream_responses,
-            use_sub_agents=self.should_use_agents(message)
+            use_sub_agents=self.should_use_agents(message),
         )
 
         # Update todos after execution - mark ALL tasks as completed
@@ -616,11 +659,16 @@ Remember:
             # because the agent has already analyzed, designed, generated, and saved
             for todo in self.todos:
                 # Mark all tasks as completed if the response indicates success
-                if "success" in response.lower() or "written" in response.lower() or "created" in response.lower() or "generated" in response.lower():
-                    todo['status'] = 'completed'
-                elif todo.get('status') == 'in_progress':
+                if (
+                    "success" in response.lower()
+                    or "written" in response.lower()
+                    or "created" in response.lower()
+                    or "generated" in response.lower()
+                ):
+                    todo["status"] = "completed"
+                elif todo.get("status") == "in_progress":
                     # At minimum, mark in-progress tasks as completed
-                    todo['status'] = 'completed'
+                    todo["status"] = "completed"
 
             await self.agent.update_todos(self.todos)
 
@@ -634,16 +682,35 @@ Remember:
     def should_create_todos(self, message: str) -> bool:
         """Determine if todos should be created for this task"""
         indicators = [
-            "implement", "create", "build", "develop", "add feature",
-            "refactor", "fix", "debug", "optimize", "test",
-            "multiple", "steps", "tasks", "todo", "plan"
+            "implement",
+            "create",
+            "build",
+            "develop",
+            "add feature",
+            "refactor",
+            "fix",
+            "debug",
+            "optimize",
+            "test",
+            "multiple",
+            "steps",
+            "tasks",
+            "todo",
+            "plan",
         ]
         message_lower = message.lower()
         return any(indicator in message_lower for indicator in indicators)
 
     def determine_complexity(self, message: str) -> TaskComplexity:
         """Determine task complexity from message"""
-        complex_indicators = ["complex", "comprehensive", "full", "entire", "system", "architecture"]
+        complex_indicators = [
+            "complex",
+            "comprehensive",
+            "full",
+            "entire",
+            "system",
+            "architecture",
+        ]
         simple_indicators = ["simple", "quick", "basic", "trivial", "small", "minor"]
 
         message_lower = message.lower()
@@ -674,7 +741,14 @@ Remember:
 
     def should_use_agents(self, message: str) -> bool:
         """Determine if specialized agents should be used"""
-        agent_indicators = ["explore", "plan", "implement", "complex", "comprehensive", "multi-step"]
+        agent_indicators = [
+            "explore",
+            "plan",
+            "implement",
+            "complex",
+            "comprehensive",
+            "multi-step",
+        ]
         message_lower = message.lower()
         return any(ind in message_lower for ind in agent_indicators)
 
@@ -696,43 +770,147 @@ Remember:
         # Parse task and create appropriate todos
         task_lower = task.lower()
 
-        if "implement" in task_lower or "create" in task_lower or "generate" in task_lower or "write" in task_lower:
-            todos.extend([
-                {"content": "Analyze requirements", "status": "in_progress", "activeForm": "Analyzing requirements"},
-                {"content": "Design solution", "status": "pending", "activeForm": "Designing solution"},
-                {"content": "Generate code/content", "status": "pending", "activeForm": "Generating code/content"},
-                {"content": "Review and validate", "status": "pending", "activeForm": "Reviewing and validating"},
-                {"content": "Save to file (requires confirmation)", "status": "pending", "activeForm": "Saving to file"}
-            ])
+        if (
+            "implement" in task_lower
+            or "create" in task_lower
+            or "generate" in task_lower
+            or "write" in task_lower
+        ):
+            todos.extend(
+                [
+                    {
+                        "content": "Analyze requirements",
+                        "status": "in_progress",
+                        "activeForm": "Analyzing requirements",
+                    },
+                    {
+                        "content": "Design solution",
+                        "status": "pending",
+                        "activeForm": "Designing solution",
+                    },
+                    {
+                        "content": "Generate code/content",
+                        "status": "pending",
+                        "activeForm": "Generating code/content",
+                    },
+                    {
+                        "content": "Review and validate",
+                        "status": "pending",
+                        "activeForm": "Reviewing and validating",
+                    },
+                    {
+                        "content": "Save to file (requires confirmation)",
+                        "status": "pending",
+                        "activeForm": "Saving to file",
+                    },
+                ]
+            )
         elif "debug" in task_lower or "fix" in task_lower:
-            todos.extend([
-                {"content": "Reproduce the issue", "status": "in_progress", "activeForm": "Reproducing the issue"},
-                {"content": "Identify root cause", "status": "pending", "activeForm": "Identifying root cause"},
-                {"content": "Implement fix", "status": "pending", "activeForm": "Implementing fix"},
-                {"content": "Test the fix", "status": "pending", "activeForm": "Testing the fix"},
-                {"content": "Verify no regressions", "status": "pending", "activeForm": "Verifying no regressions"}
-            ])
+            todos.extend(
+                [
+                    {
+                        "content": "Reproduce the issue",
+                        "status": "in_progress",
+                        "activeForm": "Reproducing the issue",
+                    },
+                    {
+                        "content": "Identify root cause",
+                        "status": "pending",
+                        "activeForm": "Identifying root cause",
+                    },
+                    {
+                        "content": "Implement fix",
+                        "status": "pending",
+                        "activeForm": "Implementing fix",
+                    },
+                    {
+                        "content": "Test the fix",
+                        "status": "pending",
+                        "activeForm": "Testing the fix",
+                    },
+                    {
+                        "content": "Verify no regressions",
+                        "status": "pending",
+                        "activeForm": "Verifying no regressions",
+                    },
+                ]
+            )
         elif "refactor" in task_lower:
-            todos.extend([
-                {"content": "Analyze current implementation", "status": "in_progress", "activeForm": "Analyzing current implementation"},
-                {"content": "Identify improvement areas", "status": "pending", "activeForm": "Identifying improvement areas"},
-                {"content": "Plan refactoring approach", "status": "pending", "activeForm": "Planning refactoring approach"},
-                {"content": "Implement refactoring", "status": "pending", "activeForm": "Implementing refactoring"},
-                {"content": "Ensure tests pass", "status": "pending", "activeForm": "Ensuring tests pass"}
-            ])
-        elif "read" in task_lower or "show" in task_lower or "list" in task_lower or "find" in task_lower:
-            todos.extend([
-                {"content": "Search/read files", "status": "in_progress", "activeForm": "Searching/reading files"},
-                {"content": "Process results", "status": "pending", "activeForm": "Processing results"},
-                {"content": "Display output", "status": "pending", "activeForm": "Displaying output"}
-            ])
+            todos.extend(
+                [
+                    {
+                        "content": "Analyze current implementation",
+                        "status": "in_progress",
+                        "activeForm": "Analyzing current implementation",
+                    },
+                    {
+                        "content": "Identify improvement areas",
+                        "status": "pending",
+                        "activeForm": "Identifying improvement areas",
+                    },
+                    {
+                        "content": "Plan refactoring approach",
+                        "status": "pending",
+                        "activeForm": "Planning refactoring approach",
+                    },
+                    {
+                        "content": "Implement refactoring",
+                        "status": "pending",
+                        "activeForm": "Implementing refactoring",
+                    },
+                    {
+                        "content": "Ensure tests pass",
+                        "status": "pending",
+                        "activeForm": "Ensuring tests pass",
+                    },
+                ]
+            )
+        elif (
+            "read" in task_lower
+            or "show" in task_lower
+            or "list" in task_lower
+            or "find" in task_lower
+        ):
+            todos.extend(
+                [
+                    {
+                        "content": "Search/read files",
+                        "status": "in_progress",
+                        "activeForm": "Searching/reading files",
+                    },
+                    {
+                        "content": "Process results",
+                        "status": "pending",
+                        "activeForm": "Processing results",
+                    },
+                    {
+                        "content": "Display output",
+                        "status": "pending",
+                        "activeForm": "Displaying output",
+                    },
+                ]
+            )
         else:
             # Default todos for any task
-            todos.extend([
-                {"content": "Understand request", "status": "in_progress", "activeForm": "Understanding request"},
-                {"content": "Execute task", "status": "pending", "activeForm": "Executing task"},
-                {"content": "Present results", "status": "pending", "activeForm": "Presenting results"}
-            ])
+            todos.extend(
+                [
+                    {
+                        "content": "Understand request",
+                        "status": "in_progress",
+                        "activeForm": "Understanding request",
+                    },
+                    {
+                        "content": "Execute task",
+                        "status": "pending",
+                        "activeForm": "Executing task",
+                    },
+                    {
+                        "content": "Present results",
+                        "status": "pending",
+                        "activeForm": "Presenting results",
+                    },
+                ]
+            )
 
         return todos
 
@@ -747,7 +925,7 @@ Remember:
             StyledTodoItem(
                 content=todo.get("content", ""),
                 status=todo.get("status", "pending"),
-                active_form=todo.get("activeForm", "")
+                active_form=todo.get("activeForm", ""),
             )
             for todo in self.todos
         ]
@@ -857,12 +1035,9 @@ Remember:
             help_content.append(f"{tip}\n", style=Colors.TEXT_MUTED)
 
         # Print as panel
-        self.console.print(Panel(
-            help_content,
-            border_style=Colors.PRIMARY,
-            box=get_default_box(),
-            padding=(0, 1)
-        ))
+        self.console.print(
+            Panel(help_content, border_style=Colors.PRIMARY, box=get_default_box(), padding=(0, 1))
+        )
 
         return ""  # Return empty since we already printed
 
@@ -901,7 +1076,7 @@ Remember:
 
 ## Tool Usage
 """
-        for tool, count in stats.get('tool_usage', {}).items():
+        for tool, count in stats.get("tool_usage", {}).items():
             stats_text += f"- {tool}: {count}\n"
 
         return stats_text
@@ -921,19 +1096,25 @@ Remember:
 
     async def export_conversation(self, args: str = "") -> str:
         """Export conversation to file"""
-        filename = args.strip() if args else f"conversation_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+        filename = (
+            args.strip()
+            if args
+            else f"conversation_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+        )
 
         export_data = {
             "session_history": self.session_history,
             "todos": self.todos,
             "context": self.current_context,
-            "timestamp": datetime.now().isoformat()
+            "timestamp": datetime.now().isoformat(),
         }
 
-        with open(filename, 'w') as f:
+        with open(filename, "w") as f:
             json.dump(export_data, f, indent=2)
 
-        self.console.print(f"[bold {Colors.SUCCESS}]{self.icons.CHECK}[/] Conversation exported to [{Colors.INFO}]{filename}[/]")
+        self.console.print(
+            f"[bold {Colors.SUCCESS}]{self.icons.CHECK}[/] Conversation exported to [{Colors.INFO}]{filename}[/]"
+        )
         return ""
 
     async def show_settings(self, args: str = "") -> str:
@@ -996,10 +1177,7 @@ Example: `/settings stream false`
         commit_message = args if args else "Auto-commit via Hcode"
 
         # Execute git commands
-        commands = [
-            "git add -A",
-            f'git commit -m "{commit_message}"'
-        ]
+        commands = ["git add -A", f'git commit -m "{commit_message}"']
 
         results = []
         for cmd in commands:
@@ -1109,36 +1287,44 @@ Project Structure: {self.get_project_structure()}
         """Render message with styled formatting"""
         if role == MessageRole.USER:
             # User message with styled panel
-            self.console.print(Panel(
-                Text(content, style=Colors.TEXT_PRIMARY),
-                title=f"[bold {Colors.SECONDARY}]{self.icons.PROMPT} You[/]",
-                border_style=Colors.BORDER_DEFAULT,
-                box=get_default_box(),
-                padding=(0, 1)
-            ))
+            self.console.print(
+                Panel(
+                    Text(content, style=Colors.TEXT_PRIMARY),
+                    title=f"[bold {Colors.SECONDARY}]{self.icons.PROMPT} You[/]",
+                    border_style=Colors.BORDER_DEFAULT,
+                    box=get_default_box(),
+                    padding=(0, 1),
+                )
+            )
         elif role == MessageRole.ASSISTANT:
             if self.markdown_rendering:
-                self.console.print(Panel(
-                    Markdown(content),
-                    title=f"[bold {Colors.PRIMARY}]{self.icons.AGENT} Assistant[/]",
-                    border_style=Colors.PRIMARY,
-                    box=get_default_box(),
-                    padding=(0, 2)
-                ))
+                self.console.print(
+                    Panel(
+                        Markdown(content),
+                        title=f"[bold {Colors.PRIMARY}]{self.icons.AGENT} Assistant[/]",
+                        border_style=Colors.PRIMARY,
+                        box=get_default_box(),
+                        padding=(0, 2),
+                    )
+                )
             else:
-                self.console.print(Panel(
-                    Text(content),
-                    title=f"[bold {Colors.PRIMARY}]{self.icons.AGENT} Assistant[/]",
-                    border_style=Colors.PRIMARY,
-                    box=get_default_box(),
-                    padding=(0, 1)
-                ))
+                self.console.print(
+                    Panel(
+                        Text(content),
+                        title=f"[bold {Colors.PRIMARY}]{self.icons.AGENT} Assistant[/]",
+                        border_style=Colors.PRIMARY,
+                        box=get_default_box(),
+                        padding=(0, 1),
+                    )
+                )
         elif role == MessageRole.TOOL_CALL:
             if self.show_tool_calls:
                 self.console.print(f"[{Colors.SECONDARY}]{self.icons.TOOL} Tool: {content}[/]")
         elif role == MessageRole.TOOL_RESULT:
             if self.show_tool_calls:
-                self.console.print(f"[{Colors.INFO}]{self.icons.CHECK} Result: {content[:100]}...[/]")
+                self.console.print(
+                    f"[{Colors.INFO}]{self.icons.CHECK} Result: {content[:100]}...[/]"
+                )
 
     async def run(self):
         """Run the Hcode chat interface"""
@@ -1169,7 +1355,9 @@ Project Structure: {self.get_project_structure()}
                     self.render_message(response)
 
             except KeyboardInterrupt:
-                self.console.print(f"\n[{Colors.WARNING}]{self.icons.WARNING} Use /exit to quit or continue chatting[/]")
+                self.console.print(
+                    f"\n[{Colors.WARNING}]{self.icons.WARNING} Use /exit to quit or continue chatting[/]"
+                )
                 continue
             except EOFError:
                 break
@@ -1177,6 +1365,7 @@ Project Structure: {self.get_project_structure()}
                 self.console.print(f"[bold {Colors.ERROR}]{self.icons.CROSS} Error:[/] {str(e)}")
                 if self.config.get("debug", False):
                     import traceback
+
                     self.console.print(traceback.format_exc())
 
     async def _initialize_with_style(self):
@@ -1194,7 +1383,9 @@ Project Structure: {self.get_project_structure()}
                 provider_info = self._get_provider_info()
 
             except Exception as e:
-                self.console.print(f"\n[bold {Colors.ERROR}]{self.icons.CROSS} Initialization failed:[/] {str(e)}")
+                self.console.print(
+                    f"\n[bold {Colors.ERROR}]{self.icons.CROSS} Initialization failed:[/] {str(e)}"
+                )
                 raise
 
         # Test connection to LLM
@@ -1202,12 +1393,18 @@ Project Structure: {self.get_project_structure()}
         try:
             connection_ok, connection_msg = await self._test_llm_connection()
             if not connection_ok:
-                self.console.print(f"[bold {Colors.WARNING}]{self.icons.WARNING} Connection issue:[/] {connection_msg}")
-                self.console.print(f"[{Colors.TEXT_MUTED}]The agent will still attempt to connect when you send a message.[/]")
+                self.console.print(
+                    f"[bold {Colors.WARNING}]{self.icons.WARNING} Connection issue:[/] {connection_msg}"
+                )
+                self.console.print(
+                    f"[{Colors.TEXT_MUTED}]The agent will still attempt to connect when you send a message.[/]"
+                )
             else:
                 self.console.print(f"[bold {Colors.SUCCESS}]{self.icons.CHECK}[/] {connection_msg}")
         except Exception as e:
-            self.console.print(f"[bold {Colors.WARNING}]{self.icons.WARNING} Connection test skipped:[/] {str(e)}")
+            self.console.print(
+                f"[bold {Colors.WARNING}]{self.icons.WARNING} Connection test skipped:[/] {str(e)}"
+            )
 
         # Show success status
         self.console.print(f"[bold {Colors.SUCCESS}]{self.icons.CHECK}[/] Agent ready!")
@@ -1217,7 +1414,7 @@ Project Structure: {self.get_project_structure()}
             status="ready",
             message="Connected",
             model=provider_info.get("model", "Unknown"),
-            tokens=0
+            tokens=0,
         )
         self.console.print(status)
 
@@ -1238,17 +1435,19 @@ Project Structure: {self.get_project_structure()}
         """Get current provider information"""
         info = {"provider": "Unknown", "model": "Unknown"}
 
-        if self.agent and hasattr(self.agent, 'selector'):
+        if self.agent and hasattr(self.agent, "selector"):
             current = self.agent.selector.current_provider
             if current:
                 info["provider"] = current.__class__.__name__
-                if hasattr(current, 'model'):
+                if hasattr(current, "model"):
                     info["model"] = current.model
 
         # Fallback to config
         if info["model"] == "Unknown":
             openai_model = self.config.get("providers", {}).get("openai", {}).get("default_model")
-            anthropic_model = self.config.get("providers", {}).get("anthropic", {}).get("default_model")
+            anthropic_model = (
+                self.config.get("providers", {}).get("anthropic", {}).get("default_model")
+            )
             info["model"] = openai_model or anthropic_model or "Unknown"
 
         return info
@@ -1275,7 +1474,7 @@ Project Structure: {self.get_project_structure()}
         for provider_name in providers:
             try:
                 provider = provider_selector.get_provider_by_name(provider_name)
-                if provider and hasattr(provider, 'test_connection'):
+                if provider and hasattr(provider, "test_connection"):
                     success, msg = await provider.test_connection()
                     if success:
                         return True, msg
@@ -1298,11 +1497,16 @@ Project Structure: {self.get_project_structure()}
 
         if self.prompt_session:
             return await self.prompt_session.prompt_async(
-                HTML(f'<style fg="#{Colors.PRIMARY[1:]}" bold="True">{prompt_icon}</style> <b>You</b> <style fg="#{Colors.PRIMARY[1:]}">></style> ')
+                HTML(
+                    f'<style fg="#{Colors.PRIMARY[1:]}" bold="True">{prompt_icon}</style> <b>You</b> <style fg="#{Colors.PRIMARY[1:]}">></style> '
+                )
             )
         else:
             # Fallback to simple input with styled prefix
-            self.console.print(f"[bold {Colors.PRIMARY}]{prompt_icon}[/] [bold]You[/] [bold {Colors.PRIMARY}]>[/] ", end="")
+            self.console.print(
+                f"[bold {Colors.PRIMARY}]{prompt_icon}[/] [bold]You[/] [bold {Colors.PRIMARY}]>[/] ",
+                end="",
+            )
             return input()
 
     def _show_goodbye(self):
@@ -1318,22 +1522,30 @@ Project Structure: {self.get_project_structure()}
         goodbye.append(f"  {self.icons.INFO} ", style=Colors.INFO)
         goodbye.append("Session saved. See you next time!", style=Colors.TEXT_MUTED)
 
-        self.console.print(Panel(
-            goodbye,
-            border_style=Colors.PRIMARY,
-            box=get_default_box(),
-            padding=(0, 1)
-        ))
+        self.console.print(
+            Panel(goodbye, border_style=Colors.PRIMARY, box=get_default_box(), padding=(0, 1))
+        )
         self.console.print()
 
 
 @click.command()
-@click.option('--model', '-m', help='Specify AI model')
-@click.option('--provider', '-p', type=click.Choice(['auto', 'anthropic', 'openai']), default='auto', help='AI provider')
-@click.option('--session', '-s', help='Resume session ID')
-@click.option('--debug', is_flag=True, help='Enable debug mode')
-@click.option('--workspace', '-w', type=click.Path(exists=True, file_okay=False, dir_okay=True),
-              default=None, help='Workspace directory (defaults to current directory)')
+@click.option("--model", "-m", help="Specify AI model")
+@click.option(
+    "--provider",
+    "-p",
+    type=click.Choice(["auto", "anthropic", "openai"]),
+    default="auto",
+    help="AI provider",
+)
+@click.option("--session", "-s", help="Resume session ID")
+@click.option("--debug", is_flag=True, help="Enable debug mode")
+@click.option(
+    "--workspace",
+    "-w",
+    type=click.Path(exists=True, file_okay=False, dir_okay=True),
+    default=None,
+    help="Workspace directory (defaults to current directory)",
+)
 def main(model, provider, session, debug, workspace):
     """
     Launch Hcode Advanced Chat Interface.
@@ -1352,13 +1564,13 @@ def main(model, provider, session, debug, workspace):
 
     # Apply CLI options
     if model:
-        chat.config['model'] = model
+        chat.config["model"] = model
     if provider:
-        chat.config['provider'] = provider
+        chat.config["provider"] = provider
     if session:
-        chat.config['session'] = session
+        chat.config["session"] = session
     if debug:
-        chat.config['debug'] = True
+        chat.config["debug"] = True
 
     # Run async chat
     asyncio.run(chat.run())

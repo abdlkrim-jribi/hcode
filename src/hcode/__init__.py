@@ -8,6 +8,7 @@ A production-ready AI coding agent for your terminal.
 # Load environment variables from .env if present
 try:
     from dotenv import load_dotenv
+
     load_dotenv()
 except Exception:
     pass
@@ -77,13 +78,11 @@ __all__ = [
     "__version__",
     "__author__",
     "__email__",
-
     # Core
     "HcodeAgent",
     "FileSystemManager",
     "SafetyGuard",
     "ContextManager",
-
     # Providers
     "AIProvider",
     "AnthropicProvider",
@@ -92,16 +91,13 @@ __all__ = [
     "ProviderPreferences",
     "TaskComplexity",
     "TaskType",
-
     # Tools
     "ToolExecutor",
     "ExecutionResult",
-
     # Utils
     "load_config",
     "save_config",
     "create_default_config",
-
     # Exceptions
     "HCodeError",
     "ConfigError",

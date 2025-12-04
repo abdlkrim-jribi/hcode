@@ -15,7 +15,6 @@ from hcode.ui import (
     Prompt,
     Separator,
     progress_bar,
-
     # UI Components
     CyberPanel,
     MetricCard,
@@ -29,7 +28,6 @@ from hcode.ui import (
     Timestamp,
     Badge,
     ToolExecution,
-
     # Panels from panels.py
     WelcomePanel,
     UserMessagePanel,
@@ -44,14 +42,12 @@ from hcode.ui import (
     TokenUsagePanel,
     DiffLine,
     DiffDisplay,
-
     # Box styles
     CYBER_BOX,
     NEON_BOX,
     TECH_BOX,
     MODERN_BOX,
     ASCII_BOX,
-
     # Functions
     create_info_table,
     create_horizontal_rule,
@@ -70,7 +66,6 @@ __all__ = [
     "Prompt",
     "Separator",
     "progress_bar",
-
     # UI Components
     "CyberPanel",
     "MetricCard",
@@ -84,7 +79,6 @@ __all__ = [
     "Timestamp",
     "Badge",
     "ToolExecution",
-
     # Panels
     "WelcomePanel",
     "UserMessagePanel",
@@ -99,14 +93,12 @@ __all__ = [
     "TokenUsagePanel",
     "DiffLine",
     "DiffDisplay",
-
     # Box styles
     "CYBER_BOX",
     "NEON_BOX",
     "TECH_BOX",
     "MODERN_BOX",
     "ASCII_BOX",
-
     # Functions
     "create_info_table",
     "create_horizontal_rule",

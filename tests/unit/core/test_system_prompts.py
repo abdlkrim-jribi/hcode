@@ -12,16 +12,26 @@ import shutil
 from pathlib import Path
 
 # Add src to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from hcode.agent.modes import (
-    AgentMode, ConfirmationLevel, RiskLevel, ModeConfig,
-    SafetyConfig, MODE_CONFIGS, get_mode_config, get_mode_description
+    AgentMode,
+    ConfirmationLevel,
+    RiskLevel,
+    ModeConfig,
+    SafetyConfig,
+    MODE_CONFIGS,
+    get_mode_config,
+    get_mode_description,
 )
 from hcode.agent.autonomous_prompt import (
-    BASE_AUTONOMOUS_PROMPT, MODE_INSTRUCTIONS, CONFIRMATION_PROMPTS,
-    get_autonomous_prompt, get_mode_transition_prompt,
-    get_confirmation_prompt, get_error_recovery_prompt
+    BASE_AUTONOMOUS_PROMPT,
+    MODE_INSTRUCTIONS,
+    CONFIRMATION_PROMPTS,
+    get_autonomous_prompt,
+    get_mode_transition_prompt,
+    get_confirmation_prompt,
+    get_error_recovery_prompt,
 )
 
 
@@ -90,10 +100,7 @@ class TestModeConfig:
     def test_custom_values(self):
         """Test custom configuration"""
         config = ModeConfig(
-            ask_permission=False,
-            show_plan=True,
-            confirm_dangerous=False,
-            description="Custom mode"
+            ask_permission=False, show_plan=True, confirm_dangerous=False, description="Custom mode"
         )
 
         assert config.ask_permission == False
@@ -431,7 +438,7 @@ class TestGetAutonomousPrompt:
         context = {
             "project_type": "Python",
             "working_directory": "/home/user/project",
-            "recent_files": ["main.py", "utils.py", "test.py"]
+            "recent_files": ["main.py", "utils.py", "test.py"],
         }
 
         prompt = get_autonomous_prompt(AgentMode.AUTO, additional_context=context)
@@ -531,7 +538,7 @@ class TestGetConfirmationPrompt:
             "dangerous_command",
             command="rm -rf /",
             risk_description="Will delete all files",
-            affected_items="Entire filesystem"
+            affected_items="Entire filesystem",
         )
 
         assert "rm -rf /" in prompt
@@ -540,9 +547,7 @@ class TestGetConfirmationPrompt:
     def test_protected_file(self):
         """Test getting protected file prompt"""
         prompt = get_confirmation_prompt(
-            "protected_file",
-            file_path=".env",
-            preview="SECRET_KEY=xxx"
+            "protected_file", file_path=".env", preview="SECRET_KEY=xxx"
         )
 
         assert ".env" in prompt
@@ -561,10 +566,7 @@ class TestGetErrorRecoveryPrompt:
     def test_basic_error_prompt(self):
         """Test basic error recovery prompt"""
         prompt = get_error_recovery_prompt(
-            operation="File read",
-            error="File not found",
-            retry_count=1,
-            max_retries=3
+            operation="File read", error="File not found", retry_count=1, max_retries=3
         )
 
         assert "ERROR" in prompt
@@ -575,10 +577,7 @@ class TestGetErrorRecoveryPrompt:
     def test_contains_options(self):
         """Test error prompt contains recovery options"""
         prompt = get_error_recovery_prompt(
-            operation="Test",
-            error="Error",
-            retry_count=0,
-            max_retries=3
+            operation="Test", error="Error", retry_count=0, max_retries=3
         )
 
         assert "Retry" in prompt or "retry" in prompt

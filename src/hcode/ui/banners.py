@@ -2,6 +2,7 @@
 HCode Futuristic ASCII Art Banners and Branding
 Features animated gradients and glowing effects.
 """
+
 from rich.console import Console, Group, RenderableType
 from rich.text import Text
 from rich.panel import Panel
@@ -100,14 +101,15 @@ LOGO_DOTS = r"""
 # GRADIENT TEXT FUNCTIONS
 # ═══════════════════════════════════════════════════════════════════════
 
+
 def create_gradient_text(text: str, colors: List[str]) -> Text:
     """Create text with gradient colors across characters."""
     result = Text()
-    lines = text.split('\n')
+    lines = text.split("\n")
 
     for line in lines:
         if not line.strip():
-            result.append('\n')
+            result.append("\n")
             continue
 
         for i, char in enumerate(line):
@@ -117,7 +119,7 @@ def create_gradient_text(text: str, colors: List[str]) -> Text:
                 result.append(char, style=Style(color=color, bold=True))
             else:
                 result.append(char)
-        result.append('\n')
+        result.append("\n")
 
     return result
 
@@ -125,18 +127,18 @@ def create_gradient_text(text: str, colors: List[str]) -> Text:
 def create_vertical_gradient_text(text: str, colors: List[str]) -> Text:
     """Create text with vertical gradient (colors change per line)."""
     result = Text()
-    lines = text.split('\n')
+    lines = text.split("\n")
 
     for line_idx, line in enumerate(lines):
         if not line.strip():
-            result.append('\n')
+            result.append("\n")
             continue
 
         color_index = int((line_idx / max(len(lines), 1)) * (len(colors) - 1))
         color = colors[min(color_index, len(colors) - 1)]
 
         result.append(line, style=Style(color=color, bold=True))
-        result.append('\n')
+        result.append("\n")
 
     return result
 
@@ -144,8 +146,14 @@ def create_vertical_gradient_text(text: str, colors: List[str]) -> Text:
 def create_rainbow_text(text: str) -> Text:
     """Create text with rainbow colors."""
     rainbow_colors = [
-        "#FF0000", "#FF7F00", "#FFFF00", "#00FF00",
-        "#00FFFF", "#0000FF", "#8B00FF", "#FF00FF"
+        "#FF0000",
+        "#FF7F00",
+        "#FFFF00",
+        "#00FF00",
+        "#00FFFF",
+        "#0000FF",
+        "#8B00FF",
+        "#FF00FF",
     ]
     return create_gradient_text(text, rainbow_colors)
 
@@ -153,6 +161,7 @@ def create_rainbow_text(text: str) -> Text:
 # ═══════════════════════════════════════════════════════════════════════
 # BANNER DISPLAY FUNCTIONS
 # ═══════════════════════════════════════════════════════════════════════
+
 
 def get_cyberpunk_gradient() -> List[str]:
     """Get the cyberpunk color gradient."""
@@ -184,7 +193,7 @@ def create_banner(
     style: str = "cyber",
     show_version: bool = True,
     show_tagline: bool = True,
-    version: str = "1.0.0"
+    version: str = "1.0.0",
 ) -> RenderableType:
     """Create a styled banner with logo and optional info, centered in the terminal."""
     palette = get_palette()
@@ -238,10 +247,7 @@ def create_banner(
 
 
 def create_animated_banner(
-    console: Console,
-    style: str = "cyber",
-    animation_frames: int = 5,
-    frame_delay: float = 0.1
+    console: Console, style: str = "cyber", animation_frames: int = 5, frame_delay: float = 0.1
 ) -> None:
     """Display animated startup banner with glow effect."""
     palette = get_palette()
@@ -289,11 +295,8 @@ def create_animated_banner(
 # SECTION HEADERS
 # ═══════════════════════════════════════════════════════════════════════
 
-def create_section_header(
-    title: str,
-    icon: str = "◆",
-    style: str = "default"
-) -> Panel:
+
+def create_section_header(title: str, icon: str = "◆", style: str = "default") -> Panel:
     """Create a futuristic section header."""
     palette = get_palette()
 
@@ -325,11 +328,8 @@ def create_subsection_header(title: str, icon: str = "▸") -> Text:
 # DECORATIVE ELEMENTS
 # ═══════════════════════════════════════════════════════════════════════
 
-def create_divider(
-    width: int = 60,
-    style: str = "single",
-    label: Optional[str] = None
-) -> Text:
+
+def create_divider(width: int = 60, style: str = "single", label: Optional[str] = None) -> Text:
     """Create a decorative divider line."""
     palette = get_palette()
 
@@ -381,6 +381,7 @@ def create_neon_box(content: str, width: int = 40) -> Panel:
 # STARTUP SEQUENCES
 # ═══════════════════════════════════════════════════════════════════════
 
+
 def display_welcome(console: Console, compact: bool = False) -> None:
     """Display complete welcome sequence."""
     if compact:
@@ -422,6 +423,7 @@ def display_startup_animation(console: Console, duration: float = 1.0) -> None:
 # QUICK ACCESS BANNERS
 # ═══════════════════════════════════════════════════════════════════════
 
+
 def quick_banner() -> Text:
     """Get a minimal inline banner."""
     palette = get_palette()
@@ -447,9 +449,7 @@ def status_banner(status: str = "ready") -> Text:
         "offline": ("○", palette.text_muted, "Offline"),
     }
 
-    icon, color, label = status_configs.get(
-        status, ("○", palette.text_muted, status.title())
-    )
+    icon, color, label = status_configs.get(status, ("○", palette.text_muted, status.title()))
 
     text = Text()
     text.append("◈ ", style=f"bold {palette.secondary}")

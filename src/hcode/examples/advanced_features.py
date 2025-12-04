@@ -11,68 +11,60 @@ async def full_featured_example():
     """Complete example with all features"""
 
     # Initialize agent
-    agent = HcodeAgent(
-        anthropic_key="your-anthropic-key",
-        openai_key="your-openai-key"
-    )
+    agent = HcodeAgent(anthropic_key="your-anthropic-key", openai_key="your-openai-key")
 
     # 1. Explore codebase
     print("=== Exploring Codebase ===")
-    exploration = await agent.explore_codebase(
-        "Find all API endpoints",
-        thoroughness="medium"
-    )
+    exploration = await agent.explore_codebase("Find all API endpoints", thoroughness="medium")
     print(exploration)
 
     # 2. Ask user questions
     print("\n=== Interactive Question ===")
-    answers = await agent.ask_user([{
-        "question": "Which authentication method should we use?",
-        "header": "Auth Method",
-        "options": [
-            {"label": "JWT", "description": "JSON Web Tokens"},
-            {"label": "OAuth2", "description": "OAuth 2.0 flow"},
-            {"label": "API Key", "description": "Simple API keys"}
-        ],
-        "multiSelect": False
-    }])
+    answers = await agent.ask_user(
+        [
+            {
+                "question": "Which authentication method should we use?",
+                "header": "Auth Method",
+                "options": [
+                    {"label": "JWT", "description": "JSON Web Tokens"},
+                    {"label": "OAuth2", "description": "OAuth 2.0 flow"},
+                    {"label": "API Key", "description": "Simple API keys"},
+                ],
+                "multiSelect": False,
+            }
+        ]
+    )
     print(f"User selected: {answers}")
 
     # 3. Create implementation plan
     print("\n=== Creating Plan ===")
-    plan = await agent.plan_implementation(
-        "Add rate limiting middleware"
-    )
+    plan = await agent.plan_implementation("Add rate limiting middleware")
     print(plan)
 
     # 4. Update todos
     print("\n=== Updating Todos ===")
-    await agent.update_todos([
-        {
-            "content": "Implement rate limiter",
-            "status": "in_progress",
-            "activeForm": "Implementing rate limiter"
-        },
-        {
-            "content": "Add tests",
-            "status": "pending",
-            "activeForm": "Adding tests"
-        },
-        {
-            "content": "Update documentation",
-            "status": "pending",
-            "activeForm": "Updating documentation"
-        }
-    ])
+    await agent.update_todos(
+        [
+            {
+                "content": "Implement rate limiter",
+                "status": "in_progress",
+                "activeForm": "Implementing rate limiter",
+            },
+            {"content": "Add tests", "status": "pending", "activeForm": "Adding tests"},
+            {
+                "content": "Update documentation",
+                "status": "pending",
+                "activeForm": "Updating documentation",
+            },
+        ]
+    )
 
     # 5. Implement with safety
     print("\n=== Safe Implementation ===")
     tx_id = agent.safety_guard.start_transaction("Rate limiter implementation")
 
     try:
-        result = await agent.implement_with_plan(
-            "Implement rate limiting with Redis backend"
-        )
+        result = await agent.implement_with_plan("Implement rate limiting with Redis backend")
         print(result)
 
         # Commit if successful
@@ -86,9 +78,7 @@ async def full_featured_example():
 
     # 6. Web search
     print("\n=== Web Search ===")
-    search_results = await agent.web_search(
-        "Python rate limiting best practices 2024"
-    )
+    search_results = await agent.web_search("Python rate limiting best practices 2024")
     print(search_results[:200])
 
     # 7. Display stats
@@ -104,10 +94,7 @@ async def parallel_agents_example():
     """Example of running multiple agents in parallel"""
     from hcode.agents import AgentOrchestrator
 
-    agent = HcodeAgent(
-        anthropic_key="your-key",
-        openai_key="your-key"
-    )
+    agent = HcodeAgent(anthropic_key="your-key", openai_key="your-key")
 
     orchestrator = AgentOrchestrator(agent.provider_selector)
 
@@ -115,7 +102,7 @@ async def parallel_agents_example():
     tasks = [
         {"type": "explore", "query": "Find all database models"},
         {"type": "explore", "query": "Find all API routes"},
-        {"type": "explore", "query": "Find all test files"}
+        {"type": "explore", "query": "Find all test files"},
     ]
 
     results = await orchestrator.execute_parallel(tasks)

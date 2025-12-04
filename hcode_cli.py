@@ -17,18 +17,21 @@ from src.hcode.hcode_chat import HcodeChat
 
 
 @click.command()
-@click.option('--model', '-m', help='AI model to use (e.g., claude-3-opus, gpt-4)')
-@click.option('--provider', '-p',
-              type=click.Choice(['auto', 'anthropic', 'openai']),
-              default='auto',
-              help='AI provider to use')
-@click.option('--session', '-s', help='Resume a previous session by ID')
-@click.option('--api-key', help='API key (can also use environment variables)')
-@click.option('--debug', is_flag=True, help='Enable debug mode for verbose output')
-@click.option('--no-stream', is_flag=True, help='Disable streaming responses')
-@click.option('--config', '-c', type=click.Path(), help='Path to configuration file')
-@click.option('--export', '-e', help='Export session on exit to specified file')
-@click.version_option(version='1.0.0', prog_name='Hcode')
+@click.option("--model", "-m", help="AI model to use (e.g., claude-3-opus, gpt-4)")
+@click.option(
+    "--provider",
+    "-p",
+    type=click.Choice(["auto", "anthropic", "openai"]),
+    default="auto",
+    help="AI provider to use",
+)
+@click.option("--session", "-s", help="Resume a previous session by ID")
+@click.option("--api-key", help="API key (can also use environment variables)")
+@click.option("--debug", is_flag=True, help="Enable debug mode for verbose output")
+@click.option("--no-stream", is_flag=True, help="Disable streaming responses")
+@click.option("--config", "-c", type=click.Path(), help="Path to configuration file")
+@click.option("--export", "-e", help="Export session on exit to specified file")
+@click.version_option(version="1.0.0", prog_name="Hcode")
 def main(model, provider, session, api_key, debug, no_stream, config, export):
     """
     Launch Hcode AI Assistant.
@@ -65,25 +68,26 @@ def main(model, provider, session, api_key, debug, no_stream, config, export):
         config_path = Path(config)
         if config_path.exists():
             import json
-            with open(config_path, 'r') as f:
+
+            with open(config_path, "r") as f:
                 chat.config.update(json.load(f))
 
     # Apply command-line options
     if model:
-        chat.config['model'] = model
+        chat.config["model"] = model
     if provider:
-        chat.config['provider'] = provider
+        chat.config["provider"] = provider
     if session:
-        chat.config['session'] = session
+        chat.config["session"] = session
     if api_key:
-        os.environ['ANTHROPIC_API_KEY'] = api_key
-        os.environ['OPENAI_API_KEY'] = api_key
+        os.environ["ANTHROPIC_API_KEY"] = api_key
+        os.environ["OPENAI_API_KEY"] = api_key
     if debug:
-        chat.config['debug'] = True
+        chat.config["debug"] = True
     if no_stream:
         chat.stream_responses = False
     if export:
-        chat.config['export_on_exit'] = export
+        chat.config["export_on_exit"] = export
 
     # Run the chat interface
     try:
@@ -97,6 +101,7 @@ def main(model, provider, session, api_key, debug, no_stream, config, export):
         print(f"\nError: {str(e)}")
         if debug:
             import traceback
+
             traceback.print_exc()
         sys.exit(1)
 

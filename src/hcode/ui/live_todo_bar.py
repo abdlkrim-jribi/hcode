@@ -21,12 +21,18 @@ import threading
 import sys
 import time
 
-from .todo_display import ClaudeCodeTodoDisplay, ICON_SPARKLE, CHECKBOX_CHECKED, CHECKBOX_UNCHECKED, ICON_BRANCH
+from .todo_display import (
+    ClaudeCodeTodoDisplay,
+    ICON_SPARKLE,
+    CHECKBOX_CHECKED,
+    CHECKBOX_UNCHECKED,
+    ICON_BRANCH,
+)
 from ..tools.tool_callbacks import (
     ToolCallbackManager,
     ToolEvent,
     ToolEventType,
-    get_callback_manager
+    get_callback_manager,
 )
 
 
@@ -55,10 +61,7 @@ class LiveTodoBar:
     SHOW_CURSOR = "\033[?25h"
 
     def __init__(
-        self,
-        console: Optional[Console] = None,
-        height: int = 6,
-        show_shortcuts: bool = True
+        self, console: Optional[Console] = None, height: int = 6, show_shortcuts: bool = True
     ):
         """
         Initialize live todo bar.
@@ -122,20 +125,14 @@ class LiveTodoBar:
 
         # Register callback
         if not self._callback_registered:
-            self._callback_manager.register(
-                ToolEventType.TODO_UPDATE,
-                self._on_todo_update
-            )
+            self._callback_manager.register(ToolEventType.TODO_UPDATE, self._on_todo_update)
             self._callback_registered = True
 
         # Reserve space at bottom
         self._reserve_space()
 
         # Start update thread for elapsed time animation
-        self._update_thread = threading.Thread(
-            target=self._update_loop,
-            daemon=True
-        )
+        self._update_thread = threading.Thread(target=self._update_loop, daemon=True)
         self._update_thread.start()
 
     def stop(self) -> None:
@@ -154,10 +151,7 @@ class LiveTodoBar:
 
         # Unregister callback
         if self._callback_registered:
-            self._callback_manager.unregister(
-                ToolEventType.TODO_UPDATE,
-                self._on_todo_update
-            )
+            self._callback_manager.unregister(ToolEventType.TODO_UPDATE, self._on_todo_update)
             self._callback_registered = False
 
         # Clear the status area
@@ -189,6 +183,7 @@ class LiveTodoBar:
         """Get terminal height."""
         try:
             import shutil
+
             return shutil.get_terminal_size().lines
         except Exception:
             return 24  # Default
@@ -218,25 +213,26 @@ class LiveTodoBar:
 
             # Render to string
             from io import StringIO
+
             string_buffer = StringIO()
             temp_console = Console(
                 file=string_buffer,
                 force_terminal=True,
                 width=self.console.width or 120,
-                no_color=False
+                no_color=False,
             )
 
             rendered = self.todo_display.render(
                 self.todos,
                 elapsed_seconds=elapsed,
                 token_count=self.token_count,
-                show_shortcuts=self.show_shortcuts
+                show_shortcuts=self.show_shortcuts,
             )
             temp_console.print(rendered)
 
             # Get lines
             output = string_buffer.getvalue()
-            lines = output.split('\n')[:self.height]
+            lines = output.split("\n")[: self.height]
 
             # Position and render
             sys.stdout.write(self.SAVE_CURSOR)
@@ -250,7 +246,7 @@ class LiveTodoBar:
                     sys.stdout.write(line)
                 except UnicodeEncodeError:
                     # Fallback: replace problematic Unicode with ASCII alternatives
-                    safe_line = line.encode('ascii', 'replace').decode('ascii')
+                    safe_line = line.encode("ascii", "replace").decode("ascii")
                     sys.stdout.write(safe_line)
 
             sys.stdout.write(self.RESTORE_CURSOR)

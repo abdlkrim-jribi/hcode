@@ -46,14 +46,14 @@ class SafetyGuard:
         history_file = self.backup_dir / "history.json"
 
         if history_file.exists():
-            with open(history_file, 'r') as f:
+            with open(history_file, "r") as f:
                 self.transaction_history = json.load(f)
 
     def _save_history(self):
         """Save transaction history to disk"""
         history_file = self.backup_dir / "history.json"
 
-        with open(history_file, 'w') as f:
+        with open(history_file, "w") as f:
             json.dump(self.transaction_history, f, indent=2)
 
     def start_transaction(self, description: str = "") -> str:
@@ -76,7 +76,7 @@ class SafetyGuard:
             "files_backed_up": [],
             "files_created": [],
             "files_deleted": [],
-            "status": "in_progress"
+            "status": "in_progress",
         }
 
         self._save_history()
@@ -104,7 +104,11 @@ class SafetyGuard:
             return ""  # Nothing to backup
 
         # Create backup directory structure
-        rel_path = source_path.relative_to(self.root_dir) if source_path.is_relative_to(self.root_dir) else source_path
+        rel_path = (
+            source_path.relative_to(self.root_dir)
+            if source_path.is_relative_to(self.root_dir)
+            else source_path
+        )
         backup_path = self.backup_dir / self.current_transaction / rel_path
 
         # Create parent directories
@@ -114,11 +118,13 @@ class SafetyGuard:
         shutil.copy2(source_path, backup_path)
 
         # Record in transaction
-        self.transaction_history[self.current_transaction]["files_backed_up"].append({
-            "original": str(file_path),
-            "backup": str(backup_path),
-            "hash": self._hash_file(source_path)
-        })
+        self.transaction_history[self.current_transaction]["files_backed_up"].append(
+            {
+                "original": str(file_path),
+                "backup": str(backup_path),
+                "hash": self._hash_file(source_path),
+            }
+        )
 
         self._save_history()
         return str(backup_path)
@@ -212,7 +218,9 @@ class SafetyGuard:
 
         return True
 
-    def validate_operation(self, operation: str, file_path: Optional[str] = None) -> tuple[bool, str]:
+    def validate_operation(
+        self, operation: str, file_path: Optional[str] = None
+    ) -> tuple[bool, str]:
         """
         Validate if an operation is safe.
 
@@ -233,7 +241,7 @@ class SafetyGuard:
         # Check for sensitive files
         if file_path:
             path_lower = file_path.lower()
-            sensitive_files = ['.env', 'credentials', 'secrets', 'password', 'token', 'api_key']
+            sensitive_files = [".env", "credentials", "secrets", "password", "token", "api_key"]
 
             for sensitive in sensitive_files:
                 if sensitive in path_lower:
@@ -242,7 +250,7 @@ class SafetyGuard:
         # Check if file is in system directories
         if file_path:
             path = Path(file_path)
-            system_dirs = ['/usr', '/bin', '/sbin', '/etc', 'C:\\Windows', 'C:\\Program Files']
+            system_dirs = ["/usr", "/bin", "/sbin", "/etc", "C:\\Windows", "C:\\Program Files"]
 
             for sys_dir in system_dirs:
                 if str(path).startswith(sys_dir):
@@ -270,25 +278,28 @@ class SafetyGuard:
             "id": checkpoint_id,
             "name": name,
             "timestamp": datetime.now().isoformat(),
-            "files": []
+            "files": [],
         }
 
         for file_path in files:
             source = Path(file_path)
             if source.exists():
-                rel_path = source.relative_to(self.root_dir) if source.is_relative_to(self.root_dir) else source
+                rel_path = (
+                    source.relative_to(self.root_dir)
+                    if source.is_relative_to(self.root_dir)
+                    else source
+                )
                 dest = checkpoint_dir / rel_path
 
                 dest.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(source, dest)
 
-                checkpoint_info["files"].append({
-                    "path": str(file_path),
-                    "hash": self._hash_file(source)
-                })
+                checkpoint_info["files"].append(
+                    {"path": str(file_path), "hash": self._hash_file(source)}
+                )
 
         # Save checkpoint info
-        with open(checkpoint_dir / "info.json", 'w') as f:
+        with open(checkpoint_dir / "info.json", "w") as f:
             json.dump(checkpoint_info, f, indent=2)
 
         return checkpoint_id
@@ -312,13 +323,17 @@ class SafetyGuard:
         if not info_file.exists():
             return False
 
-        with open(info_file, 'r') as f:
+        with open(info_file, "r") as f:
             checkpoint_info = json.load(f)
 
         # Restore each file
         for file_info in checkpoint_info["files"]:
             original_path = Path(file_info["path"])
-            rel_path = original_path.relative_to(self.root_dir) if original_path.is_relative_to(self.root_dir) else original_path
+            rel_path = (
+                original_path.relative_to(self.root_dir)
+                if original_path.is_relative_to(self.root_dir)
+                else original_path
+            )
             backup_path = checkpoint_dir / rel_path
 
             if backup_path.exists():
@@ -345,7 +360,7 @@ class SafetyGuard:
             if checkpoint_dir.is_dir():
                 info_file = checkpoint_dir / "info.json"
                 if info_file.exists():
-                    with open(info_file, 'r') as f:
+                    with open(info_file, "r") as f:
                         checkpoints.append(json.load(f))
 
         return sorted(checkpoints, key=lambda x: x["timestamp"], reverse=True)
@@ -408,7 +423,7 @@ class SafetyGuard:
 
         return sha256_hash.hexdigest()
 
-    def dry_run_mode(self) -> 'DryRunContext':
+    def dry_run_mode(self) -> "DryRunContext":
         """
         Enter dry run mode (preview changes without applying).
 

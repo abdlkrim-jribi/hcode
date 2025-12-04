@@ -11,6 +11,7 @@ from typing import Dict, Any, Optional
 # Load .env file if it exists
 try:
     from dotenv import load_dotenv
+
     # Try to load .env from current directory or parent
     env_path = Path.cwd() / ".env"
     if env_path.exists():
@@ -30,32 +31,16 @@ MODEL_SIZE_MAP = {
     "anthropic": {
         "small": "claude-3-haiku-20240307",
         "mid": "claude-3-5-sonnet-20241022",
-        "big": "claude-3-opus-20240229"
+        "big": "claude-3-opus-20240229",
     },
-    "openai": {
-        "small": "gpt-4o-mini",
-        "mid": "gpt-4o",
-        "big": "gpt-4-turbo"
-    }
+    "openai": {"small": "gpt-4o-mini", "mid": "gpt-4o", "big": "gpt-4-turbo"},
 }
 
 # Common OpenAI-compatible model names for different providers
 OPENAI_COMPATIBLE_MODELS = {
-    "cerebras": {
-        "small": "llama3.1-8b",
-        "mid": "llama3.1-70b",
-        "big": "llama3.1-70b"
-    },
-    "ollama": {
-        "small": "llama3:8b",
-        "mid": "llama3:70b",
-        "big": "llama3:70b"
-    },
-    "lmstudio": {
-        "small": "llama-3.1-8b",
-        "mid": "llama-3.1-70b",
-        "big": "llama-3.1-70b"
-    }
+    "cerebras": {"small": "llama3.1-8b", "mid": "llama3.1-70b", "big": "llama3.1-70b"},
+    "ollama": {"small": "llama3:8b", "mid": "llama3:70b", "big": "llama3:70b"},
+    "lmstudio": {"small": "llama-3.1-8b", "mid": "llama-3.1-70b", "big": "llama-3.1-70b"},
 }
 
 
@@ -65,33 +50,25 @@ DEFAULT_CONFIG = {
             "api_key_env": "ANTHROPIC_API_KEY",
             "default_model": "claude-3-5-sonnet-20241022",
             "max_tokens": 4000,
-            "temperature": 0.3
+            "temperature": 0.3,
         },
         "openai": {
             "api_key_env": "OPENAI_API_KEY",
             "base_url_env": "OPENAI_BASE_URL",
             "default_model": "gpt-4o",
             "max_tokens": 4000,
-            "temperature": 0.3
-        }
+            "temperature": 0.3,
+        },
     },
     "preferences": {
         "primary_provider": "auto",
         "fallback_enabled": True,
         "cost_optimization": "balanced",
         "prefer_streaming": True,
-        "max_cost_per_request": 1.0
+        "max_cost_per_request": 1.0,
     },
-    "tools": {
-        "linter": "auto",
-        "formatter": "auto",
-        "test_runner": "auto"
-    },
-    "safety": {
-        "confirm_destructive": True,
-        "auto_backup": True,
-        "backup_retention_days": 7
-    }
+    "tools": {"linter": "auto", "formatter": "auto", "test_runner": "auto"},
+    "safety": {"confirm_destructive": True, "auto_backup": True, "backup_retention_days": 7},
 }
 
 
@@ -141,7 +118,7 @@ def load_config(config_path: Optional[str] = None) -> Dict[str, Any]:
         config_file = find_config_file()
 
     if config_file and config_file.exists():
-        with open(config_file, 'r') as f:
+        with open(config_file, "r") as f:
             user_config = yaml.safe_load(f)
 
             if user_config:
@@ -307,7 +284,7 @@ def save_config(config: Dict[str, Any], config_path: Optional[str] = None):
     else:
         path = Path.cwd() / ".hcoderc"
 
-    with open(path, 'w') as f:
+    with open(path, "w") as f:
         yaml.dump(config, f, default_flow_style=False, sort_keys=False)
 
 
@@ -338,7 +315,7 @@ def get_project_instructions() -> Optional[str]:
     instructions_file = Path.cwd() / ".hcode-instructions"
 
     if instructions_file.exists():
-        with open(instructions_file, 'r') as f:
+        with open(instructions_file, "r") as f:
             return f.read()
 
     return None

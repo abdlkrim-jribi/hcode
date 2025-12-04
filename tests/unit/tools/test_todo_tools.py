@@ -11,7 +11,7 @@ import os
 from datetime import datetime
 
 # Add src to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from hcode.tools.todo_write import TodoWriteTool
 from hcode.agent.todo import TodoManager, TodoItem, TodoStatus
@@ -61,10 +61,7 @@ class TestTodoItem:
 
     def test_custom_active_form(self):
         """Test custom active form is preserved"""
-        todo = TodoItem(
-            content="Add tests",
-            active_form="Running test suite"
-        )
+        todo = TodoItem(content="Add tests", active_form="Running test suite")
 
         assert todo.active_form == "Running test suite"
 
@@ -201,7 +198,7 @@ class TestTodoManager:
 
         todos = [
             {"content": "Task 1", "status": "in_progress", "activeForm": "Working on Task 1"},
-            {"content": "Task 2", "status": "pending", "activeForm": "Working on Task 2"}
+            {"content": "Task 2", "status": "pending", "activeForm": "Working on Task 2"},
         ]
 
         manager.batch_update(todos)
@@ -217,15 +214,17 @@ class TestTodoManager:
         manager = TodoManager()
 
         # First update
-        manager.batch_update([
-            {"content": "Old task", "status": "in_progress", "activeForm": "Old"}
-        ])
+        manager.batch_update(
+            [{"content": "Old task", "status": "in_progress", "activeForm": "Old"}]
+        )
 
         # Second update should replace
-        manager.batch_update([
-            {"content": "New task 1", "status": "in_progress", "activeForm": "New 1"},
-            {"content": "New task 2", "status": "pending", "activeForm": "New 2"}
-        ])
+        manager.batch_update(
+            [
+                {"content": "New task 1", "status": "in_progress", "activeForm": "New 1"},
+                {"content": "New task 2", "status": "pending", "activeForm": "New 2"},
+            ]
+        )
 
         assert len(manager.todos) == 2
         assert all("New task" in t.content for t in manager.todos)
@@ -233,10 +232,12 @@ class TestTodoManager:
     def test_get_all(self):
         """Test getting all todos"""
         manager = TodoManager()
-        manager.batch_update([
-            {"content": "Task 1", "status": "in_progress", "activeForm": "T1"},
-            {"content": "Task 2", "status": "pending", "activeForm": "T2"}
-        ])
+        manager.batch_update(
+            [
+                {"content": "Task 1", "status": "in_progress", "activeForm": "T1"},
+                {"content": "Task 2", "status": "pending", "activeForm": "T2"},
+            ]
+        )
 
         all_todos = manager.get_all()
 
@@ -248,12 +249,14 @@ class TestTodoManager:
     def test_get_by_status(self):
         """Test filtering todos by status"""
         manager = TodoManager()
-        manager.batch_update([
-            {"content": "Task 1", "status": "completed", "activeForm": "T1"},
-            {"content": "Task 2", "status": "in_progress", "activeForm": "T2"},
-            {"content": "Task 3", "status": "pending", "activeForm": "T3"},
-            {"content": "Task 4", "status": "completed", "activeForm": "T4"}
-        ])
+        manager.batch_update(
+            [
+                {"content": "Task 1", "status": "completed", "activeForm": "T1"},
+                {"content": "Task 2", "status": "in_progress", "activeForm": "T2"},
+                {"content": "Task 3", "status": "pending", "activeForm": "T3"},
+                {"content": "Task 4", "status": "completed", "activeForm": "T4"},
+            ]
+        )
 
         completed = manager.get_by_status(TodoStatus.COMPLETED)
 
@@ -263,11 +266,13 @@ class TestTodoManager:
     def test_get_current(self):
         """Test getting current in-progress todo"""
         manager = TodoManager()
-        manager.batch_update([
-            {"content": "Completed", "status": "completed", "activeForm": "C"},
-            {"content": "Current", "status": "in_progress", "activeForm": "I"},
-            {"content": "Pending", "status": "pending", "activeForm": "P"}
-        ])
+        manager.batch_update(
+            [
+                {"content": "Completed", "status": "completed", "activeForm": "C"},
+                {"content": "Current", "status": "in_progress", "activeForm": "I"},
+                {"content": "Pending", "status": "pending", "activeForm": "P"},
+            ]
+        )
 
         current = manager.get_current()
 
@@ -286,12 +291,14 @@ class TestTodoManager:
     def test_get_progress(self):
         """Test progress statistics"""
         manager = TodoManager()
-        manager.batch_update([
-            {"content": "Task 1", "status": "completed", "activeForm": "T1"},
-            {"content": "Task 2", "status": "completed", "activeForm": "T2"},
-            {"content": "Task 3", "status": "in_progress", "activeForm": "T3"},
-            {"content": "Task 4", "status": "pending", "activeForm": "T4"}
-        ])
+        manager.batch_update(
+            [
+                {"content": "Task 1", "status": "completed", "activeForm": "T1"},
+                {"content": "Task 2", "status": "completed", "activeForm": "T2"},
+                {"content": "Task 3", "status": "in_progress", "activeForm": "T3"},
+                {"content": "Task 4", "status": "pending", "activeForm": "T4"},
+            ]
+        )
 
         stats = manager.get_progress()
 
@@ -313,10 +320,12 @@ class TestTodoManager:
     def test_to_dict_list(self):
         """Test converting all todos to dict list"""
         manager = TodoManager()
-        manager.batch_update([
-            {"content": "Task 1", "status": "in_progress", "activeForm": "T1"},
-            {"content": "Task 2", "status": "pending", "activeForm": "T2"}
-        ])
+        manager.batch_update(
+            [
+                {"content": "Task 1", "status": "in_progress", "activeForm": "T1"},
+                {"content": "Task 2", "status": "pending", "activeForm": "T2"},
+            ]
+        )
 
         dict_list = manager.to_dict_list()
 
@@ -333,9 +342,7 @@ class TestTodoManager:
             updates_received.append(len(todos))
 
         manager.add_listener(listener)
-        manager.batch_update([
-            {"content": "Task", "status": "in_progress", "activeForm": "T"}
-        ])
+        manager.batch_update([{"content": "Task", "status": "in_progress", "activeForm": "T"}])
 
         assert len(updates_received) == 1
         assert updates_received[0] == 1
@@ -349,9 +356,7 @@ class TestTodoManager:
         manager.add_listener(lambda t: listener1_calls.append(True))
         manager.add_listener(lambda t: listener2_calls.append(True))
 
-        manager.batch_update([
-            {"content": "Task", "status": "in_progress", "activeForm": "T"}
-        ])
+        manager.batch_update([{"content": "Task", "status": "in_progress", "activeForm": "T"}])
 
         assert len(listener1_calls) == 1
         assert len(listener2_calls) == 1
@@ -359,10 +364,12 @@ class TestTodoManager:
     def test_string_representation(self):
         """Test manager string representation"""
         manager = TodoManager()
-        manager.batch_update([
-            {"content": "Task 1", "status": "completed", "activeForm": "T1"},
-            {"content": "Task 2", "status": "in_progress", "activeForm": "T2"}
-        ])
+        manager.batch_update(
+            [
+                {"content": "Task 1", "status": "completed", "activeForm": "T1"},
+                {"content": "Task 2", "status": "in_progress", "activeForm": "T2"},
+            ]
+        )
 
         string = str(manager)
 
@@ -404,7 +411,7 @@ class TestTodoWriteTool:
 
         todos = [
             {"content": "Task 1", "status": "in_progress", "activeForm": "Working on Task 1"},
-            {"content": "Task 2", "status": "pending", "activeForm": "Working on Task 2"}
+            {"content": "Task 2", "status": "pending", "activeForm": "Working on Task 2"},
         ]
 
         result = await tool.execute(todos=todos)
@@ -419,9 +426,7 @@ class TestTodoWriteTool:
         tool = TodoWriteTool()
 
         # Missing content
-        todos = [
-            {"status": "in_progress", "activeForm": "Working"}
-        ]
+        todos = [{"status": "in_progress", "activeForm": "Working"}]
 
         result = await tool.execute(todos=todos)
 
@@ -434,9 +439,7 @@ class TestTodoWriteTool:
         tool = TodoWriteTool()
 
         # Missing status
-        todos = [
-            {"content": "Task 1", "activeForm": "Working"}
-        ]
+        todos = [{"content": "Task 1", "activeForm": "Working"}]
 
         result = await tool.execute(todos=todos)
 
@@ -449,9 +452,7 @@ class TestTodoWriteTool:
         tool = TodoWriteTool()
 
         # Missing activeForm
-        todos = [
-            {"content": "Task 1", "status": "in_progress"}
-        ]
+        todos = [{"content": "Task 1", "status": "in_progress"}]
 
         result = await tool.execute(todos=todos)
 
@@ -466,7 +467,7 @@ class TestTodoWriteTool:
         # Multiple in-progress
         todos = [
             {"content": "Task 1", "status": "in_progress", "activeForm": "T1"},
-            {"content": "Task 2", "status": "in_progress", "activeForm": "T2"}
+            {"content": "Task 2", "status": "in_progress", "activeForm": "T2"},
         ]
 
         result = await tool.execute(todos=todos)
@@ -482,7 +483,7 @@ class TestTodoWriteTool:
         # No in-progress
         todos = [
             {"content": "Task 1", "status": "pending", "activeForm": "T1"},
-            {"content": "Task 2", "status": "pending", "activeForm": "T2"}
+            {"content": "Task 2", "status": "pending", "activeForm": "T2"},
         ]
 
         result = await tool.execute(todos=todos)
@@ -496,9 +497,7 @@ class TestTodoWriteTool:
         tool = TodoWriteTool()
 
         # Invalid status
-        todos = [
-            {"content": "Task 1", "status": "invalid_status", "activeForm": "T1"}
-        ]
+        todos = [{"content": "Task 1", "status": "invalid_status", "activeForm": "T1"}]
 
         result = await tool.execute(todos=todos)
 
@@ -510,9 +509,7 @@ class TestTodoWriteTool:
         """Test validation rejects empty content"""
         tool = TodoWriteTool()
 
-        todos = [
-            {"content": "", "status": "in_progress", "activeForm": "Working"}
-        ]
+        todos = [{"content": "", "status": "in_progress", "activeForm": "Working"}]
 
         result = await tool.execute(todos=todos)
 
@@ -524,9 +521,7 @@ class TestTodoWriteTool:
         """Test validation rejects empty activeForm"""
         tool = TodoWriteTool()
 
-        todos = [
-            {"content": "Task", "status": "in_progress", "activeForm": ""}
-        ]
+        todos = [{"content": "Task", "status": "in_progress", "activeForm": ""}]
 
         result = await tool.execute(todos=todos)
 
@@ -565,7 +560,7 @@ class TestTodoWriteTool:
         todos = [
             {"content": "Completed", "status": "completed", "activeForm": "C"},
             {"content": "Current", "status": "in_progress", "activeForm": "I"},
-            {"content": "Pending", "status": "pending", "activeForm": "P"}
+            {"content": "Pending", "status": "pending", "activeForm": "P"},
         ]
 
         result = await tool.execute(todos=todos)
@@ -582,9 +577,7 @@ class TestTodoWriteTool:
         """Test result includes current todos"""
         tool = TodoWriteTool()
 
-        todos = [
-            {"content": "Task 1", "status": "in_progress", "activeForm": "T1"}
-        ]
+        todos = [{"content": "Task 1", "status": "in_progress", "activeForm": "T1"}]
 
         result = await tool.execute(todos=todos)
 
@@ -602,7 +595,7 @@ class TestTodoWriteTool:
             {"content": "Current", "status": "in_progress", "activeForm": "I"},
             {"content": "Done", "status": "completed", "activeForm": "D"},
             {"content": "Stuck", "status": "blocked", "activeForm": "B"},
-            {"content": "Skip", "status": "skipped", "activeForm": "S"}
+            {"content": "Skip", "status": "skipped", "activeForm": "S"},
         ]
 
         result = await tool.execute(todos=todos)
@@ -630,32 +623,46 @@ class TestTodoWorkflow:
         tool = TodoWriteTool()
 
         # Step 1: Start with initial tasks
-        result1 = await tool.execute(todos=[
-            {"content": "Read file", "status": "in_progress", "activeForm": "Reading file"},
-            {"content": "Process data", "status": "pending", "activeForm": "Processing data"},
-            {"content": "Write output", "status": "pending", "activeForm": "Writing output"}
-        ])
+        result1 = await tool.execute(
+            todos=[
+                {"content": "Read file", "status": "in_progress", "activeForm": "Reading file"},
+                {"content": "Process data", "status": "pending", "activeForm": "Processing data"},
+                {"content": "Write output", "status": "pending", "activeForm": "Writing output"},
+            ]
+        )
 
         assert result1.success == True
         assert result1.output["stats"]["in_progress"] == 1
 
         # Step 2: Complete first, start second
-        result2 = await tool.execute(todos=[
-            {"content": "Read file", "status": "completed", "activeForm": "Reading file"},
-            {"content": "Process data", "status": "in_progress", "activeForm": "Processing data"},
-            {"content": "Write output", "status": "pending", "activeForm": "Writing output"}
-        ])
+        result2 = await tool.execute(
+            todos=[
+                {"content": "Read file", "status": "completed", "activeForm": "Reading file"},
+                {
+                    "content": "Process data",
+                    "status": "in_progress",
+                    "activeForm": "Processing data",
+                },
+                {"content": "Write output", "status": "pending", "activeForm": "Writing output"},
+            ]
+        )
 
         assert result2.success == True
         assert result2.output["stats"]["completed"] == 1
         assert result2.output["stats"]["in_progress"] == 1
 
         # Step 3: Complete all
-        result3 = await tool.execute(todos=[
-            {"content": "Read file", "status": "completed", "activeForm": "Reading file"},
-            {"content": "Process data", "status": "completed", "activeForm": "Processing data"},
-            {"content": "Write output", "status": "in_progress", "activeForm": "Writing output"}
-        ])
+        result3 = await tool.execute(
+            todos=[
+                {"content": "Read file", "status": "completed", "activeForm": "Reading file"},
+                {"content": "Process data", "status": "completed", "activeForm": "Processing data"},
+                {
+                    "content": "Write output",
+                    "status": "in_progress",
+                    "activeForm": "Writing output",
+                },
+            ]
+        )
 
         assert result3.success == True
         assert result3.output["stats"]["completed"] == 2
@@ -666,11 +673,21 @@ class TestTodoWorkflow:
         tool = TodoWriteTool()
 
         # Task becomes blocked
-        result = await tool.execute(todos=[
-            {"content": "Install dependency", "status": "blocked", "activeForm": "Installing dependency"},
-            {"content": "Resolve block", "status": "in_progress", "activeForm": "Resolving block"},
-            {"content": "Continue work", "status": "pending", "activeForm": "Continuing work"}
-        ])
+        result = await tool.execute(
+            todos=[
+                {
+                    "content": "Install dependency",
+                    "status": "blocked",
+                    "activeForm": "Installing dependency",
+                },
+                {
+                    "content": "Resolve block",
+                    "status": "in_progress",
+                    "activeForm": "Resolving block",
+                },
+                {"content": "Continue work", "status": "pending", "activeForm": "Continuing work"},
+            ]
+        )
 
         assert result.success == True
         assert result.output["stats"]["blocked"] == 1
@@ -681,16 +698,18 @@ class TestTodoWorkflow:
         tool = TodoWriteTool()
 
         # Initial tasks
-        result1 = await tool.execute(todos=[
-            {"content": "Task 1", "status": "in_progress", "activeForm": "T1"}
-        ])
+        result1 = await tool.execute(
+            todos=[{"content": "Task 1", "status": "in_progress", "activeForm": "T1"}]
+        )
 
         # Add more tasks
-        result2 = await tool.execute(todos=[
-            {"content": "Task 1", "status": "completed", "activeForm": "T1"},
-            {"content": "Task 2 (new)", "status": "in_progress", "activeForm": "T2"},
-            {"content": "Task 3 (new)", "status": "pending", "activeForm": "T3"}
-        ])
+        result2 = await tool.execute(
+            todos=[
+                {"content": "Task 1", "status": "completed", "activeForm": "T1"},
+                {"content": "Task 2 (new)", "status": "in_progress", "activeForm": "T2"},
+                {"content": "Task 3 (new)", "status": "pending", "activeForm": "T3"},
+            ]
+        )
 
         assert result2.success == True
         assert result2.output["stats"]["total"] == 3
@@ -704,9 +723,7 @@ class TestEdgeCases:
         """Test whitespace-only content is rejected"""
         tool = TodoWriteTool()
 
-        todos = [
-            {"content": "   ", "status": "in_progress", "activeForm": "Working"}
-        ]
+        todos = [{"content": "   ", "status": "in_progress", "activeForm": "Working"}]
 
         result = await tool.execute(todos=todos)
 
@@ -717,9 +734,7 @@ class TestEdgeCases:
         """Test whitespace-only activeForm is rejected"""
         tool = TodoWriteTool()
 
-        todos = [
-            {"content": "Task", "status": "in_progress", "activeForm": "   "}
-        ]
+        todos = [{"content": "Task", "status": "in_progress", "activeForm": "   "}]
 
         result = await tool.execute(todos=todos)
 
@@ -741,7 +756,11 @@ class TestEdgeCases:
         tool = TodoWriteTool()
 
         todos = [
-            {"content": "Fix bug: `undefined` error in auth.js", "status": "in_progress", "activeForm": "Fixing bug"}
+            {
+                "content": "Fix bug: `undefined` error in auth.js",
+                "status": "in_progress",
+                "activeForm": "Fixing bug",
+            }
         ]
 
         result = await tool.execute(todos=todos)
@@ -767,9 +786,7 @@ class TestEdgeCases:
         """Test unicode content"""
         tool = TodoWriteTool()
 
-        todos = [
-            {"content": "修复错误 (Fix bug)", "status": "in_progress", "activeForm": "修复中"}
-        ]
+        todos = [{"content": "修复错误 (Fix bug)", "status": "in_progress", "activeForm": "修复中"}]
 
         result = await tool.execute(todos=todos)
 

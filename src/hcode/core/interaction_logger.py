@@ -27,6 +27,7 @@ import shutil
 @dataclass
 class ToolCallLog:
     """Log entry for a tool call"""
+
     timestamp: str
     tool_name: str
     arguments: Dict[str, Any]
@@ -40,6 +41,7 @@ class ToolCallLog:
 @dataclass
 class ModelInteractionLog:
     """Log entry for a model interaction"""
+
     timestamp: str
     iteration: int
     request_messages: List[Dict[str, Any]]
@@ -57,6 +59,7 @@ class ModelInteractionLog:
 @dataclass
 class SessionLog:
     """Complete session log"""
+
     session_id: str
     start_time: str
     end_time: Optional[str] = None
@@ -93,7 +96,7 @@ class InteractionLogger:
     """
 
     # Class-level singleton pattern for global access
-    _instance: Optional['InteractionLogger'] = None
+    _instance: Optional["InteractionLogger"] = None
     _lock = threading.Lock()
 
     def __init__(
@@ -101,7 +104,7 @@ class InteractionLogger:
         log_dir: Optional[str] = None,
         max_file_size_mb: int = 50,
         max_files: int = 10,
-        compress_old: bool = True
+        compress_old: bool = True,
     ):
         """
         Initialize the interaction logger.
@@ -128,7 +131,7 @@ class InteractionLogger:
         self._file_lock = threading.Lock()
 
     @classmethod
-    def get_instance(cls, **kwargs) -> 'InteractionLogger':
+    def get_instance(cls, **kwargs) -> "InteractionLogger":
         """Get or create the singleton logger instance"""
         with cls._lock:
             if cls._instance is None:
@@ -141,7 +144,7 @@ class InteractionLogger:
         provider: str = "",
         model: str = "",
         session_id: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> str:
         """
         Start a new logging session.
@@ -158,7 +161,10 @@ class InteractionLogger:
         """
         import uuid
 
-        sid = session_id or f"session_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}"
+        sid = (
+            session_id
+            or f"session_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}"
+        )
 
         self.current_session = SessionLog(
             session_id=sid,
@@ -166,22 +172,24 @@ class InteractionLogger:
             initial_task=task,
             provider=provider,
             model=model,
-            metadata=metadata or {}
+            metadata=metadata or {},
         )
 
         # Create log file for this session
         self.current_log_file = self.log_dir / f"{sid}.jsonl"
 
         # Write session header
-        self._write_log_entry({
-            "type": "session_start",
-            "session_id": sid,
-            "start_time": self.current_session.start_time,
-            "task": task,
-            "provider": provider,
-            "model": model,
-            "metadata": metadata or {}
-        })
+        self._write_log_entry(
+            {
+                "type": "session_start",
+                "session_id": sid,
+                "start_time": self.current_session.start_time,
+                "task": task,
+                "provider": provider,
+                "model": model,
+                "metadata": metadata or {},
+            }
+        )
 
         return sid
 
@@ -196,7 +204,7 @@ class InteractionLogger:
         pending_work_detected: bool = False,
         tokens_used: Optional[Dict[str, int]] = None,
         duration_ms: float = 0.0,
-        metadata: Optional[Dict[str, Any]] = None
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> ModelInteractionLog:
         """
         Log a model interaction.
@@ -230,17 +238,14 @@ class InteractionLogger:
             pending_work_detected=pending_work_detected,
             tokens_used=tokens_used or {},
             duration_ms=duration_ms,
-            metadata=metadata or {}
+            metadata=metadata or {},
         )
 
         self.current_session.interactions.append(log)
         self.current_session.total_iterations = iteration
 
         # Write to file
-        self._write_log_entry({
-            "type": "interaction",
-            **asdict(log)
-        })
+        self._write_log_entry({"type": "interaction", **asdict(log)})
 
         return log
 
@@ -252,7 +257,7 @@ class InteractionLogger:
         output: str,
         error: Optional[str] = None,
         duration_ms: float = 0.0,
-        metadata: Optional[Dict[str, Any]] = None
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> ToolCallLog:
         """
         Log a tool call with full output.
@@ -280,7 +285,7 @@ class InteractionLogger:
             output=output,
             error=error,
             duration_ms=duration_ms,
-            metadata=metadata or {}
+            metadata=metadata or {},
         )
 
         # Add to current interaction if there is one
@@ -290,10 +295,7 @@ class InteractionLogger:
         self.current_session.total_tool_calls += 1
 
         # Write to file
-        self._write_log_entry({
-            "type": "tool_call",
-            **asdict(log)
-        })
+        self._write_log_entry({"type": "tool_call", **asdict(log)})
 
         return log
 
@@ -304,27 +306,31 @@ class InteractionLogger:
 
         self.current_session.errors.append(error)
 
-        self._write_log_entry({
-            "type": "error",
-            "timestamp": datetime.now().isoformat(),
-            "error": error,
-            "context": context or {}
-        })
+        self._write_log_entry(
+            {
+                "type": "error",
+                "timestamp": datetime.now().isoformat(),
+                "error": error,
+                "context": context or {},
+            }
+        )
 
     def log_continuation_prompt(self, prompt: str, reason: str):
         """Log a continuation prompt sent to the model"""
-        self._write_log_entry({
-            "type": "continuation_prompt",
-            "timestamp": datetime.now().isoformat(),
-            "prompt": prompt,
-            "reason": reason
-        })
+        self._write_log_entry(
+            {
+                "type": "continuation_prompt",
+                "timestamp": datetime.now().isoformat(),
+                "prompt": prompt,
+                "reason": reason,
+            }
+        )
 
     def end_session(
         self,
         final_result: str = "",
         errors: Optional[List[str]] = None,
-        metadata: Optional[Dict[str, Any]] = None
+        metadata: Optional[Dict[str, Any]] = None,
     ):
         """
         End the current logging session.
@@ -345,16 +351,18 @@ class InteractionLogger:
             self.current_session.metadata.update(metadata)
 
         # Write session footer
-        self._write_log_entry({
-            "type": "session_end",
-            "session_id": self.current_session.session_id,
-            "end_time": self.current_session.end_time,
-            "total_iterations": self.current_session.total_iterations,
-            "total_tool_calls": self.current_session.total_tool_calls,
-            "final_result_length": len(final_result),
-            "error_count": len(self.current_session.errors),
-            "metadata": metadata or {}
-        })
+        self._write_log_entry(
+            {
+                "type": "session_end",
+                "session_id": self.current_session.session_id,
+                "end_time": self.current_session.end_time,
+                "total_iterations": self.current_session.total_iterations,
+                "total_tool_calls": self.current_session.total_tool_calls,
+                "final_result_length": len(final_result),
+                "error_count": len(self.current_session.errors),
+                "metadata": metadata or {},
+            }
+        )
 
         # Rotate logs if needed
         self._rotate_logs()
@@ -369,8 +377,8 @@ class InteractionLogger:
 
         with self._file_lock:
             try:
-                with open(self.current_log_file, 'a', encoding='utf-8') as f:
-                    f.write(json.dumps(entry, ensure_ascii=False, default=str) + '\n')
+                with open(self.current_log_file, "a", encoding="utf-8") as f:
+                    f.write(json.dumps(entry, ensure_ascii=False, default=str) + "\n")
             except Exception as e:
                 print(f"Warning: Failed to write log entry: {e}")
 
@@ -383,21 +391,19 @@ class InteractionLogger:
         if self.current_log_file.stat().st_size > self.max_file_size:
             # Compress current file
             if self.compress_old:
-                compressed = self.current_log_file.with_suffix('.jsonl.gz')
-                with open(self.current_log_file, 'rb') as f_in:
-                    with gzip.open(compressed, 'wb') as f_out:
+                compressed = self.current_log_file.with_suffix(".jsonl.gz")
+                with open(self.current_log_file, "rb") as f_in:
+                    with gzip.open(compressed, "wb") as f_out:
                         shutil.copyfileobj(f_in, f_out)
                 self.current_log_file.unlink()
 
         # Cleanup old files
         log_files = sorted(
-            self.log_dir.glob('session_*.jsonl*'),
-            key=lambda p: p.stat().st_mtime,
-            reverse=True
+            self.log_dir.glob("session_*.jsonl*"), key=lambda p: p.stat().st_mtime, reverse=True
         )
 
         if len(log_files) > self.max_files:
-            for old_file in log_files[self.max_files:]:
+            for old_file in log_files[self.max_files :]:
                 old_file.unlink()
 
     def get_session_summary(self) -> Dict[str, Any]:
@@ -415,7 +421,7 @@ class InteractionLogger:
             "iterations": self.current_session.total_iterations,
             "tool_calls": self.current_session.total_tool_calls,
             "errors": len(self.current_session.errors),
-            "log_file": str(self.current_log_file) if self.current_log_file else None
+            "log_file": str(self.current_log_file) if self.current_log_file else None,
         }
 
     def get_recent_logs(self, count: int = 100) -> List[Dict[str, Any]]:
@@ -425,7 +431,7 @@ class InteractionLogger:
 
         entries = []
         try:
-            with open(self.current_log_file, 'r', encoding='utf-8') as f:
+            with open(self.current_log_file, "r", encoding="utf-8") as f:
                 for line in f:
                     if line.strip():
                         entries.append(json.loads(line))
@@ -440,7 +446,7 @@ class InteractionLogger:
         tool_name: Optional[str] = None,
         success_only: bool = False,
         failed_only: bool = False,
-        since: Optional[datetime] = None
+        since: Optional[datetime] = None,
     ) -> List[Dict[str, Any]]:
         """
         Query logs with filters.
@@ -457,25 +463,25 @@ class InteractionLogger:
         """
         results = []
 
-        for log_file in sorted(self.log_dir.glob('session_*.jsonl')):
+        for log_file in sorted(self.log_dir.glob("session_*.jsonl")):
             try:
-                with open(log_file, 'r', encoding='utf-8') as f:
+                with open(log_file, "r", encoding="utf-8") as f:
                     for line in f:
                         if not line.strip():
                             continue
                         entry = json.loads(line)
 
                         # Apply filters
-                        if log_type and entry.get('type') != log_type:
+                        if log_type and entry.get("type") != log_type:
                             continue
-                        if tool_name and entry.get('tool_name') != tool_name:
+                        if tool_name and entry.get("tool_name") != tool_name:
                             continue
-                        if success_only and not entry.get('success', True):
+                        if success_only and not entry.get("success", True):
                             continue
-                        if failed_only and entry.get('success', False):
+                        if failed_only and entry.get("success", False):
                             continue
                         if since:
-                            entry_time = datetime.fromisoformat(entry.get('timestamp', ''))
+                            entry_time = datetime.fromisoformat(entry.get("timestamp", ""))
                             if entry_time < since:
                                 continue
 
@@ -487,7 +493,7 @@ class InteractionLogger:
 
     def get_failed_tool_calls(self) -> List[Dict[str, Any]]:
         """Get all failed tool calls for analysis"""
-        return self.query_logs(log_type='tool_call', failed_only=True)
+        return self.query_logs(log_type="tool_call", failed_only=True)
 
     def get_truncated_outputs(self, min_length: int = 1000) -> List[Dict[str, Any]]:
         """
@@ -498,15 +504,17 @@ class InteractionLogger:
         """
         results = []
 
-        for entry in self.query_logs(log_type='tool_call'):
-            output = entry.get('output', '')
+        for entry in self.query_logs(log_type="tool_call"):
+            output = entry.get("output", "")
             if len(output) > min_length:
-                results.append({
-                    'tool_name': entry.get('tool_name'),
-                    'output_length': len(output),
-                    'timestamp': entry.get('timestamp'),
-                    'preview': output[:200] + '...' if len(output) > 200 else output
-                })
+                results.append(
+                    {
+                        "tool_name": entry.get("tool_name"),
+                        "output_length": len(output),
+                        "timestamp": entry.get("timestamp"),
+                        "preview": output[:200] + "..." if len(output) > 200 else output,
+                    }
+                )
 
         return results
 
@@ -526,7 +534,7 @@ class InteractionLogger:
             return False
 
         entries = []
-        with open(log_file, 'r', encoding='utf-8') as f:
+        with open(log_file, "r", encoding="utf-8") as f:
             for line in f:
                 if line.strip():
                     entries.append(json.loads(line))
@@ -536,7 +544,7 @@ class InteractionLogger:
 
         # Session info
         for entry in entries:
-            if entry.get('type') == 'session_start':
+            if entry.get("type") == "session_start":
                 report.append(f"**Task:** {entry.get('task')}\n")
                 report.append(f"**Provider:** {entry.get('provider')}\n")
                 report.append(f"**Model:** {entry.get('model')}\n")
@@ -547,30 +555,36 @@ class InteractionLogger:
 
         interaction_num = 0
         for entry in entries:
-            if entry.get('type') == 'interaction':
+            if entry.get("type") == "interaction":
                 interaction_num += 1
                 report.append(f"\n### Iteration {entry.get('iteration')}\n")
                 report.append(f"- **Finish Reason:** {entry.get('finish_reason')}\n")
                 report.append(f"- **Tool Calls:** {entry.get('tool_calls_detected')}\n")
                 report.append(f"- **Continuation Needed:** {entry.get('continuation_needed')}\n")
-                report.append(f"\n**Response:**\n```\n{entry.get('response_text', '')[:500]}...\n```\n")
+                report.append(
+                    f"\n**Response:**\n```\n{entry.get('response_text', '')[:500]}...\n```\n"
+                )
 
-            elif entry.get('type') == 'tool_call':
+            elif entry.get("type") == "tool_call":
                 report.append(f"\n#### Tool: {entry.get('tool_name')}\n")
                 report.append(f"- **Success:** {entry.get('success')}\n")
-                if entry.get('error'):
+                if entry.get("error"):
                     report.append(f"- **Error:** {entry.get('error')}\n")
-                report.append(f"\n**Arguments:**\n```json\n{json.dumps(entry.get('arguments', {}), indent=2)}\n```\n")
-                output = entry.get('output', '')
+                report.append(
+                    f"\n**Arguments:**\n```json\n{json.dumps(entry.get('arguments', {}), indent=2)}\n```\n"
+                )
+                output = entry.get("output", "")
                 if output:
-                    report.append(f"\n**Output ({len(output)} chars):**\n```\n{output[:1000]}{'...' if len(output) > 1000 else ''}\n```\n")
+                    report.append(
+                        f"\n**Output ({len(output)} chars):**\n```\n{output[:1000]}{'...' if len(output) > 1000 else ''}\n```\n"
+                    )
 
-            elif entry.get('type') == 'error':
+            elif entry.get("type") == "error":
                 report.append(f"\n### ⚠️ Error\n```\n{entry.get('error')}\n```\n")
 
         # Summary
         for entry in entries:
-            if entry.get('type') == 'session_end':
+            if entry.get("type") == "session_end":
                 report.append(f"\n## Summary\n")
                 report.append(f"- **Total Iterations:** {entry.get('total_iterations')}\n")
                 report.append(f"- **Total Tool Calls:** {entry.get('total_tool_calls')}\n")
@@ -579,8 +593,8 @@ class InteractionLogger:
                 break
 
         # Write report
-        with open(output_path, 'w', encoding='utf-8') as f:
-            f.write('\n'.join(report))
+        with open(output_path, "w", encoding="utf-8") as f:
+            f.write("\n".join(report))
 
         return True
 

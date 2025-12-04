@@ -99,7 +99,7 @@ Remember: Think → Plan → Act → Observe → Update → Repeat"""
         tool_manager: Optional[ToolManager] = None,
         thinking_config: Optional[ThinkingConfig] = None,
         thinking_manager: Optional[ThinkingManager] = None,
-        todo_manager: Optional[TodoManager] = None
+        todo_manager: Optional[TodoManager] = None,
     ):
         """
         Initialize coding agent.
@@ -115,20 +115,18 @@ Remember: Think → Plan → Act → Observe → Update → Repeat"""
         self.tool_manager = tool_manager or ToolManager()
         self.thinking_config = thinking_config or ThinkingConfig()
         self.thinking_manager = thinking_manager or ThinkingManager(
-            self.thinking_config,
-            llm_client
+            self.thinking_config, llm_client
         )
         self.todo_manager = todo_manager or TodoManager()
 
         # Register TodoWrite tool (lazy import to avoid circular dependency)
         from ..tools.todo_write import TodoWriteTool
+
         todo_tool = TodoWriteTool(self.todo_manager)
         self.tool_manager.register_tool(todo_tool)
 
     async def execute(
-        self,
-        user_message: str,
-        context: Optional[ExecutionContext] = None
+        self, user_message: str, context: Optional[ExecutionContext] = None
     ) -> ExecutionContext:
         """
         Execute agent with ReAct loop.
@@ -147,8 +145,7 @@ Remember: Think → Plan → Act → Observe → Update → Repeat"""
         # PHASE 1: THINK
         if self.thinking_config.should_think(user_message):
             ctx.thinking_session = await self.thinking_manager.think(
-                user_message,
-                context=ctx.metadata
+                user_message, context=ctx.metadata
             )
 
         # PHASE 2: PLAN
@@ -172,10 +169,7 @@ Remember: Think → Plan → Act → Observe → Update → Repeat"""
             if action["type"] == "tool_call":
                 # Execute tool
                 result = await self._execute_tool(action)
-                ctx.tool_calls.append({
-                    "action": action,
-                    "result": result
-                })
+                ctx.tool_calls.append({"action": action, "result": result})
 
                 # Observe results
                 observation = self._create_observation(result)
@@ -189,19 +183,14 @@ Remember: Think → Plan → Act → Observe → Update → Repeat"""
             elif action["type"] == "think":
                 # Additional thinking
                 block = await self.thinking_manager._think_phase(
-                    action["prompt"],
-                    ThinkingPhase.REASONING,
-                    ctx.metadata
+                    action["prompt"], ThinkingPhase.REASONING, ctx.metadata
                 )
                 if ctx.thinking_session:
                     ctx.thinking_session.add_block(block)
 
         return ctx
 
-    async def stream_execute(
-        self,
-        user_message: str
-    ) -> AsyncGenerator[Dict[str, Any], None]:
+    async def stream_execute(self, user_message: str) -> AsyncGenerator[Dict[str, Any], None]:
         """
         Stream execution with real-time updates.
 
@@ -217,13 +206,9 @@ Remember: Think → Plan → Act → Observe → Update → Repeat"""
         # Stream thinking if enabled
         if self.thinking_config.should_think(user_message):
             async for block in self.thinking_manager.stream_thinking(
-                user_message,
-                context=ctx.metadata
+                user_message, context=ctx.metadata
             ):
-                yield {
-                    "type": "thinking",
-                    "block": block.to_dict()
-                }
+                yield {"type": "thinking", "block": block.to_dict()}
 
         # Execute with streaming
         # NO HARD LIMIT - continue until task completion
@@ -238,33 +223,21 @@ Remember: Think → Plan → Act → Observe → Update → Repeat"""
             action = await self._get_next_action(ctx)
 
             # Yield action
-            yield {
-                "type": "action",
-                "action": action
-            }
+            yield {"type": "action", "action": action}
 
             if action["type"] == "tool_call":
                 result = await self._execute_tool(action)
-                ctx.tool_calls.append({
-                    "action": action,
-                    "result": result
-                })
+                ctx.tool_calls.append({"action": action, "result": result})
 
                 # Yield result
-                yield {
-                    "type": "tool_result",
-                    "result": result
-                }
+                yield {"type": "tool_result", "result": result}
 
                 observation = self._create_observation(result)
                 ctx.observations.append(observation)
 
             elif action["type"] == "response":
                 ctx.final_response = action["content"]
-                yield {
-                    "type": "response",
-                    "content": action["content"]
-                }
+                yield {"type": "response", "content": action["content"]}
                 break
 
         # Yield final context
@@ -273,8 +246,8 @@ Remember: Think → Plan → Act → Observe → Update → Repeat"""
             "context": {
                 "tool_calls": len(ctx.tool_calls),
                 "observations": len(ctx.observations),
-                "todos": self.todo_manager.get_progress()
-            }
+                "todos": self.todo_manager.get_progress(),
+            },
         }
 
     async def _get_next_action(self, ctx: ExecutionContext) -> Dict[str, Any]:
@@ -295,7 +268,7 @@ Remember: Think → Plan → Act → Observe → Update → Repeat"""
             prompt=prompt,
             system=self.SYSTEM_PROMPT,
             tools=self.tool_manager.get_tool_schemas(),
-            temperature=0.7
+            temperature=0.7,
         )
 
         # Parse response into action
@@ -315,11 +288,7 @@ Remember: Think → Plan → Act → Observe → Update → Repeat"""
 
         # Add thinking summary if available
         if ctx.thinking_session:
-            parts.extend([
-                "Thinking summary:",
-                ctx.thinking_session.get_summary(),
-                ""
-            ])
+            parts.extend(["Thinking summary:", ctx.thinking_session.get_summary(), ""])
 
         # Add current todos
         if self.todo_manager.todos:
@@ -355,7 +324,7 @@ Remember: Think → Plan → Act → Observe → Update → Repeat"""
             return {
                 "type": "tool_call",
                 "tool": tool_call["name"],
-                "parameters": tool_call["parameters"]
+                "parameters": tool_call["parameters"],
             }
 
         # Check for thinking request
@@ -366,16 +335,10 @@ Remember: Think → Plan → Act → Observe → Update → Repeat"""
             end = content.index("</think>") if "</think>" in content else len(content)
             think_prompt = content[start:end].strip()
 
-            return {
-                "type": "think",
-                "prompt": think_prompt
-            }
+            return {"type": "think", "prompt": think_prompt}
 
         # Default: response
-        return {
-            "type": "response",
-            "content": content
-        }
+        return {"type": "response", "content": content}
 
     async def _execute_tool(self, action: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -391,19 +354,10 @@ Remember: Think → Plan → Act → Observe → Update → Repeat"""
         parameters = action["parameters"]
 
         try:
-            result = await self.tool_manager.execute_tool(
-                tool_name,
-                **parameters
-            )
-            return {
-                "success": True,
-                "result": result
-            }
+            result = await self.tool_manager.execute_tool(tool_name, **parameters)
+            return {"success": True, "result": result}
         except Exception as e:
-            return {
-                "success": False,
-                "error": str(e)
-            }
+            return {"success": False, "error": str(e)}
 
     def _create_observation(self, result: Dict[str, Any]) -> str:
         """

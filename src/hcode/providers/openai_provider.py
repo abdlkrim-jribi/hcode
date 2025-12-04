@@ -15,6 +15,7 @@ from .base import AIProvider, Message, Usage, CompletionResponse
 
 class LLMConnectionError(Exception):
     """Custom exception for LLM connection errors with detailed information"""
+
     def __init__(self, message: str, base_url: str = None, original_error: Exception = None):
         self.base_url = base_url
         self.original_error = original_error
@@ -87,8 +88,17 @@ class OpenAIProvider(AIProvider):
 
     # Patterns for detecting large/capable models (for smart defaults)
     LARGE_MODEL_PATTERNS = [
-        "120b", "70b", "65b", "gpt-4", "claude", "large", "turbo",
-        "opus", "sonnet", "pro", "ultra"
+        "120b",
+        "70b",
+        "65b",
+        "gpt-4",
+        "claude",
+        "large",
+        "turbo",
+        "opus",
+        "sonnet",
+        "pro",
+        "ultra",
     ]
 
     def __init__(
@@ -100,7 +110,7 @@ class OpenAIProvider(AIProvider):
         base_url: Optional[str] = None,
         timeout: float = 120.0,
         max_retries: int = 3,
-        verify_ssl: Optional[bool] = None
+        verify_ssl: Optional[bool] = None,
     ):
         """
         Initialize OpenAI provider.
@@ -137,9 +147,11 @@ class OpenAIProvider(AIProvider):
 
         # Create custom httpx client with timeout and SSL configuration
         http_client = httpx.AsyncClient(
-            timeout=httpx.Timeout(timeout, connect=30.0),  # Connection timeout of 30s, total timeout configurable
+            timeout=httpx.Timeout(
+                timeout, connect=30.0
+            ),  # Connection timeout of 30s, total timeout configurable
             limits=httpx.Limits(max_keepalive_connections=5, max_connections=10),
-            verify=verify_ssl  # SSL verification setting
+            verify=verify_ssl,  # SSL verification setting
         )
 
         # Initialize client with optional base_url and timeout
@@ -149,15 +161,12 @@ class OpenAIProvider(AIProvider):
                 base_url=base_url,
                 timeout=timeout,
                 max_retries=max_retries,
-                http_client=http_client
+                http_client=http_client,
             )
             self.base_url = base_url
         else:
             self.client = AsyncOpenAI(
-                api_key=api_key,
-                timeout=timeout,
-                max_retries=max_retries,
-                http_client=http_client
+                api_key=api_key, timeout=timeout, max_retries=max_retries, http_client=http_client
             )
             self.base_url = None
 
@@ -171,14 +180,14 @@ class OpenAIProvider(AIProvider):
     @retry(
         stop=stop_after_attempt(5),
         wait=wait_exponential(multiplier=2, min=2, max=30),
-        retry=retry_if_exception_type((APIConnectionError, APITimeoutError, RateLimitError))
+        retry=retry_if_exception_type((APIConnectionError, APITimeoutError, RateLimitError)),
     )
     async def generate_completion(
         self,
         messages: List[Message],
         stream: bool = False,
         functions: Optional[List[Dict[str, Any]]] = None,
-        **kwargs
+        **kwargs,
     ) -> CompletionResponse | AsyncIterator[str]:
         """
         Generate completion using OpenAI API.
@@ -205,7 +214,7 @@ class OpenAIProvider(AIProvider):
                 "messages": openai_messages,
                 "max_tokens": self.max_tokens,
                 "temperature": self.temperature,
-                **kwargs
+                **kwargs,
             }
 
             # Add functions if provided and model supports them
@@ -241,7 +250,9 @@ class OpenAIProvider(AIProvider):
             elif e.status_code == 404:
                 raise ValueError(f"Model '{self.model}' not found or endpoint not available") from e
             elif e.status_code >= 500:
-                raise LLMConnectionError(f"LLM server error ({e.status_code}): {str(e)}", self.base_url, e) from e
+                raise LLMConnectionError(
+                    f"LLM server error ({e.status_code}): {str(e)}", self.base_url, e
+                ) from e
             else:
                 raise
 
@@ -267,7 +278,10 @@ class OpenAIProvider(AIProvider):
         except Exception as e:
             # Catch any other connection-related errors
             error_str = str(e).lower()
-            if any(kw in error_str for kw in ['connect', 'timeout', 'network', 'refused', 'unreachable']):
+            if any(
+                kw in error_str
+                for kw in ["connect", "timeout", "network", "refused", "unreachable"]
+            ):
                 error_msg = f"Connection error to LLM API"
                 if self.base_url:
                     error_msg += f" at {self.base_url}"
@@ -311,7 +325,9 @@ class OpenAIProvider(AIProvider):
             elif e.status_code == 404:
                 raise ValueError(f"Model '{self.model}' not found or endpoint not available") from e
             elif e.status_code >= 500:
-                raise LLMConnectionError(f"LLM server error ({e.status_code}): {str(e)}", self.base_url, e) from e
+                raise LLMConnectionError(
+                    f"LLM server error ({e.status_code}): {str(e)}", self.base_url, e
+                ) from e
             else:
                 raise
 
@@ -335,7 +351,17 @@ class OpenAIProvider(AIProvider):
             raise LLMConnectionError(error_msg, self.base_url, e) from e
 
         # Check for connection-related keywords in generic exceptions
-        elif any(kw in error_str for kw in ['connect', 'timeout', 'network', 'refused', 'unreachable', 'connection error']):
+        elif any(
+            kw in error_str
+            for kw in [
+                "connect",
+                "timeout",
+                "network",
+                "refused",
+                "unreachable",
+                "connection error",
+            ]
+        ):
             error_msg = f"Connection error to LLM API"
             if self.base_url:
                 error_msg += f" at {self.base_url}"
@@ -354,7 +380,7 @@ class OpenAIProvider(AIProvider):
             usage = Usage(
                 input_tokens=response.usage.prompt_tokens,
                 output_tokens=response.usage.completion_tokens,
-                total_tokens=response.usage.total_tokens
+                total_tokens=response.usage.total_tokens,
             )
 
             self._update_usage(usage)
@@ -372,7 +398,7 @@ class OpenAIProvider(AIProvider):
                 usage=usage,
                 model=response.model,
                 finish_reason=response.choices[0].finish_reason or "stop",
-                raw_response=response
+                raw_response=response,
             )
         except Exception as e:
             # Re-raise with better error message for connection errors
@@ -406,7 +432,7 @@ class OpenAIProvider(AIProvider):
             usage = Usage(
                 input_tokens=input_tokens,
                 output_tokens=output_tokens,
-                total_tokens=input_tokens + output_tokens
+                total_tokens=input_tokens + output_tokens,
             )
             self._update_usage(usage)
         except Exception as e:
@@ -490,9 +516,7 @@ class OpenAIProvider(AIProvider):
         return False
 
     async def use_function_calling(
-        self,
-        messages: List[Message],
-        functions: List[Dict[str, Any]]
+        self, messages: List[Message], functions: List[Dict[str, Any]]
     ) -> CompletionResponse:
         """
         Use function calling with OpenAI models.
@@ -518,9 +542,7 @@ class OpenAIProvider(AIProvider):
         try:
             # Make a minimal API call to test connectivity
             response = await self.client.chat.completions.create(
-                model=self.model,
-                messages=[{"role": "user", "content": "Hi"}],
-                max_tokens=5
+                model=self.model, messages=[{"role": "user", "content": "Hi"}], max_tokens=5
             )
             return True, f"Connected to {self.model}{endpoint_info}"
 
@@ -547,11 +569,15 @@ class OpenAIProvider(AIProvider):
         except Exception as e:
             error_str = str(e).lower()
             # Check for connection-related errors in generic exceptions
-            if any(kw in error_str for kw in ['connect', 'timeout', 'network', 'refused', 'unreachable']):
+            if any(
+                kw in error_str
+                for kw in ["connect", "timeout", "network", "refused", "unreachable"]
+            ):
                 return False, f"Connection error{endpoint_info}: {str(e)}"
             return False, f"Unexpected error: {str(e)}"
 
     def get_system_prompt_for_coding(self) -> str:
         """Get optimized system prompt for coding tasks from external config"""
         from ..config.prompts import get_system_prompt
+
         return get_system_prompt("openai_coding")

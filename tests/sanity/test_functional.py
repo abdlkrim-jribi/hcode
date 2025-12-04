@@ -3,6 +3,7 @@ Sanity Check: Functional Tests.
 
 Tests actual functional behavior of HCode components.
 """
+
 import pytest
 import asyncio
 import tempfile
@@ -17,13 +18,14 @@ class TestToolExecution:
     async def test_bash_tool_echo(self):
         """Test BashTool can execute echo command."""
         from hcode.tools.bash_tools import BashTool
+
         tool = BashTool()
 
         # Execute a simple echo command
-        result = await tool.execute(command='echo hello')
+        result = await tool.execute(command="echo hello")
 
         assert result is not None
-        assert 'hello' in str(result).lower()
+        assert "hello" in str(result).lower()
 
     @pytest.mark.asyncio
     async def test_read_tool_read_file(self):
@@ -130,6 +132,7 @@ class TestConfigFunctionality:
     def test_settings_module_import(self):
         """Test settings module can be imported."""
         from hcode.config import settings
+
         assert settings is not None
 
     def test_defaults_access(self):
@@ -137,7 +140,7 @@ class TestConfigFunctionality:
         from hcode.config import defaults
 
         # Should be able to access some default values
-        attrs = [a for a in dir(defaults) if not a.startswith('_')]
+        attrs = [a for a in dir(defaults) if not a.startswith("_")]
         assert len(attrs) > 0
 
 
@@ -151,11 +154,7 @@ class TestTodoFunctionality:
         manager = TodoManager()
 
         # Add a todo
-        item = TodoItem(
-            content="Test task",
-            status=TodoStatus.PENDING,
-            active_form="Testing task"
-        )
+        item = TodoItem(content="Test task", status=TodoStatus.PENDING, active_form="Testing task")
         manager.add_item(item)
 
         # Get todos
@@ -218,5 +217,5 @@ class TestToolManagerFunctionality:
         manager = ToolManager()
 
         # Should be able to get tool by name
-        assert hasattr(manager, 'get_tool')
-        assert hasattr(manager, 'list_tools')
+        assert hasattr(manager, "get_tool")
+        assert hasattr(manager, "list_tools")

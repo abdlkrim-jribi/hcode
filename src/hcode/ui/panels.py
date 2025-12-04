@@ -2,6 +2,7 @@
 HCode Custom Panel Designs
 Specialized panels for different content types.
 """
+
 from rich.console import Console, Group, RenderableType
 from rich.panel import Panel
 from rich.text import Text
@@ -24,6 +25,7 @@ from .icons import Icons
 # ═══════════════════════════════════════════════════════════════════════
 # WELCOME PANEL
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class WelcomePanel:
     """Welcome panel with system info and status."""
@@ -88,6 +90,7 @@ class WelcomePanel:
 # ═══════════════════════════════════════════════════════════════════════
 # MESSAGE PANELS
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class UserMessagePanel:
     """Panel for user messages."""
@@ -158,6 +161,7 @@ class AIMessagePanel:
 # ═══════════════════════════════════════════════════════════════════════
 # TOOL EXECUTION PANEL
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class ToolPanel:
     """Panel for tool execution display."""
@@ -231,6 +235,7 @@ class ToolPanel:
 # ERROR PANEL
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class ErrorPanel:
     """Panel for error messages."""
 
@@ -270,6 +275,7 @@ class ErrorPanel:
 # SUCCESS PANEL
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class SuccessPanel:
     """Panel for success messages."""
 
@@ -303,6 +309,7 @@ class SuccessPanel:
 # INFO PANEL
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class InfoPanel:
     """Panel for informational messages."""
 
@@ -335,6 +342,7 @@ class InfoPanel:
 # ═══════════════════════════════════════════════════════════════════════
 # FILE TREE PANEL
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class FileTreePanel:
     """Panel displaying file tree."""
@@ -397,6 +405,7 @@ class FileTreePanel:
 # STATS PANEL
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class StatsPanel:
     """Panel displaying statistics."""
 
@@ -438,6 +447,7 @@ class StatsPanel:
 # HELP PANEL
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class HelpPanel:
     """Panel displaying help information."""
 
@@ -477,6 +487,7 @@ class HelpPanel:
 # TOKEN USAGE PANEL
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class TokenUsagePanel:
     """Panel displaying token usage."""
 
@@ -513,9 +524,11 @@ class TokenUsagePanel:
 # DIFF DISPLAY - Claude Code Style
 # ═══════════════════════════════════════════════════════════════════════
 
+
 @dataclass
 class DiffLine:
     """A single line in a diff."""
+
     line_number_old: Optional[int]  # Line number in old file (None for additions)
     line_number_new: Optional[int]  # Line number in new file (None for deletions)
     content: str
@@ -536,11 +549,7 @@ class DiffDisplay:
     CONTEXT_LINES = 3
 
     @staticmethod
-    def compute_diff(
-        old_content: str,
-        new_content: str,
-        context_lines: int = 3
-    ) -> List[DiffLine]:
+    def compute_diff(old_content: str, new_content: str, context_lines: int = 3) -> List[DiffLine]:
         """Compute diff between old and new content."""
         import difflib
         import re
@@ -548,12 +557,7 @@ class DiffDisplay:
         old_lines = old_content.splitlines(keepends=True)
         new_lines = new_content.splitlines(keepends=True)
 
-        diff = list(difflib.unified_diff(
-            old_lines,
-            new_lines,
-            lineterm='',
-            n=context_lines
-        ))
+        diff = list(difflib.unified_diff(old_lines, new_lines, lineterm="", n=context_lines))
 
         result = []
         old_line_num = 0
@@ -563,8 +567,8 @@ class DiffDisplay:
         while i < len(diff):
             line = diff[i]
 
-            if line.startswith('@@'):
-                match = re.match(r'@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@', line)
+            if line.startswith("@@"):
+                match = re.match(r"@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@", line)
                 if match:
                     old_line_num = int(match.group(1)) - 1
                     new_line_num = int(match.group(2)) - 1
@@ -572,30 +576,20 @@ class DiffDisplay:
                 if result:
                     result.append(DiffLine(None, None, "...", "separator"))
 
-            elif line.startswith('---') or line.startswith('+++'):
+            elif line.startswith("---") or line.startswith("+++"):
                 pass
-            elif line.startswith('-'):
+            elif line.startswith("-"):
                 old_line_num += 1
-                result.append(DiffLine(
-                    old_line_num, None,
-                    line[1:].rstrip('\n\r'),
-                    'deletion'
-                ))
-            elif line.startswith('+'):
+                result.append(DiffLine(old_line_num, None, line[1:].rstrip("\n\r"), "deletion"))
+            elif line.startswith("+"):
                 new_line_num += 1
-                result.append(DiffLine(
-                    None, new_line_num,
-                    line[1:].rstrip('\n\r'),
-                    'addition'
-                ))
-            elif line.startswith(' '):
+                result.append(DiffLine(None, new_line_num, line[1:].rstrip("\n\r"), "addition"))
+            elif line.startswith(" "):
                 old_line_num += 1
                 new_line_num += 1
-                result.append(DiffLine(
-                    old_line_num, new_line_num,
-                    line[1:].rstrip('\n\r'),
-                    'context'
-                ))
+                result.append(
+                    DiffLine(old_line_num, new_line_num, line[1:].rstrip("\n\r"), "context")
+                )
 
             i += 1
 
@@ -608,7 +602,7 @@ class DiffDisplay:
         new_content: str,
         context_lines: int = 3,
         show_stats: bool = True,
-        language: str = None
+        language: str = None,
     ) -> Panel:
         """Render a Claude Code-style diff panel."""
         palette = get_palette()
@@ -616,15 +610,32 @@ class DiffDisplay:
         # Auto-detect language from filename
         if language is None:
             ext_map = {
-                '.py': 'python', '.js': 'javascript', '.ts': 'typescript',
-                '.jsx': 'jsx', '.tsx': 'tsx', '.html': 'html', '.css': 'css',
-                '.json': 'json', '.yaml': 'yaml', '.yml': 'yaml', '.md': 'markdown',
-                '.rs': 'rust', '.go': 'go', '.java': 'java', '.c': 'c',
-                '.cpp': 'cpp', '.h': 'c', '.hpp': 'cpp', '.rb': 'ruby',
-                '.php': 'php', '.sh': 'bash', '.sql': 'sql', '.xml': 'xml',
+                ".py": "python",
+                ".js": "javascript",
+                ".ts": "typescript",
+                ".jsx": "jsx",
+                ".tsx": "tsx",
+                ".html": "html",
+                ".css": "css",
+                ".json": "json",
+                ".yaml": "yaml",
+                ".yml": "yaml",
+                ".md": "markdown",
+                ".rs": "rust",
+                ".go": "go",
+                ".java": "java",
+                ".c": "c",
+                ".cpp": "cpp",
+                ".h": "c",
+                ".hpp": "cpp",
+                ".rb": "ruby",
+                ".php": "php",
+                ".sh": "bash",
+                ".sql": "sql",
+                ".xml": "xml",
             }
             ext = os.path.splitext(filename)[1].lower()
-            language = ext_map.get(ext, 'text')
+            language = ext_map.get(ext, "text")
 
         # Compute diff
         diff_lines = DiffDisplay.compute_diff(old_content, new_content, context_lines)
@@ -635,12 +646,12 @@ class DiffDisplay:
                 title=f"[{palette.text_secondary}]{Icons.get_file_icon(filename)} {filename}[/]",
                 border_style=palette.border_default,
                 box=ROUNDED,
-                padding=(0, 1)
+                padding=(0, 1),
             )
 
         # Calculate statistics
-        additions = sum(1 for d in diff_lines if d.change_type == 'addition')
-        deletions = sum(1 for d in diff_lines if d.change_type == 'deletion')
+        additions = sum(1 for d in diff_lines if d.change_type == "addition")
+        deletions = sum(1 for d in diff_lines if d.change_type == "deletion")
 
         lines = []
 
@@ -663,25 +674,33 @@ class DiffDisplay:
         for diff_line in diff_lines:
             line_text = Text()
 
-            if diff_line.change_type == 'separator':
+            if diff_line.change_type == "separator":
                 line_text.append(f"{'─' * (ln_width * 2 + 5)}", style=palette.text_muted)
-            elif diff_line.change_type == 'deletion':
+            elif diff_line.change_type == "deletion":
                 old_ln = str(diff_line.line_number_old).rjust(ln_width)
-                new_ln = ' ' * ln_width
+                new_ln = " " * ln_width
                 line_text.append(f" {old_ln} ", style=palette.text_muted)
                 line_text.append(f" {new_ln} ", style=f"dim {palette.text_muted}")
                 line_text.append(" - ", style=f"bold {palette.diff_removed}")
                 line_text.append(diff_line.content, style=palette.diff_removed)
-            elif diff_line.change_type == 'addition':
-                old_ln = ' ' * ln_width
+            elif diff_line.change_type == "addition":
+                old_ln = " " * ln_width
                 new_ln = str(diff_line.line_number_new).rjust(ln_width)
                 line_text.append(f" {old_ln} ", style=f"dim {palette.text_muted}")
                 line_text.append(f" {new_ln} ", style=palette.text_muted)
                 line_text.append(" + ", style=f"bold {palette.diff_added}")
                 line_text.append(diff_line.content, style=palette.diff_added)
             else:
-                old_ln = str(diff_line.line_number_old).rjust(ln_width) if diff_line.line_number_old else ' ' * ln_width
-                new_ln = str(diff_line.line_number_new).rjust(ln_width) if diff_line.line_number_new else ' ' * ln_width
+                old_ln = (
+                    str(diff_line.line_number_old).rjust(ln_width)
+                    if diff_line.line_number_old
+                    else " " * ln_width
+                )
+                new_ln = (
+                    str(diff_line.line_number_new).rjust(ln_width)
+                    if diff_line.line_number_new
+                    else " " * ln_width
+                )
                 line_text.append(f" {old_ln} ", style=palette.text_muted)
                 line_text.append(f" {new_ln} ", style=palette.text_muted)
                 line_text.append("   ", style=palette.text_muted)
@@ -698,7 +717,7 @@ class DiffDisplay:
             title=title_text,
             border_style=palette.border_default,
             box=ROUNDED,
-            padding=(0, 1)
+            padding=(0, 1),
         )
 
     @staticmethod
@@ -706,7 +725,7 @@ class DiffDisplay:
         filename: str,
         additions: List[str] = None,
         deletions: List[str] = None,
-        context: List[str] = None
+        context: List[str] = None,
     ) -> Panel:
         """Render simple diff display."""
         palette = get_palette()
@@ -738,7 +757,7 @@ class DiffDisplay:
             title=f"[{palette.text_secondary}]{file_icon} {filename}[/]",
             border_style=palette.border_default,
             box=ROUNDED,
-            padding=(0, 1)
+            padding=(0, 1),
         )
 
     @staticmethod
@@ -755,6 +774,7 @@ class DiffDisplay:
 # ═══════════════════════════════════════════════════════════════════════
 # HELPER FUNCTIONS
 # ═══════════════════════════════════════════════════════════════════════
+
 
 def create_separator(label: Optional[str] = None, width: int = 60) -> Rule:
     """Create a styled separator."""

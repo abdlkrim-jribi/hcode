@@ -14,7 +14,7 @@ import os
 from io import StringIO
 
 # Add src to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from hcode.cli.styles.components import DiffDisplay, DiffLine
 
@@ -30,9 +30,9 @@ class TestDiffComputation:
         diff_lines = DiffDisplay.compute_diff(old, new)
 
         # Should have additions
-        additions = [d for d in diff_lines if d.change_type == 'addition']
+        additions = [d for d in diff_lines if d.change_type == "addition"]
         assert len(additions) == 1
-        assert 'new line' in additions[0].content
+        assert "new line" in additions[0].content
 
     def test_simple_deletion(self):
         """Test removing a single line"""
@@ -42,9 +42,9 @@ class TestDiffComputation:
         diff_lines = DiffDisplay.compute_diff(old, new)
 
         # Should have deletions
-        deletions = [d for d in diff_lines if d.change_type == 'deletion']
+        deletions = [d for d in diff_lines if d.change_type == "deletion"]
         assert len(deletions) == 1
-        assert 'line2' in deletions[0].content
+        assert "line2" in deletions[0].content
 
     def test_modification(self):
         """Test modifying a line (shows as delete + add)"""
@@ -53,13 +53,13 @@ class TestDiffComputation:
 
         diff_lines = DiffDisplay.compute_diff(old, new)
 
-        deletions = [d for d in diff_lines if d.change_type == 'deletion']
-        additions = [d for d in diff_lines if d.change_type == 'addition']
+        deletions = [d for d in diff_lines if d.change_type == "deletion"]
+        additions = [d for d in diff_lines if d.change_type == "addition"]
 
         assert len(deletions) == 1
         assert len(additions) == 1
-        assert 'old text' in deletions[0].content
-        assert 'new text' in additions[0].content
+        assert "old text" in deletions[0].content
+        assert "new text" in additions[0].content
 
     def test_no_changes(self):
         """Test when content is identical"""
@@ -79,7 +79,7 @@ class TestDiffComputation:
         diff_lines = DiffDisplay.compute_diff(old, new, context_lines=2)
 
         # Should have context lines
-        context = [d for d in diff_lines if d.change_type == 'context']
+        context = [d for d in diff_lines if d.change_type == "context"]
         assert len(context) > 0
 
     def test_line_numbers(self):
@@ -91,13 +91,13 @@ class TestDiffComputation:
 
         # Check that line numbers are set correctly
         for diff in diff_lines:
-            if diff.change_type == 'addition':
+            if diff.change_type == "addition":
                 assert diff.line_number_new is not None
                 assert diff.line_number_old is None
-            elif diff.change_type == 'deletion':
+            elif diff.change_type == "deletion":
                 assert diff.line_number_old is not None
                 assert diff.line_number_new is None
-            elif diff.change_type == 'context':
+            elif diff.change_type == "context":
                 assert diff.line_number_old is not None
                 assert diff.line_number_new is not None
 
@@ -109,9 +109,9 @@ class TestDiffComputation:
         diff_lines = DiffDisplay.compute_diff(old, new, context_lines=2)
 
         # Should have separators between hunks
-        separators = [d for d in diff_lines if d.change_type == 'separator']
+        separators = [d for d in diff_lines if d.change_type == "separator"]
         # Might have separator between distant changes
-        assert len([d for d in diff_lines if d.change_type in ('addition', 'deletion')]) >= 2
+        assert len([d for d in diff_lines if d.change_type in ("addition", "deletion")]) >= 2
 
 
 class TestDiffLineDataclass:
@@ -120,10 +120,7 @@ class TestDiffLineDataclass:
     def test_creation(self):
         """Test creating a DiffLine"""
         line = DiffLine(
-            line_number_old=10,
-            line_number_new=11,
-            content="test content",
-            change_type="context"
+            line_number_old=10, line_number_new=11, content="test content", change_type="context"
         )
 
         assert line.line_number_old == 10
@@ -134,10 +131,7 @@ class TestDiffLineDataclass:
     def test_addition_line(self):
         """Test creating an addition line"""
         line = DiffLine(
-            line_number_old=None,
-            line_number_new=5,
-            content="new line",
-            change_type="addition"
+            line_number_old=None, line_number_new=5, content="new line", change_type="addition"
         )
 
         assert line.line_number_old is None
@@ -146,10 +140,7 @@ class TestDiffLineDataclass:
     def test_deletion_line(self):
         """Test creating a deletion line"""
         line = DiffLine(
-            line_number_old=5,
-            line_number_new=None,
-            content="removed line",
-            change_type="deletion"
+            line_number_old=5, line_number_new=None, content="removed line", change_type="deletion"
         )
 
         assert line.line_number_old == 5
@@ -187,7 +178,7 @@ class TestDiffRendering:
             "test.py",
             additions=["new line 1", "new line 2"],
             deletions=["old line"],
-            context=["context line"]
+            context=["context line"],
         )
 
         assert isinstance(result, Panel)
@@ -210,7 +201,7 @@ class TestDiffRendering:
         new = "def foo():\n    return 1"
 
         # Should not raise even with various extensions
-        for ext in ['.py', '.js', '.ts', '.go', '.rs', '.java', '.txt']:
+        for ext in [".py", ".js", ".ts", ".go", ".rs", ".java", ".txt"]:
             result = DiffDisplay.render(f"test{ext}", old, new)
             assert result is not None
 
@@ -224,7 +215,7 @@ class TestDiffStatistics:
         new = "line1\nline2\nline3"
 
         diff_lines = DiffDisplay.compute_diff(old, new)
-        additions = sum(1 for d in diff_lines if d.change_type == 'addition')
+        additions = sum(1 for d in diff_lines if d.change_type == "addition")
 
         # Should have at least 2 additions (might count newline changes differently)
         assert additions >= 2
@@ -235,7 +226,7 @@ class TestDiffStatistics:
         new = "line1"
 
         diff_lines = DiffDisplay.compute_diff(old, new)
-        deletions = sum(1 for d in diff_lines if d.change_type == 'deletion')
+        deletions = sum(1 for d in diff_lines if d.change_type == "deletion")
 
         # Should have at least 2 deletions
         assert deletions >= 2
@@ -246,8 +237,8 @@ class TestDiffStatistics:
         new = "line1\nnew line\nline3\nline4"
 
         diff_lines = DiffDisplay.compute_diff(old, new)
-        additions = sum(1 for d in diff_lines if d.change_type == 'addition')
-        deletions = sum(1 for d in diff_lines if d.change_type == 'deletion')
+        additions = sum(1 for d in diff_lines if d.change_type == "addition")
+        deletions = sum(1 for d in diff_lines if d.change_type == "deletion")
 
         assert additions >= 1
         assert deletions >= 1
@@ -258,10 +249,10 @@ class TestRealWorldDiffs:
 
     def test_python_function_change(self):
         """Test diff of Python function modification"""
-        old = '''def greet(name):
+        old = """def greet(name):
     print("Hello, " + name)
     return None
-'''
+"""
         new = '''def greet(name):
     """Greet a person by name."""
     message = f"Hello, {name}!"
@@ -272,36 +263,36 @@ class TestRealWorldDiffs:
 
         # Should show the changes
         assert len(diff_lines) > 0
-        additions = [d for d in diff_lines if d.change_type == 'addition']
-        assert any('docstring' in d.content.lower() or '"""' in d.content for d in additions)
+        additions = [d for d in diff_lines if d.change_type == "addition"]
+        assert any("docstring" in d.content.lower() or '"""' in d.content for d in additions)
 
     def test_import_addition(self):
         """Test adding imports"""
-        old = '''import os
+        old = """import os
 
 def main():
     pass
-'''
-        new = '''import os
+"""
+        new = """import os
 import sys
 import json
 
 def main():
     pass
-'''
+"""
         diff_lines = DiffDisplay.compute_diff(old, new)
-        additions = [d for d in diff_lines if d.change_type == 'addition']
+        additions = [d for d in diff_lines if d.change_type == "addition"]
 
         assert len(additions) >= 2
-        assert any('sys' in d.content for d in additions)
-        assert any('json' in d.content for d in additions)
+        assert any("sys" in d.content for d in additions)
+        assert any("json" in d.content for d in additions)
 
     def test_class_method_change(self):
         """Test modifying a class method"""
-        old = '''class Calculator:
+        old = """class Calculator:
     def add(self, a, b):
         return a + b
-'''
+"""
         new = '''class Calculator:
     def add(self, a, b):
         """Add two numbers."""
@@ -322,7 +313,7 @@ class TestEdgeCases:
         new = "new content\nline 2"
 
         diff_lines = DiffDisplay.compute_diff(old, new)
-        additions = [d for d in diff_lines if d.change_type == 'addition']
+        additions = [d for d in diff_lines if d.change_type == "addition"]
 
         assert len(additions) >= 1
 
@@ -332,7 +323,7 @@ class TestEdgeCases:
         new = ""
 
         diff_lines = DiffDisplay.compute_diff(old, new)
-        deletions = [d for d in diff_lines if d.change_type == 'deletion']
+        deletions = [d for d in diff_lines if d.change_type == "deletion"]
 
         assert len(deletions) >= 1
 
@@ -361,7 +352,7 @@ class TestEdgeCases:
         new = "Hello 世界\n你好\nПривет"
 
         diff_lines = DiffDisplay.compute_diff(old, new)
-        additions = [d for d in diff_lines if d.change_type == 'addition']
+        additions = [d for d in diff_lines if d.change_type == "addition"]
 
         assert len(additions) >= 1
 

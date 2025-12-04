@@ -13,7 +13,7 @@ from .interaction_logger import (
     log_interaction,
     log_tool_call,
     log_error,
-    end_logging
+    end_logging,
 )
 from .output_handler import (
     OutputHandler,

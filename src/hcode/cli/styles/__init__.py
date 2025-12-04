@@ -9,12 +9,10 @@ to maintain backwards compatibility with existing code.
 from hcode.ui import (
     # Colors
     Colors,
-
     # Icons
     Icons,
     Emoji,
     Borders,
-
     # Components
     StyledPanel,
     TodoItem,
@@ -25,21 +23,17 @@ from hcode.ui import (
     Prompt,
     Separator,
     progress_bar,
-
     # Box styles
     get_default_box,
     Lines,
     get_status_icon,
-
     # Console
     console,
     get_console,
-
     # Animations
     spinner,
     thinking,
     loading,
-
     # Panels
     DiffLine,
     DiffDisplay,
@@ -48,12 +42,10 @@ from hcode.ui import (
 __all__ = [
     # Colors
     "Colors",
-
     # Icons
     "Icons",
     "Emoji",
     "Borders",
-
     # Components
     "StyledPanel",
     "TodoItem",
@@ -64,21 +56,17 @@ __all__ = [
     "Prompt",
     "Separator",
     "progress_bar",
-
     # Box styles
     "get_default_box",
     "Lines",
     "get_status_icon",
-
     # Console
     "console",
     "get_console",
-
     # Animations
     "spinner",
     "thinking",
     "loading",
-
     # Panels
     "DiffLine",
     "DiffDisplay",

@@ -14,11 +14,15 @@ from pathlib import Path
 import platform
 
 # Add src to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from hcode.tools.bash_tools import (
-    BashTool, BashOutputTool, KillShellTool, LSTool,
-    BashShellManager, BackgroundShell
+    BashTool,
+    BashOutputTool,
+    KillShellTool,
+    LSTool,
+    BashShellManager,
+    BackgroundShell,
 )
 from hcode.tools.base_tool import ToolResult, ToolCategory
 
@@ -168,10 +172,7 @@ class TestBashTool:
         else:
             command = "sleep 10"
 
-        result = await tool.execute(
-            command=command,
-            timeout=500  # 500ms timeout
-        )
+        result = await tool.execute(command=command, timeout=500)  # 500ms timeout
 
         # Should timeout or fail
         # The result depends on timing
@@ -182,10 +183,7 @@ class TestBashTool:
         tool = BashTool(root_dir=temp_dir)
 
         # Request very long timeout
-        result = await tool.execute(
-            command="echo test",
-            timeout=9999999999  # Very large
-        )
+        result = await tool.execute(command="echo test", timeout=9999999999)  # Very large
 
         # Should still execute (timeout was capped)
         assert result.success == True
@@ -222,15 +220,9 @@ class TestBashTool:
         tool = BashTool(root_dir=temp_dir)
 
         if IS_WINDOWS:
-            result = await tool.execute(
-                command="ping -n 2 127.0.0.1",
-                run_in_background=True
-            )
+            result = await tool.execute(command="ping -n 2 127.0.0.1", run_in_background=True)
         else:
-            result = await tool.execute(
-                command="sleep 1",
-                run_in_background=True
-            )
+            result = await tool.execute(command="sleep 1", run_in_background=True)
 
         assert result.success == True
         assert "shell_id" in result.metadata
@@ -241,10 +233,7 @@ class TestBashTool:
         """Test metadata includes command description"""
         tool = BashTool(root_dir=temp_dir)
 
-        result = await tool.execute(
-            command="echo test",
-            description="Test echo command"
-        )
+        result = await tool.execute(command="echo test", description="Test echo command")
 
         assert result.success == True
         assert result.metadata.get("description") == "Test echo command"
@@ -409,10 +398,7 @@ class TestLSTool:
         """Test listing with ignore patterns"""
         tool = LSTool(root_dir=sample_dir)
 
-        result = await tool.execute(
-            path=sample_dir,
-            ignore="*.md"
-        )
+        result = await tool.execute(path=sample_dir, ignore="*.md")
 
         assert result.success == True
         assert "readme.md" not in result.output.lower()
@@ -443,13 +429,11 @@ class TestBashToolIntegration:
         # Start background command
         if IS_WINDOWS:
             start_result = await bash_tool.execute(
-                command="ping -n 5 127.0.0.1",
-                run_in_background=True
+                command="ping -n 5 127.0.0.1", run_in_background=True
             )
         else:
             start_result = await bash_tool.execute(
-                command="sleep 5 && echo done",
-                run_in_background=True
+                command="sleep 5 && echo done", run_in_background=True
             )
 
         assert start_result.success == True

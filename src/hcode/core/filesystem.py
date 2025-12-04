@@ -38,9 +38,9 @@ class FileSystemManager:
         self.gitignore_spec = None
 
         if gitignore_path.exists():
-            with open(gitignore_path, 'r') as f:
+            with open(gitignore_path, "r") as f:
                 patterns = f.read().splitlines()
-                self.gitignore_spec = pathspec.PathSpec.from_lines('gitwildmatch', patterns)
+                self.gitignore_spec = pathspec.PathSpec.from_lines("gitwildmatch", patterns)
 
     def _try_init_git(self):
         """Try to initialize Git repository"""
@@ -74,7 +74,7 @@ class FileSystemManager:
         if not full_path.exists():
             raise FileNotFoundError(f"File not found: {file_path}")
 
-        async with aiofiles.open(full_path, 'r', encoding='utf-8', errors='ignore') as f:
+        async with aiofiles.open(full_path, "r", encoding="utf-8", errors="ignore") as f:
             return await f.read()
 
     async def write_file(self, file_path: str, content: str, create_dirs: bool = True) -> bool:
@@ -97,7 +97,7 @@ class FileSystemManager:
         if create_dirs:
             full_path.parent.mkdir(parents=True, exist_ok=True)
 
-        async with aiofiles.open(full_path, 'w', encoding='utf-8') as f:
+        async with aiofiles.open(full_path, "w", encoding="utf-8") as f:
             await f.write(content)
 
         return True
@@ -115,7 +115,7 @@ class FileSystemManager:
         """
         full_path = self._resolve_path(file_path)
 
-        async with aiofiles.open(full_path, 'a', encoding='utf-8') as f:
+        async with aiofiles.open(full_path, "a", encoding="utf-8") as f:
             await f.write(content)
 
         return True
@@ -139,10 +139,7 @@ class FileSystemManager:
         return False
 
     def list_files(
-        self,
-        pattern: str = "*",
-        recursive: bool = True,
-        include_hidden: bool = False
+        self, pattern: str = "*", recursive: bool = True, include_hidden: bool = False
     ) -> List[str]:
         """
         List files matching pattern.
@@ -162,7 +159,7 @@ class FileSystemManager:
         for file_path in self.root_dir.glob(pattern):
             if file_path.is_file():
                 # Skip hidden files if needed
-                if not include_hidden and any(p.startswith('.') for p in file_path.parts):
+                if not include_hidden and any(p.startswith(".") for p in file_path.parts):
                     continue
 
                 # Skip ignored files
@@ -179,7 +176,7 @@ class FileSystemManager:
         pattern: str,
         file_pattern: str = "*.py",
         regex: bool = False,
-        case_sensitive: bool = False
+        case_sensitive: bool = False,
     ) -> Dict[str, List[tuple]]:
         """
         Search for pattern in files.
@@ -206,7 +203,7 @@ class FileSystemManager:
         for file_path in files:
             try:
                 full_path = self.root_dir / file_path
-                with open(full_path, 'r', encoding='utf-8', errors='ignore') as f:
+                with open(full_path, "r", encoding="utf-8", errors="ignore") as f:
                     matches = []
                     for line_num, line in enumerate(f, 1):
                         search_line = line if case_sensitive else line.lower()
@@ -398,6 +395,7 @@ class FileSystemManager:
         Returns:
             Directory structure as nested dict
         """
+
         def build_tree(path: Path, current_depth: int = 0) -> Dict:
             if current_depth >= max_depth:
                 return {}
@@ -411,7 +409,7 @@ class FileSystemManager:
                         continue
 
                     # Skip hidden items
-                    if item.name.startswith('.'):
+                    if item.name.startswith("."):
                         continue
 
                     if item.is_dir():
@@ -441,14 +439,14 @@ class FileWatcher(FileSystemEventHandler):
     def on_modified(self, event):
         """Handle file modification"""
         if not event.is_directory:
-            self.callback('modified', event.src_path)
+            self.callback("modified", event.src_path)
 
     def on_created(self, event):
         """Handle file creation"""
         if not event.is_directory:
-            self.callback('created', event.src_path)
+            self.callback("created", event.src_path)
 
     def on_deleted(self, event):
         """Handle file deletion"""
         if not event.is_directory:
-            self.callback('deleted', event.src_path)
+            self.callback("deleted", event.src_path)

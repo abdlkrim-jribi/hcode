@@ -6,28 +6,24 @@ Uses Claude Code-like styling.
 """
 
 from typing import List, Optional
+
+from rich import box
 from rich.console import Console
+from rich.layout import Layout
+from rich.live import Live
 from rich.panel import Panel
 from rich.table import Table
-from rich.live import Live
-from rich.layout import Layout
 from rich.text import Text
-from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn
-from rich import box
 
-from ..agent.thinking import ThinkingBlock, ThinkingPhase
+from ..agent.thinking import ThinkingBlock
 from ..agent.todo import TodoItem, TodoStatus
 from ..config.thinking import ThinkingVisibility
-
 # Import UI system
 from ..ui import (
     Colors,
     Icons,
-    StyledPanel,
-    TodoDisplay,
-    TodoItem as StyledTodoItem,
     get_default_box,
-    console as styled_console
+    console as styled_console,
 )
 
 
@@ -44,7 +40,7 @@ class AgentDisplay:
         self,
         console: Optional[Console] = None,
         visibility: ThinkingVisibility = ThinkingVisibility.STREAMING,
-        debug_mode: bool = False
+            debug_mode: bool = False,
     ):
         """
         Initialize display.
@@ -66,12 +62,7 @@ class AgentDisplay:
     def start_live_display(self) -> None:
         """Start live display mode"""
         layout = self._create_layout()
-        self.live = Live(
-            layout,
-            console=self.console,
-            refresh_per_second=4,
-            screen=False
-        )
+        self.live = Live(layout, console=self.console, refresh_per_second=4, screen=False)
         self.live.start()
 
     def stop_live_display(self) -> None:
@@ -83,10 +74,7 @@ class AgentDisplay:
     def _create_layout(self) -> Layout:
         """Create display layout"""
         layout = Layout()
-        layout.split_column(
-            Layout(name="thinking", size=10),
-            Layout(name="todos", size=15)
-        )
+        layout.split_column(Layout(name="thinking", size=10), Layout(name="todos", size=15))
         return layout
 
     def update_display(self) -> None:
@@ -160,14 +148,16 @@ class AgentDisplay:
 
             # Show tokens and time
             content.append(f"\n\n", style=Colors.TEXT_MUTED)
-            content.append(f"Tokens: {self.current_thinking.tokens_used} | ", style=Colors.TEXT_MUTED)
+            content.append(
+                f"Tokens: {self.current_thinking.tokens_used} | ", style=Colors.TEXT_MUTED
+            )
             content.append(f"Time: {self.current_thinking.duration_ms}ms", style=Colors.TEXT_MUTED)
 
         return Panel(
             content,
             title=f"[bold {Colors.THINKING}]{self.icons.THINKING} Thinking[/]",
             border_style=Colors.THINKING,
-            box=get_default_box()
+            box=get_default_box(),
         )
 
     def _create_todos_panel(self) -> Panel:
@@ -178,7 +168,7 @@ class AgentDisplay:
                 content,
                 title=f"[{Colors.PRIMARY}]{self.icons.CHECK} Tasks[/]",
                 border_style=Colors.PRIMARY,
-                box=get_default_box()
+                box=get_default_box(),
             )
 
         table = Table(show_header=True, header_style="bold", box=box.SIMPLE)
@@ -192,10 +182,12 @@ class AgentDisplay:
                 TodoStatus.IN_PROGRESS: (self.icons.TODO_IN_PROGRESS, Colors.TODO_IN_PROGRESS),
                 TodoStatus.COMPLETED: (self.icons.TODO_COMPLETED, Colors.TODO_COMPLETED),
                 TodoStatus.BLOCKED: (self.icons.TODO_BLOCKED, Colors.TODO_BLOCKED),
-                TodoStatus.SKIPPED: (self.icons.TODO_SKIPPED, Colors.TODO_SKIPPED)
+                TodoStatus.SKIPPED: (self.icons.TODO_SKIPPED, Colors.TODO_SKIPPED),
             }
 
-            icon, color = status_config.get(todo.status, (self.icons.CIRCLE_EMPTY, Colors.TEXT_MUTED))
+            icon, color = status_config.get(
+                todo.status, (self.icons.CIRCLE_EMPTY, Colors.TEXT_MUTED)
+            )
 
             # Use active form if in progress
             if todo.status == TodoStatus.IN_PROGRESS:
@@ -205,7 +197,10 @@ class AgentDisplay:
 
             table.add_row(
                 Text(icon, style=color),
-                Text(task_text, style=f"bold {color}" if todo.status == TodoStatus.IN_PROGRESS else color)
+                Text(
+                    task_text,
+                    style=f"bold {color}" if todo.status == TodoStatus.IN_PROGRESS else color,
+                ),
             )
 
         # Add progress bar
@@ -216,18 +211,20 @@ class AgentDisplay:
             table,
             title=f"[{Colors.PRIMARY}]{self.icons.CHECK} Tasks ({completed}/{total})[/]",
             border_style=Colors.PRIMARY,
-            box=get_default_box()
+            box=get_default_box(),
         )
 
     def _print_thinking_block(self, block: ThinkingBlock) -> None:
         """Print thinking block (non-live mode)"""
         phase = block.phase.value.upper()
         self.console.print(f"\n[bold {Colors.THINKING}]{self.icons.THINKING} THINKING: {phase}[/]")
-        self.console.print(Panel(
-            block.summary or block.content[:200],
-            border_style=Colors.THINKING,
-            box=get_default_box()
-        ))
+        self.console.print(
+            Panel(
+                block.summary or block.content[:200],
+                border_style=Colors.THINKING,
+                box=get_default_box(),
+            )
+        )
 
     def _print_thinking_summary(self, block: ThinkingBlock) -> None:
         """Print thinking summary"""
@@ -244,10 +241,12 @@ class AgentDisplay:
                 TodoStatus.IN_PROGRESS: (self.icons.TODO_IN_PROGRESS, Colors.TODO_IN_PROGRESS),
                 TodoStatus.COMPLETED: (self.icons.TODO_COMPLETED, Colors.TODO_COMPLETED),
                 TodoStatus.BLOCKED: (self.icons.TODO_BLOCKED, Colors.TODO_BLOCKED),
-                TodoStatus.SKIPPED: (self.icons.TODO_SKIPPED, Colors.TODO_SKIPPED)
+                TodoStatus.SKIPPED: (self.icons.TODO_SKIPPED, Colors.TODO_SKIPPED),
             }
 
-            icon, color = status_config.get(todo.status, (self.icons.CIRCLE_EMPTY, Colors.TEXT_MUTED))
+            icon, color = status_config.get(
+                todo.status, (self.icons.CIRCLE_EMPTY, Colors.TEXT_MUTED)
+            )
 
             if todo.status == TodoStatus.IN_PROGRESS:
                 task_text = todo.active_form or todo.content
@@ -286,7 +285,9 @@ class AgentDisplay:
 
         for block in blocks:
             phase = block.phase.value.title()
-            self.console.print(f"[{Colors.THINKING}]{self.icons.BULLET} {phase}:[/] {block.summary}")
+            self.console.print(
+                f"[{Colors.THINKING}]{self.icons.BULLET} {phase}:[/] {block.summary}"
+            )
 
         total_tokens = sum(b.tokens_used for b in blocks)
         total_time = sum(b.duration_ms for b in blocks)
@@ -303,16 +304,17 @@ class AgentDisplay:
         completed = sum(1 for t in self.todos if t.status == TodoStatus.COMPLETED)
         total = len(self.todos)
 
-        self.console.print(f"\n[bold {Colors.SUCCESS}]{self.icons.CHECK} Completed {completed}/{total} tasks[/]")
+        self.console.print(
+            f"\n[bold {Colors.SUCCESS}]{self.icons.CHECK} Completed {completed}/{total} tasks[/]"
+        )
 
         # Show any incomplete tasks
         incomplete = [
-            t for t in self.todos
-            if t.status not in [TodoStatus.COMPLETED, TodoStatus.SKIPPED]
+            t for t in self.todos if t.status not in [TodoStatus.COMPLETED, TodoStatus.SKIPPED]
         ]
 
         if incomplete:
             self.console.print(f"\n[{Colors.WARNING}]Remaining tasks:[/]")
             for todo in incomplete:
-                status_name = todo.status.value.replace('_', ' ').title()
+                status_name = todo.status.value.replace("_", " ").title()
                 self.console.print(f"  {self.icons.BULLET} [{status_name}] {todo.content}")

@@ -42,18 +42,15 @@ Example Usage:
 from .theme import (
     # Enums
     ThemeMode,
-
     # Classes
     ColorPalette,
     ColorUtils,
     ThemeEngine,
-
     # Functions
     get_theme,
     set_theme,
     get_console,
     get_palette,
-
     # Theme definitions
     THEMES,
 )
@@ -72,7 +69,6 @@ from .banners import (
     LOGO_SMALL,
     LOGO_TECH,
     LOGO_BLOCK,
-
     # Functions
     create_banner,
     create_animated_banner,
@@ -102,7 +98,6 @@ from .components import (
     TECH_BOX,
     MODERN_BOX,
     ASCII_BOX,
-
     # Classes
     StatusIndicator,
     CyberPanel,
@@ -117,7 +112,6 @@ from .components import (
     Timestamp,
     Badge,
     ToolExecution,
-
     # Functions
     create_info_table,
     create_horizontal_rule,
@@ -130,7 +124,6 @@ from .components import (
 from .animations import (
     # Spinner definitions
     CYBER_SPINNERS,
-
     # Classes
     AnimatedMessage,
     CyberProgress,
@@ -141,12 +134,10 @@ from .animations import (
     PulsingText,
     Countdown,
     LoadingDots,
-
     # Context managers
     spinner,
     thinking,
     loading,
-
     # Functions
     countdown,
 )
@@ -160,11 +151,9 @@ from .icons import (
     Icons,
     Emoji,
     Borders,
-
     # Constants
     USE_UNICODE,
     IS_WINDOWS,
-
     # Functions
     supports_unicode,
 )
@@ -178,14 +167,12 @@ from .syntax import (
     CyberSyntax,
     DiffHighlighter,
     CodeBlock,
-
     # Functions
     highlight_code,
     highlight_file,
     inline_code,
     diff_text,
     detect_language,
-
     # Constants
     EXTENSION_TO_LANGUAGE,
     CYBERPUNK_TOKENS,
@@ -204,7 +191,6 @@ from .effects import (
     ScrambleEffect,
     BorderGlow,
     ParticleBurst,
-
     # Functions
     matrix_rain,
     scan_line,
@@ -233,7 +219,6 @@ from .panels import (
     TokenUsagePanel,
     DiffLine,
     DiffDisplay,
-
     # Functions
     create_separator,
     create_status_bar,
@@ -245,6 +230,7 @@ from .panels import (
 
 # Create a global console instance for convenience
 from rich.console import Console as _Console
+
 console = _Console()
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -257,7 +243,6 @@ from .chat_ui import (
     ThinkingContext,
     InteractivePrompt,
     ChatSession,
-
     # Functions
     create_chat,
     display_message,
@@ -275,7 +260,6 @@ from .todo_display import (
     TodoDisplayRenderer,
     PersistentTodoDisplay,
     TodoStatusBar,
-
     # Functions
     create_todo_display,
     render_todo_panel,
@@ -290,7 +274,6 @@ from .live_todo_bar import (
     # Classes
     LiveTodoBar,
     StreamingTodoIntegration,
-
     # Functions
     get_live_todo_bar,
     start_live_todos,
@@ -314,7 +297,6 @@ __all__ = [
     "get_console",
     "get_palette",
     "THEMES",
-
     # Banners
     "LOGO_CYBER",
     "LOGO_NEON",
@@ -339,7 +321,6 @@ __all__ = [
     "quick_banner",
     "status_banner",
     "get_cyberpunk_gradient",
-
     # Components
     "CYBER_BOX",
     "NEON_BOX",
@@ -361,7 +342,6 @@ __all__ = [
     "ToolExecution",
     "create_info_table",
     "create_horizontal_rule",
-
     # Animations
     "CYBER_SPINNERS",
     "AnimatedMessage",
@@ -377,7 +357,6 @@ __all__ = [
     "thinking",
     "loading",
     "countdown",
-
     # Icons
     "Icons",
     "Emoji",
@@ -385,7 +364,6 @@ __all__ = [
     "USE_UNICODE",
     "IS_WINDOWS",
     "supports_unicode",
-
     # Syntax
     "CyberSyntax",
     "DiffHighlighter",
@@ -397,7 +375,6 @@ __all__ = [
     "detect_language",
     "EXTENSION_TO_LANGUAGE",
     "CYBERPUNK_TOKENS",
-
     # Effects
     "MatrixRain",
     "ScanLine",
@@ -412,7 +389,6 @@ __all__ = [
     "reveal_text",
     "scramble_text",
     "particle_burst",
-
     # Panels
     "WelcomePanel",
     "UserMessagePanel",
@@ -429,10 +405,8 @@ __all__ = [
     "DiffDisplay",
     "create_separator",
     "create_status_bar",
-
     # Console
     "console",
-
     # Chat UI
     "ChatInterface",
     "ThinkingContext",
@@ -441,7 +415,6 @@ __all__ = [
     "create_chat",
     "display_message",
     "display_thinking",
-
     # Todo Display (Enhanced)
     "TodoDisplayStatus",
     "DisplayTodoItem",
@@ -451,7 +424,6 @@ __all__ = [
     "create_todo_display",
     "render_todo_panel",
     "render_todo_status_line",
-
     # Live Todo Bar (Real-time updates)
     "LiveTodoBar",
     "StreamingTodoIntegration",
@@ -468,14 +440,11 @@ __all__ = [
 from .compat import (
     # Colors
     Colors,
-
     # Borders
     Lines,
     get_default_box,
-
     # Status
     get_status_icon,
-
     # Components
     StyledPanel,
     TodoItem,
@@ -486,30 +455,31 @@ from .compat import (
     Prompt,
     Separator,
     progress_bar,
-
     # Animations (compatible wrappers)
     spinner,
     thinking,
 )
 
 # Update __all__ with compat exports
-__all__.extend([
-    "Colors",
-    "Lines",
-    "get_default_box",
-    "get_status_icon",
-    "StyledPanel",
-    "TodoItem",
-    "TodoDisplay",
-    "Header",
-    "Footer",
-    "StatusLine",
-    "Prompt",
-    "Separator",
-    "progress_bar",
-    "spinner",
-    "thinking",
-])
+__all__.extend(
+    [
+        "Colors",
+        "Lines",
+        "get_default_box",
+        "get_status_icon",
+        "StyledPanel",
+        "TodoItem",
+        "TodoDisplay",
+        "Header",
+        "Footer",
+        "StatusLine",
+        "Prompt",
+        "Separator",
+        "progress_bar",
+        "spinner",
+        "thinking",
+    ]
+)
 
 # ═══════════════════════════════════════════════════════════════════════
 # VERSION

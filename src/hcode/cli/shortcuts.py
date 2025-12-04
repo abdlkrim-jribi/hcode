@@ -11,6 +11,7 @@ from enum import Enum
 
 class ShortcutAction(Enum):
     """Available shortcut actions"""
+
     TOGGLE_MODE = "toggle_mode"
     SWITCH_TO_AUTO = "switch_auto"
     SWITCH_TO_INTERACTIVE = "switch_interactive"
@@ -26,6 +27,7 @@ class ShortcutAction(Enum):
 @dataclass
 class KeyBinding:
     """A keyboard shortcut binding"""
+
     key: str
     action: ShortcutAction
     description: str
@@ -56,7 +58,7 @@ class KeyBinding:
             "ctrl": "Ctrl",
             "shift": "Shift",
             "alt": "Alt",
-            "meta": "Cmd" if is_macos() else "Win"
+            "meta": "Cmd" if is_macos() else "Win",
         }
 
         for mod in self.modifiers:
@@ -80,6 +82,7 @@ class KeyBinding:
 def is_macos() -> bool:
     """Check if running on macOS"""
     import platform
+
     return platform.system() == "Darwin"
 
 
@@ -99,61 +102,52 @@ class ShortcutManager:
             key="tab",
             action=ShortcutAction.TOGGLE_MODE,
             description="Toggle between Interactive and Auto modes",
-            modifiers=["shift"]
+            modifiers=["shift"],
         ),
         KeyBinding(
             key="a",
             action=ShortcutAction.SWITCH_TO_AUTO,
             description="Switch to Auto mode",
-            modifiers=["ctrl", "shift"]
+            modifiers=["ctrl", "shift"],
         ),
         KeyBinding(
             key="i",
             action=ShortcutAction.SWITCH_TO_INTERACTIVE,
             description="Switch to Interactive mode",
-            modifiers=["ctrl", "shift"]
+            modifiers=["ctrl", "shift"],
         ),
         KeyBinding(
             key="p",
             action=ShortcutAction.SWITCH_TO_PLAN,
             description="Switch to Plan mode",
-            modifiers=["ctrl", "shift"]
+            modifiers=["ctrl", "shift"],
         ),
         KeyBinding(
-            key="h",
-            action=ShortcutAction.SHOW_HELP,
-            description="Show help",
-            modifiers=["ctrl"]
+            key="h", action=ShortcutAction.SHOW_HELP, description="Show help", modifiers=["ctrl"]
         ),
         KeyBinding(
             key="t",
             action=ShortcutAction.SHOW_TASKS,
             description="Show task list",
-            modifiers=["ctrl"]
+            modifiers=["ctrl"],
         ),
         KeyBinding(
             key="l",
             action=ShortcutAction.CLEAR_SCREEN,
             description="Clear screen",
-            modifiers=["ctrl"]
+            modifiers=["ctrl"],
         ),
         KeyBinding(
             key="c",
             action=ShortcutAction.CANCEL,
             description="Cancel current operation",
-            modifiers=["ctrl"]
+            modifiers=["ctrl"],
         ),
         KeyBinding(
-            key="enter",
-            action=ShortcutAction.SUBMIT,
-            description="Submit input",
-            modifiers=[]
+            key="enter", action=ShortcutAction.SUBMIT, description="Submit input", modifiers=[]
         ),
         KeyBinding(
-            key="y",
-            action=ShortcutAction.CONFIRM,
-            description="Confirm action",
-            modifiers=[]
+            key="y", action=ShortcutAction.CONFIRM, description="Confirm action", modifiers=[]
         ),
     ]
 
@@ -163,11 +157,7 @@ class ShortcutManager:
         self.callbacks: Dict[ShortcutAction, Callable] = {}
         self.enabled = True
 
-    def register_callback(
-        self,
-        action: ShortcutAction,
-        callback: Callable[[], None]
-    ):
+    def register_callback(self, action: ShortcutAction, callback: Callable[[], None]):
         """
         Register callback for action.
 
@@ -186,7 +176,8 @@ class ShortcutManager:
         """
         # Remove existing binding for same key combo
         self.bindings = [
-            b for b in self.bindings
+            b
+            for b in self.bindings
             if not (b.key == binding.key and b.modifiers == binding.modifiers)
         ]
         self.bindings.append(binding)
@@ -201,8 +192,7 @@ class ShortcutManager:
         """
         modifiers = modifiers or []
         self.bindings = [
-            b for b in self.bindings
-            if not (b.key == key and set(b.modifiers) == set(modifiers))
+            b for b in self.bindings if not (b.key == key and set(b.modifiers) == set(modifiers))
         ]
 
     def handle_key(self, key_event: Dict[str, Any]) -> Optional[ShortcutAction]:
@@ -230,10 +220,7 @@ class ShortcutManager:
 
         return None
 
-    def get_bindings_for_action(
-        self,
-        action: ShortcutAction
-    ) -> List[KeyBinding]:
+    def get_bindings_for_action(self, action: ShortcutAction) -> List[KeyBinding]:
         """Get all bindings for an action"""
         return [b for b in self.bindings if b.action == action]
 
@@ -252,7 +239,7 @@ class ShortcutManager:
             elif binding.action in [
                 ShortcutAction.SHOW_HELP,
                 ShortcutAction.SHOW_TASKS,
-                ShortcutAction.CLEAR_SCREEN
+                ShortcutAction.CLEAR_SCREEN,
             ]:
                 nav_shortcuts.append(binding)
             else:
@@ -343,15 +330,19 @@ class PromptToolkitShortcuts:
                     def handler(event):
                         if act in self.manager.callbacks:
                             self.manager.callbacks[act]()
+
                     return handler
 
                 # Register with prompt_toolkit
                 if isinstance(pt_key, tuple):
+
                     @kb.add(*pt_key)
                     def _(event, act=action):
                         if act in self.manager.callbacks:
                             self.manager.callbacks[act]()
+
                 elif pt_key == Keys.BackTab:
+
                     @kb.add(Keys.BackTab)
                     def _(event, act=action):
                         if act in self.manager.callbacks:
@@ -407,14 +398,11 @@ def setup_shortcuts_for_agent(agent, shortcut_manager: ShortcutManager):
 
     # Direct mode switches
     shortcut_manager.register_callback(
-        ShortcutAction.SWITCH_TO_AUTO,
-        lambda: agent.set_mode(AgentMode.AUTO)
+        ShortcutAction.SWITCH_TO_AUTO, lambda: agent.set_mode(AgentMode.AUTO)
     )
     shortcut_manager.register_callback(
-        ShortcutAction.SWITCH_TO_INTERACTIVE,
-        lambda: agent.set_mode(AgentMode.INTERACTIVE)
+        ShortcutAction.SWITCH_TO_INTERACTIVE, lambda: agent.set_mode(AgentMode.INTERACTIVE)
     )
     shortcut_manager.register_callback(
-        ShortcutAction.SWITCH_TO_PLAN,
-        lambda: agent.set_mode(AgentMode.PLAN)
+        ShortcutAction.SWITCH_TO_PLAN, lambda: agent.set_mode(AgentMode.PLAN)
     )

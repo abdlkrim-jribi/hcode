@@ -22,12 +22,13 @@ from .reasoning import (
     ReasoningPhase,
     ReasoningParser,
     ConfidenceCalibrator,
-    ReasoningQualityMetrics
+    ReasoningQualityMetrics,
 )
 
 
 class ExecutionStatus(Enum):
     """Status of an execution"""
+
     PENDING = "pending"
     RUNNING = "running"
     SUCCESS = "success"
@@ -38,17 +39,19 @@ class ExecutionStatus(Enum):
 
 class FeedbackType(Enum):
     """Types of feedback from execution"""
-    CONFIRMATION = "confirmation"      # Hypothesis confirmed
-    CONTRADICTION = "contradiction"    # Hypothesis contradicted
-    UNEXPECTED = "unexpected"          # Unexpected result
-    PARTIAL = "partial"                # Partially as expected
-    ERROR = "error"                    # Execution error
-    TIMEOUT = "timeout"                # Operation timed out
+
+    CONFIRMATION = "confirmation"  # Hypothesis confirmed
+    CONTRADICTION = "contradiction"  # Hypothesis contradicted
+    UNEXPECTED = "unexpected"  # Unexpected result
+    PARTIAL = "partial"  # Partially as expected
+    ERROR = "error"  # Execution error
+    TIMEOUT = "timeout"  # Operation timed out
 
 
 @dataclass
 class ExecutionResult:
     """Result of a tool/action execution"""
+
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
     tool_name: str = ""
     action_description: str = ""
@@ -72,13 +75,14 @@ class ExecutionResult:
             "error": self.error,
             "duration_ms": self.duration_ms,
             "timestamp": self.timestamp.isoformat(),
-            "metadata": self.metadata
+            "metadata": self.metadata,
         }
 
 
 @dataclass
 class FeedbackEntry:
     """A single feedback entry from execution to reasoning"""
+
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
     reasoning_id: str = ""
     execution_id: str = ""
@@ -114,13 +118,14 @@ class FeedbackEntry:
             "requires_replanning": self.requires_replanning,
             "lessons": self.lessons,
             "suggested_adjustments": self.suggested_adjustments,
-            "timestamp": self.timestamp.isoformat()
+            "timestamp": self.timestamp.isoformat(),
         }
 
 
 @dataclass
 class ReasoningRevision:
     """A revision to reasoning based on feedback"""
+
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
     original_reasoning_id: str = ""
     feedback_ids: List[str] = field(default_factory=list)
@@ -147,7 +152,7 @@ class ReasoningRevision:
             "new_action_items": self.new_action_items,
             "removed_action_items": self.removed_action_items,
             "revision_reason": self.revision_reason,
-            "timestamp": self.timestamp.isoformat()
+            "timestamp": self.timestamp.isoformat(),
         }
 
 
@@ -163,9 +168,7 @@ class HypothesisValidator:
         self.validation_history: List[Dict[str, Any]] = []
 
     def validate(
-        self,
-        reasoning: StructuredReasoning,
-        execution_result: ExecutionResult
+        self, reasoning: StructuredReasoning, execution_result: ExecutionResult
     ) -> Tuple[FeedbackType, Dict[str, Any]]:
         """
         Validate hypothesis against execution result.
@@ -184,7 +187,7 @@ class HypothesisValidator:
             "expected_outcome": reasoning.decision.expected_outcome,
             "actual_outcome": execution_result.output,
             "execution_success": execution_result.is_success(),
-            "timestamp": datetime.now().isoformat()
+            "timestamp": datetime.now().isoformat(),
         }
 
         # Determine feedback type based on execution result
@@ -201,27 +204,18 @@ class HypothesisValidator:
             feedback_type = self._compare_outcomes(
                 expected=reasoning.decision.expected_outcome,
                 actual=execution_result.output,
-                hypothesis=reasoning.reasoning.hypothesis
+                hypothesis=reasoning.reasoning.hypothesis,
             )
             details["comparison"] = self._get_comparison_details(
-                expected=reasoning.decision.expected_outcome,
-                actual=execution_result.output
+                expected=reasoning.decision.expected_outcome, actual=execution_result.output
             )
 
         # Store in history
-        self.validation_history.append({
-            "feedback_type": feedback_type.value,
-            **details
-        })
+        self.validation_history.append({"feedback_type": feedback_type.value, **details})
 
         return feedback_type, details
 
-    def _compare_outcomes(
-        self,
-        expected: str,
-        actual: str,
-        hypothesis: str
-    ) -> FeedbackType:
+    def _compare_outcomes(self, expected: str, actual: str, hypothesis: str) -> FeedbackType:
         """Compare expected vs actual outcomes"""
         if not expected or not actual:
             return FeedbackType.UNEXPECTED
@@ -231,13 +225,28 @@ class HypothesisValidator:
 
         # Check for success indicators
         success_indicators = [
-            "success", "completed", "done", "passed", "created",
-            "updated", "fixed", "resolved", "ok", "true"
+            "success",
+            "completed",
+            "done",
+            "passed",
+            "created",
+            "updated",
+            "fixed",
+            "resolved",
+            "ok",
+            "true",
         ]
 
         failure_indicators = [
-            "error", "failed", "exception", "not found", "denied",
-            "invalid", "false", "timeout", "refused"
+            "error",
+            "failed",
+            "exception",
+            "not found",
+            "denied",
+            "invalid",
+            "false",
+            "timeout",
+            "refused",
         ]
 
         # Count indicators in actual output
@@ -264,18 +273,14 @@ class HypothesisValidator:
             else:
                 return FeedbackType.UNEXPECTED
 
-    def _get_comparison_details(
-        self,
-        expected: str,
-        actual: str
-    ) -> Dict[str, Any]:
+    def _get_comparison_details(self, expected: str, actual: str) -> Dict[str, Any]:
         """Get detailed comparison between expected and actual"""
         return {
             "expected_length": len(expected),
             "actual_length": len(actual),
             "expected_preview": expected[:200] if expected else "",
             "actual_preview": actual[:200] if actual else "",
-            "length_ratio": len(actual) / max(1, len(expected))
+            "length_ratio": len(actual) / max(1, len(expected)),
         }
 
     def get_success_rate(self) -> float:
@@ -284,8 +289,7 @@ class HypothesisValidator:
             return 0.0
 
         confirmations = sum(
-            1 for v in self.validation_history
-            if v["feedback_type"] in ["confirmation", "partial"]
+            1 for v in self.validation_history if v["feedback_type"] in ["confirmation", "partial"]
         )
         return confirmations / len(self.validation_history)
 
@@ -300,10 +304,7 @@ class FeedbackProcessor:
     - Lessons to incorporate
     """
 
-    def __init__(
-        self,
-        confidence_calibrator: Optional[ConfidenceCalibrator] = None
-    ):
+    def __init__(self, confidence_calibrator: Optional[ConfidenceCalibrator] = None):
         self.calibrator = confidence_calibrator or ConfidenceCalibrator()
         self.processed_feedback: List[FeedbackEntry] = []
 
@@ -312,7 +313,7 @@ class FeedbackProcessor:
         reasoning: StructuredReasoning,
         execution_result: ExecutionResult,
         feedback_type: FeedbackType,
-        validation_details: Dict[str, Any]
+        validation_details: Dict[str, Any],
     ) -> FeedbackEntry:
         """
         Process feedback and create feedback entry.
@@ -336,37 +337,29 @@ class FeedbackProcessor:
 
         # Calculate deviation
         entry.deviation = self._calculate_deviation(
-            expected=entry.expected,
-            actual=entry.actual,
-            feedback_type=feedback_type
+            expected=entry.expected, actual=entry.actual, feedback_type=feedback_type
         )
 
         # Assess impact level
         entry.impact_level = self._assess_impact(
-            feedback_type=feedback_type,
-            reasoning=reasoning,
-            execution_result=execution_result
+            feedback_type=feedback_type, reasoning=reasoning, execution_result=execution_result
         )
 
         # Determine if replanning needed
         entry.requires_replanning = self._requires_replanning(
             feedback_type=feedback_type,
             impact_level=entry.impact_level,
-            confidence=reasoning.get_confidence()
+            confidence=reasoning.get_confidence(),
         )
 
         # Extract lessons
         entry.lessons = self._extract_lessons(
-            feedback_type=feedback_type,
-            reasoning=reasoning,
-            execution_result=execution_result
+            feedback_type=feedback_type, reasoning=reasoning, execution_result=execution_result
         )
 
         # Generate suggested adjustments
         entry.suggested_adjustments = self._suggest_adjustments(
-            feedback_type=feedback_type,
-            reasoning=reasoning,
-            execution_result=execution_result
+            feedback_type=feedback_type, reasoning=reasoning, execution_result=execution_result
         )
 
         # Update calibrator with outcome
@@ -378,12 +371,7 @@ class FeedbackProcessor:
 
         return entry
 
-    def _calculate_deviation(
-        self,
-        expected: str,
-        actual: str,
-        feedback_type: FeedbackType
-    ) -> str:
+    def _calculate_deviation(self, expected: str, actual: str, feedback_type: FeedbackType) -> str:
         """Calculate description of deviation"""
         if feedback_type == FeedbackType.CONFIRMATION:
             return "Outcome matches expectations"
@@ -403,7 +391,7 @@ class FeedbackProcessor:
         self,
         feedback_type: FeedbackType,
         reasoning: StructuredReasoning,
-        execution_result: ExecutionResult
+        execution_result: ExecutionResult,
     ) -> str:
         """Assess impact level of the feedback"""
         if feedback_type == FeedbackType.ERROR:
@@ -428,10 +416,7 @@ class FeedbackProcessor:
             return "low"
 
     def _requires_replanning(
-        self,
-        feedback_type: FeedbackType,
-        impact_level: str,
-        confidence: float
+        self, feedback_type: FeedbackType, impact_level: str, confidence: float
     ) -> bool:
         """Determine if replanning is required"""
         # Always replan on critical impact
@@ -456,7 +441,7 @@ class FeedbackProcessor:
         self,
         feedback_type: FeedbackType,
         reasoning: StructuredReasoning,
-        execution_result: ExecutionResult
+        execution_result: ExecutionResult,
     ) -> List[str]:
         """Extract lessons from the feedback"""
         lessons = []
@@ -493,7 +478,7 @@ class FeedbackProcessor:
         self,
         feedback_type: FeedbackType,
         reasoning: StructuredReasoning,
-        execution_result: ExecutionResult
+        execution_result: ExecutionResult,
     ) -> List[str]:
         """Suggest adjustments based on feedback"""
         adjustments = []
@@ -538,9 +523,7 @@ class ReasoningReviser:
         self.revisions: List[ReasoningRevision] = []
 
     def revise(
-        self,
-        original_reasoning: StructuredReasoning,
-        feedback_entries: List[FeedbackEntry]
+        self, original_reasoning: StructuredReasoning, feedback_entries: List[FeedbackEntry]
     ) -> ReasoningRevision:
         """
         Create a revision based on feedback.
@@ -554,7 +537,7 @@ class ReasoningReviser:
         """
         revision = ReasoningRevision(
             original_reasoning_id=original_reasoning.id,
-            feedback_ids=[f.id for f in feedback_entries]
+            feedback_ids=[f.id for f in feedback_entries],
         )
 
         # Analyze feedback patterns
@@ -563,8 +546,7 @@ class ReasoningReviser:
         # Revise hypothesis if needed
         if feedback_summary["contradictions"] > 0 or feedback_summary["errors"] > 0:
             revision.revised_hypothesis = self._revise_hypothesis(
-                original=original_reasoning.reasoning.hypothesis,
-                feedback_entries=feedback_entries
+                original=original_reasoning.reasoning.hypothesis, feedback_entries=feedback_entries
             )
 
         # Revise decision if needed
@@ -572,36 +554,30 @@ class ReasoningReviser:
             original=original_reasoning.decision.decision,
             feedback_entries=feedback_entries,
             has_fallback=original_reasoning.has_fallback(),
-            fallback=original_reasoning.decision.fallback_plan
+            fallback=original_reasoning.decision.fallback_plan,
         )
 
         # Adjust confidence
         revision.revised_confidence = self._calculate_revised_confidence(
             original_confidence=original_reasoning.get_confidence(),
-            feedback_summary=feedback_summary
+            feedback_summary=feedback_summary,
         )
 
         # Update action items
-        revision.new_action_items, revision.removed_action_items = \
-            self._update_action_items(
-                original_items=original_reasoning.decision.action_items,
-                feedback_entries=feedback_entries
-            )
+        revision.new_action_items, revision.removed_action_items = self._update_action_items(
+            original_items=original_reasoning.decision.action_items,
+            feedback_entries=feedback_entries,
+        )
 
         # Generate revision reason
-        revision.revision_reason = self._generate_revision_reason(
-            feedback_summary=feedback_summary
-        )
+        revision.revision_reason = self._generate_revision_reason(feedback_summary=feedback_summary)
 
         # Store revision
         self.revisions.append(revision)
 
         return revision
 
-    def _summarize_feedback(
-        self,
-        feedback_entries: List[FeedbackEntry]
-    ) -> Dict[str, Any]:
+    def _summarize_feedback(self, feedback_entries: List[FeedbackEntry]) -> Dict[str, Any]:
         """Summarize feedback entries"""
         summary = {
             "total": len(feedback_entries),
@@ -613,7 +589,7 @@ class ReasoningReviser:
             "unexpected": 0,
             "requires_replanning": 0,
             "lessons": [],
-            "adjustments": []
+            "adjustments": [],
         }
 
         for entry in feedback_entries:
@@ -638,15 +614,10 @@ class ReasoningReviser:
 
         return summary
 
-    def _revise_hypothesis(
-        self,
-        original: str,
-        feedback_entries: List[FeedbackEntry]
-    ) -> str:
+    def _revise_hypothesis(self, original: str, feedback_entries: List[FeedbackEntry]) -> str:
         """Revise hypothesis based on feedback"""
         contradictions = [
-            f for f in feedback_entries
-            if f.feedback_type == FeedbackType.CONTRADICTION
+            f for f in feedback_entries if f.feedback_type == FeedbackType.CONTRADICTION
         ]
 
         if contradictions:
@@ -665,11 +636,13 @@ class ReasoningReviser:
         original: str,
         feedback_entries: List[FeedbackEntry],
         has_fallback: bool,
-        fallback: str
+        fallback: str,
     ) -> str:
         """Revise decision based on feedback"""
         errors = [f for f in feedback_entries if f.feedback_type == FeedbackType.ERROR]
-        contradictions = [f for f in feedback_entries if f.feedback_type == FeedbackType.CONTRADICTION]
+        contradictions = [
+            f for f in feedback_entries if f.feedback_type == FeedbackType.CONTRADICTION
+        ]
 
         if errors or contradictions:
             if has_fallback and fallback:
@@ -680,14 +653,14 @@ class ReasoningReviser:
                     adjustments.extend(entry.suggested_adjustments)
 
                 if adjustments:
-                    return f"REVISED: {original}\n\nAdjustments needed:\n" + "\n".join(f"- {a}" for a in adjustments[:3])
+                    return f"REVISED: {original}\n\nAdjustments needed:\n" + "\n".join(
+                        f"- {a}" for a in adjustments[:3]
+                    )
 
         return original
 
     def _calculate_revised_confidence(
-        self,
-        original_confidence: float,
-        feedback_summary: Dict[str, Any]
+        self, original_confidence: float, feedback_summary: Dict[str, Any]
     ) -> float:
         """Calculate revised confidence based on feedback"""
         # Start with original
@@ -713,9 +686,7 @@ class ReasoningReviser:
         return max(0.1, min(0.95, confidence))
 
     def _update_action_items(
-        self,
-        original_items: List[str],
-        feedback_entries: List[FeedbackEntry]
+        self, original_items: List[str], feedback_entries: List[FeedbackEntry]
     ) -> Tuple[List[str], List[str]]:
         """Update action items based on feedback"""
         new_items = []
@@ -742,10 +713,7 @@ class ReasoningReviser:
 
         return new_items, removed_items
 
-    def _generate_revision_reason(
-        self,
-        feedback_summary: Dict[str, Any]
-    ) -> str:
+    def _generate_revision_reason(self, feedback_summary: Dict[str, Any]) -> str:
         """Generate human-readable revision reason"""
         reasons = []
 
@@ -778,7 +746,7 @@ class ThinkingExecutionFeedbackLoop:
     def __init__(
         self,
         confidence_calibrator: Optional[ConfidenceCalibrator] = None,
-        quality_metrics: Optional[ReasoningQualityMetrics] = None
+        quality_metrics: Optional[ReasoningQualityMetrics] = None,
     ):
         self.parser = ReasoningParser()
         self.validator = HypothesisValidator()
@@ -820,7 +788,7 @@ class ThinkingExecutionFeedbackLoop:
         self.calibrator.record_prediction(
             confidence=reasoning.get_confidence(),
             task_type=reasoning.level.name,
-            reasoning_id=reasoning.id
+            reasoning_id=reasoning.id,
         )
 
         # Evaluate initial quality
@@ -844,8 +812,7 @@ class ThinkingExecutionFeedbackLoop:
 
         # Validate against hypothesis
         feedback_type, validation_details = self.validator.validate(
-            reasoning=self.current_reasoning,
-            execution_result=result
+            reasoning=self.current_reasoning, execution_result=result
         )
 
         # Process feedback
@@ -853,7 +820,7 @@ class ThinkingExecutionFeedbackLoop:
             reasoning=self.current_reasoning,
             execution_result=result,
             feedback_type=feedback_type,
-            validation_details=validation_details
+            validation_details=validation_details,
         )
 
         # Store feedback
@@ -869,8 +836,7 @@ class ThinkingExecutionFeedbackLoop:
         # Check if revision needed
         if feedback.requires_replanning:
             revision = self.reviser.revise(
-                original_reasoning=self.current_reasoning,
-                feedback_entries=self.feedback_entries
+                original_reasoning=self.current_reasoning, feedback_entries=self.feedback_entries
             )
             self.pending_revisions.append(revision)
 
@@ -894,7 +860,7 @@ class ThinkingExecutionFeedbackLoop:
             "feedback_types": {},
             "requires_replanning": any(f.requires_replanning for f in self.feedback_entries),
             "pending_revisions": len(self.pending_revisions),
-            "overall_success_rate": self.validator.get_success_rate()
+            "overall_success_rate": self.validator.get_success_rate(),
         }
 
         # Count feedback types
@@ -919,18 +885,12 @@ class ThinkingExecutionFeedbackLoop:
             return True, "No feedback yet"
 
         # Check for critical issues
-        critical_feedback = [
-            f for f in self.feedback_entries
-            if f.impact_level == "critical"
-        ]
+        critical_feedback = [f for f in self.feedback_entries if f.impact_level == "critical"]
         if critical_feedback:
             return False, "Critical issue detected - manual intervention needed"
 
         # Check for multiple failures
-        errors = [
-            f for f in self.feedback_entries
-            if f.feedback_type == FeedbackType.ERROR
-        ]
+        errors = [f for f in self.feedback_entries if f.feedback_type == FeedbackType.ERROR]
         if len(errors) >= 3:
             return False, "Multiple execution errors - stopping for review"
 
@@ -982,7 +942,7 @@ class ThinkingExecutionFeedbackLoop:
             "feedback_summary": self.get_feedback_summary(),
             "calibration": self.calibrator.get_calibration_report(),
             "lessons_learned": [],
-            "success": True
+            "success": True,
         }
 
         # Aggregate lessons
@@ -994,7 +954,8 @@ class ThinkingExecutionFeedbackLoop:
 
         # Determine overall success
         error_count = sum(
-            1 for f in self.feedback_entries
+            1
+            for f in self.feedback_entries
             if f.feedback_type in [FeedbackType.ERROR, FeedbackType.CONTRADICTION]
         )
         summary["success"] = error_count < len(self.feedback_entries) / 2

@@ -118,6 +118,7 @@ def check_cython():
     """Check if Cython is installed and working."""
     try:
         import Cython
+
         print(f"Cython version: {Cython.__version__}")
         return True
     except ImportError:
@@ -228,9 +229,9 @@ if __name__ == "__main__":
 
 def compile_with_cython():
     """Compile Python source code with Cython in an isolated build directory."""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("  Compiling source code with Cython (isolated build)")
-    print("="*60)
+    print("=" * 60)
 
     # Create isolated build directory
     cython_work_dir = CYTHON_BUILD_DIR / "workspace"
@@ -248,7 +249,8 @@ def compile_with_cython():
 
     # Run Cython compilation in build directory (not in-place to original source)
     cmd = [
-        sys.executable, str(setup_path),
+        sys.executable,
+        str(setup_path),
         "build_ext",
         "--inplace",
     ]
@@ -285,9 +287,9 @@ def get_compiled_extensions_dir() -> Path:
 
 def build_cython_package():
     """Build Python package with Cython-compiled extensions."""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("  Building Python Package with Cython Extensions")
-    print("="*60)
+    print("=" * 60)
 
     # Use the compiled code from isolated build directory
     compiled_src = get_compiled_extensions_dir().parent  # src directory
@@ -307,6 +309,7 @@ def build_cython_package():
 
     # Remove .py files where compiled extensions exist (keep only __init__.py and __main__.py)
     import platform
+
     ext = ".pyd" if platform.system().lower() == "windows" else ".so"
 
     replaced_count = 0
@@ -317,7 +320,7 @@ def build_cython_package():
         if not py_file.exists():
             # Try to find the original .py file name from the .pyd/.so name
             # e.g., cli.cp311-win_amd64.pyd -> cli.py
-            stem = compiled_file.stem.split('.')[0]  # Get 'cli' from 'cli.cp311-win_amd64'
+            stem = compiled_file.stem.split(".")[0]  # Get 'cli' from 'cli.cp311-win_amd64'
             py_file = compiled_file.parent / f"{stem}.py"
 
         if py_file.exists() and py_file.name not in {"__init__.py", "__main__.py"}:
@@ -341,8 +344,11 @@ def build_cython_package():
     compiled_dist.mkdir(parents=True, exist_ok=True)
 
     build_cmd = [
-        sys.executable, "-m", "build",
-        "--outdir", str(compiled_dist),
+        sys.executable,
+        "-m",
+        "build",
+        "--outdir",
+        str(compiled_dist),
     ]
 
     result = subprocess.run(
@@ -362,11 +368,12 @@ def build_cython_package():
 
 def build_cython_exe():
     """Build executable from Cython-compiled code using PyInstaller."""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("  Building Executable with Cython-Compiled Code")
-    print("="*60)
+    print("=" * 60)
 
     import platform
+
     system = platform.system().lower()
     machine = platform.machine().lower()
 
@@ -403,7 +410,7 @@ def build_cython_exe():
     # Remove .py files where compiled extensions exist
     replaced_count = 0
     for compiled_file in exe_src.rglob(f"*{ext}"):
-        stem = compiled_file.stem.split('.')[0]
+        stem = compiled_file.stem.split(".")[0]
         py_file = compiled_file.parent / f"{stem}.py"
         if py_file.exists() and py_file.name not in {"__init__.py", "__main__.py"}:
             py_file.unlink()
@@ -413,7 +420,8 @@ def build_cython_exe():
 
     # Create entry point script
     entry_point = exe_build_dir / "hcode_main.py"
-    entry_point.write_text('''#!/usr/bin/env python3
+    entry_point.write_text(
+        '''#!/usr/bin/env python3
 """HCode entry point for PyInstaller."""
 import sys
 import os
@@ -425,7 +433,8 @@ from hcode.cli_enhanced import main
 
 if __name__ == "__main__":
     main()
-''')
+'''
+    )
 
     # Hidden imports for PyInstaller
     hidden_imports = [
@@ -470,7 +479,9 @@ if __name__ == "__main__":
 
     # Build PyInstaller command
     cmd = [
-        sys.executable, "-m", "PyInstaller",
+        sys.executable,
+        "-m",
+        "PyInstaller",
         str(entry_point),
         f"--name=hcode",
         f"--distpath={output_dir}",
@@ -520,11 +531,12 @@ if __name__ == "__main__":
 
 def verify_builds():
     """Verify that the builds work correctly."""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("  Verifying Builds")
-    print("="*60)
+    print("=" * 60)
 
     import platform
+
     system = platform.system().lower()
     machine = platform.machine().lower()
 
@@ -613,12 +625,14 @@ def main():
     parser.add_argument("--exe", action="store_true", help="Build only executable")
     parser.add_argument("--clean", action="store_true", help="Clean build artifacts only")
     parser.add_argument("--no-verify", action="store_true", help="Skip verification")
-    parser.add_argument("--no-compile", action="store_true", help="Skip Cython compilation (use existing)")
+    parser.add_argument(
+        "--no-compile", action="store_true", help="Skip Cython compilation (use existing)"
+    )
     args = parser.parse_args()
 
-    print("="*60)
+    print("=" * 60)
     print("  HCode Cython Build")
-    print("="*60)
+    print("=" * 60)
 
     # Clean only
     if args.clean:
@@ -663,7 +677,9 @@ def main():
             import PyInstaller
         except ImportError:
             print("Installing PyInstaller...")
-            subprocess.run([sys.executable, "-m", "pip", "install", "pyinstaller"], capture_output=True)
+            subprocess.run(
+                [sys.executable, "-m", "pip", "install", "pyinstaller"], capture_output=True
+            )
 
         if not build_cython_exe():
             print("\nExecutable build failed!")
@@ -675,9 +691,9 @@ def main():
             print("\nVerification failed!")
             return 1
 
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("  BUILD SUCCESSFUL!")
-    print("="*60)
+    print("=" * 60)
     print(f"\nOutput directory: {DIST_DIR / 'compiled'}")
 
     return 0

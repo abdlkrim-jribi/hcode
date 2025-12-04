@@ -23,6 +23,7 @@ import json
 
 class TaskCategory(Enum):
     """Categories of tasks"""
+
     CODE_GENERATION = "code_generation"
     CODE_MODIFICATION = "code_modification"
     DEBUGGING = "debugging"
@@ -39,6 +40,7 @@ class TaskCategory(Enum):
 @dataclass
 class ToolSuccessRecord:
     """Record of tool execution success/failure"""
+
     tool_name: str
     task_category: TaskCategory
     success_count: int = 0
@@ -59,6 +61,7 @@ class ToolSuccessRecord:
 @dataclass
 class ToolContext:
     """Context for tool selection"""
+
     task_category: TaskCategory = TaskCategory.UNKNOWN
     file_types: Set[str] = field(default_factory=set)
     reasoning_confidence: float = 0.5
@@ -71,6 +74,7 @@ class ToolContext:
 @dataclass
 class ToolSelection:
     """Result of tool selection"""
+
     primary_tools: List[str]  # Top recommended tools
     secondary_tools: List[str]  # Additional useful tools
     blocked_tools: List[str]  # Tools to avoid
@@ -108,8 +112,7 @@ class ToolSuccessTracker:
 
         if key not in self._records:
             self._records[key] = ToolSuccessRecord(
-                tool_name=tool_name.lower(),
-                task_category=category
+                tool_name=tool_name.lower(), task_category=category
             )
 
         self._records[key].success_count += 1
@@ -122,8 +125,7 @@ class ToolSuccessTracker:
 
         if key not in self._records:
             self._records[key] = ToolSuccessRecord(
-                tool_name=tool_name.lower(),
-                task_category=category
+                tool_name=tool_name.lower(), task_category=category
             )
 
         self._records[key].failure_count += 1
@@ -137,11 +139,7 @@ class ToolSuccessTracker:
             return self._records[key].success_rate
         return 0.5  # Neutral for unknown
 
-    def rank_tools(
-        self,
-        tools: List[str],
-        category: TaskCategory
-    ) -> List[Tuple[str, float]]:
+    def rank_tools(self, tools: List[str], category: TaskCategory) -> List[Tuple[str, float]]:
         """
         Rank tools by success rate for category.
 
@@ -152,10 +150,7 @@ class ToolSuccessTracker:
         Returns:
             List of (tool_name, success_rate) sorted by rate
         """
-        ranked = [
-            (tool, self.get_success_rate(tool, category))
-            for tool in tools
-        ]
+        ranked = [(tool, self.get_success_rate(tool, category)) for tool in tools]
         return sorted(ranked, key=lambda x: x[1], reverse=True)
 
     def _save(self):
@@ -171,11 +166,11 @@ class ToolSuccessTracker:
                 "category": record.task_category.value,
                 "success_count": record.success_count,
                 "failure_count": record.failure_count,
-                "last_used": record.last_used.isoformat() if record.last_used else None
+                "last_used": record.last_used.isoformat() if record.last_used else None,
             }
 
         try:
-            with open(self._persistence_path, 'w') as f:
+            with open(self._persistence_path, "w") as f:
                 json.dump(data, f, indent=2)
         except Exception:
             pass
@@ -186,7 +181,7 @@ class ToolSuccessTracker:
             return
 
         try:
-            with open(self._persistence_path, 'r') as f:
+            with open(self._persistence_path, "r") as f:
                 data = json.load(f)
 
             for key, record_data in data.items():
@@ -197,8 +192,11 @@ class ToolSuccessTracker:
                     task_category=category,
                     success_count=record_data["success_count"],
                     failure_count=record_data["failure_count"],
-                    last_used=datetime.fromisoformat(record_data["last_used"])
-                    if record_data["last_used"] else None
+                    last_used=(
+                        datetime.fromisoformat(record_data["last_used"])
+                        if record_data["last_used"]
+                        else None
+                    ),
                 )
                 self._records[(tool, category)] = record
 
@@ -217,41 +215,36 @@ class ToolSelectionRules:
     # Tools for each task category
     CATEGORY_TOOLS = {
         TaskCategory.CODE_GENERATION: [
-            "writetool", "edittool", "readtool", "globtool",
-            "greptool", "bashtool"
+            "writetool",
+            "edittool",
+            "readtool",
+            "globtool",
+            "greptool",
+            "bashtool",
         ],
         TaskCategory.CODE_MODIFICATION: [
-            "edittool", "multiedittool", "readtool", "greptool",
-            "globtool", "diffpreviewtool"
+            "edittool",
+            "multiedittool",
+            "readtool",
+            "greptool",
+            "globtool",
+            "diffpreviewtool",
         ],
-        TaskCategory.DEBUGGING: [
-            "readtool", "greptool", "bashtool", "globtool",
-            "edittool"
-        ],
+        TaskCategory.DEBUGGING: ["readtool", "greptool", "bashtool", "globtool", "edittool"],
         TaskCategory.REFACTORING: [
-            "readtool", "edittool", "multiedittool", "greptool",
-            "globtool", "diffpreviewtool"
+            "readtool",
+            "edittool",
+            "multiedittool",
+            "greptool",
+            "globtool",
+            "diffpreviewtool",
         ],
-        TaskCategory.ANALYSIS: [
-            "readtool", "greptool", "globtool", "lstool",
-            "bashtool"
-        ],
-        TaskCategory.DOCUMENTATION: [
-            "readtool", "writetool", "edittool", "globtool"
-        ],
-        TaskCategory.TESTING: [
-            "bashtool", "readtool", "edittool", "greptool"
-        ],
-        TaskCategory.FILE_OPERATIONS: [
-            "readtool", "writetool", "globtool", "lstool",
-            "bashtool"
-        ],
-        TaskCategory.WEB_RESEARCH: [
-            "websearchtool", "webfetchtool"
-        ],
-        TaskCategory.INTERACTIVE: [
-            "askuserquestiontool", "todowritetool", "confirmtool"
-        ]
+        TaskCategory.ANALYSIS: ["readtool", "greptool", "globtool", "lstool", "bashtool"],
+        TaskCategory.DOCUMENTATION: ["readtool", "writetool", "edittool", "globtool"],
+        TaskCategory.TESTING: ["bashtool", "readtool", "edittool", "greptool"],
+        TaskCategory.FILE_OPERATIONS: ["readtool", "writetool", "globtool", "lstool", "bashtool"],
+        TaskCategory.WEB_RESEARCH: ["websearchtool", "webfetchtool"],
+        TaskCategory.INTERACTIVE: ["askuserquestiontool", "todowritetool", "confirmtool"],
     }
 
     # File extension to relevant tools
@@ -271,42 +264,69 @@ class ToolSelectionRules:
     # Keywords to task categories
     KEYWORD_CATEGORIES = {
         TaskCategory.CODE_GENERATION: [
-            "create", "write", "generate", "implement", "add new",
-            "build", "make"
+            "create",
+            "write",
+            "generate",
+            "implement",
+            "add new",
+            "build",
+            "make",
         ],
         TaskCategory.CODE_MODIFICATION: [
-            "modify", "change", "update", "edit", "replace",
-            "alter", "adjust"
+            "modify",
+            "change",
+            "update",
+            "edit",
+            "replace",
+            "alter",
+            "adjust",
         ],
         TaskCategory.DEBUGGING: [
-            "debug", "fix", "error", "bug", "issue", "problem",
-            "crash", "fail", "broken"
+            "debug",
+            "fix",
+            "error",
+            "bug",
+            "issue",
+            "problem",
+            "crash",
+            "fail",
+            "broken",
         ],
         TaskCategory.REFACTORING: [
-            "refactor", "restructure", "reorganize", "clean up",
-            "improve", "optimize"
+            "refactor",
+            "restructure",
+            "reorganize",
+            "clean up",
+            "improve",
+            "optimize",
         ],
         TaskCategory.ANALYSIS: [
-            "analyze", "find", "search", "look for", "show",
-            "explain", "understand", "review"
+            "analyze",
+            "find",
+            "search",
+            "look for",
+            "show",
+            "explain",
+            "understand",
+            "review",
         ],
-        TaskCategory.DOCUMENTATION: [
-            "document", "comment", "readme", "docstring"
-        ],
-        TaskCategory.TESTING: [
-            "test", "spec", "unittest", "pytest", "coverage"
-        ],
+        TaskCategory.DOCUMENTATION: ["document", "comment", "readme", "docstring"],
+        TaskCategory.TESTING: ["test", "spec", "unittest", "pytest", "coverage"],
         TaskCategory.WEB_RESEARCH: [
-            "search online", "google", "look up", "web",
-            "documentation", "api docs"
-        ]
+            "search online",
+            "google",
+            "look up",
+            "web",
+            "documentation",
+            "api docs",
+        ],
     }
 
     # Tools that should be blocked in certain contexts
     BLOCKED_TOOLS = {
         "low_confidence": ["writetool", "bashtool"],  # Safer tools only
         "analysis_only": ["writetool", "edittool", "bashtool"],
-        "read_only": ["writetool", "edittool", "bashtool", "multiedittool"]
+        "read_only": ["writetool", "edittool", "bashtool", "multiedittool"],
     }
 
     def detect_category(self, task_text: str) -> TaskCategory:
@@ -364,11 +384,7 @@ class ToolSelectionEngine:
     to provide intelligent tool recommendations.
     """
 
-    def __init__(
-        self,
-        available_tools: List[str],
-        persistence_path: Optional[Path] = None
-    ):
+    def __init__(self, available_tools: List[str], persistence_path: Optional[Path] = None):
         """
         Initialize selection engine.
 
@@ -388,7 +404,7 @@ class ToolSelectionEngine:
         context.task_category = self.rules.detect_category(task)
 
         # Extract file extensions mentioned
-        file_pattern = r'[\w/\\]+\.(\w{1,5})\b'
+        file_pattern = r"[\w/\\]+\.(\w{1,5})\b"
         matches = re.findall(file_pattern, task)
         context.file_types = set(f".{m.lower()}" for m in matches)
 
@@ -405,7 +421,7 @@ class ToolSelectionEngine:
 
         # Extract confidence from reasoning if available
         if reasoning:
-            confidence_match = re.search(r'confidence[:\s]*(\d+)%?', reasoning.lower())
+            confidence_match = re.search(r"confidence[:\s]*(\d+)%?", reasoning.lower())
             if confidence_match:
                 context.reasoning_confidence = int(confidence_match.group(1)) / 100
 
@@ -421,7 +437,7 @@ class ToolSelectionEngine:
         task: str,
         reasoning: Optional[str] = None,
         max_primary: int = 5,
-        max_secondary: int = 5
+        max_secondary: int = 5,
     ) -> ToolSelection:
         """
         Select tools for a task.
@@ -468,10 +484,7 @@ class ToolSelectionEngine:
         candidates = candidates - set(blocked)
 
         # Rank by success rate
-        ranked = self.success_tracker.rank_tools(
-            list(candidates),
-            context.task_category
-        )
+        ranked = self.success_tracker.rank_tools(list(candidates), context.task_category)
 
         # Boost tools mentioned in reasoning
         if context.mentioned_tools:
@@ -482,21 +495,16 @@ class ToolSelectionEngine:
 
         # Split into primary and secondary
         primary = [t for t, r in ranked[:max_primary]]
-        secondary = [t for t, r in ranked[max_primary:max_primary + max_secondary]]
+        secondary = [t for t, r in ranked[max_primary : max_primary + max_secondary]]
 
         return ToolSelection(
             primary_tools=primary,
             secondary_tools=secondary,
             blocked_tools=blocked,
-            reasoning="; ".join(reasons)
+            reasoning="; ".join(reasons),
         )
 
-    def record_execution(
-        self,
-        tool_name: str,
-        task: str,
-        success: bool
-    ):
+    def record_execution(self, tool_name: str, task: str, success: bool):
         """
         Record tool execution result for learning.
 
@@ -516,7 +524,7 @@ class ToolSelectionEngine:
         """Get selection engine statistics"""
         return {
             "available_tools": len(self.available_tools),
-            "tracked_combinations": len(self.success_tracker._records)
+            "tracked_combinations": len(self.success_tracker._records),
         }
 
 
@@ -528,8 +536,7 @@ _engine: Optional[ToolSelectionEngine] = None
 
 
 def get_tool_selector(
-    available_tools: Optional[List[str]] = None,
-    persistence_path: Optional[Path] = None
+    available_tools: Optional[List[str]] = None, persistence_path: Optional[Path] = None
 ) -> ToolSelectionEngine:
     """Get or create global tool selection engine"""
     global _engine
@@ -538,10 +545,20 @@ def get_tool_selector(
         if available_tools is None:
             # Default common tools
             available_tools = [
-                "readtool", "writetool", "edittool", "multiedittool",
-                "globtool", "greptool", "lstool", "bashtool",
-                "websearchtool", "webfetchtool", "askuserquestiontool",
-                "todowritetool", "diffpreviewtool", "applychangetool"
+                "readtool",
+                "writetool",
+                "edittool",
+                "multiedittool",
+                "globtool",
+                "greptool",
+                "lstool",
+                "bashtool",
+                "websearchtool",
+                "webfetchtool",
+                "askuserquestiontool",
+                "todowritetool",
+                "diffpreviewtool",
+                "applychangetool",
             ]
 
         _engine = ToolSelectionEngine(available_tools, persistence_path)
@@ -549,10 +566,7 @@ def get_tool_selector(
     return _engine
 
 
-def select_tools_for_task(
-    task: str,
-    reasoning: Optional[str] = None
-) -> ToolSelection:
+def select_tools_for_task(task: str, reasoning: Optional[str] = None) -> ToolSelection:
     """Quick helper to select tools for a task"""
     engine = get_tool_selector()
     return engine.select_tools(task, reasoning)

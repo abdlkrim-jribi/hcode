@@ -16,6 +16,7 @@ from .base_tool import BaseTool, ToolResult, ToolParameter, ToolCategory
 @dataclass
 class Question:
     """Question specification"""
+
     question: str
     header: str
     options: List[Dict[str, str]]
@@ -25,6 +26,7 @@ class Question:
 @dataclass
 class Todo:
     """Todo item"""
+
     content: str
     status: str  # pending, in_progress, completed
     active_form: str
@@ -70,7 +72,7 @@ class AskUserQuestionTool(BaseTool):
                 "question": question_text,
                 "header": header,
                 "options": None,  # Signal open-ended
-                "multi_select": False
+                "multi_select": False,
             }
 
         # Handle options - support different formats
@@ -91,7 +93,7 @@ class AskUserQuestionTool(BaseTool):
             "question": question_text,
             "header": header,
             "options": normalized_options if normalized_options else None,
-            "multi_select": q_data.get("multiSelect", q_data.get("multi_select", False))
+            "multi_select": q_data.get("multiSelect", q_data.get("multi_select", False)),
         }
 
     async def execute(self, questions: List[Dict[str, Any]], **kwargs) -> ToolResult:
@@ -99,9 +101,7 @@ class AskUserQuestionTool(BaseTool):
         try:
             if not questions:
                 return ToolResult(
-                    success=False,
-                    output=None,
-                    error="Must provide at least 1 question"
+                    success=False, output=None, error="Must provide at least 1 question"
                 )
 
             # Limit to 4 questions
@@ -134,14 +134,14 @@ class AskUserQuestionTool(BaseTool):
                     table.add_row(
                         f"[cyan]{idx}[/cyan]",
                         f"[bold]{option['label']}[/bold]",
-                        option.get('description', '')
+                        option.get("description", ""),
                     )
 
                 # Add "Other" option
                 table.add_row(
                     f"[cyan]{len(options) + 1}[/cyan]",
                     "[bold]Other[/bold]",
-                    "Enter custom response"
+                    "Enter custom response",
                 )
 
                 self.console.print(table)
@@ -153,11 +153,11 @@ class AskUserQuestionTool(BaseTool):
 
                     # Parse multi-select
                     selected = []
-                    for num in response.split(','):
+                    for num in response.split(","):
                         try:
                             idx = int(num.strip()) - 1
                             if 0 <= idx < len(options):
-                                selected.append(options[idx]['label'])
+                                selected.append(options[idx]["label"])
                             elif idx == len(options):
                                 custom = Prompt.ask("Enter custom response")
                                 selected.append(custom)
@@ -172,20 +172,18 @@ class AskUserQuestionTool(BaseTool):
                     try:
                         idx = int(response) - 1
                         if 0 <= idx < len(options):
-                            answers[header] = options[idx]['label']
+                            answers[header] = options[idx]["label"]
                         elif idx == len(options):
                             custom = Prompt.ask("Enter custom response")
                             answers[header] = custom
                         else:
-                            answers[header] = options[0]['label']
+                            answers[header] = options[0]["label"]
                     except ValueError:
                         # If not a number, treat as direct text input
                         answers[header] = response
 
             return ToolResult(
-                success=True,
-                output=answers,
-                metadata={"questions_asked": len(questions)}
+                success=True, output=answers, metadata={"questions_asked": len(questions)}
             )
 
         except Exception as e:
@@ -213,11 +211,7 @@ class TodoWriteTool(BaseTool):
         try:
             # Parse todos
             self.todos = [
-                Todo(
-                    content=t["content"],
-                    status=t["status"],
-                    active_form=t["activeForm"]
-                )
+                Todo(content=t["content"], status=t["status"], active_form=t["activeForm"])
                 for t in todos
             ]
 
@@ -232,18 +226,21 @@ class TodoWriteTool(BaseTool):
             # Emit callback event for real-time UI updates
             try:
                 from .tool_callbacks import get_callback_manager, ToolEventType, ToolEvent
+
                 callback_manager = get_callback_manager()
-                callback_manager.emit(ToolEvent(
-                    event_type=ToolEventType.TODO_UPDATE,
-                    tool_name="TodoWrite",
-                    arguments={"todos": todos},
-                    todos=todos,  # Pass the raw todos for UI display
-                    metadata={
-                        "completed": completed,
-                        "in_progress": in_progress,
-                        "pending": pending
-                    }
-                ))
+                callback_manager.emit(
+                    ToolEvent(
+                        event_type=ToolEventType.TODO_UPDATE,
+                        tool_name="TodoWrite",
+                        arguments={"todos": todos},
+                        todos=todos,  # Pass the raw todos for UI display
+                        metadata={
+                            "completed": completed,
+                            "in_progress": in_progress,
+                            "pending": pending,
+                        },
+                    )
+                )
             except ImportError:
                 pass  # Callbacks not available
 
@@ -255,8 +252,8 @@ class TodoWriteTool(BaseTool):
                     "completed": completed,
                     "in_progress": in_progress,
                     "pending": pending,
-                    "todos": todos  # Pass todos for CLI display
-                }
+                    "todos": todos,  # Pass todos for CLI display
+                },
             )
 
         except Exception as e:
@@ -311,11 +308,7 @@ class ConfirmTool(BaseTool):
         try:
             result = Confirm.ask(message, default=default)
 
-            return ToolResult(
-                success=True,
-                output=result,
-                metadata={"confirmed": result}
-            )
+            return ToolResult(success=True, output=result, metadata={"confirmed": result})
 
         except Exception as e:
             return ToolResult(success=False, output=None, error=str(e))
@@ -335,29 +328,24 @@ class DisplayPanelTool(BaseTool):
         return [
             ToolParameter("content", "string", "Content to display", required=True),
             ToolParameter("title", "string", "Panel title", default=None),
-            ToolParameter("style", "string", "Border style (blue, green, red, yellow)", default="blue"),
+            ToolParameter(
+                "style", "string", "Border style (blue, green, red, yellow)", default="blue"
+            ),
         ]
 
     async def execute(
-        self,
-        content: str,
-        title: Optional[str] = None,
-        style: str = "blue"
+        self, content: str, title: Optional[str] = None, style: str = "blue"
     ) -> ToolResult:
         """Display content in a panel"""
         try:
             panel = Panel(
-                content,
-                title=f"[bold]{title}[/bold]" if title else None,
-                border_style=style
+                content, title=f"[bold]{title}[/bold]" if title else None, border_style=style
             )
 
             self.console.print(panel)
 
             return ToolResult(
-                success=True,
-                output="Content displayed",
-                metadata={"title": title, "style": style}
+                success=True, output="Content displayed", metadata={"title": title, "style": style}
             )
 
         except Exception as e:
@@ -381,10 +369,7 @@ class ProgressTool(BaseTool):
         ]
 
     async def execute(
-        self,
-        message: str,
-        total: Optional[int] = None,
-        current: int = 0
+        self, message: str, total: Optional[int] = None, current: int = 0
     ) -> ToolResult:
         """Update progress"""
         try:
@@ -394,7 +379,7 @@ class ProgressTool(BaseTool):
                 SpinnerColumn(),
                 TextColumn("[progress.description]{task.description}"),
                 BarColumn(),
-                TextColumn("[progress.percentage]{task.percentage:>3.0f}%")
+                TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
             ) as progress:
                 task = progress.add_task(message, total=total if total else 100)
                 progress.update(task, completed=current)
@@ -402,7 +387,7 @@ class ProgressTool(BaseTool):
             return ToolResult(
                 success=True,
                 output="Progress updated",
-                metadata={"message": message, "current": current, "total": total}
+                metadata={"message": message, "current": current, "total": total},
             )
 
         except Exception as e:

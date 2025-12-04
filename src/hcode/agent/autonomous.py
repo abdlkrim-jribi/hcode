@@ -5,30 +5,27 @@ Provides intelligent decision-making about when to execute actions
 automatically vs when to ask for confirmation.
 """
 
-import asyncio
-import time
-from typing import Optional, List, Dict, Any, Callable, Tuple
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
+from typing import Optional, List, Dict, Any, Callable, Tuple
 
-from .modes import (
-    AgentMode, ModeConfig, MODE_CONFIGS,
-    SafetyConfig, RiskLevel, get_mode_config
-)
+from .modes import AgentMode, SafetyConfig, get_mode_config
 
 
 class ExecutionDecision(Enum):
     """Decision about whether to execute an action"""
-    EXECUTE = "execute"    # Execute immediately
-    CONFIRM = "confirm"    # Ask for confirmation
-    SKIP = "skip"          # Skip this action
-    ABORT = "abort"        # Abort entire task
+
+    EXECUTE = "execute"  # Execute immediately
+    CONFIRM = "confirm"  # Ask for confirmation
+    SKIP = "skip"  # Skip this action
+    ABORT = "abort"  # Abort entire task
 
 
 @dataclass
 class ExecutionContext:
     """Context for autonomous execution"""
+
     mode: AgentMode
     safety_config: SafetyConfig
     actions_without_confirm: int = 0
@@ -50,6 +47,7 @@ class ActionProposal:
 
     The autonomous engine decides whether to execute, confirm, or skip.
     """
+
     tool_name: str
     arguments: Dict[str, Any]
     reason: str  # Why this action
@@ -61,7 +59,7 @@ class ActionProposal:
 
     def __post_init__(self):
         """Auto-assess risk if not provided"""
-        if self.risk_level == "safe" and not hasattr(self, '_risk_assessed'):
+        if self.risk_level == "safe" and not hasattr(self, "_risk_assessed"):
             self._assess_risk()
             self._risk_assessed = True
 
@@ -107,6 +105,7 @@ class ActionProposal:
 @dataclass
 class ExecutionResult:
     """Result of an action execution"""
+
     success: bool
     output: str
     error: str = ""
@@ -123,19 +122,14 @@ class AutonomousEngine:
     """
 
     def __init__(
-        self,
-        mode: AgentMode = AgentMode.INTERACTIVE,
-        safety_config: Optional[SafetyConfig] = None
+        self, mode: AgentMode = AgentMode.INTERACTIVE, safety_config: Optional[SafetyConfig] = None
     ):
         self.mode = mode
         self.mode_config = get_mode_config(mode)
         self.safety_config = safety_config or SafetyConfig()
 
         # Execution tracking
-        self.context = ExecutionContext(
-            mode=mode,
-            safety_config=self.safety_config
-        )
+        self.context = ExecutionContext(mode=mode, safety_config=self.safety_config)
 
         # Callbacks for interaction
         self._confirmation_callback: Optional[Callable[[str], bool]] = None
@@ -280,11 +274,7 @@ class AutonomousEngine:
         lines = []
 
         # Risk indicator
-        risk_icons = {
-            "safe": "[OK]",
-            "caution": "[!]",
-            "dangerous": "[!!]"
-        }
+        risk_icons = {"safe": "[OK]", "caution": "[!]", "dangerous": "[!!]"}
         icon = risk_icons.get(proposal.risk_level, "[?]")
 
         lines.append(f"{icon} {proposal.tool_name}")
@@ -315,11 +305,7 @@ class AutonomousEngine:
     # SAFETY CHECKS
     # ============================================================
 
-    def check_safety(
-        self,
-        tool_name: str,
-        arguments: Dict[str, Any]
-    ) -> Tuple[bool, str]:
+    def check_safety(self, tool_name: str, arguments: Dict[str, Any]) -> Tuple[bool, str]:
         """
         Check if operation is safe.
 
@@ -342,6 +328,7 @@ class AutonomousEngine:
 
             # Check file size for auto-edit
             import os
+
             if os.path.exists(path):
                 try:
                     size = os.path.getsize(path)
@@ -388,11 +375,9 @@ class AutonomousEngine:
         lines.append("=" * 40)
 
         for i, action in enumerate(self.current_plan, 1):
-            risk_icon = {
-                "safe": "[OK]",
-                "caution": "[!]",
-                "dangerous": "[!!]"
-            }.get(action.risk_level, "[?]")
+            risk_icon = {"safe": "[OK]", "caution": "[!]", "dangerous": "[!!]"}.get(
+                action.risk_level, "[?]"
+            )
 
             lines.append(f"\n{i}. {risk_icon} {action.tool_name}")
             lines.append(f"   {action.reason}")
@@ -452,7 +437,7 @@ class AutonomousEngine:
             mode=self.mode,
             safety_config=self.safety_config,
             confirmation_callback=self._confirmation_callback,
-            progress_callback=self._progress_callback
+            progress_callback=self._progress_callback,
         )
         self.current_plan = []
 
@@ -468,7 +453,7 @@ class AutonomousEngine:
             "elapsed_seconds": elapsed,
             "actions_per_minute": (self.context.total_actions / elapsed * 60) if elapsed > 0 else 0,
             "plan_approved": self.context.plan_approved,
-            "plan_size": len(self.current_plan)
+            "plan_size": len(self.current_plan),
         }
 
     def track_action(self, proposal: ActionProposal, success: bool):
@@ -492,6 +477,7 @@ class AutonomousEngine:
 # ACTION BUILDERS
 # ============================================================
 
+
 def create_read_action(path: str, reason: str = "Read file contents") -> ActionProposal:
     """Create a read file action"""
     return ActionProposal(
@@ -499,71 +485,46 @@ def create_read_action(path: str, reason: str = "Read file contents") -> ActionP
         arguments={"file_path": path},
         reason=reason,
         risk_level="safe",
-        affects_files=[path]
+        affects_files=[path],
     )
 
 
 def create_edit_action(
-    path: str,
-    old_str: str,
-    new_str: str,
-    reason: str = "Edit file"
+    path: str, old_str: str, new_str: str, reason: str = "Edit file"
 ) -> ActionProposal:
     """Create an edit file action"""
     return ActionProposal(
         tool_name="Edit",
-        arguments={
-            "file_path": path,
-            "old_string": old_str,
-            "new_string": new_str
-        },
+        arguments={"file_path": path, "old_string": old_str, "new_string": new_str},
         reason=reason,
-        affects_files=[path]
+        affects_files=[path],
     )
 
 
-def create_write_action(
-    path: str,
-    content: str,
-    reason: str = "Write file"
-) -> ActionProposal:
+def create_write_action(path: str, content: str, reason: str = "Write file") -> ActionProposal:
     """Create a write file action"""
     return ActionProposal(
         tool_name="Write",
-        arguments={
-            "file_path": path,
-            "content": content
-        },
+        arguments={"file_path": path, "content": content},
         reason=reason,
-        affects_files=[path]
+        affects_files=[path],
     )
 
 
-def create_bash_action(
-    command: str,
-    reason: str = "Execute command"
-) -> ActionProposal:
+def create_bash_action(command: str, reason: str = "Execute command") -> ActionProposal:
     """Create a bash command action"""
     return ActionProposal(
-        tool_name="Bash",
-        arguments={"command": command},
-        reason=reason,
-        affects_commands=[command]
+        tool_name="Bash", arguments={"command": command}, reason=reason, affects_commands=[command]
     )
 
 
 def create_search_action(
-    pattern: str,
-    path: str = ".",
-    reason: str = "Search codebase"
+    pattern: str, path: str = ".", reason: str = "Search codebase"
 ) -> ActionProposal:
     """Create a search action"""
     return ActionProposal(
         tool_name="Grep",
-        arguments={
-            "pattern": pattern,
-            "path": path
-        },
+        arguments={"pattern": pattern, "path": path},
         reason=reason,
-        risk_level="safe"
+        risk_level="safe",
     )

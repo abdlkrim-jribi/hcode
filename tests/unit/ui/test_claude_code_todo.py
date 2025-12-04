@@ -29,8 +29,8 @@ from hcode.ui.todo_display import (
 
 def strip_ansi(text: str) -> str:
     """Remove ANSI escape codes from text for easier testing."""
-    ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
-    return ansi_escape.sub('', text)
+    ansi_escape = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
+    return ansi_escape.sub("", text)
 
 
 class TestClaudeCodeTodoDisplay:
@@ -212,7 +212,7 @@ class TestClaudeCodeTodoEdgeCases:
             {
                 "content": "This is a very long task name that might wrap or cause display issues in some terminals",
                 "status": "in_progress",
-                "activeForm": "Working on very long task"
+                "activeForm": "Working on very long task",
             },
         ]
         result = display.render(todos)
@@ -222,7 +222,11 @@ class TestClaudeCodeTodoEdgeCases:
     def test_special_characters_in_task(self, display):
         """Should handle special characters in task content."""
         todos = [
-            {"content": "Fix [brackets] and (parens)", "status": "completed", "activeForm": "Fixing"},
+            {
+                "content": "Fix [brackets] and (parens)",
+                "status": "completed",
+                "activeForm": "Fixing",
+            },
             {"content": "Handle unicode: 日本語 🎉", "status": "pending", "activeForm": "Handling"},
         ]
         result = display.render(todos)

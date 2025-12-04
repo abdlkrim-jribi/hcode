@@ -15,10 +15,7 @@ Designed for maximum reasoning performance with GPT-OSS and other LLMs.
 import time
 import uuid
 from dataclasses import dataclass, field
-from typing import (
-    Optional, List, Dict, Any, Callable,
-    AsyncGenerator, Tuple, Union
-)
+from typing import Optional, List, Dict, Any, Callable, AsyncGenerator, Tuple, Union
 from datetime import datetime
 from enum import Enum
 import asyncio
@@ -37,14 +34,14 @@ from .reasoning import (
     AnalysisOutput,
     VerificationOutput,
     ChangeImpactOutput,
-    PreExecutionReviewOutput
+    PreExecutionReviewOutput,
 )
 from .feedback_loop import (
     ThinkingExecutionFeedbackLoop,
     ExecutionResult,
     ExecutionStatus,
     FeedbackEntry,
-    ReasoningRevision
+    ReasoningRevision,
 )
 from .todo import TodoManager, TodoItem, TodoStatus
 from ..config.thinking import ThinkingConfig, ThinkingMode, ThinkingVisibility
@@ -53,22 +50,24 @@ from ..config.reasoning_prompts import (
     ReasoningDepth,
     get_reasoning_system_prompt,
     detect_task_type,
-    determine_reasoning_depth
+    determine_reasoning_depth,
 )
 
 
 class EnhancedThinkingMode(Enum):
     """Extended thinking modes with reasoning integration"""
+
     DISABLED = "disabled"
-    QUICK = "quick"           # Level 1 reasoning
-    STANDARD = "standard"     # Level 2 reasoning
-    DEEP = "deep"             # Level 3 reasoning
-    ADAPTIVE = "adaptive"     # Auto-select based on task
+    QUICK = "quick"  # Level 1 reasoning
+    STANDARD = "standard"  # Level 2 reasoning
+    DEEP = "deep"  # Level 3 reasoning
+    ADAPTIVE = "adaptive"  # Auto-select based on task
 
 
 @dataclass
 class ThinkingResult:
     """Complete result of a thinking session"""
+
     session: ThinkingSession
     structured_reasoning: Optional[StructuredReasoning] = None
     quality_metrics: Optional[Dict[str, float]] = None
@@ -82,13 +81,15 @@ class ThinkingResult:
         return {
             "session_id": self.session.id,
             "session_summary": self.session.get_summary(),
-            "structured_reasoning": self.structured_reasoning.to_dict() if self.structured_reasoning else None,
+            "structured_reasoning": (
+                self.structured_reasoning.to_dict() if self.structured_reasoning else None
+            ),
             "quality_metrics": self.quality_metrics,
             "critique": self.critique,
             "action_items": self.action_items,
             "confidence": self.confidence,
             "requires_revision": self.requires_revision,
-            "revision": self.revision.to_dict() if self.revision else None
+            "revision": self.revision.to_dict() if self.revision else None,
         }
 
 
@@ -109,7 +110,7 @@ class EnhancedThinkingManager:
         self,
         config: Optional[ThinkingConfig] = None,
         llm_client: Optional[Any] = None,
-        todo_manager: Optional[TodoManager] = None
+        todo_manager: Optional[TodoManager] = None,
     ):
         """
         Initialize enhanced thinking manager.
@@ -131,8 +132,7 @@ class EnhancedThinkingManager:
         self.quality_metrics = ReasoningQualityMetrics()
         self.todo_integrator = ReasoningToTodoIntegrator(todo_manager)
         self.feedback_loop = ThinkingExecutionFeedbackLoop(
-            confidence_calibrator=self.calibrator,
-            quality_metrics=self.quality_metrics
+            confidence_calibrator=self.calibrator, quality_metrics=self.quality_metrics
         )
 
         # Session state
@@ -179,7 +179,7 @@ class EnhancedThinkingManager:
         prompt: str,
         mode: Optional[EnhancedThinkingMode] = None,
         context: Optional[Dict[str, Any]] = None,
-        task_type: Optional[str] = None
+        task_type: Optional[str] = None,
     ) -> ThinkingResult:
         """
         Perform comprehensive thinking with full reasoning integration.
@@ -204,13 +204,15 @@ class EnhancedThinkingManager:
         task_type = task_type or detect_task_type(prompt)
 
         # Start session
-        session = self._start_session(metadata={
-            "prompt": prompt,
-            "mode": mode.value,
-            "depth": depth.value,
-            "task_type": task_type,
-            "context": context
-        })
+        session = self._start_session(
+            metadata={
+                "prompt": prompt,
+                "mode": mode.value,
+                "depth": depth.value,
+                "task_type": task_type,
+                "context": context,
+            }
+        )
 
         # Generate thinking based on depth
         if depth == ReasoningDepth.QUICK:
@@ -244,7 +246,7 @@ class EnhancedThinkingManager:
         self.calibrator.record_prediction(
             confidence=structured.get_confidence(),
             task_type=task_type or "general",
-            reasoning_id=structured.id
+            reasoning_id=structured.id,
         )
 
         # Extract and update todos
@@ -264,7 +266,7 @@ class EnhancedThinkingManager:
             critique=critique,
             action_items=action_items,
             confidence=structured.get_confidence(),
-            requires_revision=self._check_requires_revision(critique, quality)
+            requires_revision=self._check_requires_revision(critique, quality),
         )
 
         # Store in history
@@ -276,70 +278,45 @@ class EnhancedThinkingManager:
 
         return result
 
-    async def _think_quick(
-        self,
-        prompt: str,
-        context: Optional[Dict[str, Any]]
-    ) -> str:
+    async def _think_quick(self, prompt: str, context: Optional[Dict[str, Any]]) -> str:
         """Generate quick Level 1 thinking"""
         system_prompt = get_reasoning_system_prompt()
         thinking_prompt = self.prompt_builder.build_thinking_prompt(
-            task=prompt,
-            depth=ReasoningDepth.QUICK,
-            context=context
+            task=prompt, depth=ReasoningDepth.QUICK, context=context
         )
 
         return await self._generate_thinking(
-            system_prompt=system_prompt,
-            user_prompt=thinking_prompt,
-            max_tokens=1000
+            system_prompt=system_prompt, user_prompt=thinking_prompt, max_tokens=1000
         )
 
     async def _think_standard(
-        self,
-        prompt: str,
-        context: Optional[Dict[str, Any]],
-        task_type: Optional[str]
+        self, prompt: str, context: Optional[Dict[str, Any]], task_type: Optional[str]
     ) -> str:
         """Generate standard Level 2 thinking"""
         system_prompt = get_reasoning_system_prompt(task_type=task_type)
         thinking_prompt = self.prompt_builder.build_thinking_prompt(
-            task=prompt,
-            depth=ReasoningDepth.STANDARD,
-            context=context
+            task=prompt, depth=ReasoningDepth.STANDARD, context=context
         )
 
         return await self._generate_thinking(
-            system_prompt=system_prompt,
-            user_prompt=thinking_prompt,
-            max_tokens=2500
+            system_prompt=system_prompt, user_prompt=thinking_prompt, max_tokens=2500
         )
 
     async def _think_deep(
-        self,
-        prompt: str,
-        context: Optional[Dict[str, Any]],
-        task_type: Optional[str]
+        self, prompt: str, context: Optional[Dict[str, Any]], task_type: Optional[str]
     ) -> str:
         """Generate deep Level 3 thinking"""
         system_prompt = get_reasoning_system_prompt(task_type=task_type)
         thinking_prompt = self.prompt_builder.build_thinking_prompt(
-            task=prompt,
-            depth=ReasoningDepth.DEEP,
-            context=context
+            task=prompt, depth=ReasoningDepth.DEEP, context=context
         )
 
         return await self._generate_thinking(
-            system_prompt=system_prompt,
-            user_prompt=thinking_prompt,
-            max_tokens=4000
+            system_prompt=system_prompt, user_prompt=thinking_prompt, max_tokens=4000
         )
 
     async def _generate_thinking(
-        self,
-        system_prompt: str,
-        user_prompt: str,
-        max_tokens: int
+        self, system_prompt: str, user_prompt: str, max_tokens: int
     ) -> str:
         """Generate thinking using LLM"""
         if not self.llm_client:
@@ -351,7 +328,7 @@ class EnhancedThinkingManager:
                 prompt=user_prompt,
                 system=system_prompt,
                 max_tokens=max_tokens,
-                temperature=0.7  # Higher for creative exploration
+                temperature=0.7,  # Higher for creative exploration
             )
 
             content = response.get("content", "")
@@ -368,7 +345,7 @@ class EnhancedThinkingManager:
         self,
         prompt: str,
         mode: Optional[EnhancedThinkingMode] = None,
-        context: Optional[Dict[str, Any]] = None
+        context: Optional[Dict[str, Any]] = None,
     ) -> AsyncGenerator[Tuple[str, ThinkingBlock], None]:
         """
         Stream thinking blocks as they are generated.
@@ -399,7 +376,7 @@ class EnhancedThinkingManager:
                 phase=phase,
                 context=context,
                 task_type=task_type,
-                previous_phases=session.blocks
+                previous_phases=session.blocks,
             )
 
             # Create block
@@ -407,7 +384,7 @@ class EnhancedThinkingManager:
                 phase=phase,
                 content=phase_content,
                 summary=phase_content[:100] if phase_content else "",
-                timestamp=datetime.now()
+                timestamp=datetime.now(),
             )
 
             # Add to session
@@ -441,16 +418,15 @@ class EnhancedThinkingManager:
         phase: ThinkingPhase,
         context: Optional[Dict[str, Any]],
         task_type: Optional[str],
-        previous_phases: List[ThinkingBlock]
+        previous_phases: List[ThinkingBlock],
     ) -> str:
         """Generate thinking for a specific phase"""
         phase_instructions = self._get_phase_instructions(phase)
 
         # Build context from previous phases
-        previous_context = "\n".join([
-            f"[{b.phase.value.upper()}]: {b.content[:200]}"
-            for b in previous_phases
-        ])
+        previous_context = "\n".join(
+            [f"[{b.phase.value.upper()}]: {b.content[:200]}" for b in previous_phases]
+        )
 
         phase_prompt = f"""Task: {prompt}
 
@@ -469,7 +445,7 @@ Respond with your {phase.value} analysis:"""
                 prompt=phase_prompt,
                 system=get_reasoning_system_prompt(task_type),
                 max_tokens=800,
-                temperature=0.7
+                temperature=0.7,
             )
             return response.get("content", "")
         except Exception as e:
@@ -484,7 +460,7 @@ Respond with your {phase.value} analysis:"""
             ThinkingPhase.REASONING: "Reason about the best solution. Provide evidence and counter-arguments.",
             ThinkingPhase.EVALUATING: "Evaluate your planned approach. What could go wrong?",
             ThinkingPhase.DECIDING: "Make concrete decisions. List specific action items.",
-            ThinkingPhase.VERIFYING: "Verify your approach. Assess safety and potential issues."
+            ThinkingPhase.VERIFYING: "Verify your approach. Assess safety and potential issues.",
         }
         return instructions.get(phase, "Think about this aspect of the problem.")
 
@@ -499,7 +475,7 @@ Respond with your {phase.value} analysis:"""
         output: str,
         success: bool,
         error: Optional[str] = None,
-        duration_ms: int = 0
+        duration_ms: int = 0,
     ) -> FeedbackEntry:
         """
         Record an execution result and get feedback.
@@ -521,7 +497,7 @@ Respond with your {phase.value} analysis:"""
             status=ExecutionStatus.SUCCESS if success else ExecutionStatus.FAILED,
             output=output,
             error=error,
-            duration_ms=duration_ms
+            duration_ms=duration_ms,
         )
 
         feedback = self.feedback_loop.record_execution(result)
@@ -532,11 +508,7 @@ Respond with your {phase.value} analysis:"""
 
         return feedback
 
-    async def revise_thinking(
-        self,
-        feedback: str,
-        outcome: str
-    ) -> ThinkingResult:
+    async def revise_thinking(self, feedback: str, outcome: str) -> ThinkingResult:
         """
         Revise thinking based on feedback.
 
@@ -554,14 +526,14 @@ Respond with your {phase.value} analysis:"""
         refinement_prompt = self.prompt_builder.build_refinement_prompt(
             original_reasoning=self.current_reasoning.raw_content,
             feedback=feedback,
-            outcome=outcome
+            outcome=outcome,
         )
 
         # Generate refined thinking
         refined_content = await self._generate_thinking(
             system_prompt=get_reasoning_system_prompt(),
             user_prompt=refinement_prompt,
-            max_tokens=3000
+            max_tokens=3000,
         )
 
         # Parse refined reasoning
@@ -574,7 +546,7 @@ Respond with your {phase.value} analysis:"""
             revised_decision=refined_reasoning.decision.decision,
             revised_confidence=refined_reasoning.get_confidence(),
             new_action_items=refined_reasoning.decision.action_items,
-            revision_reason=f"Feedback: {feedback[:100]}"
+            revision_reason=f"Feedback: {feedback[:100]}",
         )
 
         # Update current reasoning
@@ -597,7 +569,7 @@ Respond with your {phase.value} analysis:"""
             action_items=action_items,
             confidence=refined_reasoning.get_confidence(),
             requires_revision=False,
-            revision=revision
+            revision=revision,
         )
 
         self.current_result = result
@@ -607,10 +579,7 @@ Respond with your {phase.value} analysis:"""
     # TODO INTEGRATION
     # =========================================================================
 
-    def _update_todos_from_reasoning(
-        self,
-        reasoning: StructuredReasoning
-    ) -> List[Dict[str, Any]]:
+    def _update_todos_from_reasoning(self, reasoning: StructuredReasoning) -> List[Dict[str, Any]]:
         """Update todos based on reasoning output"""
         new_todos = self.todo_integrator.extract_todos_from_reasoning(reasoning)
 
@@ -621,8 +590,7 @@ Respond with your {phase.value} analysis:"""
 
         # Sync with reasoning
         updated_todos = self.todo_integrator.sync_todos_with_reasoning(
-            reasoning=reasoning,
-            current_todos=current_todos
+            reasoning=reasoning, current_todos=current_todos
         )
 
         # Update todo manager if exists
@@ -630,11 +598,13 @@ Respond with your {phase.value} analysis:"""
             # Convert to format expected by batch_update
             formatted_todos = []
             for todo in updated_todos:
-                formatted_todos.append({
-                    "content": todo["content"],
-                    "status": todo.get("status", "pending"),
-                    "activeForm": todo.get("activeForm", todo["content"])
-                })
+                formatted_todos.append(
+                    {
+                        "content": todo["content"],
+                        "status": todo.get("status", "pending"),
+                        "activeForm": todo.get("activeForm", todo["content"]),
+                    }
+                )
 
             # Mark first pending as in_progress
             in_progress_found = False
@@ -672,7 +642,7 @@ Respond with your {phase.value} analysis:"""
             new_todo = {
                 "content": adjustment,
                 "status": "pending",
-                "activeForm": self.todo_integrator._to_active_form(adjustment)
+                "activeForm": self.todo_integrator._to_active_form(adjustment),
             }
             if new_todo not in current_todos:
                 current_todos.append(new_todo)
@@ -699,10 +669,7 @@ Respond with your {phase.value} analysis:"""
     # =========================================================================
 
     def _determine_depth(
-        self,
-        prompt: str,
-        mode: EnhancedThinkingMode,
-        context: Optional[Dict[str, Any]]
+        self, prompt: str, mode: EnhancedThinkingMode, context: Optional[Dict[str, Any]]
     ) -> ReasoningDepth:
         """Determine appropriate reasoning depth"""
         if mode == EnhancedThinkingMode.QUICK:
@@ -716,11 +683,7 @@ Respond with your {phase.value} analysis:"""
             complexity = self._estimate_complexity(prompt, context)
             return determine_reasoning_depth(prompt, complexity)
 
-    def _estimate_complexity(
-        self,
-        prompt: str,
-        context: Optional[Dict[str, Any]]
-    ) -> float:
+    def _estimate_complexity(self, prompt: str, context: Optional[Dict[str, Any]]) -> float:
         """Estimate task complexity (0-1)"""
         complexity = 0.0
 
@@ -732,14 +695,19 @@ Respond with your {phase.value} analysis:"""
 
         # Keyword analysis
         complex_keywords = [
-            "refactor", "architecture", "design", "migration",
-            "security", "optimize", "debug", "complex",
-            "multiple", "entire", "comprehensive"
+            "refactor",
+            "architecture",
+            "design",
+            "migration",
+            "security",
+            "optimize",
+            "debug",
+            "complex",
+            "multiple",
+            "entire",
+            "comprehensive",
         ]
-        simple_keywords = [
-            "read", "show", "list", "check", "what",
-            "how", "help"
-        ]
+        simple_keywords = ["read", "show", "list", "check", "what", "how", "help"]
 
         prompt_lower = prompt.lower()
         for kw in complex_keywords:
@@ -764,24 +732,21 @@ Respond with your {phase.value} analysis:"""
         mapping = {
             ReasoningDepth.QUICK: ReasoningLevel.QUICK,
             ReasoningDepth.STANDARD: ReasoningLevel.STANDARD,
-            ReasoningDepth.DEEP: ReasoningLevel.DEEP
+            ReasoningDepth.DEEP: ReasoningLevel.DEEP,
         }
         return mapping.get(depth, ReasoningLevel.STANDARD)
 
     def _get_phases_for_depth(self, depth: ReasoningDepth) -> List[ThinkingPhase]:
         """Get thinking phases for a depth level"""
         if depth == ReasoningDepth.QUICK:
-            return [
-                ThinkingPhase.UNDERSTANDING,
-                ThinkingPhase.DECIDING
-            ]
+            return [ThinkingPhase.UNDERSTANDING, ThinkingPhase.DECIDING]
         elif depth == ReasoningDepth.STANDARD:
             return [
                 ThinkingPhase.UNDERSTANDING,
                 ThinkingPhase.PLANNING,
                 ThinkingPhase.ANALYZING,
                 ThinkingPhase.DECIDING,
-                ThinkingPhase.VERIFYING
+                ThinkingPhase.VERIFYING,
             ]
         else:
             return [
@@ -791,7 +756,7 @@ Respond with your {phase.value} analysis:"""
                 ThinkingPhase.REASONING,
                 ThinkingPhase.EVALUATING,
                 ThinkingPhase.DECIDING,
-                ThinkingPhase.VERIFYING
+                ThinkingPhase.VERIFYING,
             ]
 
     def _start_session(self, metadata: Optional[Dict[str, Any]] = None) -> ThinkingSession:
@@ -806,73 +771,84 @@ Respond with your {phase.value} analysis:"""
         self.current_session = None
 
     def _populate_session_blocks(
-        self,
-        session: ThinkingSession,
-        reasoning: StructuredReasoning,
-        raw_content: str
+        self, session: ThinkingSession, reasoning: StructuredReasoning, raw_content: str
     ):
         """Populate session with thinking blocks from reasoning"""
         # Map structured phases to thinking phases
         if reasoning.perception.is_complete():
-            session.add_block(ThinkingBlock(
-                phase=ThinkingPhase.UNDERSTANDING,
-                content=reasoning.perception.observation,
-                summary=reasoning.perception.initial_interpretation[:100]
-            ))
+            session.add_block(
+                ThinkingBlock(
+                    phase=ThinkingPhase.UNDERSTANDING,
+                    content=reasoning.perception.observation,
+                    summary=reasoning.perception.initial_interpretation[:100],
+                )
+            )
 
         if reasoning.comprehension.is_complete():
-            session.add_block(ThinkingBlock(
-                phase=ThinkingPhase.UNDERSTANDING,
-                content=reasoning.comprehension.core_understanding,
-                summary=f"Assumptions: {len(reasoning.comprehension.assumptions)}"
-            ))
+            session.add_block(
+                ThinkingBlock(
+                    phase=ThinkingPhase.UNDERSTANDING,
+                    content=reasoning.comprehension.core_understanding,
+                    summary=f"Assumptions: {len(reasoning.comprehension.assumptions)}",
+                )
+            )
 
         if reasoning.analysis.is_complete():
-            session.add_block(ThinkingBlock(
-                phase=ThinkingPhase.ANALYZING,
-                content=str(reasoning.analysis.decomposition),
-                summary=f"Options: {len(reasoning.analysis.options)}"
-            ))
+            session.add_block(
+                ThinkingBlock(
+                    phase=ThinkingPhase.ANALYZING,
+                    content=str(reasoning.analysis.decomposition),
+                    summary=f"Options: {len(reasoning.analysis.options)}",
+                )
+            )
 
         if reasoning.reasoning.is_complete():
-            session.add_block(ThinkingBlock(
-                phase=ThinkingPhase.REASONING,
-                content=reasoning.reasoning.hypothesis,
-                summary=f"Confidence: {reasoning.reasoning.confidence:.0%}"
-            ))
+            session.add_block(
+                ThinkingBlock(
+                    phase=ThinkingPhase.REASONING,
+                    content=reasoning.reasoning.hypothesis,
+                    summary=f"Confidence: {reasoning.reasoning.confidence:.0%}",
+                )
+            )
 
         if reasoning.change_impact.is_complete():
-            session.add_block(ThinkingBlock(
-                phase=ThinkingPhase.EVALUATING,
-                content=f"Impact: {reasoning.change_impact.files_affected}",
-                summary=f"Breaking changes: {len(reasoning.change_impact.breaking_changes)}"
-            ))
+            session.add_block(
+                ThinkingBlock(
+                    phase=ThinkingPhase.EVALUATING,
+                    content=f"Impact: {reasoning.change_impact.files_affected}",
+                    summary=f"Breaking changes: {len(reasoning.change_impact.breaking_changes)}",
+                )
+            )
 
         if reasoning.decision.is_complete():
-            session.add_block(ThinkingBlock(
-                phase=ThinkingPhase.DECIDING,
-                content=reasoning.decision.decision,
-                summary=f"Actions: {len(reasoning.decision.action_items)}"
-            ))
+            session.add_block(
+                ThinkingBlock(
+                    phase=ThinkingPhase.DECIDING,
+                    content=reasoning.decision.decision,
+                    summary=f"Actions: {len(reasoning.decision.action_items)}",
+                )
+            )
 
         if reasoning.pre_execution_review.is_complete():
-            session.add_block(ThinkingBlock(
-                phase=ThinkingPhase.EVALUATING,
-                content=reasoning.pre_execution_review.what_will_change,
-                summary=f"Approval needed: {reasoning.pre_execution_review.user_approval_needed}"
-            ))
+            session.add_block(
+                ThinkingBlock(
+                    phase=ThinkingPhase.EVALUATING,
+                    content=reasoning.pre_execution_review.what_will_change,
+                    summary=f"Approval needed: {reasoning.pre_execution_review.user_approval_needed}",
+                )
+            )
 
         if reasoning.verification.is_complete():
-            session.add_block(ThinkingBlock(
-                phase=ThinkingPhase.VERIFYING,
-                content=reasoning.verification.safety_check,
-                summary=f"Ready: {reasoning.verification.ready_to_execute}"
-            ))
+            session.add_block(
+                ThinkingBlock(
+                    phase=ThinkingPhase.VERIFYING,
+                    content=reasoning.verification.safety_check,
+                    summary=f"Ready: {reasoning.verification.ready_to_execute}",
+                )
+            )
 
     def _check_requires_revision(
-        self,
-        critique: Optional[Dict[str, Any]],
-        quality: Dict[str, float]
+        self, critique: Optional[Dict[str, Any]], quality: Dict[str, float]
     ) -> bool:
         """Check if reasoning requires revision"""
         if not critique:
@@ -924,10 +900,14 @@ Respond with your {phase.value} analysis:"""
         return {
             "session_id": self.current_result.session.id,
             "confidence": self.current_result.confidence,
-            "quality_score": self.current_result.quality_metrics.get("overall", 0) if self.current_result.quality_metrics else 0,
+            "quality_score": (
+                self.current_result.quality_metrics.get("overall", 0)
+                if self.current_result.quality_metrics
+                else 0
+            ),
             "action_items": len(self.current_result.action_items),
             "requires_revision": self.current_result.requires_revision,
-            "feedback_summary": self.feedback_loop.get_feedback_summary()
+            "feedback_summary": self.feedback_loop.get_feedback_summary(),
         }
 
     def should_continue_execution(self) -> Tuple[bool, str]:
@@ -943,9 +923,7 @@ Respond with your {phase.value} analysis:"""
     # =========================================================================
 
     async def think_about_changes(
-        self,
-        proposed_changes: List[Dict[str, Any]],
-        context: Optional[Dict[str, Any]] = None
+        self, proposed_changes: List[Dict[str, Any]], context: Optional[Dict[str, Any]] = None
     ) -> ThinkingResult:
         """
         Think specifically about proposed file changes.
@@ -992,7 +970,7 @@ Consider:
             prompt=prompt,
             mode=EnhancedThinkingMode.DEEP,
             context={**(context or {}), "proposed_changes": proposed_changes},
-            task_type="change_analysis"
+            task_type="change_analysis",
         )
 
         return result
@@ -1030,10 +1008,11 @@ Consider:
 # CONVENIENCE FACTORY
 # =============================================================================
 
+
 def create_enhanced_thinking_manager(
     llm_client: Optional[Any] = None,
     todo_manager: Optional[TodoManager] = None,
-    config: Optional[ThinkingConfig] = None
+    config: Optional[ThinkingConfig] = None,
 ) -> EnhancedThinkingManager:
     """
     Create an enhanced thinking manager with default configuration.
@@ -1047,7 +1026,5 @@ def create_enhanced_thinking_manager(
         Configured EnhancedThinkingManager
     """
     return EnhancedThinkingManager(
-        config=config or ThinkingConfig(),
-        llm_client=llm_client,
-        todo_manager=todo_manager
+        config=config or ThinkingConfig(), llm_client=llm_client, todo_manager=todo_manager
     )

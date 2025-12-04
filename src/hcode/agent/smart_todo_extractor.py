@@ -19,6 +19,7 @@ from enum import Enum
 
 class TodoPriority(Enum):
     """Priority levels for todos"""
+
     HIGH = "high"
     MEDIUM = "medium"
     LOW = "low"
@@ -27,6 +28,7 @@ class TodoPriority(Enum):
 @dataclass
 class ExtractedTodo:
     """A validated, actionable todo item"""
+
     content: str
     active_form: str  # Present participle form
     priority: TodoPriority = TodoPriority.MEDIUM
@@ -44,7 +46,7 @@ class ExtractedTodo:
             "priority": self.priority.value,
             "source": self.source_phase,
             "target_file": self.target_file,
-            "confidence": self.confidence
+            "confidence": self.confidence,
         }
 
 
@@ -62,34 +64,75 @@ class SmartTodoExtractor:
     # Action verbs that indicate actionable todos
     ACTION_VERBS = {
         # Creation
-        "create", "add", "implement", "write", "build", "generate",
-        "define", "introduce", "establish", "set up", "initialize",
-
+        "create",
+        "add",
+        "implement",
+        "write",
+        "build",
+        "generate",
+        "define",
+        "introduce",
+        "establish",
+        "set up",
+        "initialize",
         # Modification
-        "update", "modify", "change", "edit", "replace", "rename",
-        "refactor", "restructure", "reorganize", "move", "convert",
-
+        "update",
+        "modify",
+        "change",
+        "edit",
+        "replace",
+        "rename",
+        "refactor",
+        "restructure",
+        "reorganize",
+        "move",
+        "convert",
         # Fixing
-        "fix", "repair", "resolve", "correct", "patch", "debug",
-        "address", "handle", "solve",
-
+        "fix",
+        "repair",
+        "resolve",
+        "correct",
+        "patch",
+        "debug",
+        "address",
+        "handle",
+        "solve",
         # Removal
-        "remove", "delete", "drop", "eliminate", "clean up",
-
+        "remove",
+        "delete",
+        "drop",
+        "eliminate",
+        "clean up",
         # Testing
-        "test", "verify", "validate", "check", "ensure", "confirm",
-
+        "test",
+        "verify",
+        "validate",
+        "check",
+        "ensure",
+        "confirm",
         # Documentation
-        "document", "comment", "describe", "explain",
-
+        "document",
+        "comment",
+        "describe",
+        "explain",
         # Configuration
-        "configure", "set", "enable", "disable", "install", "uninstall",
-
+        "configure",
+        "set",
+        "enable",
+        "disable",
+        "install",
+        "uninstall",
         # Integration
-        "integrate", "connect", "link", "import", "export",
-
+        "integrate",
+        "connect",
+        "link",
+        "import",
+        "export",
         # Review
-        "review", "inspect", "audit", "analyze"
+        "review",
+        "inspect",
+        "audit",
+        "analyze",
     }
 
     # Phrases that indicate speculative/non-actionable text
@@ -107,17 +150,17 @@ class SmartTodoExtractor:
 
     # Patterns for file paths
     FILE_PATTERNS = [
-        r'[\w/\\-]+\.(?:py|js|ts|jsx|tsx|go|rs|java|rb|php|c|cpp|h|hpp|cs|swift|kt|scala)',
-        r'[\w/\\-]+\.(?:json|yaml|yml|toml|xml|ini|cfg|conf|env)',
-        r'[\w/\\-]+\.(?:md|txt|rst|html|css|scss|less)',
-        r'[\w/\\-]+\.(?:sql|sh|bash|zsh|ps1|bat|cmd)',
+        r"[\w/\\-]+\.(?:py|js|ts|jsx|tsx|go|rs|java|rb|php|c|cpp|h|hpp|cs|swift|kt|scala)",
+        r"[\w/\\-]+\.(?:json|yaml|yml|toml|xml|ini|cfg|conf|env)",
+        r"[\w/\\-]+\.(?:md|txt|rst|html|css|scss|less)",
+        r"[\w/\\-]+\.(?:sql|sh|bash|zsh|ps1|bat|cmd)",
     ]
 
     # Patterns for function/method names
     FUNCTION_PATTERNS = [
-        r'(?:function|def|method|func)\s+(\w+)',
-        r'(\w+)\s*\([^)]*\)',
-        r'`(\w+)`',
+        r"(?:function|def|method|func)\s+(\w+)",
+        r"(\w+)\s*\([^)]*\)",
+        r"`(\w+)`",
     ]
 
     def __init__(self, min_length: int = 10, max_length: int = 200):
@@ -134,15 +177,15 @@ class SmartTodoExtractor:
 
         # Compile patterns
         self._garbage_regex = [re.compile(p, re.IGNORECASE) for p in self.GARBAGE_PATTERNS]
-        self._file_regex = re.compile('|'.join(self.FILE_PATTERNS), re.IGNORECASE)
+        self._file_regex = re.compile("|".join(self.FILE_PATTERNS), re.IGNORECASE)
         self._function_regex = [re.compile(p) for p in self.FUNCTION_PATTERNS]
 
     def _normalize_text(self, text: str) -> str:
         """Normalize text for processing"""
         # Remove extra whitespace
-        text = ' '.join(text.split())
+        text = " ".join(text.split())
         # Remove leading bullets/numbers
-        text = re.sub(r'^[\s\-\*\•\d\.]+', '', text)
+        text = re.sub(r"^[\s\-\*\•\d\.]+", "", text)
         return text.strip()
 
     def _get_action_verb(self, text: str) -> Optional[str]:
@@ -223,18 +266,18 @@ class SmartTodoExtractor:
         }
 
         if verb in gerund_map:
-            rest = text[len(verb):].strip()
+            rest = text[len(verb) :].strip()
             return f"{gerund_map[verb]} {rest}"
 
         # Default: add -ing
-        if verb.endswith('e'):
-            gerund = verb[:-1] + 'ing'
-        elif len(verb) > 2 and verb[-1] not in 'aeiou' and verb[-2] in 'aeiou':
-            gerund = verb + verb[-1] + 'ing'
+        if verb.endswith("e"):
+            gerund = verb[:-1] + "ing"
+        elif len(verb) > 2 and verb[-1] not in "aeiou" and verb[-2] in "aeiou":
+            gerund = verb + verb[-1] + "ing"
         else:
-            gerund = verb + 'ing'
+            gerund = verb + "ing"
 
-        rest = text[len(verb):].strip()
+        rest = text[len(verb) :].strip()
         return f"{gerund.capitalize()} {rest}"
 
     def _is_duplicate(self, text: str) -> bool:
@@ -286,11 +329,7 @@ class SmartTodoExtractor:
 
         return min(confidence, 1.0)
 
-    def extract_from_text(
-        self,
-        text: str,
-        source_phase: str = "unknown"
-    ) -> List[ExtractedTodo]:
+    def extract_from_text(self, text: str, source_phase: str = "unknown") -> List[ExtractedTodo]:
         """
         Extract todos from a block of text.
 
@@ -304,7 +343,7 @@ class SmartTodoExtractor:
         todos = []
 
         # Split into sentences/lines
-        lines = re.split(r'[.\n]', text)
+        lines = re.split(r"[.\n]", text)
 
         for line in lines:
             normalized = self._normalize_text(line)
@@ -316,7 +355,7 @@ class SmartTodoExtractor:
             # Skip too long
             if len(normalized) > self.max_length:
                 # Try to truncate at a sensible point
-                normalized = normalized[:self.max_length].rsplit(' ', 1)[0]
+                normalized = normalized[: self.max_length].rsplit(" ", 1)[0]
 
             # Skip garbage
             if self._is_garbage(normalized):
@@ -344,17 +383,14 @@ class SmartTodoExtractor:
                 target_file=target_file,
                 target_function=target_function,
                 confidence=self._calculate_confidence(normalized, has_target),
-                raw_text=line
+                raw_text=line,
             )
 
             todos.append(todo)
 
         return todos
 
-    def extract_from_reasoning(
-        self,
-        reasoning: Dict[str, Any]
-    ) -> List[ExtractedTodo]:
+    def extract_from_reasoning(self, reasoning: Dict[str, Any]) -> List[ExtractedTodo]:
         """
         Extract todos from structured reasoning output.
 
@@ -392,10 +428,16 @@ class SmartTodoExtractor:
                 all_todos.extend(todos)
 
         # Sort by priority and confidence
-        all_todos.sort(key=lambda t: (
-            0 if t.priority == TodoPriority.HIGH else 1 if t.priority == TodoPriority.MEDIUM else 2,
-            -t.confidence
-        ))
+        all_todos.sort(
+            key=lambda t: (
+                (
+                    0
+                    if t.priority == TodoPriority.HIGH
+                    else 1 if t.priority == TodoPriority.MEDIUM else 2
+                ),
+                -t.confidence,
+            )
+        )
 
         return all_todos
 
@@ -407,6 +449,7 @@ class SmartTodoExtractor:
 # =============================================================================
 # REASONING-TO-TODO BRIDGE
 # =============================================================================
+
 
 class ReasoningTodoBridge:
     """
@@ -432,9 +475,7 @@ class ReasoningTodoBridge:
         self.todo_manager = manager
 
     def sync_from_reasoning(
-        self,
-        reasoning: Dict[str, Any],
-        replace: bool = False
+        self, reasoning: Dict[str, Any], replace: bool = False
     ) -> List[Dict[str, Any]]:
         """
         Sync todos from reasoning output.
@@ -535,6 +576,7 @@ class ReasoningTodoBridge:
 # =============================================================================
 # CONVENIENCE FUNCTIONS
 # =============================================================================
+
 
 def extract_todos_from_text(text: str) -> List[Dict[str, Any]]:
     """Quick helper to extract todos from text"""

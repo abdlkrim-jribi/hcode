@@ -151,19 +151,62 @@ IGNORED_PATTERNS: Final[list[str]] = [
 
 # Binary file extensions (skip reading)
 BINARY_EXTENSIONS: Final[set[str]] = {
-    ".exe", ".dll", ".so", ".dylib",
-    ".zip", ".tar", ".gz", ".bz2", ".xz", ".rar", ".7z",
-    ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".ico", ".webp", ".svg",
-    ".mp3", ".wav", ".ogg", ".flac", ".aac",
-    ".mp4", ".avi", ".mkv", ".mov", ".wmv", ".webm",
-    ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
-    ".pyc", ".pyo", ".class", ".o", ".obj",
-    ".woff", ".woff2", ".ttf", ".otf", ".eot",
-    ".db", ".sqlite", ".sqlite3",
+    ".exe",
+    ".dll",
+    ".so",
+    ".dylib",
+    ".zip",
+    ".tar",
+    ".gz",
+    ".bz2",
+    ".xz",
+    ".rar",
+    ".7z",
+    ".jpg",
+    ".jpeg",
+    ".png",
+    ".gif",
+    ".bmp",
+    ".ico",
+    ".webp",
+    ".svg",
+    ".mp3",
+    ".wav",
+    ".ogg",
+    ".flac",
+    ".aac",
+    ".mp4",
+    ".avi",
+    ".mkv",
+    ".mov",
+    ".wmv",
+    ".webm",
+    ".pdf",
+    ".doc",
+    ".docx",
+    ".xls",
+    ".xlsx",
+    ".ppt",
+    ".pptx",
+    ".pyc",
+    ".pyo",
+    ".class",
+    ".o",
+    ".obj",
+    ".woff",
+    ".woff2",
+    ".ttf",
+    ".otf",
+    ".eot",
+    ".db",
+    ".sqlite",
+    ".sqlite3",
 }
 
 # Default system prompt for coding tasks
-DEFAULT_SYSTEM_PROMPT: Final[str] = """You are HCode, an intelligent AI coding assistant.
+DEFAULT_SYSTEM_PROMPT: Final[
+    str
+] = """You are HCode, an intelligent AI coding assistant.
 Your purpose is to help developers with software engineering tasks including:
 - Writing, reviewing, and debugging code
 - Explaining technical concepts
@@ -204,7 +247,9 @@ CHAT_COMMANDS: Final[dict[str, str]] = {
 }
 
 # Default config file template
-DEFAULT_CONFIG_YAML: Final[str] = """# HCode Configuration
+DEFAULT_CONFIG_YAML: Final[
+    str
+] = """# HCode Configuration
 # Documentation: https://github.com/hcode-dev/hcode
 
 # LLM Provider Settings
@@ -277,14 +322,13 @@ def get_context_window(model: str) -> int:
 def is_binary_file(path: str) -> bool:
     """Check if a file path indicates a binary file."""
     from pathlib import Path
+
     return Path(path).suffix.lower() in BINARY_EXTENSIONS
 
 
 def should_ignore_path(path: str) -> bool:
     """Check if a path should be ignored in search operations."""
     from pathlib import Path
+
     path_obj = Path(path)
-    return any(
-        ignored in path_obj.parts or path_obj.match(ignored)
-        for ignored in IGNORED_PATTERNS
-    )
+    return any(ignored in path_obj.parts or path_obj.match(ignored) for ignored in IGNORED_PATTERNS)
