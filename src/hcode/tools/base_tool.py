@@ -23,6 +23,7 @@ class ToolCategory(Enum):
     AGENT = "agent"
     PLANNING = "planning"
     CUSTOM = "custom"
+    VERSION_CONTROL = "version_control"
 
 
 @dataclass

@@ -13,13 +13,11 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import os
 import platform
 import shutil
 import subprocess
 import sys
 from pathlib import Path
-
 
 # Project paths
 PROJECT_ROOT = Path(__file__).parent.parent
