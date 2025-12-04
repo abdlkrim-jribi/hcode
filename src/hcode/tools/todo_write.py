@@ -160,12 +160,29 @@ Completion rules:
             # Get progress stats
             stats = self.todo_manager.get_progress()
 
+            # Get the updated todo list
+            updated_todos = self.todo_manager.to_dict_list()
+
+            # Emit todo update event for real-time UI updates
+            try:
+                from .tool_callbacks import get_callback_manager, ToolEventType, ToolEvent
+                callback_manager = get_callback_manager()
+                callback_manager.emit(ToolEvent(
+                    event_type=ToolEventType.TODO_UPDATE,
+                    tool_name="TodoWrite",
+                    arguments={"todos": todos},
+                    todos=updated_todos,
+                    metadata={"stats": stats}
+                ))
+            except ImportError:
+                pass  # Callbacks not available, continue without
+
             return ToolResult(
                 success=True,
                 output={
                     "message": "Todos have been modified successfully. Ensure that you continue to use the todo list to track your progress. Please proceed with the current tasks if applicable",
                     "stats": stats,
-                    "todos": self.todo_manager.to_dict_list()
+                    "todos": updated_todos
                 }
             )
 

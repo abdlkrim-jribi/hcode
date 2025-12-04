@@ -54,6 +54,14 @@ from .tool_selector import (
     get_tool_selector,
     select_tools_for_task
 )
+from .tool_callbacks import (
+    ToolCallbackManager,
+    ToolEvent,
+    ToolEventType,
+    ToolCallback,
+    CallbackContext,
+    get_callback_manager
+)
 
 __all__ = [
     # Core
@@ -135,5 +143,13 @@ __all__ = [
     "TaskCategory",
     "get_tool_selector",
     "select_tools_for_task",
+
+    # Tool Callbacks (for real-time UI updates)
+    "ToolCallbackManager",
+    "ToolEvent",
+    "ToolEventType",
+    "ToolCallback",
+    "CallbackContext",
+    "get_callback_manager",
 ]
 

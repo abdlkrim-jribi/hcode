@@ -229,6 +229,24 @@ class TodoWriteTool(BaseTool):
             in_progress = sum(1 for t in self.todos if t.status == "in_progress")
             pending = sum(1 for t in self.todos if t.status == "pending")
 
+            # Emit callback event for real-time UI updates
+            try:
+                from .tool_callbacks import get_callback_manager, ToolEventType, ToolEvent
+                callback_manager = get_callback_manager()
+                callback_manager.emit(ToolEvent(
+                    event_type=ToolEventType.TODO_UPDATE,
+                    tool_name="TodoWrite",
+                    arguments={"todos": todos},
+                    todos=todos,  # Pass the raw todos for UI display
+                    metadata={
+                        "completed": completed,
+                        "in_progress": in_progress,
+                        "pending": pending
+                    }
+                ))
+            except ImportError:
+                pass  # Callbacks not available
+
             return ToolResult(
                 success=True,
                 output=f"Todo list updated: {completed} completed, {in_progress} in progress, {pending} pending",

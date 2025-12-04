@@ -282,6 +282,22 @@ from .todo_display import (
     render_todo_status_line,
 )
 
+# ═══════════════════════════════════════════════════════════════════════
+# LIVE TODO BAR EXPORTS (Real-time updates via callbacks)
+# ═══════════════════════════════════════════════════════════════════════
+
+from .live_todo_bar import (
+    # Classes
+    LiveTodoBar,
+    StreamingTodoIntegration,
+
+    # Functions
+    get_live_todo_bar,
+    start_live_todos,
+    stop_live_todos,
+    get_current_todos,
+)
+
 
 # ═══════════════════════════════════════════════════════════════════════
 # ALL EXPORTS
@@ -435,6 +451,14 @@ __all__ = [
     "create_todo_display",
     "render_todo_panel",
     "render_todo_status_line",
+
+    # Live Todo Bar (Real-time updates)
+    "LiveTodoBar",
+    "StreamingTodoIntegration",
+    "get_live_todo_bar",
+    "start_live_todos",
+    "stop_live_todos",
+    "get_current_todos",
 ]
 
 # ═══════════════════════════════════════════════════════════════════════

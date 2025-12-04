@@ -68,6 +68,14 @@ from hcode.ui.todo_display import (
     PersistentStatusBar,
     update_persistent_todos,
 )
+from hcode.ui.live_todo_bar import (
+    LiveTodoBar,
+    StreamingTodoIntegration,
+    get_live_todo_bar,
+    start_live_todos,
+    stop_live_todos,
+    get_current_todos,
+)
 # Import reasoning components for automatic todo extraction
 from hcode.core.agent import parse_thinking_block
 from hcode.agent.reasoning import ReasoningParser, ReasoningToTodoIntegrator
@@ -469,7 +477,11 @@ def chat_mode(provider, session, show_todos, debug):
     # Create Claude Code style todo display
     claude_todo_display = ClaudeCodeTodoDisplay(console=console)
 
-    # Create persistent status bar for real-time todo updates
+    # Create LIVE todo bar for REAL-TIME updates via callback system
+    # This bar receives updates automatically when TodoWrite is called during execution
+    live_todo_bar = LiveTodoBar(console=console, height=6)
+
+    # Legacy persistent bar (kept for fallback)
     persistent_bar = PersistentStatusBar(console=console, height=6)
 
     # Function to display todo status bar - Claude Code style at bottom
@@ -873,19 +885,25 @@ def chat_mode(provider, session, show_todos, debug):
             # Execute task with modern assistant indicator
             console.print(f"\n[bold {palette.success}]{icons.AI} Assistant [{message_count}]:[/bold {palette.success}]\n")
 
-            # Start persistent bar if we have todos
+            # Start LIVE todo bar - it will update automatically via callbacks
+            # when the agent calls TodoWrite during execution
             if reasoning_runner.todos:
-                persistent_bar.update_todos(reasoning_runner.todos)
-                persistent_bar.start()
+                live_todo_bar.update_todos(reasoning_runner.todos)
+            live_todo_bar.start()
 
             result = asyncio.run(agent.execute_task(
                 task=user_input,
                 stream=True
             ))
 
-            # Stop persistent bar after task
-            if persistent_bar._active:
-                persistent_bar.stop()
+            # Stop live todo bar after task
+            if live_todo_bar.is_active:
+                live_todo_bar.stop()
+
+            # Sync todos from live bar (which received callback updates)
+            callback_todos = live_todo_bar.get_todos()
+            if callback_todos:
+                reasoning_runner.todos = callback_todos
 
             # SYNC TODOS FROM AGENT'S TODOWRITE TOOL
             # The agent's tool manager has the authoritative todo list
@@ -948,23 +966,25 @@ def chat_mode(provider, session, show_todos, debug):
 
             # Display todo bar after task completion (Claude Code style)
             if reasoning_runner.todos:
-                # Start/restart persistent bar with synced todos to show final state
-                persistent_bar.update_todos(reasoning_runner.todos)
-                if not persistent_bar._active:
-                    persistent_bar.start()
-                # Let the bar display for a moment before continuing
-                import time
-                time.sleep(0.5)
-                persistent_bar.stop()
-                # Also print static version
+                # Print static version (the live bar already showed real-time updates)
                 display_todo_bar(force=True, compact=True)
                 todo_bar_just_shown = True  # Prevent duplicate on next loop
 
             message_count += 1
 
         except KeyboardInterrupt:
+            # Stop live todo bar on interrupt
+            if live_todo_bar.is_active:
+                live_todo_bar.stop()
+
             console.print(f"\n[{palette.warning}]{icons.WARNING} Interrupted. Type /exit to quit or continue chatting.[/{palette.warning}]")
-            # Sync todos even after interruption
+
+            # Sync todos from live bar first (it may have received callback updates)
+            callback_todos = live_todo_bar.get_todos()
+            if callback_todos:
+                reasoning_runner.todos = callback_todos
+
+            # Also sync from agent's TodoWrite tool
             try:
                 todowrite_tool = None
                 # Direct access preferred

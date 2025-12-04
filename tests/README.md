@@ -1,115 +1,99 @@
-# 📚 Test Guide for Technica Engineering Repository
+# Running the Test Suite
+
+This repository uses **pytest** together with the **pytest‑cov** plugin to run the unit tests and generate a coverage report.
 
 ---
 
-## 🎯 Overview
-This guide walks you through **running the unit tests**, generating coverage reports, and interpreting the results for the repository.
+## Prerequisites
+
+1. **Python 3.8+** must be installed and available on your `PATH`.
+2. It is recommended to work inside a virtual environment to keep dependencies isolated:
+   ```bash
+   python -m venv .venv
+   # On Windows
+   .venv\Scripts\activate
+   # On Unix/macOS
+   source .venv/bin/activate
+   ```
+3. Install the required packages (including the test dependencies):
+   ```bash
+   pip install -r requirements.txt
+   pip install -e .   # install the package in editable mode
+   pip install pytest pytest-cov
+   ```
 
 ---
 
-## 🛠 Prerequisites
-- **Python 3.11** (or newer) installed.
-- A virtual environment activated:
-  ```bash
-  python -m venv .venv
-  .venv\Scripts\activate  # Windows
-  ```
-- Install dependencies:
-  ```bash
-  pip install -r requirements.txt
-  ```
-  > The test suite relies on `pytest` and `pytest‑cov`, already listed in `requirements.txt`.
+## Basic test run
 
----
-
-## ▶️ Running the Test Suite
-Execute **all** tests with:
+Run all tests with the default configuration:
 ```bash
-python -m pytest
+pytest
 ```
-Pytest will automatically discover tests under the `tests/` folder and display a concise summary.
+This will discover all files matching `test_*.py` inside the `tests/` directory and execute them.
 
 ---
 
-## 📈 Generating a Coverage Report
-To see how much of the codebase is exercised by the tests:
+## Running with coverage
+
+To see how much of the source code is exercised, use the coverage flags that are already defined in `pyproject.toml`:
 ```bash
-python -m pytest --cov=. --cov-report=term-missing
+pytest --cov=src/hcode --cov-report=term-missing
 ```
-- `--cov=.` measures coverage for the whole project.
-- `--cov-report=term-missing` prints a table highlighting uncovered lines.
+The output will show a table with the percentage of statements, branches and functions covered, and a list of uncovered lines.
 
-For CI‑friendly output, generate an XML report:
+---
+
+## Common options
+
+| Option | Description |
+|--------|-------------|
+| `-q`   | Quiet mode – only show failures and the final summary. |
+| `-v`   | Verbose – show each test name as it runs. |
+| `--maxfail=N` | Stop after the first *N* failures. |
+| `-k "expr"` | Run only tests whose name matches the given expression. |
+| `--tb=short` | Shorter traceback output for failures. |
+| `--capture=no` | Show `print` statements immediately (useful for debugging). |
+
+You can combine them, e.g.:
 ```bash
-python -m pytest --cov=. --cov-report=xml
-```
-The file `coverage.xml` appears in the repository root.
-
----
-
-## 📊 Interpreting the Coverage Output
-The console table shows:
-- **Name** – file path.
-- **Stmts** – total statements.
-- **Miss** – statements not executed.
-- **Cover** – coverage percentage.
-The final `TOTAL` row gives the overall coverage (e.g., **65 %**).
-
----
-
-## 📋 Common Commands Summary
-| 🎯 Goal | 🖥 Command |
-|---|---|
-| Run all tests | `python -m pytest` |
-| Run tests with coverage (text) | `python -m pytest --cov=. --cov-report=term-missing` |
-| Generate XML coverage report | `python -m pytest --cov=. --cov-report=xml` |
-| Re‑run a specific test file | `python -m pytest tests/test_file.py` |
-
----
-
-## ⚙️ Advanced pytest Options
-Enhance your test runs with these powerful flags:
-
-- **Select tests**
-  - `-k EXPRESSION` – run tests matching the expression.
-  - `-m MARKER` – run tests with a specific marker (e.g., `-m slow`).
-- **Control output**
-  - `-vv` – very verbose output.
-  - `-s` – show `print` statements (disable capture).
-  - `--tb=short|long|line|native` – choose traceback style.
-- **Fail fast**
-  - `-x` – stop after the first failure.
-  - `--maxfail=NUM` – stop after *NUM* failures.
-- **Parallel execution** (requires `pytest-xdist`)
-  - `-n AUTO` or `-n NUM` – run tests in parallel.
-- **Re‑run only failed tests**
-  - `--lf` – re‑run the last failed tests.
-  - `--ff` – run failed tests first, then the rest.
-- **Extra information**
-  - `--collect-only` – list collected tests without executing.
-  - `--durations=NUM` – show the *NUM* slowest tests.
-- **Skip tests**
-  - `-k "not slow"` – exclude tests matching the expression.
-  - `--skip` – skip tests marked with `skip`.
-- **Combine with coverage**
-  - Any of the above can be paired with `--cov=.` and `--cov-report=term-missing` to see coverage for the selected subset.
-
-**Examples**
-```bash
-# Run only fast tests with detailed output
-python -m pytest -k "not slow" -vv
-
-# Run tests in parallel and stop on first failure
-python -m pytest -n auto -x
+pytest -q -k "ContextManager" --maxfail=1
 ```
 
 ---
 
-## 🛎 Troubleshooting
-- **Missing dependencies**: Activate the virtual environment and run `pip install -r requirements.txt`.
-- **Coverage data not found**: Ensure you run tests with the `--cov` flag first; it creates the `.coverage` file used by the report commands.
-- **Windows path quirks**: Use forward slashes (`/`) or quote paths containing spaces.
+## Environment variables used by the tests
+
+| Variable | Purpose |
+|----------|---------|
+| `HCODE_PROVIDER` | Selects which LLM provider the library should use (e.g., `openai`, `anthropic`). The tests mock the provider, but the variable must be set for the code to initialise correctly. |
+| `HCODE_LOG_LEVEL` | Controls logging verbosity; the test suite forces it to `ERROR` to keep output clean. |
+| `HCODE_CONTEXT_PATH` | Path to the JSON file used by `ContextManager`. The tests override this with a temporary file via a fixture. |
 
 ---
 
-*Generated by the automated assistant to help Technica Engineering team members run and evaluate tests efficiently.*
+## Cleaning up
+
+All temporary files created by the tests are placed in the `tmp_path` fixture provided by pytest, which automatically removes them after each test. No manual cleanup is required.
+
+---
+
+## Running the full CI‑style command
+
+If you want to emulate the CI pipeline (run tests and enforce 100 % coverage), execute:
+```bash
+pytest --cov=src/hcode --cov-report=term-missing
+```
+The CI configuration fails the build if any coverage metric falls below 100 %.
+
+---
+
+## Troubleshooting
+
+* **ImportError: No module named 'hcode'** – Ensure you have installed the package in editable mode (`pip install -e .`).
+* **Missing `pytest` or `pytest‑cov`** – Install them with `pip install pytest pytest-cov`.
+* **Permission errors on Windows** – Run the command prompt or PowerShell as Administrator, or ensure the virtual environment directory is writable.
+
+---
+
+Happy testing! 🚀
