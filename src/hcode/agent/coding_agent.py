@@ -5,13 +5,12 @@ Combines thinking, planning, action, and observation in a continuous loop.
 """
 
 from typing import Any, Dict, List, Optional, AsyncGenerator, TYPE_CHECKING
-import json
 
-from .thinking_manager import ThinkingManager
-from .thinking import ThinkingPhase, ThinkingSession
-from .todo import TodoManager, TodoItem, TodoStatus
-from ..config.thinking import ThinkingConfig, ThinkingVisibility
-from ..tools.tool_manager import ToolManager
+from hcode.agent.thinking import ThinkingPhase, ThinkingSession
+from hcode.agent.thinking_manager import ThinkingManager
+from hcode.agent.todo import TodoManager, TodoItem, TodoStatus
+from hcode.config.thinking import ThinkingConfig
+from hcode.tools.tool_manager import ToolManager
 
 # Avoid circular import - TodoWriteTool is imported lazily when needed
 if TYPE_CHECKING:

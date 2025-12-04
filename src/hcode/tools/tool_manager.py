@@ -13,6 +13,16 @@ from hcode.tools.bash_tools import BashTool, BashOutputTool, KillShellTool, LSTo
 from hcode.tools.command_system import SlashCommandTool, SkillTool, CommandRegistry
 from hcode.tools.diff_tools import DiffPreviewTool, ApplyChangeTool, RejectChangeTool
 from hcode.tools.file_tools import ReadTool, WriteTool, EditTool, MultiEditTool, GlobTool, GrepTool
+from hcode.tools.git_tools import (
+    GitStatusTool,
+    GitDiffTool,
+    GitAddTool,
+    GitCommitTool,
+    GitLogTool,
+    GitCheckoutTool,
+    GitBranchTool,
+)
+from hcode.tools.fuzzy_edit_tool import FuzzyEditTool
 from hcode.tools.interactive_tools import (
     AskUserQuestionTool,
     TodoWriteTool,
@@ -62,6 +72,16 @@ class ToolManager:
         self.tool_registry.register(GlobTool(root_dir=str(self.root_dir)))
         self.tool_registry.register(GrepTool(root_dir=str(self.root_dir)))
         self.tool_registry.register(LSTool(root_dir=str(self.root_dir)))
+        self.tool_registry.register(FuzzyEditTool(root_dir=str(self.root_dir)))
+
+        # Git tools
+        self.tool_registry.register(GitStatusTool(root_dir=str(self.root_dir)))
+        self.tool_registry.register(GitDiffTool(root_dir=str(self.root_dir)))
+        self.tool_registry.register(GitAddTool(root_dir=str(self.root_dir)))
+        self.tool_registry.register(GitCommitTool(root_dir=str(self.root_dir)))
+        self.tool_registry.register(GitLogTool(root_dir=str(self.root_dir)))
+        self.tool_registry.register(GitCheckoutTool(root_dir=str(self.root_dir)))
+        self.tool_registry.register(GitBranchTool(root_dir=str(self.root_dir)))
 
         # Diff/Preview tools (for change preview before applying)
         self.diff_preview_tool = DiffPreviewTool(root_dir=str(self.root_dir))

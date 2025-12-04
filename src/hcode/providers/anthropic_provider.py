@@ -7,7 +7,7 @@ import os
 from typing import List, AsyncIterator, Dict, Any, Optional
 
 from anthropic import AsyncAnthropic
-from hcode import AIProvider
+from hcode.providers.base import AIProvider
 from hcode.memory import Message
 from hcode.providers import CompletionResponse, Usage
 from tenacity import retry, stop_after_attempt, wait_exponential

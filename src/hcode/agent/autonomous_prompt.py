@@ -6,7 +6,7 @@ Provides mode-specific system prompts matching Claude Code behavior.
 
 from typing import Dict, Any, Optional
 
-from hcode.agent import AgentMode
+from hcode.agent.modes import AgentMode
 
 # Base autonomous prompt
 BASE_AUTONOMOUS_PROMPT = """You are an expert autonomous coding assistant with advanced execution capabilities.

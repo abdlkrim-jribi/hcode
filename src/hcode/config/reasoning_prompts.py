@@ -586,7 +586,18 @@ class ReasoningPromptBuilder:
         ]
 
         if context:
-            prompt_parts.insert(1, f"\nContext: {context}\n")
+            # Format context nicely
+            context_str = []
+            for k, v in context.items():
+                if k == "git_status" and v:
+                    context_str.append(f"Git Status:\n{v}")
+                elif k == "active_files" and v:
+                    context_str.append(f"Active Files: {', '.join(v)}")
+                else:
+                    context_str.append(f"{k}: {v}")
+            
+            if context_str:
+                prompt_parts.insert(1, "\nContext:\n" + "\n".join(context_str) + "\n")
 
         return "\n".join(prompt_parts)
 

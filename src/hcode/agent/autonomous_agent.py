@@ -9,14 +9,9 @@ import asyncio
 from dataclasses import dataclass
 from typing import Any, Dict, Optional, AsyncGenerator, Callable
 
-from hcode.agent import (
-    AutonomousEngine,
-    ActionProposal,
-    ExecutionDecision,
-    ExecutionResult,
-)
-from .coding_agent import HcodeCodingAgent, ExecutionContext
-from .modes import AgentMode, SafetyConfig, get_mode_config
+from hcode.agent.autonomous import (AutonomousEngine, ActionProposal, ExecutionDecision, ExecutionResult)
+from hcode.agent.coding_agent import HcodeCodingAgent, ExecutionContext
+from hcode.agent.modes import AgentMode, SafetyConfig, get_mode_config
 
 
 @dataclass

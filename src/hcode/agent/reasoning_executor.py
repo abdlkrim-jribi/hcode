@@ -378,6 +378,50 @@ class ReasoningDrivenExecutor:
         self._bridge = ReasoningToExecutionBridge()
         self._execution_history: List[ExecutionResult] = []
 
+    async def execute_with_refinement(
+        self,
+        initial_reasoning: ReasoningOutput,
+        reasoning_manager: Any,  # EnhancedThinkingManager
+        max_retries: int = 3,
+        **kwargs
+    ) -> ExecutionResult:
+        """
+        Execute with automatic refinement loop on failure.
+        
+        If execution fails, it feeds the error back into the reasoning engine
+        to generate a refined plan.
+        """
+        current_reasoning = initial_reasoning
+        attempts = 0
+        
+        while attempts < max_retries:
+            attempts += 1
+            
+            # Execute current plan
+            result = await self.execute_from_reasoning(current_reasoning, **kwargs)
+            
+            if result.success:
+                return result
+                
+            # If failed, check if we should refine
+            if attempts >= max_retries:
+                break
+                
+            # Trigger refinement
+            # This assumes reasoning_manager has a method to refine based on feedback
+            if hasattr(reasoning_manager, "refine_reasoning"):
+                new_reasoning = await reasoning_manager.refine_reasoning(
+                    previous_reasoning=current_reasoning,
+                    execution_result=result
+                )
+                if new_reasoning:
+                    current_reasoning = new_reasoning
+                    continue
+            
+            break
+            
+        return result
+
     async def execute_from_reasoning(
         self,
         reasoning: ReasoningOutput,
