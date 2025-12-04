@@ -12,6 +12,18 @@ from .provider_selector import (
     TaskComplexity,
     TaskType
 )
+from .resilient_provider import (
+    ResilientProvider,
+    ResilientStreamWrapper,
+    ProviderHealth,
+    FailureType,
+    ProviderStats,
+    CircuitBreaker,
+    CircuitBreakerConfig,
+    RetryConfig,
+    RetryHandler,
+    create_resilient_provider
+)
 
 __all__ = [
     "AIProvider",
@@ -26,4 +38,15 @@ __all__ = [
     "ProviderPreferences",
     "TaskComplexity",
     "TaskType",
+    # Resilient Provider
+    "ResilientProvider",
+    "ResilientStreamWrapper",
+    "ProviderHealth",
+    "FailureType",
+    "ProviderStats",
+    "CircuitBreaker",
+    "CircuitBreakerConfig",
+    "RetryConfig",
+    "RetryHandler",
+    "create_resilient_provider",
 ]

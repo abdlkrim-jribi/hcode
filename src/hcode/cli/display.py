@@ -36,22 +36,28 @@ class AgentDisplay:
     Rich terminal display for agent execution.
 
     Shows thinking and todos with Claude Code-like styling.
+    In normal mode, thinking is hidden (Claude Code style).
+    In debug mode, thinking is shown based on visibility setting.
     """
 
     def __init__(
         self,
         console: Optional[Console] = None,
-        visibility: ThinkingVisibility = ThinkingVisibility.STREAMING
+        visibility: ThinkingVisibility = ThinkingVisibility.STREAMING,
+        debug_mode: bool = False
     ):
         """
         Initialize display.
 
         Args:
             console: Rich console instance
-            visibility: How to show thinking
+            visibility: How to show thinking (only used in debug mode)
+            debug_mode: If False (default), thinking is hidden. If True, uses visibility setting.
         """
         self.console = console or styled_console
-        self.visibility = visibility
+        self.debug_mode = debug_mode
+        # In normal mode, hide thinking. In debug mode, use the specified visibility.
+        self.visibility = visibility if debug_mode else ThinkingVisibility.HIDDEN
         self.current_thinking: Optional[ThinkingBlock] = None
         self.todos: List[TodoItem] = []
         self.live: Optional[Live] = None

@@ -140,6 +140,18 @@ class UISettings(BaseSettings):
         default=True,
         description="Enable emoji in output"
     )
+    debug_mode: bool = Field(
+        default=False,
+        description="Show verbose debug output (thinking panels, detailed messages)"
+    )
+    show_thinking: bool = Field(
+        default=False,
+        description="Show model thinking/reasoning steps (debug mode enables this)"
+    )
+    minimal_output: bool = Field(
+        default=True,
+        description="Use Claude Code-style minimal output"
+    )
 
 
 class LoggingSettings(BaseSettings):
@@ -242,6 +254,36 @@ class SafetySettings(BaseSettings):
     )
 
 
+class PromptsSettings(BaseSettings):
+    """Prompts directory and loading settings."""
+
+    model_config = SettingsConfigDict(
+        env_prefix="HCODE_PROMPTS_",
+        extra="ignore",
+    )
+
+    enabled: bool = Field(
+        default=True,
+        description="Enable custom prompts loading"
+    )
+    directory: Path = Field(
+        default=Path.home() / ".hcode" / "prompts",
+        description="Directory containing .prompt files"
+    )
+    project_directory: Path | None = Field(
+        default=None,
+        description="Project-local prompts directory (e.g., .hcode/prompts)"
+    )
+    auto_reload: bool = Field(
+        default=False,
+        description="Automatically reload prompts when files change"
+    )
+    extension: str = Field(
+        default=".prompt",
+        description="File extension for prompt files"
+    )
+
+
 class HCodeSettings(BaseSettings):
     """
     Main HCode settings container.
@@ -273,6 +315,7 @@ class HCodeSettings(BaseSettings):
     logging: LoggingSettings = Field(default_factory=LoggingSettings)
     memory: MemorySettings = Field(default_factory=MemorySettings)
     safety: SafetySettings = Field(default_factory=SafetySettings)
+    prompts: PromptsSettings = Field(default_factory=PromptsSettings)
 
     # Project-specific settings
     project_root: Path = Field(
@@ -397,3 +440,26 @@ def get_memory_settings() -> MemorySettings:
 def get_safety_settings() -> SafetySettings:
     """Get safety settings."""
     return get_settings().safety
+
+
+def get_prompts_settings() -> PromptsSettings:
+    """Get prompts settings."""
+    return get_settings().prompts
+
+
+def is_debug_mode() -> bool:
+    """
+    Check if debug mode is enabled.
+
+    Returns True if any of these are true:
+    - ui.debug_mode is True
+    - ui.show_thinking is True
+    - Environment variable HCODE_DEBUG is set
+    """
+    import os
+    settings = get_settings()
+    return (
+        settings.ui.debug_mode or
+        settings.ui.show_thinking or
+        os.getenv('HCODE_DEBUG', '').lower() in ('1', 'true', 'yes')
+    )

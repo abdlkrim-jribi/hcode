@@ -1,5 +1,17 @@
-"""
-Setup configuration for Hcode.
+"""hcode package setup configuration.
+
+This module uses :mod:`setuptools` to define the package metadata,
+its dependencies, entry points, and other configuration required for
+building and distributing the *hcode* project.
+
+Typical usage:
+    python -m pip install .
+    python -m build
+    python -m twine upload dist/*
+
+Attributes:
+    long_description (str): Content of ``README.md`` if present,
+        used as the long description on PyPI.
 """
 
 from setuptools import setup, find_packages

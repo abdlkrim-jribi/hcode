@@ -1,7 +1,7 @@
 """
 CLI components for Hcode.
 
-Includes display, styling, and interactive features.
+Includes display, styling, interactive features, and reasoning integration.
 """
 
 from .display import AgentDisplay
@@ -26,6 +26,15 @@ from .shortcuts import (
     setup_shortcuts_for_agent
 )
 
+# Import reasoning runner for integrated todo tracking
+from .reasoning_runner import (
+    ReasoningRunner,
+    ReasoningRunnerConfig,
+    ChatReasoningRunner,
+    create_reasoning_runner,
+    create_chat_reasoning_runner,
+)
+
 __all__ = [
     'AgentDisplay',
     'Colors',
@@ -43,4 +52,10 @@ __all__ = [
     'ShortcutAction',
     'KeyBinding',
     'setup_shortcuts_for_agent',
+    # Reasoning Runner
+    'ReasoningRunner',
+    'ReasoningRunnerConfig',
+    'ChatReasoningRunner',
+    'create_reasoning_runner',
+    'create_chat_reasoning_runner',
 ]

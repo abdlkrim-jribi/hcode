@@ -55,12 +55,54 @@ from hcode.cli.autocomplete import (
     get_command_help,
     get_all_commands,
 )
+from hcode.cli.reasoning_runner import (
+    ChatReasoningRunner,
+    create_chat_reasoning_runner,
+)
+from hcode.ui.todo_display import (
+    render_todo_panel,
+    render_todo_status_line,
+    PersistentTodoDisplay,
+)
+# Import reasoning components for automatic todo extraction
+from hcode.core.agent import parse_thinking_block
+from hcode.agent.reasoning import ReasoningParser, ReasoningToTodoIntegrator
 
 # Get themed console
 console = get_console()
 
 # Get icons instance (Windows-safe)
 icons = Icons()
+
+# Initialize reasoning components for todo extraction
+_reasoning_parser = ReasoningParser()
+_todo_integrator = ReasoningToTodoIntegrator()
+
+
+def extract_todos_from_response(response: str) -> list:
+    """
+    Extract todos from agent response by parsing thinking blocks.
+
+    Args:
+        response: The agent's response text
+
+    Returns:
+        List of todo items extracted from reasoning
+    """
+    todos = []
+
+    # Try to parse thinking block from response
+    thinking_block, _ = parse_thinking_block(response)
+
+    if thinking_block and thinking_block.is_valid():
+        # Parse structured reasoning from thinking block
+        reasoning = _reasoning_parser.parse(thinking_block.raw_content)
+
+        if reasoning:
+            # Extract todos from structured reasoning
+            todos = _todo_integrator.extract_todos_from_reasoning(reasoning)
+
+    return todos
 
 # Create progress with theme
 def create_progress(**kwargs):
@@ -326,7 +368,9 @@ def run_task(task, provider, model, model_size, complexity, cost, session, strea
 @click.option('-p', '--provider', type=click.Choice(['auto', 'anthropic', 'openai']),
               default='auto', help='AI provider')
 @click.option('-s', '--session', help='Session ID')
-def chat_mode(provider, session):
+@click.option('--show-todos/--no-todos', default=True, help='Show todo progress bar')
+@click.option('--debug', is_flag=True, help='Enable debug mode (show verbose output, thinking panels)')
+def chat_mode(provider, session, show_todos, debug):
     """
     💬 Start an interactive chat session
 
@@ -335,6 +379,7 @@ def chat_mode(provider, session):
       /help     Show available commands
       /clear    Clear conversation
       /stats    Show statistics
+      /todos    Toggle todo display
       /export   Export session
       /exit     Exit chat
 
@@ -363,6 +408,12 @@ def chat_mode(provider, session):
     if provider == 'auto':
         provider = config.get("preferences", {}).get("primary_provider", "auto")
 
+    # Add debug flag to config
+    config['debug'] = debug
+    if 'ui' not in config:
+        config['ui'] = {}
+    config['ui']['debug_mode'] = debug
+
     preferences = ProviderPreferences(primary_provider=provider)
     agent = HcodeAgent(
         anthropic_key=anthropic_key,
@@ -377,6 +428,14 @@ def chat_mode(provider, session):
 
     palette = get_palette()
 
+    # Show debug mode indicator if enabled
+    if debug:
+        console.print(f"[bold {palette.warning}]{icons.WARNING} Debug mode enabled - showing verbose output[/bold {palette.warning}]")
+
+    # Initialize reasoning runner for todo tracking - ALWAYS enabled
+    reasoning_runner = create_chat_reasoning_runner(console=console)
+    reasoning_runner.show_todos = True  # Always show todos
+
     # Show modern info panel for chat tips
     info_panel = InfoPanel(
         title="Interactive Chat Mode",
@@ -389,7 +448,8 @@ def chat_mode(provider, session):
             f"{icons.LIGHTNING} Shortcuts:\n"
             "  • Tab: Autocomplete commands & suggestions\n"
             "  • Ctrl+Space: Show all suggestions\n"
-            "  • ↑/↓: Navigate history & suggestions"
+            "  • ↑/↓: Navigate history & suggestions\n"
+            "  • /todos: Toggle task progress display"
         )
     )
     console.print(info_panel.render())
@@ -399,11 +459,112 @@ def chat_mode(provider, session):
     hcode_prompt.create_session()
 
     message_count = 0
+    todo_bar_just_shown = False  # Track to avoid duplicate displays
+
+    # Function to display todo status bar - Claude Code style at bottom
+    def display_todo_bar(force=False, compact=True, show_empty=False):
+        """Display the todo progress bar in Claude Code style.
+
+        Args:
+            force: If True, show even if show_todos is disabled
+            compact: If True, show as single-line status bar (Claude Code style)
+            show_empty: If True, show a minimal bar even when no todos
+        """
+        if not (reasoning_runner.show_todos or force):
+            return
+
+        if not reasoning_runner.todos:
+            if show_empty:
+                # Show minimal empty state
+                console.print(f"[dim]─── {icons.GEAR} No tasks ───[/dim]")
+            return
+
+        # Calculate progress
+        total = len(reasoning_runner.todos)
+        completed = sum(1 for t in reasoning_runner.todos if t.get("status") == "completed")
+
+        # Get current task
+        current_task = next(
+            (t.get("activeForm", t.get("content", "")) for t in reasoning_runner.todos if t.get("status") == "in_progress"),
+            None
+        )
+
+        if compact:
+            # Claude Code style: persistent-looking status bar at bottom
+            # ╭──────────────────────────────────────────────────────────────────────────────────╮
+            # │ ████████░░░░░░░░░░░░ 2/5 tasks • Running tests                                  │
+            # ╰──────────────────────────────────────────────────────────────────────────────────╯
+            bar_width = 20
+            filled = int((completed / total) * bar_width) if total > 0 else 0
+            bar = f"[{palette.success}]{'█' * filled}[/][dim]{'░' * (bar_width - filled)}[/dim]"
+
+            # Build compact status line
+            status_parts = [f"{icons.GEAR}", bar, f"[bold white]{completed}/{total}[/bold white]"]
+            if current_task:
+                # Truncate if too long
+                max_task_len = 45
+                if len(current_task) > max_task_len:
+                    current_task = current_task[:max_task_len-3] + "..."
+                status_parts.append(f"[{palette.info}]│ {icons.LOADING} {current_task}[/]")
+
+            status_line = " ".join(status_parts)
+
+            # Print in a mini-box for visual persistence
+            console.print()
+            console.print(f"[{palette.border_default}]╭{'─' * 78}╮[/]")
+            console.print(f"[{palette.border_default}]│[/] {status_line}")
+            console.print(f"[{palette.border_default}]╰{'─' * 78}╯[/]")
+        else:
+            # Full panel style (for /todo command)
+            bar_width = 30
+            filled = int((completed / total) * bar_width) if total > 0 else 0
+            bar = f"[{palette.success}]{'█' * filled}[/][{palette.text_muted}]{'░' * (bar_width - filled)}[/]"
+
+            # Build full todo list
+            lines = []
+            for i, todo in enumerate(reasoning_runner.todos, 1):
+                status = todo.get('status', 'pending')
+                content = todo.get('content', '')
+                if status == 'completed':
+                    lines.append(f"  [{palette.success}]✓[/] [dim strikethrough]{content}[/dim strikethrough]")
+                elif status == 'in_progress':
+                    lines.append(f"  [{palette.info}]▸[/] [bold {palette.info}]{content}[/bold {palette.info}]")
+                else:
+                    lines.append(f"  [{palette.text_muted}]○[/] {content}")
+
+            content = "\n".join(lines)
+            content += f"\n\n  {bar} {completed}/{total} completed"
+
+            console.print(Panel(
+                content,
+                title=f"[bold {palette.primary}]{icons.GEAR} Tasks[/]",
+                border_style=palette.border_default,
+                box=box.ROUNDED
+            ))
+
+    # Helper function to convert Todo objects to dicts (needs to be outside loop)
+    def todo_to_dict(todo):
+        """Convert a Todo object or dict to a standard dict format."""
+        if isinstance(todo, dict):
+            return todo
+        # Handle dataclass/object with attributes
+        return {
+            "content": getattr(todo, 'content', getattr(todo, 'text', '')),
+            "status": getattr(todo, 'status', 'pending'),
+            "activeForm": getattr(todo, 'active_form', getattr(todo, 'activeForm', ''))
+        }
 
     while True:
         try:
-            # Smart prompt with autocomplete
-            console.print()  # Add spacing
+            # Display todo status bar right before prompt IF not just shown after task
+            # This prevents duplicate bars
+            if reasoning_runner.todos and not todo_bar_just_shown:
+                display_todo_bar(force=True, compact=True)
+
+            # Reset flag - next loop iteration should show the bar
+            todo_bar_just_shown = False
+
+            # Smart prompt with autocomplete (no extra spacing - todo bar already adds separator)
             user_input = hcode_prompt.prompt(message_count=message_count)
 
             if not user_input.strip():
@@ -418,6 +579,112 @@ def chat_mode(provider, session):
                         console.print("[yellow]👋 Goodbye![/yellow]")
                         break
                     continue
+
+                elif command == 'todos':
+                    reasoning_runner.show_todos = not reasoning_runner.show_todos
+                    status = "enabled" if reasoning_runner.show_todos else "disabled"
+                    console.print(f"[{palette.info}]{icons.SUCCESS} Todo display {status}[/]")
+                    if reasoning_runner.show_todos and reasoning_runner.todos:
+                        console.print(reasoning_runner.render_full_panel())
+                    continue
+
+                elif command == 'todo':
+                    # Show full todo panel
+                    if reasoning_runner.todos:
+                        display_todo_bar(force=True, compact=False)
+                    else:
+                        console.print(f"[{palette.text_muted}]No tasks in progress[/]")
+                    continue
+
+                elif command.startswith('todo add '):
+                    # Add a todo item
+                    todo_text = command[9:].strip()
+                    if todo_text:
+                        reasoning_runner.add_todo(todo_text)
+                        console.print(f"[{palette.success}]{icons.SUCCESS} Added: {todo_text}[/]")
+                    continue
+
+                elif command == 'todo done' or command == 'done':
+                    # Mark current todo as done
+                    reasoning_runner.complete_current()
+                    console.print(f"[{palette.success}]{icons.SUCCESS} Task completed[/]")
+                    continue
+
+                elif command == 'prompts' or command == 'prompt list':
+                    # List all available prompts
+                    from hcode.config import get_prompt_loader, get_prompts_settings
+                    settings = get_prompts_settings()
+                    loader = get_prompt_loader()
+
+                    if settings.directory.exists():
+                        loader.prompts_dir = settings.directory
+
+                    prompts_list = loader.list_prompts()
+                    if prompts_list:
+                        console.print(f"\n[bold {palette.primary}]{icons.GEAR} Available Prompts[/bold {palette.primary}]")
+                        console.print(f"[{palette.text_muted}]Directory: {loader.prompts_dir}[/]")
+                        console.print()
+
+                        prompts_table = Table(box=box.ROUNDED, border_style=palette.border_default)
+                        prompts_table.add_column("Name", style=palette.info)
+                        prompts_table.add_column("Description", style=palette.text_secondary)
+                        prompts_table.add_column("Category", style=palette.accent)
+                        prompts_table.add_column("Variables", style=palette.text_muted)
+
+                        for p in prompts_list:
+                            vars_str = ", ".join([v["name"] for v in p.get("variables", [])])
+                            prompts_table.add_row(
+                                p["name"],
+                                p.get("description", "")[:50],
+                                p.get("category", "general"),
+                                vars_str or "-"
+                            )
+
+                        console.print(prompts_table)
+                    else:
+                        console.print(f"[{palette.text_muted}]No prompts found in {loader.prompts_dir}[/]")
+                        console.print(f"[{palette.info}]Create .prompt files in that directory to add prompts.[/]")
+                    continue
+
+                elif command.startswith('prompt '):
+                    # Use a prompt: /prompt <name> [var1=value1] [var2=value2]
+                    from hcode.config import get_prompt_loader, get_prompts_settings
+                    settings = get_prompts_settings()
+                    loader = get_prompt_loader()
+
+                    if settings.directory.exists():
+                        loader.prompts_dir = settings.directory
+
+                    parts = command[7:].strip().split()
+                    if not parts:
+                        console.print(f"[{palette.warning}]Usage: /prompt <name> [var1=value1] ...[/]")
+                        continue
+
+                    prompt_name = parts[0]
+                    variables = {}
+
+                    # Parse variables (var=value format)
+                    for part in parts[1:]:
+                        if '=' in part:
+                            key, value = part.split('=', 1)
+                            variables[key] = value
+
+                    try:
+                        rendered = loader.render(prompt_name, variables)
+                        console.print(f"\n[bold {palette.primary}]{icons.GEAR} Prompt: {prompt_name}[/bold {palette.primary}]")
+                        console.print(Panel(rendered, border_style=palette.border_default))
+
+                        # Send to agent
+                        if Confirm.ask("Send this prompt to the agent?", default=True):
+                            user_input = rendered
+                        else:
+                            continue
+                    except ValueError as e:
+                        console.print(f"[{palette.error}]{icons.ERROR} {e}[/]")
+                        continue
+                    except Exception as e:
+                        console.print(f"[{palette.error}]{icons.ERROR} Error loading prompt: {e}[/]")
+                        continue
 
                 elif command.startswith('help'):
                     # Check if help for specific command
@@ -455,22 +722,134 @@ def chat_mode(provider, session):
                         console.print(help_table)
                         console.print()
 
+                    # Add todo commands help
+                    console.print(f"[bold {palette.accent}]TASKS[/bold {palette.accent}]")
+                    todo_help = Table(box=box.SIMPLE, show_header=False, padding=(0, 2))
+                    todo_help.add_column("Command", style=f"{palette.info}", min_width=15)
+                    todo_help.add_column("Description", style=f"{palette.text_secondary}")
+                    todo_help.add_column("Aliases", style=f"{palette.text_muted}")
+                    todo_help.add_row("/todos", "Toggle todo progress bar", "")
+                    todo_help.add_row("/todo", "Show full todo panel", "")
+                    todo_help.add_row("/todo add <task>", "Add a task", "")
+                    todo_help.add_row("/done", "Mark current task done", "/todo done")
+                    console.print(todo_help)
+                    console.print()
+
+                    # Add analytics commands help
+                    console.print(f"[bold {palette.accent}]ANALYTICS[/bold {palette.accent}]")
+                    analytics_help = Table(box=box.SIMPLE, show_header=False, padding=(0, 2))
+                    analytics_help.add_column("Command", style=f"{palette.info}", min_width=15)
+                    analytics_help.add_column("Description", style=f"{palette.text_secondary}")
+                    analytics_help.add_column("Aliases", style=f"{palette.text_muted}")
+                    analytics_help.add_row("/analytics", "Show analytics dashboard", "")
+                    analytics_help.add_row("/health", "Show provider health status", "")
+                    analytics_help.add_row("/stats", "Show session statistics", "")
+                    console.print(analytics_help)
+                    console.print()
+
+                    # Add prompts commands help
+                    console.print(f"[bold {palette.accent}]PROMPTS[/bold {palette.accent}]")
+                    prompts_help = Table(box=box.SIMPLE, show_header=False, padding=(0, 2))
+                    prompts_help.add_column("Command", style=f"{palette.info}", min_width=20)
+                    prompts_help.add_column("Description", style=f"{palette.text_secondary}")
+                    prompts_help.add_column("Aliases", style=f"{palette.text_muted}")
+                    prompts_help.add_row("/prompts", "List all available prompts", "/prompt list")
+                    prompts_help.add_row("/prompt <name>", "Load and preview a prompt", "")
+                    prompts_help.add_row("/prompt <name> var=val", "Load prompt with variables", "")
+                    console.print(prompts_help)
+                    console.print()
+
+                    # Add settings/debug commands help
+                    console.print(f"[bold {palette.accent}]SETTINGS[/bold {palette.accent}]")
+                    settings_help = Table(box=box.SIMPLE, show_header=False, padding=(0, 2))
+                    settings_help.add_column("Command", style=f"{palette.info}", min_width=15)
+                    settings_help.add_column("Description", style=f"{palette.text_secondary}")
+                    settings_help.add_column("Aliases", style=f"{palette.text_muted}")
+                    settings_help.add_row("/debug", "Toggle debug mode (verbose output)", "")
+                    settings_help.add_row("/theme <name>", "Change color theme", "")
+                    settings_help.add_row("/clear", "Clear conversation history", "")
+                    settings_help.add_row("/export", "Export session to file", "")
+                    console.print(settings_help)
+                    console.print()
+
                     console.print(f"[{palette.text_muted}]Type /help <command> for detailed help on a specific command[/]")
                     continue
 
                 elif command == 'stats':
                     stats = agent.get_session_stats()
+
+                    # Include todo progress in stats
+                    todo_progress = ""
+                    if reasoning_runner.todos:
+                        total = len(reasoning_runner.todos)
+                        completed = sum(1 for t in reasoning_runner.todos if t.get("status") == "completed")
+                        todo_progress = f"\n{icons.GEAR} Tasks: [{palette.info}]{completed}/{total}[/]"
+
                     stats_content = (
                         f"$ Cost: [{palette.success}]${stats['total_cost']:.4f}[/]\n"
                         f"{icons.MESSAGE} Messages: [{palette.warning}]{stats['context']['total_messages']}[/]\n"
                         f"{icons.AI} Provider: [{palette.info}]{stats['provider']}[/]\n"
                         f"{icons.FILE} Session: [{palette.text_muted}]{stats['context']['session_id']}[/]"
+                        f"{todo_progress}"
                     )
                     stats_panel = InfoPanel(
                         title="Statistics",
                         content=stats_content
                     )
                     console.print(stats_panel.render())
+                    continue
+
+                elif command == 'analytics':
+                    # Show analytics dashboard
+                    analytics = agent.get_analytics_summary()
+                    health = agent.get_health_report()
+
+                    # Build analytics display
+                    console.print(f"\n[bold {palette.primary}]{icons.GEAR} Analytics Dashboard[/bold {palette.primary}]\n")
+
+                    # Health status
+                    status_color = palette.success if health['status'] == 'healthy' else palette.warning
+                    console.print(f"Status: [{status_color}]{health['status'].upper()}[/{status_color}]")
+                    console.print(f"Success Rate: [{palette.info}]{health['overall_success_rate']:.1%}[/]")
+                    console.print(f"Reasoning Quality: [{palette.info}]{health.get('reasoning_quality', 0):.2f}[/]")
+                    console.print(f"Uptime: [{palette.text_muted}]{analytics.get('uptime_formatted', 'N/A')}[/]")
+                    console.print(f"Total Cost: [{palette.success}]${analytics.get('total_cost', 0):.4f}[/]")
+                    console.print()
+
+                    # Issues if any
+                    if health.get('issues'):
+                        console.print(f"[bold {palette.warning}]Issues:[/bold {palette.warning}]")
+                        for issue in health['issues'][:5]:
+                            severity_color = palette.error if issue['severity'] == 'high' else palette.warning
+                            console.print(f"  [{severity_color}]•[/] {issue['message']}")
+                        console.print()
+
+                    # Top tools
+                    tool_stats = analytics.get('tool_stats', {})
+                    if tool_stats:
+                        console.print(f"[bold {palette.accent}]Top Tools:[/bold {palette.accent}]")
+                        for tool_name, stats in list(tool_stats.items())[:5]:
+                            calls = stats.get('total_calls', 0)
+                            rate = stats.get('success_rate', 0)
+                            console.print(f"  {tool_name}: {calls} calls ({rate:.0%} success)")
+                    continue
+
+                elif command == 'health':
+                    # Show provider health
+                    provider_health = agent.get_provider_health()
+                    console.print(f"\n[bold {palette.primary}]{icons.AI} Provider Health[/bold {palette.primary}]\n")
+
+                    if provider_health.get('resilient_provider') is False:
+                        console.print(f"[{palette.text_muted}]Resilient provider not active (single provider mode)[/]")
+                    else:
+                        console.print(f"Current Provider: [{palette.info}]{provider_health.get('current_provider', 'N/A')}[/]")
+                        for name, info in provider_health.get('providers', {}).items():
+                            health_color = palette.success if info['health'] == 'healthy' else palette.warning if info['health'] == 'degraded' else palette.error
+                            console.print(f"\n  [{palette.accent}]{name}[/]:")
+                            console.print(f"    Health: [{health_color}]{info['health']}[/]")
+                            console.print(f"    Success Rate: {info['success_rate']:.1%}")
+                            console.print(f"    Avg Latency: {info['avg_latency']:.2f}s")
+                            console.print(f"    Total Requests: {info['total_requests']}")
                     continue
 
                 elif command.startswith('theme'):
@@ -496,8 +875,23 @@ def chat_mode(provider, session):
                         console.print(f"[{palette.info}]Current theme. Available: cyberpunk, neon, matrix, synthwave, frost, minimal, hacker[/]")
                     continue
 
+                elif command == 'debug':
+                    # Toggle debug mode
+                    debug = not debug
+                    config['debug'] = debug
+                    config['ui']['debug_mode'] = debug
+                    status = "enabled" if debug else "disabled"
+                    color = palette.warning if debug else palette.success
+                    console.print(f"[{color}]{icons.SUCCESS} Debug mode {status}[/]")
+                    if debug:
+                        console.print(f"[{palette.text_muted}]Showing verbose output, thinking panels, and detailed messages[/]")
+                    else:
+                        console.print(f"[{palette.text_muted}]Claude Code-style minimal output[/]")
+                    continue
+
                 elif command == 'clear':
                     agent.context_manager.clear_context(keep_system=True)
+                    reasoning_runner.todos = []  # Clear todos too
                     console.print(f"[{palette.success}]{icons.SUCCESS} Conversation cleared[/]")
                     message_count = 0
                     continue
@@ -516,10 +910,81 @@ def chat_mode(provider, session):
                 stream=True
             ))
 
+            # SYNC TODOS FROM AGENT'S TODOWRITE TOOL
+            # The agent's tool manager has the authoritative todo list
+            synced = False
+            try:
+                # Try different name variations for the tool
+                todowrite_tool = None
+                for tool_name in ['TodoWrite', 'todowrite', 'TodoWriteTool', 'todo_write']:
+                    todowrite_tool = agent.tool_manager.get_tool(tool_name)
+                    if todowrite_tool:
+                        break
+
+                if todowrite_tool:
+                    # Get todos from the tool's todo_manager (if using a manager pattern)
+                    if hasattr(todowrite_tool, 'todo_manager') and todowrite_tool.todo_manager:
+                        agent_todos = todowrite_tool.todo_manager.to_dict_list()
+                        if agent_todos:
+                            reasoning_runner.todos = [todo_to_dict(t) for t in agent_todos]
+                            synced = True
+                    # Direct todos attribute (most common)
+                    elif hasattr(todowrite_tool, 'todos') and todowrite_tool.todos:
+                        # Convert Todo objects to dicts
+                        reasoning_runner.todos = [todo_to_dict(t) for t in todowrite_tool.todos]
+                        synced = True
+            except Exception as e:
+                console.print(f"[dim red]Todo sync error: {e}[/dim red]")
+
+            # If no todos from agent, try extracting from response
+            if not reasoning_runner.todos and not synced:
+                extracted_todos = extract_todos_from_response(result)
+                if extracted_todos:
+                    reasoning_runner.todos = [todo_to_dict(t) for t in extracted_todos]
+
+            # Ensure at least one is in_progress if todos exist and none completed
+            if reasoning_runner.todos:
+                has_in_progress = any(
+                    t.get("status") == "in_progress" for t in reasoning_runner.todos
+                )
+                all_completed = all(
+                    t.get("status") == "completed" for t in reasoning_runner.todos
+                )
+                if not has_in_progress and not all_completed:
+                    for todo in reasoning_runner.todos:
+                        if todo.get("status") == "pending":
+                            todo["status"] = "in_progress"
+                            break
+
+            # Display todo bar after task completion (Claude Code style)
+            if reasoning_runner.todos:
+                display_todo_bar(force=True, compact=True)
+                todo_bar_just_shown = True  # Prevent duplicate on next loop
+
             message_count += 1
 
         except KeyboardInterrupt:
             console.print(f"\n[{palette.warning}]{icons.WARNING} Interrupted. Type /exit to quit or continue chatting.[/{palette.warning}]")
+            # Sync todos even after interruption
+            try:
+                todowrite_tool = None
+                for tool_name in ['TodoWrite', 'todowrite', 'TodoWriteTool', 'todo_write']:
+                    todowrite_tool = agent.tool_manager.get_tool(tool_name)
+                    if todowrite_tool:
+                        break
+                if todowrite_tool:
+                    if hasattr(todowrite_tool, 'todo_manager') and todowrite_tool.todo_manager:
+                        agent_todos = todowrite_tool.todo_manager.to_dict_list()
+                        if agent_todos:
+                            reasoning_runner.todos = [todo_to_dict(t) for t in agent_todos]
+                    elif hasattr(todowrite_tool, 'todos') and todowrite_tool.todos:
+                        reasoning_runner.todos = [todo_to_dict(t) for t in todowrite_tool.todos]
+                # Show todo bar after interrupt (Claude Code style)
+                if reasoning_runner.todos:
+                    display_todo_bar(force=True, compact=True)
+                    todo_bar_just_shown = True  # Prevent duplicate
+            except Exception:
+                pass
             continue
         except EOFError:
             break

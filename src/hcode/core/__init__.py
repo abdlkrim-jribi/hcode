@@ -27,6 +27,26 @@ from .output_handler import (
     search_in_output,
     get_latest_lines,
 )
+from .optimizations import (
+    CachedTokenCounter,
+    BatchContextWriter,
+    ParallelToolExecutor,
+    ToolResultCache,
+    ExecutionStateMachine,
+    SmartContextOptimizer,
+    ExecutionState,
+    get_token_counter,
+    get_context_writer,
+)
+from .analytics import (
+    ExecutionAnalytics,
+    ToolAnalytics,
+    ReasoningAnalytics,
+    CostAnalytics,
+    ToolExecutionEvent,
+    ReasoningEvent,
+    get_analytics,
+)
 
 __all__ = [
     "HcodeAgent",
@@ -55,4 +75,22 @@ __all__ = [
     "extract_errors",
     "search_in_output",
     "get_latest_lines",
+    # Optimizations
+    "CachedTokenCounter",
+    "BatchContextWriter",
+    "ParallelToolExecutor",
+    "ToolResultCache",
+    "ExecutionStateMachine",
+    "SmartContextOptimizer",
+    "ExecutionState",
+    "get_token_counter",
+    "get_context_writer",
+    # Analytics
+    "ExecutionAnalytics",
+    "ToolAnalytics",
+    "ReasoningAnalytics",
+    "CostAnalytics",
+    "ToolExecutionEvent",
+    "ReasoningEvent",
+    "get_analytics",
 ]

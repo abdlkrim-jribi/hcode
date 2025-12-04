@@ -1,8 +1,27 @@
 #!/usr/bin/env python
+"""Demo script for the Hcode interface.
+
+This module demonstrates the core capabilities of the Hcode system.
+
+Features:
+- Initialization of the HcodeChat and HcodeContextManager.
+- Display of available shortcut commands.
+- Simulated conversation with automatic todo creation and statistics reporting.
+- Detection of task complexity and task type for example tasks.
+- Construction and visualization of a parallel execution plan for tool calls.
+- Generation of actionable todos from a high‑level task description.
+
+Usage:
+    python demo_hcode.py
+
+Prerequisites:
+    * Python 3.9+ installed.
+    * Required dependencies installed (see requirements.txt).
+    * Optional: set ANTHROPIC_API_KEY or OPENAI_API_KEY environment variables for full AI functionality.
+
+The script prints a step‑by‑step log of the demonstration and exits with status 0 on success.
 """
-Demonstration of Hcode interface capabilities.
-This shows the agent working with Hcode features.
-"""
+
 
 import asyncio
 import sys
@@ -17,7 +36,21 @@ from dotenv import load_dotenv
 load_dotenv()
 
 async def demo():
-    """Run a demonstration of Hcode features"""
+    """Run a comprehensive demonstration of Hcode features.
+
+    This coroutine performs the following steps:
+    1. Prints a header and initializes the ``HcodeChat`` interface.
+    2. Lists a subset of available shortcut commands.
+    3. Creates a ``HcodeContextManager`` and simulates a short conversation.
+    4. Updates and displays todo items and session statistics.
+    5. Tests task‑complexity and task‑type detection on example tasks.
+    6. Demonstrates the parallel executor by building and visualizing an execution plan.
+    7. Generates todos from a sample high‑level task.
+    8. Prints a completion banner.
+
+    Returns:
+        bool: ``True`` if the demonstration completes successfully.
+    """
 
     print("=" * 60)
     print("   HCODE INTERFACE DEMONSTRATION")
@@ -128,7 +161,11 @@ async def demo():
 
 
 def main():
-    """Main entry point"""
+    """
+Entry point for the demo script.
+
+This function performs environment validation (checking for required API keys), runs the asynchronous ``demo`` coroutine, and exits with appropriate status codes. It also handles import errors and unexpected exceptions, providing helpful messages to the user.
+"""
     try:
         # Check for API keys
         if not os.getenv("ANTHROPIC_API_KEY") and not os.getenv("OPENAI_API_KEY"):

@@ -1,45 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(mkdir:*)",
-      "Bash(touch:*)",
-      "Bash(chmod:*)",
-      "Bash(pip install:*)",
-      "Bash(hcode --version:*)",
-      "Bash(hcode --help:*)",
-      "Bash(python:*)",
-      "Bash(set:*)",
-      "Bash(if [ -f .env ])",
-      "Bash(then echo \"File exists\")",
-      "Bash(cat:*)",
-      "Bash(else echo \"File does not exist\")",
-      "Bash(fi)",
-      "WebSearch",
-      "WebFetch(domain:code.claude.com)",
-      "WebFetch(domain:www.anthropic.com)",
-      "WebFetch(domain:claude.com)",
-      "WebFetch(domain:gist.github.com)",
-      "WebFetch(domain:www.vtrivedy.com)",
-      "Bash(hcode run:*)",
-      "Bash(timeout 10 python:*)",
-      "Bash(timeout 10 bash:*)",
-      "Bash(curl:*)",
-      "Bash(timeout 15 bash:*)",
-      "Bash(dir /s /b D:workshopsHcaudesrc*styles* 2)",
-      "Bash(nul)",
-      "Bash(timeout 60 python:*)",
-      "Bash(timeout 15 python:*)",
-      "Bash(dir \"%USERPROFILE%\\.hcode\\logs\" /b /o-d)",
-      "Bash(timeout 90 python:*)",
-      "Bash(dir:*)",
-      "Bash(git reset:*)",
-      "Bash(git add:*)",
-      "Bash(timeout 120 python -m pytest:*)",
-      "Bash(timeout 30 python:*)",
-      "Bash(pyarmor:*)",
-      "Bash(find:*)"
-    ],
-    "deny": [],
-    "ask": []
+      "Bash(dir \"D:\\workshops\\Hcaude\" /B)",
+      "Bash(find:*)",
+      "Bash(python:*)"
+    ]
   }
 }

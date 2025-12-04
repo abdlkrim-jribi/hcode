@@ -124,13 +124,17 @@ class HcodeToolDisplay:
     Provides consistent, clean output for all tool executions
     matching the Hcode CLI format.
 
+    In normal mode: Claude Code-style minimal output (tool name + key info only)
+    In debug mode: Full verbose output with boxes and details
+
     Now uses the modern UI theme system for consistent styling.
     """
 
-    def __init__(self, console: Optional[Console] = None):
+    def __init__(self, console: Optional[Console] = None, debug_mode: bool = False):
         self.console = console or styled_console
         self.style = HcodeStyle()
         self._icons = Icons()
+        self.debug_mode = debug_mode
 
     # ─────────────────────────────────────────────────────────
     # MAIN DISPLAY METHOD
@@ -173,157 +177,215 @@ class HcodeToolDisplay:
             self._display_generic(tool_name, arguments, result)
 
     # ─────────────────────────────────────────────────────────
-    # READ TOOL DISPLAY
+    # READ TOOL DISPLAY - Claude Code Style
     # ─────────────────────────────────────────────────────────
 
     def _display_read(self, arguments: Dict[str, Any], result: Any):
-        """Display Read tool execution - Hcode style with smart truncation for large files"""
+        """Display Read tool execution - Claude Code style with full-width lines"""
         file_path = arguments.get('file_path', 'unknown')
+        from pathlib import Path
+
+        # Get file extension for syntax hint
+        ext = Path(file_path).suffix.lower() if file_path else ''
+        lang_map = {
+            '.py': 'python', '.js': 'javascript', '.ts': 'typescript',
+            '.jsx': 'jsx', '.tsx': 'tsx', '.json': 'json', '.yaml': 'yaml',
+            '.yml': 'yaml', '.md': 'markdown', '.html': 'html', '.css': 'css',
+            '.sh': 'bash', '.bash': 'bash', '.rs': 'rust', '.go': 'go',
+            '.java': 'java', '.cpp': 'cpp', '.c': 'c', '.h': 'c',
+            '.sql': 'sql', '.xml': 'xml', '.toml': 'toml', '.ini': 'ini',
+        }
+        lang = lang_map.get(ext, '')
 
         if result.success:
             content = result.output or ""
             lines = content.split('\n') if content else []
             line_count = len(lines)
 
-            # Hcode format: "Read file_path (X lines)"
-            self.console.print(
-                f"  {self.style.ICON_READ} [bold]Read[/bold] "
-                f"[{self.style.FILE_PATH}]{file_path}[/] "
-                f"[{self.style.DIM}]({line_count} lines)[/]"
-            )
+            # Claude Code style header: ⎯⎯ file_path ⎯⎯
+            file_name = Path(file_path).name
+            self.console.print(f"\n  [bold cyan]{'─' * 3} {file_path} {'─' * 3}[/bold cyan]")
+            self.console.print(f"  [dim]{line_count} lines{f' • {lang}' if lang else ''}[/dim]")
 
-            # For very large files, show a preview with smart truncation
-            if line_count > 100:
-                self._show_file_preview(content, file_path)
+            # Show preview for all files (not just large ones)
+            self._show_file_preview_enhanced(content, file_path, lang)
         else:
             self.console.print(
-                f"  [{self.style.TOOL_ERROR}]{self.style.ICON_ERROR}[/] "
-                f"[bold]Read[/bold] [{self.style.FILE_PATH}]{file_path}[/] "
-                f"[{self.style.TOOL_ERROR}]failed: {result.error}[/]"
+                f"\n  [bold red]✗ Read failed:[/bold red] [{self.style.FILE_PATH}]{file_path}[/]"
             )
+            self.console.print(f"    [red]{result.error}[/red]")
 
-    def _show_file_preview(self, content: str, file_path: str, max_lines: int = 30):
+    def _show_file_preview_enhanced(self, content: str, file_path: str, lang: str = '', max_preview_lines: int = 25):
         """
-        Show preview of large file with smart truncation.
+        Show file preview - Claude Code style with full-width lines.
 
         Features:
-        - Shows first and last lines
-        - Extracts any errors/warnings
-        - Detects file type for syntax highlighting hints
+        - Full terminal width (no truncation)
+        - Syntax-aware display
+        - Smart preview for large files
+        - Line numbers for context
         """
-        truncated = _output_handler.process_output(
-            content,
-            output_type=OutputType.FILE_CONTENT,
-            extract_errors=True,
-            preserve_important=True,
-        )
+        from rich.syntax import Syntax
+        from rich.panel import Panel
+        from rich import box
 
-        # Only show preview if file was truncated
-        if not truncated.truncated:
-            return
+        lines = content.split('\n') if content else []
+        total_lines = len(lines)
 
-        self.console.print(f"    [{self.style.DIM}][Large file - showing preview][/]")
+        # Determine how many lines to show
+        if total_lines <= max_preview_lines:
+            # Small file - show all
+            preview_lines = lines
+            show_all = True
+        else:
+            # Large file - show first 15 and last 5
+            first_lines = lines[:15]
+            last_lines = lines[-5:]
+            preview_lines = first_lines
+            show_all = False
 
-        # Show any errors found in file
-        if truncated.errors_found:
-            error_count = len([e for e in truncated.errors_found
-                             if e.severity in (ErrorSeverity.CRITICAL, ErrorSeverity.ERROR)])
-            if error_count > 0:
-                self.console.print(f"    [{self.style.TOOL_ERROR}][{error_count} potential issues found][/]")
+        # Display the content with line numbers
+        self.console.print()  # spacing
 
-        # Draw file preview box
-        self.console.print(f"    {self.style.BOX_TL}{self.style.BOX_H * 60}{self.style.BOX_TR}")
+        for i, line in enumerate(preview_lines, 1):
+            # Line number + content (full width, no truncation)
+            line_num = f"[dim]{i:4}[/dim]"
+            # Escape any Rich markup in the line (only [ needs escaping)
+            safe_line = line.replace('[', '\\[')
+            self.console.print(f"  {line_num} │ {safe_line}")
 
-        preview_lines = truncated.content.split('\n')[:20]  # Limit preview
-        for line in preview_lines:
-            display_line = line[:58] if len(line) <= 58 else line[:55] + "..."
-            self.console.print(f"    {self.style.BOX_V} [{self.style.DIM}]{display_line:<58}[/] {self.style.BOX_V}")
+        # Show truncation indicator and last lines for large files
+        if not show_all:
+            omitted = total_lines - 20
+            self.console.print(f"  [dim]{'─' * 4} │ ... {omitted} lines omitted ...[/dim]")
 
-        if len(truncated.content.split('\n')) > 20:
-            self.console.print(f"    {self.style.BOX_V} [{self.style.DIM}]{'... (preview truncated)':<58}[/] {self.style.BOX_V}")
+            # Show last 5 lines
+            for i, line in enumerate(last_lines, total_lines - 4):
+                line_num = f"[dim]{i:4}[/dim]"
+                safe_line = line.replace('[', '\\[')
+                self.console.print(f"  {line_num} │ {safe_line}")
 
-        self.console.print(f"    {self.style.BOX_BL}{self.style.BOX_H * 60}{self.style.BOX_BR}")
+        self.console.print()  # spacing after
 
     # ─────────────────────────────────────────────────────────
-    # WRITE TOOL DISPLAY
+    # WRITE TOOL DISPLAY - Claude Code Style
     # ─────────────────────────────────────────────────────────
 
     def _display_write(self, arguments: Dict[str, Any], result: Any):
-        """Display Write tool execution - Hcode style (no content shown)"""
+        """Display Write tool execution - Claude Code style"""
         file_path = arguments.get('file_path', 'unknown')
         content = arguments.get('content', '')
+        from pathlib import Path
+
+        # Get file extension for language hint
+        ext = Path(file_path).suffix.lower() if file_path else ''
+        lang_map = {
+            '.py': 'python', '.js': 'javascript', '.ts': 'typescript',
+            '.json': 'json', '.yaml': 'yaml', '.yml': 'yaml', '.md': 'markdown',
+            '.html': 'html', '.css': 'css', '.sh': 'bash', '.sql': 'sql',
+        }
+        lang = lang_map.get(ext, '')
 
         if result.success:
-            # Hcode format: "Wrote file_path (X bytes)"
+            lines = content.split('\n') if content else []
+            line_count = len(lines)
             byte_count = len(content.encode('utf-8'))
-            self.console.print(
-                f"  {self.style.ICON_WRITE} [bold]Wrote[/bold] "
-                f"[{self.style.FILE_PATH}]{file_path}[/] "
-                f"[{self.style.DIM}]({byte_count} bytes)[/]"
-            )
+
+            # Claude Code style header
+            self.console.print(f"\n  [bold green]{'─' * 3} {file_path} {'─' * 3}[/bold green]")
+            self.console.print(f"  [dim]Created {line_count} lines ({byte_count} bytes){f' • {lang}' if lang else ''}[/dim]")
         else:
-            self.console.print(
-                f"  [{self.style.TOOL_ERROR}]{self.style.ICON_ERROR}[/] "
-                f"[bold]Write[/bold] [{self.style.FILE_PATH}]{file_path}[/] "
-                f"[{self.style.TOOL_ERROR}]failed: {result.error}[/]"
-            )
+            self.console.print(f"\n  [bold red]✗ Write failed:[/bold red] [{self.style.FILE_PATH}]{file_path}[/]")
+            self.console.print(f"    [red]{result.error}[/red]")
 
     # ─────────────────────────────────────────────────────────
-    # EDIT TOOL DISPLAY
+    # EDIT TOOL DISPLAY - Claude Code Style
     # ─────────────────────────────────────────────────────────
 
     def _display_edit(self, arguments: Dict[str, Any], result: Any):
-        """Display Edit tool execution - Hcode style with diff"""
+        """Display Edit tool execution - Claude Code style with full-width diff"""
         file_path = arguments.get('file_path', 'unknown')
         old_string = arguments.get('old_string', '')
         new_string = arguments.get('new_string', '')
+        from pathlib import Path
 
         if result.success:
-            # Header line
-            self.console.print(
-                f"  {self.style.ICON_EDIT} [bold]Edited[/bold] "
-                f"[{self.style.FILE_PATH}]{file_path}[/]"
-            )
+            # Calculate change statistics
+            old_lines = old_string.split('\n')
+            new_lines = new_string.split('\n')
+            lines_removed = len(old_lines)
+            lines_added = len(new_lines)
 
-            # Show diff
-            self._show_diff(old_string, new_string)
+            # Claude Code style header
+            self.console.print(f"\n  [bold cyan]{'─' * 3} {file_path} {'─' * 3}[/bold cyan]")
+            self.console.print(f"  [green]+{lines_added}[/green] [red]-{lines_removed}[/red] lines changed")
+
+            # Show full diff
+            self._show_diff_enhanced(old_string, new_string)
         else:
-            self.console.print(
-                f"  [{self.style.TOOL_ERROR}]{self.style.ICON_ERROR}[/] "
-                f"[bold]Edit[/bold] [{self.style.FILE_PATH}]{file_path}[/] "
-                f"[{self.style.TOOL_ERROR}]failed: {result.error}[/]"
-            )
+            self.console.print(f"\n  [bold red]✗ Edit failed:[/bold red] [{self.style.FILE_PATH}]{file_path}[/]")
+            self.console.print(f"    [red]{result.error}[/red]")
 
-    def _show_diff(self, old_string: str, new_string: str, max_lines: int = 10):
-        """Show diff in Hcode style"""
+    def _show_diff_enhanced(self, old_string: str, new_string: str, max_lines: int = 20):
+        """
+        Show diff in Claude Code style - full width with smart truncation.
+
+        Features:
+        - Full terminal width for reasonable lines
+        - Smart truncation for very long lines (>100 chars)
+        - Clear visual distinction between removed and added lines
+        - Line count for large diffs
+        - Smart truncation for very large changes
+        """
+        from rich.text import Text
+
         old_lines = old_string.split('\n')
         new_lines = new_string.split('\n')
 
-        # Truncate if too long
-        show_old = old_lines[:max_lines]
-        show_new = new_lines[:max_lines]
+        self.console.print()  # spacing
 
-        # Show removed lines
-        for line in show_old:
-            self.console.print(
-                f"    [{self.style.REMOVED}]{self.style.ICON_DIFF_DEL} {line}[/]"
-            )
+        def print_diff_line(prefix: str, line: str, color: str, max_width: int = 100):
+            """Print a diff line with proper truncation and no wrapping."""
+            # Truncate if needed (before any escaping)
+            if len(line) > max_width:
+                display_line = line[:max_width - 3] + '...'
+            else:
+                display_line = line
 
-        if len(old_lines) > max_lines:
-            self.console.print(
-                f"    [{self.style.DIM}]... ({len(old_lines) - max_lines} more lines)[/]"
-            )
+            # Use Text object to avoid markup interpretation and control overflow
+            text = Text()
+            text.append("  ", style="")
+            text.append(f"{prefix} ", style=color)
+            text.append(display_line, style=color)
+            self.console.print(text, overflow="ellipsis", no_wrap=True)
 
-        # Show added lines
-        for line in show_new:
-            self.console.print(
-                f"    [{self.style.ADDED}]{self.style.ICON_DIFF_ADD} {line}[/]"
-            )
+        # Show removed lines (red with - prefix)
+        if len(old_lines) <= max_lines:
+            for line in old_lines:
+                print_diff_line("-", line, "red")
+        else:
+            # Show first 10, then truncation, then last 5
+            for line in old_lines[:10]:
+                print_diff_line("-", line, "red")
+            omitted = len(old_lines) - 15
+            self.console.print(f"  [dim red]  ... {omitted} more lines removed ...[/dim red]")
+            for line in old_lines[-5:]:
+                print_diff_line("-", line, "red")
 
-        if len(new_lines) > max_lines:
-            self.console.print(
-                f"    [{self.style.DIM}]... ({len(new_lines) - max_lines} more lines)[/]"
-            )
+        # Show added lines (green with + prefix)
+        if len(new_lines) <= max_lines:
+            for line in new_lines:
+                print_diff_line("+", line, "green")
+        else:
+            # Show first 10, then truncation, then last 5
+            for line in new_lines[:10]:
+                print_diff_line("+", line, "green")
+            omitted = len(new_lines) - 15
+            self.console.print(f"  [dim green]  ... {omitted} more lines added ...[/dim green]")
+            for line in new_lines[-5:]:
+                print_diff_line("+", line, "green")
+
+        self.console.print()  # spacing after
 
     # ─────────────────────────────────────────────────────────
     # BASH TOOL DISPLAY
@@ -376,6 +438,9 @@ class HcodeToolDisplay:
         """
         Show bash output with smart truncation.
 
+        In normal mode: Minimal output, just show content directly
+        In debug mode: Full verbose output with boxes and error analysis
+
         Features:
         - Always shows last 5 lines (latest output)
         - Extracts and highlights errors
@@ -389,6 +454,27 @@ class HcodeToolDisplay:
             extract_errors=show_errors,
             preserve_important=True,
         )
+
+        # ═══════════════════════════════════════════════════════════════════════════
+        # NORMAL MODE: Claude Code-style minimal output
+        # ═══════════════════════════════════════════════════════════════════════════
+        if not self.debug_mode:
+            # Show output directly without boxes (Claude Code style)
+            content_lines = truncated.content.split('\n')
+            for line in content_lines[:30]:  # Limit to 30 lines in normal mode
+                # Highlight error lines
+                if any(word in line.lower() for word in ['error', 'exception', 'failed', 'traceback']):
+                    self.console.print(f"    [{self.style.TOOL_ERROR}]{line}[/]")
+                else:
+                    self.console.print(f"    [{self.style.DIM}]{line}[/]")
+
+            if len(content_lines) > 30:
+                self.console.print(f"    [{self.style.DIM}]... ({len(content_lines) - 30} more lines)[/]")
+            return
+
+        # ═══════════════════════════════════════════════════════════════════════════
+        # DEBUG MODE: Full verbose output with boxes
+        # ═══════════════════════════════════════════════════════════════════════════
 
         # Show error summary if errors found
         if show_errors and truncated.errors_found:

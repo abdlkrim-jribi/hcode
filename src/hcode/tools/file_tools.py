@@ -87,15 +87,19 @@ class WriteTool(BaseTool):
     - Full file writes (default)
     - Append mode for chunked/continuation writes
     - Partial content detection and recovery
+    - Preview mode for reviewing changes before applying
     """
 
     # Class-level tracking of partial writes for continuation
     _partial_writes: Dict[str, str] = {}
 
-    def __init__(self, root_dir: Optional[str] = None):
+    def __init__(self, root_dir: Optional[str] = None, preview_mode: bool = False, console: Optional[Any] = None):
         super().__init__()
         self.category = ToolCategory.FILE_OPERATION
         self.root_dir = Path(root_dir or os.getcwd())
+        self.preview_mode = preview_mode
+        self._console = console
+        self._pending_proposals: Dict[str, Any] = {}
 
     def get_parameters(self) -> List[ToolParameter]:
         return [
@@ -103,6 +107,7 @@ class WriteTool(BaseTool):
             ToolParameter("content", "string", "Content to write", required=True),
             ToolParameter("mode", "string", "Write mode: 'overwrite' (default) or 'append' for chunked writes", default="overwrite"),
             ToolParameter("is_partial", "boolean", "Indicates this is partial content that may be continued", default=False),
+            ToolParameter("preview", "boolean", "Preview changes before applying (requires approval)", default=False),
         ]
 
     def _validate_content(self, content: str, file_path: str) -> List[str]:
@@ -184,6 +189,7 @@ class WriteTool(BaseTool):
         content: str,
         mode: str = "overwrite",
         is_partial: bool = False,
+        preview: bool = False,
         **kwargs
     ) -> ToolResult:
         """
@@ -193,8 +199,15 @@ class WriteTool(BaseTool):
         - Standard overwrite mode
         - Append mode for chunked/continuation writes
         - Partial content tracking for recovery
+        - Preview mode for reviewing changes before applying
         """
         try:
+            # Check if preview mode is enabled (either instance or parameter)
+            use_preview = preview or self.preview_mode
+
+            if use_preview:
+                return await self._execute_with_preview(file_path, content, mode, is_partial)
+
             path = Path(file_path)
             file_key = str(path.absolute())
 
@@ -281,6 +294,136 @@ class WriteTool(BaseTool):
                 pass
             return ToolResult(success=False, output=None, error=str(e))
 
+    async def _execute_with_preview(
+        self,
+        file_path: str,
+        content: str,
+        mode: str = "overwrite",
+        is_partial: bool = False
+    ) -> ToolResult:
+        """Execute write with preview mode - shows diff before applying"""
+        from .diff_tools import ChangeProposal, ChangeOperation
+
+        path = Path(file_path)
+
+        # Get existing content
+        old_content = ""
+        if path.exists():
+            with open(path, 'r', encoding='utf-8', errors='ignore') as f:
+                old_content = f.read()
+
+        # Handle append mode
+        if mode == "append":
+            final_content = old_content + content
+        else:
+            final_content = content
+
+        # Create proposal
+        operation = ChangeOperation.WRITE if path.exists() else ChangeOperation.CREATE
+        proposal = ChangeProposal(
+            file_path=str(path),
+            operation=operation,
+            old_content=old_content,
+            new_content=final_content
+        )
+
+        # Compute diff and analyze
+        proposal.compute_diff()
+        proposal.analyze_safety()
+
+        # Store proposal
+        self._pending_proposals[proposal.id] = proposal
+
+        # Display preview
+        self._display_preview(proposal)
+
+        return ToolResult(
+            success=True,
+            output=f"Preview generated for: {path}\nProposal ID: {proposal.id}\n"
+                   f"+{proposal.additions} additions, -{proposal.deletions} deletions\n"
+                   f"Use apply_proposal('{proposal.id}') to apply this change.",
+            metadata={
+                "proposal_id": proposal.id,
+                "preview_mode": True,
+                "file_path": str(path),
+                "operation": operation.value,
+                "additions": proposal.additions,
+                "deletions": proposal.deletions,
+                "warnings": len(proposal.safety_warnings),
+                "has_critical": proposal.has_critical_warnings()
+            }
+        )
+
+    def _display_preview(self, proposal) -> None:
+        """Display the change preview"""
+        if not self._console:
+            return
+
+        try:
+            from ..ui import DiffDisplay
+            from rich.panel import Panel
+            from rich.text import Text
+
+            # Show diff
+            diff_panel = DiffDisplay.render(
+                filename=os.path.basename(proposal.file_path),
+                old_content=proposal.old_content,
+                new_content=proposal.new_content,
+                context_lines=3,
+                show_stats=True
+            )
+            self._console.print(diff_panel)
+
+            # Show warnings
+            if proposal.safety_warnings:
+                warning_text = Text()
+                warning_text.append("\nSafety Warnings:\n", style="bold yellow")
+                for w in proposal.safety_warnings:
+                    style = {"info": "blue", "warning": "yellow", "critical": "red bold"}[w.level]
+                    warning_text.append(f"  [{w.level.upper()}] ", style=style)
+                    warning_text.append(f"{w.message}\n")
+                self._console.print(warning_text)
+
+        except ImportError:
+            pass
+
+    def get_pending_proposal(self, proposal_id: str):
+        """Get a pending proposal by ID"""
+        return self._pending_proposals.get(proposal_id)
+
+    async def apply_proposal(self, proposal_id: str, force: bool = False) -> ToolResult:
+        """Apply a pending proposal"""
+        proposal = self._pending_proposals.get(proposal_id)
+        if not proposal:
+            return ToolResult(
+                success=False,
+                output=None,
+                error=f"No pending proposal with ID: {proposal_id}"
+            )
+
+        if proposal.has_critical_warnings() and not force:
+            return ToolResult(
+                success=False,
+                output=None,
+                error="Critical warnings present. Use force=True to override."
+            )
+
+        # Apply the change
+        path = Path(proposal.file_path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+
+        with open(path, 'w', encoding='utf-8') as f:
+            f.write(proposal.new_content)
+
+        # Clean up
+        del self._pending_proposals[proposal_id]
+
+        return ToolResult(
+            success=True,
+            output=f"Change applied: {proposal.file_path} (+{proposal.additions}/-{proposal.deletions})",
+            metadata={"applied": True, "proposal_id": proposal_id}
+        )
+
     @classmethod
     def get_partial_content(cls, file_path: str) -> Optional[str]:
         """
@@ -312,14 +455,17 @@ class EditTool(BaseTool):
     Edit files by replacing exact string matches.
     Uses old_string/new_string replacement for precise editing.
     Shows Claude Code-style diff display after changes.
+    Supports preview mode for reviewing changes before applying.
     """
 
-    def __init__(self, root_dir: Optional[str] = None, console: Optional[Any] = None):
+    def __init__(self, root_dir: Optional[str] = None, console: Optional[Any] = None, preview_mode: bool = False):
         super().__init__()
         self.category = ToolCategory.FILE_OPERATION
         self.root_dir = Path(root_dir or os.getcwd())
         self._file_read_cache = {}
         self._console = console
+        self.preview_mode = preview_mode
+        self._pending_proposals: Dict[str, Any] = {}
 
     def get_parameters(self) -> List[ToolParameter]:
         return [
@@ -327,6 +473,7 @@ class EditTool(BaseTool):
             ToolParameter("old_string", "string", "Exact string to replace", required=True),
             ToolParameter("new_string", "string", "Replacement string", required=True),
             ToolParameter("replace_all", "boolean", "Replace all occurrences", default=False),
+            ToolParameter("preview", "boolean", "Preview changes before applying (requires approval)", default=False),
         ]
 
     def _show_diff(self, file_path: str, old_content: str, new_content: str) -> str:
@@ -376,10 +523,19 @@ class EditTool(BaseTool):
         old_string: str,
         new_string: str,
         replace_all: bool = False,
+        preview: bool = False,
         **kwargs  # Accept and ignore unknown parameters for model compatibility
     ) -> ToolResult:
         """Edit file by replacing old_string with new_string"""
         try:
+            # Check if preview mode is enabled
+            use_preview = preview or self.preview_mode
+
+            if use_preview:
+                return await self._execute_with_preview(
+                    file_path, old_string, new_string, replace_all
+                )
+
             path = Path(file_path)
 
             if not path.exists():
@@ -441,6 +597,166 @@ class EditTool(BaseTool):
 
         except Exception as e:
             return ToolResult(success=False, output=None, error=str(e))
+
+    async def _execute_with_preview(
+        self,
+        file_path: str,
+        old_string: str,
+        new_string: str,
+        replace_all: bool = False
+    ) -> ToolResult:
+        """Execute edit with preview mode - shows diff before applying"""
+        from .diff_tools import ChangeProposal, ChangeOperation
+
+        path = Path(file_path)
+
+        if not path.exists():
+            return ToolResult(
+                success=False,
+                output=None,
+                error=f"File not found: {file_path}"
+            )
+
+        # Read file
+        with open(path, 'r', encoding='utf-8') as f:
+            content = f.read()
+
+        # Store original content
+        original_content = content
+
+        # Check if old_string exists
+        if old_string not in content:
+            return ToolResult(
+                success=False,
+                output=None,
+                error=f"String not found in file: {old_string[:100]}..."
+            )
+
+        # Check if replacement would be ambiguous
+        if not replace_all and content.count(old_string) > 1:
+            return ToolResult(
+                success=False,
+                output=None,
+                error=f"String appears {content.count(old_string)} times. Use replace_all=True or provide more context."
+            )
+
+        # Perform replacement (in memory only)
+        if replace_all:
+            new_content = content.replace(old_string, new_string)
+            replacements = content.count(old_string)
+        else:
+            new_content = content.replace(old_string, new_string, 1)
+            replacements = 1
+
+        # Create proposal
+        proposal = ChangeProposal(
+            file_path=str(path),
+            operation=ChangeOperation.EDIT,
+            old_content=original_content,
+            new_content=new_content,
+            old_string=old_string,
+            new_string=new_string,
+            replace_all=replace_all
+        )
+
+        # Compute diff and analyze
+        proposal.compute_diff()
+        proposal.analyze_safety()
+
+        # Store proposal
+        self._pending_proposals[proposal.id] = proposal
+
+        # Display preview
+        self._display_preview(proposal)
+
+        return ToolResult(
+            success=True,
+            output=f"Preview generated for: {path}\nProposal ID: {proposal.id}\n"
+                   f"Replacing {replacements} occurrence(s)\n"
+                   f"+{proposal.additions} additions, -{proposal.deletions} deletions\n"
+                   f"Use apply_proposal('{proposal.id}') to apply this change.",
+            metadata={
+                "proposal_id": proposal.id,
+                "preview_mode": True,
+                "file_path": str(path),
+                "operation": ChangeOperation.EDIT.value,
+                "replacements": replacements,
+                "additions": proposal.additions,
+                "deletions": proposal.deletions,
+                "warnings": len(proposal.safety_warnings),
+                "has_critical": proposal.has_critical_warnings()
+            }
+        )
+
+    def _display_preview(self, proposal) -> None:
+        """Display the change preview"""
+        if not self._console:
+            return
+
+        try:
+            from ..ui import DiffDisplay
+            from rich.text import Text
+
+            # Show diff
+            diff_panel = DiffDisplay.render(
+                filename=os.path.basename(proposal.file_path),
+                old_content=proposal.old_content,
+                new_content=proposal.new_content,
+                context_lines=3,
+                show_stats=True
+            )
+            self._console.print(diff_panel)
+
+            # Show warnings
+            if proposal.safety_warnings:
+                warning_text = Text()
+                warning_text.append("\nSafety Warnings:\n", style="bold yellow")
+                for w in proposal.safety_warnings:
+                    style = {"info": "blue", "warning": "yellow", "critical": "red bold"}[w.level]
+                    warning_text.append(f"  [{w.level.upper()}] ", style=style)
+                    warning_text.append(f"{w.message}\n")
+                self._console.print(warning_text)
+
+        except ImportError:
+            pass
+
+    def get_pending_proposal(self, proposal_id: str):
+        """Get a pending proposal by ID"""
+        return self._pending_proposals.get(proposal_id)
+
+    async def apply_proposal(self, proposal_id: str, force: bool = False) -> ToolResult:
+        """Apply a pending proposal"""
+        proposal = self._pending_proposals.get(proposal_id)
+        if not proposal:
+            return ToolResult(
+                success=False,
+                output=None,
+                error=f"No pending proposal with ID: {proposal_id}"
+            )
+
+        if proposal.has_critical_warnings() and not force:
+            return ToolResult(
+                success=False,
+                output=None,
+                error="Critical warnings present. Use force=True to override."
+            )
+
+        # Apply the change
+        path = Path(proposal.file_path)
+        with open(path, 'w', encoding='utf-8') as f:
+            f.write(proposal.new_content)
+
+        # Show diff after applying
+        diff_summary = self._show_diff(str(path), proposal.old_content, proposal.new_content)
+
+        # Clean up
+        del self._pending_proposals[proposal_id]
+
+        return ToolResult(
+            success=True,
+            output=f"Change applied: {proposal.file_path} (+{proposal.additions}/-{proposal.deletions}) ({diff_summary})",
+            metadata={"applied": True, "proposal_id": proposal_id}
+        )
 
 
 class MultiEditTool(BaseTool):

@@ -36,6 +36,7 @@ from .settings import (
     LoggingSettings,
     MemorySettings,
     SafetySettings,
+    PromptsSettings,
     get_settings,
     clear_settings_cache,
     get_llm_settings,
@@ -44,6 +45,18 @@ from .settings import (
     get_logging_settings,
     get_memory_settings,
     get_safety_settings,
+    get_prompts_settings,
+    is_debug_mode,
+)
+from .prompt_loader import (
+    PromptLoader,
+    LoadedPrompt,
+    PromptMetadata,
+    PromptVariable,
+    get_prompt_loader,
+    set_prompts_dir,
+    load_prompt,
+    list_prompts,
 )
 from .defaults import (
     VERSION,
@@ -85,6 +98,12 @@ __all__ = [
     'LoggingSettings',
     'MemorySettings',
     'SafetySettings',
+    'PromptsSettings',
+    # Prompt loader
+    'PromptLoader',
+    'LoadedPrompt',
+    'PromptMetadata',
+    'PromptVariable',
     # Defaults
     'VERSION',
     'APP_NAME',
@@ -113,6 +132,12 @@ __all__ = [
     'get_logging_settings',
     'get_memory_settings',
     'get_safety_settings',
+    'get_prompts_settings',
+    'is_debug_mode',
+    'get_prompt_loader',
+    'set_prompts_dir',
+    'load_prompt',
+    'list_prompts',
     'get_default_model',
     'get_model_pricing',
     'get_context_window',

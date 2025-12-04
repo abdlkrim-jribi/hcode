@@ -32,6 +32,28 @@ from .command_system import (
     HookSystem
 )
 from .tool_manager import ToolManager, ToolExecutionContext
+from .diff_tools import (
+    DiffPreviewTool,
+    ApplyChangeTool,
+    RejectChangeTool,
+    ChangeProposal,
+    ChangeOperation,
+    ChangeStatus,
+    DiffLine,
+    DiffHunk,
+    SafetyWarning,
+    ChangeSet
+)
+from .tool_selector import (
+    ToolSelectionEngine,
+    ToolSuccessTracker,
+    ToolSelectionRules,
+    ToolSelection,
+    ToolContext,
+    TaskCategory,
+    get_tool_selector,
+    select_tools_for_task
+)
 
 __all__ = [
     # Core
@@ -91,5 +113,27 @@ __all__ = [
     # Manager
     "ToolManager",
     "ToolExecutionContext",
+
+    # Diff/Preview Tools
+    "DiffPreviewTool",
+    "ApplyChangeTool",
+    "RejectChangeTool",
+    "ChangeProposal",
+    "ChangeOperation",
+    "ChangeStatus",
+    "DiffLine",
+    "DiffHunk",
+    "SafetyWarning",
+    "ChangeSet",
+
+    # Tool Selection
+    "ToolSelectionEngine",
+    "ToolSuccessTracker",
+    "ToolSelectionRules",
+    "ToolSelection",
+    "ToolContext",
+    "TaskCategory",
+    "get_tool_selector",
+    "select_tools_for_task",
 ]
 

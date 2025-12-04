@@ -9,6 +9,7 @@ from typing import Optional, Dict, Any, List
 
 from .base_tool import ToolRegistry, BaseTool, ToolResult
 from .file_tools import ReadTool, WriteTool, EditTool, MultiEditTool, GlobTool, GrepTool
+from .diff_tools import DiffPreviewTool, ApplyChangeTool, RejectChangeTool
 from .bash_tools import BashTool, BashOutputTool, KillShellTool, LSTool, SearchOutputTool
 from .agent_tools import TaskTool, ExitPlanModeTool, TodoReadTool
 from .web_tools import WebFetchTool, WebSearchTool, WebScrapeTool
@@ -62,6 +63,12 @@ class ToolManager:
         self.tool_registry.register(GlobTool(root_dir=str(self.root_dir)))
         self.tool_registry.register(GrepTool(root_dir=str(self.root_dir)))
         self.tool_registry.register(LSTool(root_dir=str(self.root_dir)))
+
+        # Diff/Preview tools (for change preview before applying)
+        self.diff_preview_tool = DiffPreviewTool(root_dir=str(self.root_dir))
+        self.tool_registry.register(self.diff_preview_tool)
+        self.tool_registry.register(ApplyChangeTool(self.diff_preview_tool))
+        self.tool_registry.register(RejectChangeTool(self.diff_preview_tool))
 
         # Bash/Execution tools
         self.tool_registry.register(BashTool(root_dir=str(self.root_dir)))
@@ -233,6 +240,70 @@ class ToolManager:
     async def web_search(self, query: str, **kwargs) -> ToolResult:
         """Convenience method for web search"""
         return await self.execute_tool("websearchtool", query=query, **kwargs)
+
+    # =========================================================================
+    # CHANGE PREVIEW METHODS (NEW)
+    # =========================================================================
+
+    async def preview_edit(
+        self,
+        file_path: str,
+        old_string: str,
+        new_string: str,
+        replace_all: bool = False
+    ) -> ToolResult:
+        """Preview an edit without applying it"""
+        return await self.execute_tool(
+            "diffpreviewtool",
+            file_path=file_path,
+            old_string=old_string,
+            new_string=new_string,
+            replace_all=replace_all
+        )
+
+    async def preview_write(
+        self,
+        file_path: str,
+        new_content: str
+    ) -> ToolResult:
+        """Preview a file write without applying it"""
+        return await self.execute_tool(
+            "diffpreviewtool",
+            file_path=file_path,
+            new_content=new_content
+        )
+
+    async def apply_change(self, proposal_id: str, force: bool = False) -> ToolResult:
+        """Apply a previously previewed change"""
+        return await self.execute_tool(
+            "applychangetool",
+            proposal_id=proposal_id,
+            force=force
+        )
+
+    async def reject_change(self, proposal_id: str, reason: str = None) -> ToolResult:
+        """Reject a previously previewed change"""
+        return await self.execute_tool(
+            "rejectchangetool",
+            proposal_id=proposal_id,
+            reason=reason
+        )
+
+    def get_pending_proposals(self) -> Dict[str, Any]:
+        """Get all pending change proposals"""
+        if hasattr(self, 'diff_preview_tool'):
+            return self.diff_preview_tool._pending_proposals
+        return {}
+
+    def set_preview_mode(self, enabled: bool = True):
+        """Enable or disable preview mode for edit/write operations"""
+        edit_tool = self.get_tool("edittool")
+        write_tool = self.get_tool("writetool")
+
+        if edit_tool:
+            edit_tool.preview_mode = enabled
+        if write_tool:
+            write_tool.preview_mode = enabled
 
 
 class ToolExecutionContext:

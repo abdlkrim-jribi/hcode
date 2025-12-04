@@ -221,17 +221,23 @@ class TodoWriteTool(BaseTool):
                 for t in todos
             ]
 
-            # Display updated todo list
-            self._display_todos()
+            # DON'T display inline - let the CLI handle display at bottom (Claude Code style)
+            # The agent.py _display_tool_result will show a compact status line instead
+            # self._display_todos()
+
+            completed = sum(1 for t in self.todos if t.status == "completed")
+            in_progress = sum(1 for t in self.todos if t.status == "in_progress")
+            pending = sum(1 for t in self.todos if t.status == "pending")
 
             return ToolResult(
                 success=True,
-                output="Todo list updated",
+                output=f"Todo list updated: {completed} completed, {in_progress} in progress, {pending} pending",
                 metadata={
                     "total_todos": len(self.todos),
-                    "completed": sum(1 for t in self.todos if t.status == "completed"),
-                    "in_progress": sum(1 for t in self.todos if t.status == "in_progress"),
-                    "pending": sum(1 for t in self.todos if t.status == "pending")
+                    "completed": completed,
+                    "in_progress": in_progress,
+                    "pending": pending,
+                    "todos": todos  # Pass todos for CLI display
                 }
             )
 

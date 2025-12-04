@@ -264,6 +264,24 @@ from .chat_ui import (
     display_thinking,
 )
 
+# ═══════════════════════════════════════════════════════════════════════
+# TODO DISPLAY EXPORTS (Enhanced persistent display)
+# ═══════════════════════════════════════════════════════════════════════
+
+from .todo_display import (
+    # Classes
+    TodoDisplayStatus,
+    DisplayTodoItem,
+    TodoDisplayRenderer,
+    PersistentTodoDisplay,
+    TodoStatusBar,
+
+    # Functions
+    create_todo_display,
+    render_todo_panel,
+    render_todo_status_line,
+)
+
 
 # ═══════════════════════════════════════════════════════════════════════
 # ALL EXPORTS
@@ -407,6 +425,16 @@ __all__ = [
     "create_chat",
     "display_message",
     "display_thinking",
+
+    # Todo Display (Enhanced)
+    "TodoDisplayStatus",
+    "DisplayTodoItem",
+    "TodoDisplayRenderer",
+    "PersistentTodoDisplay",
+    "TodoStatusBar",
+    "create_todo_display",
+    "render_todo_panel",
+    "render_todo_status_line",
 ]
 
 # ═══════════════════════════════════════════════════════════════════════
