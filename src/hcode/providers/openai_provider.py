@@ -106,7 +106,7 @@ class OpenAIProvider(AIProvider):
         api_key: Optional[str] = None,
         model: str = "gpt-4-turbo-preview",
         max_tokens: int = 16384,  # GPT-4o max output tokens
-        temperature: float = 0.3,
+        temperature: float = 0.2,  # Lower for more deterministic/consistent results
         base_url: Optional[str] = None,
         timeout: float = 120.0,
         max_retries: int = 3,

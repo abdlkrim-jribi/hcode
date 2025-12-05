@@ -273,43 +273,61 @@ class EnhancedThinkingManager:
 
     async def _think_quick(self, prompt: str, context: Optional[Dict[str, Any]]) -> str:
         """Generate quick Level 1 thinking"""
+        from hcode.config.prompts import get_generation_params
+
         system_prompt = get_reasoning_system_prompt()
         thinking_prompt = self.prompt_builder.build_thinking_prompt(
             task=prompt, depth=ReasoningDepth.QUICK, context=context
         )
 
+        params = get_generation_params(task_type="thinking_quick")
         return await self._generate_thinking(
-            system_prompt=system_prompt, user_prompt=thinking_prompt, max_tokens=1000
+            system_prompt=system_prompt,
+            user_prompt=thinking_prompt,
+            max_tokens=params.max_tokens,
+            temperature=params.temperature,
         )
 
     async def _think_standard(
         self, prompt: str, context: Optional[Dict[str, Any]], task_type: Optional[str]
     ) -> str:
         """Generate standard Level 2 thinking"""
+        from hcode.config.prompts import get_generation_params
+
         system_prompt = get_reasoning_system_prompt(task_type=task_type)
         thinking_prompt = self.prompt_builder.build_thinking_prompt(
             task=prompt, depth=ReasoningDepth.STANDARD, context=context
         )
 
+        params = get_generation_params(task_type="thinking_standard")
         return await self._generate_thinking(
-            system_prompt=system_prompt, user_prompt=thinking_prompt, max_tokens=2500
+            system_prompt=system_prompt,
+            user_prompt=thinking_prompt,
+            max_tokens=params.max_tokens,
+            temperature=params.temperature,
         )
 
     async def _think_deep(
         self, prompt: str, context: Optional[Dict[str, Any]], task_type: Optional[str]
     ) -> str:
         """Generate deep Level 3 thinking"""
+        from hcode.config.prompts import get_generation_params
+
         system_prompt = get_reasoning_system_prompt(task_type=task_type)
         thinking_prompt = self.prompt_builder.build_thinking_prompt(
             task=prompt, depth=ReasoningDepth.DEEP, context=context
         )
 
+        params = get_generation_params(task_type="thinking_deep")
         return await self._generate_thinking(
-            system_prompt=system_prompt, user_prompt=thinking_prompt, max_tokens=4000
+            system_prompt=system_prompt,
+            user_prompt=thinking_prompt,
+            max_tokens=params.max_tokens,
+            temperature=params.temperature,
         )
 
     async def _generate_thinking(
-        self, system_prompt: str, user_prompt: str, max_tokens: int
+        self, system_prompt: str, user_prompt: str, max_tokens: int, temperature: float = 0.7
     ) -> str:
         """Generate thinking using LLM"""
         if not self.llm_client:
@@ -321,7 +339,7 @@ class EnhancedThinkingManager:
                 prompt=user_prompt,
                 system=system_prompt,
                 max_tokens=max_tokens,
-                temperature=0.7,  # Higher for creative exploration
+                temperature=temperature,
             )
 
             content = response.get("content", "")
@@ -414,6 +432,8 @@ class EnhancedThinkingManager:
         previous_phases: List[ThinkingBlock],
     ) -> str:
         """Generate thinking for a specific phase"""
+        from hcode.config.prompts import get_generation_params
+
         phase_instructions = self._get_phase_instructions(phase)
 
         # Build context from previous phases
@@ -434,11 +454,13 @@ Respond with your {phase.value} analysis:"""
             return f"[{phase.value}] Requires manual analysis"
 
         try:
+            # Use summary task type for phase-based thinking (concise output)
+            params = get_generation_params(task_type="summary")
             response = await self.llm_client.generate(
                 prompt=phase_prompt,
                 system=get_reasoning_system_prompt(task_type),
-                max_tokens=800,
-                temperature=0.7,
+                max_tokens=params.max_tokens,
+                temperature=params.temperature,
             )
             return response.get("content", "")
         except Exception as e:
@@ -522,11 +544,15 @@ Respond with your {phase.value} analysis:"""
             outcome=outcome,
         )
 
-        # Generate refined thinking
+        # Generate refined thinking (use exploration params for iterative refinement)
+        from hcode.config.prompts import get_generation_params
+        params = get_generation_params(task_type="exploration")
+
         refined_content = await self._generate_thinking(
             system_prompt=get_reasoning_system_prompt(),
             user_prompt=refinement_prompt,
-            max_tokens=3000,
+            max_tokens=params.max_tokens,
+            temperature=params.temperature,
         )
 
         # Parse refined reasoning

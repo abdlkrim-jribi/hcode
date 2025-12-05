@@ -1,7 +1,11 @@
 """
-Tests for web tools.
+Unit tests for the web tool suite.
 
-Tests WebFetch, WebSearch, and WebScrape tools.
+This module contains comprehensive tests for the WebFetchTool, WebSearchTool,
+and WebScrapeTool implementations. Each test class verifies initialization,
+parameter definitions, and functional behavior such as fetching, searching,
+scraping, caching, and error handling. The tests use mocking to isolate
+external HTTP calls and ensure deterministic outcomes.
 """
 
 import pytest

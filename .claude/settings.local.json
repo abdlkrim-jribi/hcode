@@ -3,7 +3,10 @@
     "allow": [
       "Bash(dir \"D:\\workshops\\Hcaude\" /B)",
       "Bash(find:*)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(dir /B /S *.py)",
+      "Bash(findstr:*)",
+      "Bash(pytest:*)"
     ]
   }
 }

@@ -311,127 +311,55 @@ def format_thinking_display(
     block: ThinkingBlock, console: Console, debug_mode: bool = False
 ) -> None:
     """
-    Display a thinking block with quality indicators.
+    Display a thinking block with Antigravity style.
 
-    In normal mode (debug_mode=False): Shows only the key goal/understanding as simple text.
-    In debug mode (debug_mode=True): Shows full panel with quality indicators.
+    In normal mode (debug_mode=False): Shows collapsed summary.
+    In debug mode (debug_mode=True): Shows full panel.
 
     Args:
         block: The parsed thinking block
         console: Rich console for output
-        debug_mode: If True, show full verbose panel. If False, show minimal output.
+        debug_mode: If True, show full verbose panel. If False, show collapsed summary.
     """
-    from rich.panel import Panel
-    from rich.text import Text
-
-    # Get themed colors
-    palette = get_palette()
-    icons = Icons()
-
-    # ═══════════════════════════════════════════════════════════════════════════
-    # NORMAL MODE: Claude Code-style minimal output - just show the goal/intent
-    # ═══════════════════════════════════════════════════════════════════════════
-    if not debug_mode:
-        # Show only the understanding/goal as simple text (like Claude Code does)
-        if block.understand:
-            goal_text = block.understand.strip()
-            # Get first meaningful line
-            first_line = goal_text.split("\n")[0].strip()
-            if first_line.startswith("-"):
-                first_line = first_line[1:].strip()
-            # Don't show anything in normal mode - just like Claude Code
-            # The goal is conveyed through the actual response
-        return
-
-    # ═══════════════════════════════════════════════════════════════════════════
-    # DEBUG MODE: Full verbose panel with quality indicators
-    # ═══════════════════════════════════════════════════════════════════════════
-
-    # Build the thinking display
-    content = Text()
-
-    # === QUALITY INDICATOR ===
-    quality = block.quality_score()
-    confidence = block.get_confidence_level()
-    quality_bar = "[" + ("=" * int(quality * 10)) + ("-" * (10 - int(quality * 10))) + "]"
-    quality_color = (
-        palette.success if quality > 0.7 else palette.warning if quality > 0.4 else palette.error
+    from hcode.ui.antigravity_display import get_antigravity_display, TaskMode
+    
+    # Get display instance
+    antigravity = get_antigravity_display(console)
+    
+    # Determine phase name
+    phase = block.phase.value if hasattr(block, "phase") and block.phase else None
+    
+    # Display using Antigravity style
+    antigravity.display_thinking_block(
+        content=block.raw_content,
+        phase=phase,
+        collapsed=not debug_mode
     )
+    
+    # Update task mode based on phase
+    if phase:
+        phase_upper = phase.upper()
+        new_mode = None
+        if phase_upper in ["PLANNING", "ANALYSIS", "COMPREHENSION", "PERCEPTION"]:
+            new_mode = TaskMode.PLANNING
+        elif phase_upper in ["EXECUTION", "REASONING", "DECISION"]:
+            new_mode = TaskMode.EXECUTION
+        elif phase_upper in ["VERIFICATION", "REFLECTION"]:
+            new_mode = TaskMode.VERIFICATION
+            
+        if new_mode and antigravity.current_mode and new_mode != antigravity.current_mode:
+            antigravity.update_mode(new_mode)
+            
+    # Add progress update from goal/understanding
+    if hasattr(block, "understand") and block.understand:
+        summary = block.understand.split('\n')[0].strip()
+        # Remove bullet points
+        if summary.startswith("- "):
+            summary = summary[2:]
+        if summary:
+            antigravity.add_progress(summary)
 
-    content.append(f"Quality: {quality_bar} {quality:.0%}", style=f"dim {quality_color}")
-    if confidence != "unknown":
-        conf_colors = {
-            "very_high": palette.success,
-            "high": palette.info,
-            "medium": palette.warning,
-            "low": palette.error,
-        }
-        conf_color = conf_colors.get(confidence, palette.text_muted)
-        content.append(f" | Confidence: {confidence}", style=f"dim {conf_color}")
-    content.append("\n")
 
-    # === KEY UNDERSTANDING === (full text in debug mode)
-    if block.understand:
-        content.append(f"{icons.BULLET} GOAL: ", style=f"bold {palette.info}")
-        # Show full text in debug mode, not truncated
-        goal_text = block.understand.strip()
-        if goal_text.startswith("-"):
-            goal_text = goal_text[1:].strip()
-        content.append(goal_text + "\n", style=palette.text_primary)
-
-    # === HYPOTHESIS (if advanced thinking) ===
-    if block.hypothesis:
-        content.append(f"{icons.BULLET} HYPOTHESIS: ", style=f"bold {palette.secondary}")
-        # Full text in debug mode
-        content.append(block.hypothesis.strip() + "\n", style=f"dim {palette.secondary}")
-
-    # === SELF-CRITIQUE (shows depth of reasoning) ===
-    if block.counterargument:
-        content.append(f"{icons.WARNING} CHALLENGE: ", style=f"bold {palette.error}")
-        counter_text = block.counterargument.strip()
-        if counter_text.startswith("-"):
-            counter_text = counter_text[1:].strip()
-        # Full text in debug mode
-        content.append(counter_text + "\n", style=f"dim {palette.error}")
-
-    # === DECISION ===
-    if block.decision:
-        content.append(f"{icons.SUCCESS} DECISION: ", style=f"bold {palette.success}")
-        # Full text in debug mode
-        content.append(block.decision.strip() + "\n", style=palette.text_primary)
-
-    # === FALLBACK (if exists) ===
-    if block.fallback:
-        content.append(f"{icons.ARROW_RIGHT} FALLBACK: ", style=f"bold {palette.warning}")
-        # Full text in debug mode
-        content.append(block.fallback.strip() + "\n", style=f"dim {palette.warning}")
-
-    # === RISK CHECK ===
-    if block.risk_check:
-        content.append(f"{icons.WARNING} RISK: ", style=f"bold {palette.warning}")
-        risk_text = block.risk_check.strip()
-        if risk_text.startswith("-"):
-            risk_text = risk_text[1:].strip()
-        # Full text in debug mode
-        content.append(risk_text, style=palette.text_muted)
-
-    # Add indicators for thinking quality
-    indicators = []
-    if block.is_self_critical():
-        indicators.append(f"[{palette.info}]◈ Self-Critical[/]")
-    if block.has_fallback():
-        indicators.append(f"[{palette.warning}]◈ Has Fallback[/]")
-    if block.assumptions:
-        indicators.append(f"[{palette.secondary}]◈ Explicit Assumptions[/]")
-
-    # Build title with icon
-    title = Text()
-    title.append(f" {icons.THINKING} ", style=f"bold {palette.accent}")
-    title.append("Deep Thinking", style=f"bold {palette.primary}")
-    if indicators:
-        title.append("  " + " ".join(indicators))
-
-    console.print(Panel(content, title=title, border_style=palette.primary, padding=(0, 1)))
 
 
 class HcodeAgent:
@@ -1023,6 +951,7 @@ When the user says things like "yes", "proceed", "continue", "do it", "ok", or s
                 finish_reason = "stop"
                 response_text = ""
                 raw_response = None
+                displayed_thinking = False
 
                 try:
                     if stream and iteration == 1:
@@ -1038,9 +967,68 @@ When the user says things like "yes", "proceed", "continue", "do it", "ok", or s
                         # Clear thinking indicator
                         self.console.print(" " * 20, end="\r")
 
+                        # Antigravity display integration
+                        from hcode.ui.antigravity_display import get_antigravity_display
+                        antigravity = get_antigravity_display(self.console)
+                        
+                        buffer = ""
+                        in_thinking = False
+                        thinking_content = []
+                        first_chunk = True
+                        displayed_thinking = False
+                        
                         async for chunk in stream_result:
                             response_parts.append(chunk)
-                            print(chunk, end="", flush=True)
+                            buffer += chunk
+                            
+                            # Check for thinking block start
+                            if "<thinking>" in buffer and not in_thinking:
+                                pre, post = buffer.split("<thinking>", 1)
+                                if pre:
+                                    antigravity.end_thinking()
+                                    print(pre, end="", flush=True)
+                                in_thinking = True
+                                buffer = post
+                                if not antigravity.thinking_start_time:
+                                    antigravity.start_thinking()
+                                
+                            if in_thinking:
+                                if "</thinking>" in buffer:
+                                    content, remaining = buffer.split("</thinking>", 1)
+                                    thinking_content.append(content)
+                                    full_thinking = "".join(thinking_content)
+                                    
+                                    antigravity.end_thinking()
+                                    antigravity.display_thinking_block(full_thinking)
+                                    displayed_thinking = True
+                                    
+                                    in_thinking = False
+                                    buffer = remaining
+                                    thinking_content = []
+                                else:
+                                    thinking_content.append(buffer)
+                                    buffer = ""
+                            else:
+                                if "<" in buffer and len(buffer) < 20:
+                                    pass
+                                else:
+                                    if first_chunk and buffer.strip():
+                                        antigravity.end_thinking()
+                                        first_chunk = False
+                                    print(buffer, end="", flush=True)
+                                    buffer = ""
+                                    
+                        if buffer:
+                            if in_thinking:
+                                thinking_content.append(buffer)
+                                full_thinking = "".join(thinking_content)
+                                antigravity.end_thinking()
+                                antigravity.display_thinking_block(full_thinking)
+                                displayed_thinking = True
+                            else:
+                                if first_chunk:
+                                    antigravity.end_thinking()
+                                print(buffer, end="", flush=True)
 
                         print()  # New line
                         response_text = "".join(response_parts)
@@ -1122,7 +1110,7 @@ When the user says things like "yes", "proceed", "continue", "do it", "ok", or s
                 # DEEP THINKING: Parse and display thinking blocks
                 thinking_block, response_without_thinking = parse_thinking_block(response_text)
 
-                if thinking_block and thinking_block.is_valid():
+                if thinking_block and thinking_block.is_valid() and not displayed_thinking:
                     # Display the thinking block (only shows verbose panel in debug mode)
                     debug_mode = self.config.get("debug", False) or self.config.get("ui", {}).get(
                         "debug_mode", False
@@ -1288,6 +1276,24 @@ Then repeat your tool call.""",
 
                             # AUTO-UPDATE TODOS: Mark matching todos as completed
                             self._auto_update_todos(action)
+                            
+                            # ANTIGRAVITY: Track file operations
+                            if result.success:
+                                try:
+                                    from hcode.ui.antigravity_display import get_antigravity_display, FileAction
+                                    antigravity = get_antigravity_display(self.console)
+                                    
+                                    t_lower = tool_name.lower()
+                                    if "write" in t_lower or "edit" in t_lower or "replace" in t_lower:
+                                        fpath = arguments.get("file_path") or arguments.get("target_file") or arguments.get("targetfile")
+                                        if fpath:
+                                            antigravity.track_file(fpath, FileAction.EDITED)
+                                    elif "read" in t_lower or "view" in t_lower:
+                                        fpath = arguments.get("file_path") or arguments.get("absolute_path") or arguments.get("absolutepath")
+                                        if fpath:
+                                            antigravity.track_file(fpath, FileAction.VIEWED)
+                                except Exception:
+                                    pass  # Don't fail if tracking fails
                     except Exception as tool_error:
                         self.console.print(
                             f"[bold red][!] Tool execution error: {tool_error}[/bold red]"
@@ -3359,19 +3365,14 @@ You MUST complete the remaining tasks. If this is the final task (e.g., "compile
 
 Continue working or provide your final answer:"""
 
+        from hcode.config.prompts import get_prompts_config
+
         # Check if this appears to be a read-only/exploration task
+        prompts_config = get_prompts_config()
         if hasattr(self, "_current_task_is_readonly") and self._current_task_is_readonly:
-            return """You have pending work. Continue with READ-ONLY tools to complete the exploration.
+            return prompts_config.get_tool_prompt("continuation_readonly")
 
-Example: {"tool": "Read", "parameters": {"file_path": "README.md"}}
-
-What will you read or explore next?"""
-
-        return """You have pending work. Continue with the appropriate tool.
-
-Example: {"tool": "LS", "parameters": {"path": "."}}
-
-What tool will you call?"""
+        return prompts_config.get_tool_prompt("continuation_general")
 
     def _should_continue_generation(self, finish_reason: str, response_text: str) -> bool:
         """

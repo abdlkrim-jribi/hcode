@@ -44,8 +44,8 @@ class AnthropicProvider(AIProvider):
         self,
         api_key: Optional[str] = None,
         model: str = "claude-3-5-sonnet-20241022",
-        max_tokens: int = 8192,  # Claude's max output tokens
-            temperature: float = 0.3,
+        max_tokens: int = 16384,  # Increased for complex reasoning outputs
+        temperature: float = 0.2,  # Lower for more deterministic/consistent results
     ):
         """
         Initialize Anthropic provider.

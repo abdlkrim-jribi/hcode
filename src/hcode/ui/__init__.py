@@ -266,6 +266,22 @@ from hcode.ui.live_todo_bar import (
     get_current_todos,
 )
 
+# ═══════════════════════════════════════════════════════════════════════
+# ANTIGRAVITY DISPLAY EXPORTS (Claude Code style reasoning display)
+# ═══════════════════════════════════════════════════════════════════════
+
+from hcode.ui.antigravity_display import (
+    # Classes
+    AntigravityDisplay,
+    TaskMode,
+    FileAction,
+    ProgressUpdate,
+    TrackedFile,
+    # Functions
+    get_antigravity_display,
+    reset_display,
+)
+
 
 # ═══════════════════════════════════════════════════════════════════════
 # ALL EXPORTS
@@ -416,6 +432,14 @@ __all__ = [
     "start_live_todos",
     "stop_live_todos",
     "get_current_todos",
+    # Antigravity Display (Claude Code style)
+    "AntigravityDisplay",
+    "TaskMode",
+    "FileAction",
+    "ProgressUpdate",
+    "TrackedFile",
+    "get_antigravity_display",
+    "reset_display",
 ]
 
 # ═══════════════════════════════════════════════════════════════════════

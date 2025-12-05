@@ -96,12 +96,16 @@ class ProviderSelector:
 
     def _create_openai_provider(self, api_key: str) -> OpenAIProvider:
         """Create OpenAI provider with appropriate model"""
+        from hcode.config.prompts import get_generation_params
+
         model = self.openai_model if self.openai_model else self._select_openai_model()
+        params = get_generation_params()
+
         return OpenAIProvider(
             api_key=api_key,
             model=model,
             base_url=self.openai_base_url,
-            max_tokens=16384,  # Maximum output tokens for GPT-4o
+            max_tokens=params.max_tokens,
         )
 
     def _select_anthropic_model(self) -> str:

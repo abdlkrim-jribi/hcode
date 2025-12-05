@@ -1,8 +1,10 @@
 """
 Tests for the tool callback system.
 
-Tests the ToolCallbackManager and its integration with TodoWriteTool
-for real-time UI updates.
+This module contains unit tests for the :class:`ToolCallbackManager` and its integration
+with :class:`TodoWriteTool`.  The tests verify singleton behaviour, registration and
+unregistration of callbacks, event emission, error handling, context‑manager usage, and
+event‑history tracking.
 """
 
 import pytest
@@ -25,23 +27,39 @@ from hcode.tools.tool_callbacks import (
 
 
 class TestToolCallbackManager:
-    """Tests for ToolCallbackManager."""
+    """Tests for :class:`ToolCallbackManager`.
+
+    The class exercises the public API of the manager, ensuring that callbacks are
+    correctly registered, unregistered, and invoked.
+    """
 
     @pytest.fixture(autouse=True)
     def reset_manager(self):
-        """Reset the singleton before each test."""
+        """Reset the singleton before each test.
+
+        This fixture runs automatically for every test method in the class, guaranteeing
+        a clean manager instance.
+        """
         ToolCallbackManager.reset_instance()
         yield
         ToolCallbackManager.reset_instance()
 
     def test_singleton_pattern(self):
-        """Should return the same instance."""
+        """Verify that ``get_callback_manager`` returns the same instance.
+
+        Returns:
+            None
+        """
         manager1 = get_callback_manager()
         manager2 = get_callback_manager()
         assert manager1 is manager2
 
     def test_register_callback(self):
-        """Should register callbacks."""
+        """Ensure a callback can be registered for an event type.
+
+        The test registers a dummy callback for ``TODO_UPDATE`` and checks that the
+        manager reports a count of one.
+        """
         manager = get_callback_manager()
 
         def callback(event):
@@ -51,7 +69,11 @@ class TestToolCallbackManager:
         assert manager.get_callbacks_count(ToolEventType.TODO_UPDATE) == 1
 
     def test_unregister_callback(self):
-        """Should unregister callbacks."""
+        """Check that a previously registered callback can be unregistered.
+
+        Returns:
+            None
+        """
         manager = get_callback_manager()
 
         def callback(event):
@@ -64,7 +86,10 @@ class TestToolCallbackManager:
         assert manager.get_callbacks_count(ToolEventType.TODO_UPDATE) == 0
 
     def test_unregister_nonexistent_callback(self):
-        """Should return False for non-existent callback."""
+        """Attempt to unregister a callback that was never registered.
+
+        The manager should return ``False`` and leave the callback count unchanged.
+        """
         manager = get_callback_manager()
 
         def callback(event):
@@ -74,7 +99,12 @@ class TestToolCallbackManager:
         assert result is False
 
     def test_emit_event(self):
-        """Should emit events to registered callbacks."""
+        """Emit an event and verify that registered callbacks receive it.
+
+        The test registers a callback that appends received events to a list and then
+        emits a ``ToolEvent``.  Assertions confirm the callback was invoked and the
+        event data matches expectations.
+        """
         manager = get_callback_manager()
         received_events: List[ToolEvent] = []
 
@@ -95,7 +125,11 @@ class TestToolCallbackManager:
         assert len(received_events[0].todos) == 1
 
     def test_emit_to_multiple_callbacks(self):
-        """Should emit to all registered callbacks."""
+        """Verify that an emitted event reaches *all* registered callbacks.
+
+        Two callbacks are registered for the same event type; after emission each
+        callback should have recorded exactly one event.
+        """
         manager = get_callback_manager()
         received1: List[ToolEvent] = []
         received2: List[ToolEvent] = []
@@ -115,7 +149,11 @@ class TestToolCallbackManager:
         assert len(received2) == 1
 
     def test_callback_error_does_not_break_others(self):
-        """Callback errors should not prevent other callbacks from running."""
+        """Ensure that an exception in one callback does not prevent others from running.
+
+        A ``bad_callback`` raises ``ValueError`` while ``good_callback`` records the event.
+        After emission, ``good_callback`` must still have been called.
+        """
         manager = get_callback_manager()
         received: List[ToolEvent] = []
 
@@ -128,13 +166,16 @@ class TestToolCallbackManager:
         manager.register(ToolEventType.TODO_UPDATE, bad_callback)
         manager.register(ToolEventType.TODO_UPDATE, good_callback)
 
-        # Should not raise, and good_callback should still be called
+        # Should not raise; good_callback should still be called
         manager.emit(ToolEvent(event_type=ToolEventType.TODO_UPDATE, tool_name="Test", todos=[]))
 
         assert len(received) == 1
 
     def test_emit_todo_update_convenience(self):
-        """Should emit TODO_UPDATE via convenience method."""
+        """Test the convenience method ``emit_todo_update``.
+
+        The method should emit a ``TODO_UPDATE`` event with the supplied todo list.
+        """
         manager = get_callback_manager()
         received: List[ToolEvent] = []
 
@@ -150,7 +191,10 @@ class TestToolCallbackManager:
         assert received[0].event_type == ToolEventType.TODO_UPDATE
 
     def test_unregister_all(self):
-        """Should unregister all callbacks."""
+        """Unregister *all* callbacks regardless of event type.
+
+        After calling ``unregister_all`` the manager should report zero callbacks.
+        """
         manager = get_callback_manager()
 
         def callback1(event):
@@ -167,7 +211,10 @@ class TestToolCallbackManager:
         assert manager.get_callbacks_count() == 0
 
     def test_unregister_all_for_event_type(self):
-        """Should unregister all callbacks for specific event type."""
+        """Unregister all callbacks for a specific ``ToolEventType``.
+
+        Only callbacks registered for ``TODO_UPDATE`` should be removed.
+        """
         manager = get_callback_manager()
 
         def callback1(event):
@@ -185,7 +232,11 @@ class TestToolCallbackManager:
         assert manager.get_callbacks_count(ToolEventType.TOOL_START) == 1
 
     def test_set_enabled(self):
-        """Should disable/enable event emission."""
+        """Toggle the manager's enabled state and verify emission behaviour.
+
+        When disabled, emitted events should be ignored; when re‑enabled they should be
+        processed normally.
+        """
         manager = get_callback_manager()
         received: List[ToolEvent] = []
 
@@ -194,29 +245,33 @@ class TestToolCallbackManager:
 
         manager.register(ToolEventType.TODO_UPDATE, callback)
 
-        # Disable
+        # Disable emission
         manager.set_enabled(False)
         manager.emit(ToolEvent(event_type=ToolEventType.TODO_UPDATE, tool_name="Test", todos=[]))
         assert len(received) == 0
 
-        # Re-enable
+        # Re‑enable and emit again
         manager.set_enabled(True)
         manager.emit(ToolEvent(event_type=ToolEventType.TODO_UPDATE, tool_name="Test", todos=[]))
         assert len(received) == 1
 
 
 class TestCallbackContext:
-    """Tests for CallbackContext context manager."""
+    """Tests for the :class:`CallbackContext` context manager.
+
+    The context manager should automatically register a callback on entry and
+    unregister it on exit, even when an exception occurs.
+    """
 
     @pytest.fixture(autouse=True)
     def reset_manager(self):
-        """Reset the singleton before each test."""
+        """Reset the singleton before each test in this class."""
         ToolCallbackManager.reset_instance()
         yield
         ToolCallbackManager.reset_instance()
 
     def test_context_manager_registers_callback(self):
-        """Should register callback when entering context."""
+        """Callback should be registered when entering the context manager."""
         manager = get_callback_manager()
 
         def callback(event):
@@ -226,7 +281,7 @@ class TestCallbackContext:
             assert manager.get_callbacks_count(ToolEventType.TODO_UPDATE) == 1
 
     def test_context_manager_unregisters_on_exit(self):
-        """Should unregister callback when exiting context."""
+        """Callback should be unregistered when exiting the context manager."""
         manager = get_callback_manager()
 
         def callback(event):
@@ -238,7 +293,7 @@ class TestCallbackContext:
         assert manager.get_callbacks_count(ToolEventType.TODO_UPDATE) == 0
 
     def test_context_manager_unregisters_on_exception(self):
-        """Should unregister callback even if exception occurs."""
+        """Even if an exception is raised, the callback must be unregistered."""
         manager = get_callback_manager()
 
         def callback(event):
@@ -254,18 +309,22 @@ class TestCallbackContext:
 
 
 class TestTodoWriteToolCallback:
-    """Tests for TodoWriteTool callback integration."""
+    """Tests for the ``TodoWriteTool`` callback integration.
+
+    These tests verify that the interactive tool emits the appropriate ``TODO_UPDATE``
+    events and includes correct metadata.
+    """
 
     @pytest.fixture(autouse=True)
     def reset_manager(self):
-        """Reset the singleton before each test."""
+        """Reset the singleton before each test in this class."""
         ToolCallbackManager.reset_instance()
         yield
         ToolCallbackManager.reset_instance()
 
     @pytest.mark.asyncio
     async def test_todowrite_emits_callback(self):
-        """TodoWriteTool should emit TODO_UPDATE callback."""
+        """``TodoWriteTool`` should emit a ``TODO_UPDATE`` callback after execution."""
         from hcode.tools.interactive_tools import TodoWriteTool
 
         manager = get_callback_manager()
@@ -288,7 +347,7 @@ class TestTodoWriteToolCallback:
 
     @pytest.mark.asyncio
     async def test_todowrite_callback_contains_stats(self):
-        """TodoWriteTool callback should include stats metadata."""
+        """The callback emitted by ``TodoWriteTool`` must contain statistics metadata."""
         from hcode.tools.interactive_tools import TodoWriteTool
 
         manager = get_callback_manager()
@@ -316,17 +375,21 @@ class TestTodoWriteToolCallback:
 
 
 class TestEventHistory:
-    """Tests for event history tracking."""
+    """Tests for event‑history tracking functionality of ``ToolCallbackManager``.
+
+    The manager should retain a chronological list of emitted events and support
+    optional limiting and filtering by event type.
+    """
 
     @pytest.fixture(autouse=True)
     def reset_manager(self):
-        """Reset the singleton before each test."""
+        """Reset the singleton before each test in this class."""
         ToolCallbackManager.reset_instance()
         yield
         ToolCallbackManager.reset_instance()
 
     def test_get_event_history(self):
-        """Should track event history."""
+        """Emit several events and verify that the full history is recorded."""
         manager = get_callback_manager()
 
         # Emit several events
@@ -339,7 +402,7 @@ class TestEventHistory:
         assert len(history) == 5
 
     def test_get_event_history_with_limit(self):
-        """Should respect limit parameter."""
+        """The ``limit`` argument should restrict the number of returned events."""
         manager = get_callback_manager()
 
         for i in range(10):
@@ -351,7 +414,7 @@ class TestEventHistory:
         assert len(history) == 3
 
     def test_get_event_history_filtered_by_type(self):
-        """Should filter by event type."""
+        """When ``event_type`` is provided, only matching events should be returned."""
         manager = get_callback_manager()
 
         manager.emit(ToolEvent(event_type=ToolEventType.TODO_UPDATE, tool_name="A", todos=[]))

@@ -225,11 +225,14 @@ class ThinkingManager:
             return prompt, 0
 
         try:
-            # Use higher temperature for creative thinking
+            # Use exploration parameters for creative thinking
+            from hcode.config.prompts import get_generation_params
+            params = get_generation_params(task_type="exploration")
+
             response = await self.llm_client.generate(
                 prompt=prompt,
                 max_tokens=self.config.budget_tokens,
-                temperature=1.0,  # Higher temperature for exploration
+                temperature=params.temperature,
                 system="You are an expert reasoning assistant. Think deeply and systematically about problems.",
             )
 

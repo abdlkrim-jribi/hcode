@@ -327,6 +327,62 @@ Stay focused on your assigned task and avoid scope creep."""
             },
         )
 
+    def get_claude_prompt(self) -> str:
+        """
+        Get the Claude Code style system prompt.
+
+        Returns:
+            Claude-style system prompt
+        """
+        return self.get_system_prompt("claude_code_style")
+
+    def get_claude_reasoning_phase(self, phase_name: str) -> str:
+        """
+        Get a specific Claude reasoning phase template.
+
+        Args:
+            phase_name: Phase name (perception, comprehension, analysis, etc.)
+
+        Returns:
+            Reasoning phase template
+        """
+        phases = self._prompts_data.get("claude_reasoning_phases", {})
+        return phases.get(phase_name, "")
+
+    def get_claude_example(self, example_name: str) -> str:
+        """
+        Get a Claude-style interaction example.
+
+        Args:
+            example_name: Example identifier (simple_fix, complex_feature)
+
+        Returns:
+            Example interaction text
+        """
+        examples = self._prompts_data.get("claude_examples", {})
+        return examples.get(example_name, "")
+
+    def list_claude_reasoning_phases(self) -> List[str]:
+        """
+        List all available Claude reasoning phases.
+
+        Returns:
+            List of phase names
+        """
+        phases = self._prompts_data.get("claude_reasoning_phases", {})
+        return list(phases.keys())
+
+    def list_claude_examples(self) -> List[str]:
+        """
+        List all available Claude examples.
+
+        Returns:
+            List of example names
+        """
+        examples = self._prompts_data.get("claude_examples", {})
+        return list(examples.keys())
+
+
 
 class ModelsConfig:
     """
@@ -590,3 +646,14 @@ def reload_configs():
     # Clear caches
     get_prompts_config.cache_clear()
     get_models_config.cache_clear()
+
+
+def get_claude_prompt() -> str:
+    """Convenience function to get Claude Code style prompt"""
+    return get_prompts_config().get_claude_prompt()
+
+
+def get_claude_reasoning_phase(phase_name: str) -> str:
+    """Convenience function to get a Claude reasoning phase"""
+    return get_prompts_config().get_claude_reasoning_phase(phase_name)
+

@@ -272,39 +272,22 @@ class HcodeChat:
 
     def _build_system_prompt(self) -> str:
         """Build Hcode system prompt with workspace context"""
+        from hcode.config.prompts import get_system_prompt
+
+        # Load base chat agent prompt from config
+        base_prompt = get_system_prompt("chat_agent")
+
+        # Add workspace-specific context
         workspace_info = f"""
+
 WORKSPACE INFORMATION:
 - Working Directory: {self.workspace_dir}
 - All file operations are relative to this workspace
 - Never operate outside the workspace unless explicitly requested
-"""
-        return f"""You are Hcode, an advanced AI coding assistant with comprehensive capabilities.
-
-{workspace_info}
-
-You have access to the following tools:
-- File operations (Read, Write, Edit, Glob, Grep)
-- Web capabilities (WebSearch, WebFetch)
-- Interactive features (AskUserQuestion, TodoWrite)
-- Development tools (Bash, Git operations)
-- Jupyter notebook support
-
-Key behaviors:
-1. Be concise and professional
-2. Use tools proactively when needed
-3. Track tasks using TodoWrite
-4. Ask for clarification when needed
-5. Provide code references with file:line format
-6. Support parallel tool execution
-7. Handle slash commands and shortcuts
-8. ALWAYS work within the workspace directory: {self.workspace_dir}
-
-Remember:
-- Stream responses for better UX
-- Show your thinking process
-- Be transparent about limitations
-- Focus on helping the user effectively
+- ALWAYS work within the workspace directory: {self.workspace_dir}
 - All file paths should be relative to or within the workspace"""
+
+        return f"{base_prompt}{workspace_info}"
 
     def show_banner(self):
         """Display Hcode banner with styling"""
@@ -596,7 +579,7 @@ Remember:
 
     async def execute_with_tools(self, message: str) -> str:
         """
-        Execute message with tool support.
+        Execute message with tool support and Antigravity-style display.
 
         Args:
             message: User message
@@ -604,42 +587,64 @@ Remember:
         Returns:
             Response with tool execution results
         """
+        from hcode.ui.antigravity_display import (
+            AntigravityDisplay, 
+            TaskMode, 
+            FileAction,
+            get_antigravity_display,
+        )
+        
+        # Get or create Antigravity display
+        display = get_antigravity_display(self.console)
+        
         # Check if this is a continuation message
         is_continuation = self._is_continuation_message(message)
+        
+        # Determine task name and mode
+        task_name = self._extract_task_name(message)
+        initial_mode = TaskMode.PLANNING if not is_continuation else TaskMode.EXECUTION
 
+        # Start task display
+        display.start_task(task_name, initial_mode)
+        
         # Only create new todos if this is a new task, not a continuation
         if not is_continuation:
             await self.create_todos_for_task(message)
-
-            # Display todos at the start of task execution
-            self.console.print()
-            self.console.print(f"[bold cyan]📋 Task Planning[/bold cyan]")
-            self.display_todos()
-            self.console.print()
+            display.add_progress("Analyzing requirements and creating plan")
 
         # Enhance continuation messages with context
         task_message = message
         if is_continuation:
             task_message = self._enhance_continuation_message(message)
             if task_message != message:
-                self.console.print(f"[dim]📎 Continuation context: {task_message[:100]}...[/dim]")
+                display.add_progress("Continuing with previous context")
 
-        # Execute task through agent
-        response = await self.agent.execute_task(
-            task=task_message,
-            complexity=self.determine_complexity(message),
-            task_type=self.determine_task_type(message),
-            stream=self.stream_responses,
-            use_sub_agents=self.should_use_agents(message),
-        )
+        # Switch to execution mode and start thinking timer
+        display.update_mode(TaskMode.EXECUTION)
+        display.start_thinking()
+        
+        try:
+            # Execute task through agent
+            response = await self.agent.execute_task(
+                task=task_message,
+                complexity=self.determine_complexity(message),
+                task_type=self.determine_task_type(message),
+                stream=self.stream_responses,
+                use_sub_agents=self.should_use_agents(message),
+            )
+        finally:
+            # End thinking timer
+            display.end_thinking()
 
-        # Update todos after execution - mark ALL tasks as completed
-        # since the task has been executed (including file write)
+        # Track any files that were modified (parse from response)
+        self._track_files_from_response(display, response)
+        
+        # Update todos after execution
         if self.todos:
-            # For file generation tasks, all steps are complete when we reach here
-            # because the agent has already analyzed, designed, generated, and saved
+            display.update_mode(TaskMode.VERIFICATION)
+            display.add_progress("Verifying task completion")
+            
             for todo in self.todos:
-                # Mark all tasks as completed if the response indicates success
                 if (
                     "success" in response.lower()
                     or "written" in response.lower()
@@ -648,17 +653,42 @@ Remember:
                 ):
                     todo["status"] = "completed"
                 elif todo.get("status") == "in_progress":
-                    # At minimum, mark in-progress tasks as completed
                     todo["status"] = "completed"
 
             await self.agent.update_todos(self.todos)
 
-            # Display final todos
-            self.console.print()
-            self.console.print(f"[bold green]✅ Task Status[/bold green]")
-            self.display_todos()
+        # Show task summary with files and progress
+        display.show_task_summary()
+        display.end_task()
 
         return response
+    
+    def _extract_task_name(self, message: str) -> str:
+        """Extract a concise task name from the message."""
+        # Get first line or first 50 chars
+        first_line = message.split('\n')[0].strip()
+        if len(first_line) > 50:
+            return first_line[:47] + "..."
+        return first_line or "Processing Request"
+    
+    def _track_files_from_response(self, display, response: str) -> None:
+        """Parse response to track files that were modified."""
+        from hcode.ui.antigravity_display import FileAction
+        import re
+        
+        # Pattern to find file paths in response
+        file_patterns = [
+            r'(?:written|saved|created|modified|updated)\s+(?:to\s+)?[`"\']?([^\s`"\']+\.[a-z]+)[`"\']?',
+            r'File:\s*[`"\']?([^\s`"\']+\.[a-z]+)[`"\']?',
+            r'(?:editing|reading|viewing)\s+[`"\']?([^\s`"\']+\.[a-z]+)[`"\']?',
+        ]
+        
+        for pattern in file_patterns:
+            matches = re.findall(pattern, response, re.IGNORECASE)
+            for match in matches:
+                if any(ext in match.lower() for ext in ['.py', '.js', '.ts', '.yaml', '.json', '.md', '.txt']):
+                    action = FileAction.EDITED if 'written' in response.lower() or 'saved' in response.lower() else FileAction.VIEWED
+                    display.track_file(match, action)
 
     def should_create_todos(self, message: str) -> bool:
         """Determine if todos should be created for this task"""

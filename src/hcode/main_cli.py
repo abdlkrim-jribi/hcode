@@ -523,7 +523,10 @@ def chat_mode(provider, session, show_todos, debug):
         force=False, compact=True, show_empty=False, elapsed_seconds=0, token_count=0
     ):
         """Display the todo progress bar in Claude Code style.
-
+        
+        DISABLED: LiveTodoBar now handles all TODO rendering automatically.
+        This function is kept for compatibility but does nothing.
+        
         Args:
             force: If True, show even if show_todos is disabled
             compact: If True, show as Claude Code style (always used now)
@@ -531,25 +534,9 @@ def chat_mode(provider, session, show_todos, debug):
             elapsed_seconds: Time elapsed for current task
             token_count: Number of tokens used
         """
-        if not (reasoning_runner.show_todos or force):
-            return
-
-        if not reasoning_runner.todos:
-            if show_empty:
-                # Show minimal empty state
-                console.print(f"[dim]─── {icons.GEAR} No tasks ───[/dim]")
-            return
-
-        # Claude Code style display
-        console.print()
-        print_claude_code_todos(
-            todos=reasoning_runner.todos,
-            console=console,
-            elapsed_seconds=elapsed_seconds,
-            token_count=token_count,
-            show_shortcuts=compact,  # Show shortcuts in compact mode
-        )
-        console.print()  # Extra line for spacing
+        # DISABLED - LiveTodoBar handles all TODO display now
+        # This prevents duplicate todo lists from appearing
+        pass
 
     # Helper function to convert Todo objects to dicts (needs to be outside loop)
     def todo_to_dict(todo):
@@ -993,7 +980,36 @@ def chat_mode(provider, session, show_todos, debug):
                 live_todo_bar.update_todos(reasoning_runner.todos)
             live_todo_bar.start()
 
-            result = asyncio.run(agent.execute_task(task=user_input, stream=True))
+            # Import Antigravity display for Claude Code style output
+            from hcode.ui.antigravity_display import (
+                AntigravityDisplay,
+                TaskMode,
+                FileAction,
+                get_antigravity_display,
+            )
+            
+            # Get Antigravity display instance
+            antigravity = get_antigravity_display(console)
+            
+            # Extract task name from user input
+            task_name = user_input.split('\n')[0].strip()[:50]
+            if len(user_input) > 50:
+                task_name = task_name[:47] + "..."
+            
+            # Start task boundary display
+            antigravity.start_task(task_name or "Processing Request", TaskMode.EXECUTION)
+            
+            # Start thinking timer
+            antigravity.start_thinking()
+            
+            try:
+                result = asyncio.run(agent.execute_task(task=user_input, stream=True))
+            finally:
+                # End thinking timer
+                antigravity.end_thinking()
+            
+            # Show task completion
+            antigravity.end_task()
 
             # Stop live todo bar after task
             if live_todo_bar.is_active:

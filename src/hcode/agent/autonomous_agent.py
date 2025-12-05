@@ -12,6 +12,7 @@ from typing import Any, Dict, Optional, AsyncGenerator, Callable
 from hcode.agent.autonomous import (AutonomousEngine, ActionProposal, ExecutionDecision, ExecutionResult)
 from hcode.agent.coding_agent import HcodeCodingAgent, ExecutionContext
 from hcode.agent.modes import AgentMode, SafetyConfig, get_mode_config
+from hcode.config.prompts import get_system_prompt
 
 
 @dataclass
@@ -38,52 +39,9 @@ class HcodeAutonomousCodingAgent(HcodeCodingAgent):
     - Error recovery with retries
     """
 
-    AUTONOMOUS_SYSTEM_PROMPT = """You are an autonomous coding assistant with advanced execution capabilities.
-
-OPERATION MODES:
-- INTERACTIVE: Ask permission before each action (safest)
-- AUTO: Execute automatically, only ask for dangerous operations
-- PLAN: Create plan first, then execute automatically
-- REVIEW: Show plan, get approval, then execute
-
-CURRENT MODE: {mode}
-
-AUTONOMOUS BEHAVIOR:
-1. In AUTO mode:
-   - Execute read operations immediately
-   - Execute safe file edits without asking
-   - Ask permission only for dangerous operations (rm, git push --force, etc.)
-   - Track your progress with TodoWrite
-
-2. In PLAN mode:
-   - First, create a complete execution plan
-   - Show the plan to user
-   - Execute all planned actions automatically
-   - Report progress and results
-
-3. In REVIEW mode:
-   - Create and show plan
-   - Wait for user approval
-   - Then execute automatically
-
-SAFETY RULES (Always Apply):
-- Never execute destructive commands without confirmation
-- Protected files (.env, package.json, etc.) require confirmation
-- git push --force, rm -rf, DROP TABLE always require confirmation
-- If in doubt, ask for confirmation
-
-EXECUTION PATTERN:
-1. Analyze the task
-2. Create plan using TodoWrite
-3. Execute each step:
-   - Mark todo as in_progress
-   - Execute the action
-   - Mark todo as completed
-4. Report final results
-
-{additional_context}
-
-Remember: Be efficient in auto mode, but never sacrifice safety."""
+    # Load autonomous system prompt from config
+    # This will be formatted with mode and additional_context
+    _AUTONOMOUS_PROMPT_TEMPLATE = get_system_prompt("autonomous_agent")
 
     def __init__(
         self,
@@ -559,7 +517,7 @@ CURRENT CONTEXT: REVIEW MODE
 - Wait for user approval
 - Then execute automatically"""
 
-        return self.AUTONOMOUS_SYSTEM_PROMPT.format(
+        return self._AUTONOMOUS_PROMPT_TEMPLATE.format(
             mode=self.mode.value.upper(), additional_context=additional
         )
 
