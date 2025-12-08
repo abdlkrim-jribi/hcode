@@ -214,7 +214,18 @@ class ShortcutManager:
 
                 # Call callback if registered
                 if action in self.callbacks:
-                    self.callbacks[action]()
+                    try:
+                        self.callbacks[action]()
+                    except TypeError as e:
+                        # Log the error but don't crash
+                        import logging
+                        logger = logging.getLogger(__name__)
+                        logger.error(f"Callback error for {action}: {e}", exc_info=True)
+                    except Exception as e:
+                        # Catch all other exceptions
+                        import logging
+                        logger = logging.getLogger(__name__)
+                        logger.error(f"Unexpected callback error for {action}: {e}", exc_info=True)
 
                 return action
 
@@ -397,12 +408,13 @@ def setup_shortcuts_for_agent(agent, shortcut_manager: ShortcutManager):
     shortcut_manager.register_callback(ShortcutAction.TOGGLE_MODE, toggle_mode)
 
     # Direct mode switches
+    # Use *args, **kwargs to handle any unexpected parameters
     shortcut_manager.register_callback(
-        ShortcutAction.SWITCH_TO_AUTO, lambda: agent.set_mode(AgentMode.AUTO)
+        ShortcutAction.SWITCH_TO_AUTO, lambda *args, **kwargs: agent.set_mode(AgentMode.AUTO)
     )
     shortcut_manager.register_callback(
-        ShortcutAction.SWITCH_TO_INTERACTIVE, lambda: agent.set_mode(AgentMode.INTERACTIVE)
+        ShortcutAction.SWITCH_TO_INTERACTIVE, lambda *args, **kwargs: agent.set_mode(AgentMode.INTERACTIVE)
     )
     shortcut_manager.register_callback(
-        ShortcutAction.SWITCH_TO_PLAN, lambda: agent.set_mode(AgentMode.PLAN)
+        ShortcutAction.SWITCH_TO_PLAN, lambda *args, **kwargs: agent.set_mode(AgentMode.PLAN)
     )

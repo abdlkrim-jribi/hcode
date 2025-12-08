@@ -468,16 +468,8 @@ Respond with your {phase.value} analysis:"""
 
     def _get_phase_instructions(self, phase: ThinkingPhase) -> str:
         """Get instructions for a thinking phase"""
-        instructions = {
-            ThinkingPhase.UNDERSTANDING: "Analyze what is being asked. Identify key requirements and implicit needs.",
-            ThinkingPhase.PLANNING: "Plan your approach. List the steps needed and tools required.",
-            ThinkingPhase.ANALYZING: "Analyze options and tradeoffs. Consider at least 2-3 approaches.",
-            ThinkingPhase.REASONING: "Reason about the best solution. Provide evidence and counter-arguments.",
-            ThinkingPhase.EVALUATING: "Evaluate your planned approach. What could go wrong?",
-            ThinkingPhase.DECIDING: "Make concrete decisions. List specific action items.",
-            ThinkingPhase.VERIFYING: "Verify your approach. Assess safety and potential issues.",
-        }
-        return instructions.get(phase, "Think about this aspect of the problem.")
+        from hcode.config.prompts import get_phase_instruction
+        return get_phase_instruction(phase.value)
 
     # =========================================================================
     # FEEDBACK AND REVISION

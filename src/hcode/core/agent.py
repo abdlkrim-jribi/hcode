@@ -5,7 +5,7 @@ Integrates all features: tools, sub-agents, web capabilities, interactive featur
 
 import asyncio
 from pathlib import Path
-from typing import Optional, Dict, Any, List
+from typing import Dict, Any, List, Union
 
 from rich.console import Console
 
@@ -50,265 +50,68 @@ from hcode.core.interaction_logger import get_logger, InteractionLogger
 
 # Thinking block parser
 import re
-from dataclasses import dataclass
-from typing import Tuple
+from typing import Tuple, Optional
+from hcode.agent.reasoning import ReasoningParser, StructuredReasoning
 
 
-@dataclass
-class ThinkingBlock:
+def is_valid_thinking(block: Optional[StructuredReasoning]) -> bool:
+    """Check if thinking block has meaningful content"""
+    if not block:
+        return False
+    return (
+            block.perception.is_complete()
+            or block.comprehension.is_complete()
+            or block.decision.is_complete()
+            or block.analysis.is_complete()
+            or len(block.raw_content) > 20
+    )
+
+
+def get_thinking_summary(block: StructuredReasoning) -> str:
+    """Get a concise summary of the thinking"""
+    if block.decision.decision:
+        return f"Decision: {block.decision.decision[:100]}..."
+    if block.reasoning.hypothesis:
+        return f"Hypothesis: {block.reasoning.hypothesis[:100]}..."
+    if block.comprehension.core_understanding:
+        return f"Understanding: {block.comprehension.core_understanding[:100]}..."
+    return block.raw_content[:100] + "..." if block.raw_content else "Empty thinking"
+
+
+def parse_thinking_block(text: str) -> Tuple[Optional[StructuredReasoning], str]:
     """
-    Thinking block with multi-dimensional reasoning capabilities.
-
-    Supports advanced cognitive patterns:
-    - Analytical decomposition
-    - Hypothesis generation and testing
-    - Meta-cognitive reflection
-    - Adversarial self-critique
-    - Confidence calibration
-    """
-
-    # === PHASE 1: PERCEPTION ===
-    observe: str = ""  # What do I literally see/read?
-    interpret: str = ""  # What does this mean?
-
-    # === PHASE 2: COMPREHENSION ===
-    understand: str = ""  # Core understanding of the request
-    context: str = ""  # Relevant context and constraints
-    assumptions: str = ""  # What am I assuming? (NEW)
-
-    # === PHASE 3: ANALYSIS ===
-    decompose: str = ""  # Break into sub-problems (NEW)
-    dependencies: str = ""  # What depends on what? (NEW)
-    options: str = ""  # Possible approaches
-
-    # === PHASE 4: REASONING ===
-    hypothesis: str = ""  # My best hypothesis (NEW)
-    evidence: str = ""  # Evidence for/against (NEW)
-    counterargument: str = ""  # Devil's advocate - why might I be wrong? (NEW)
-
-    # === PHASE 5: DECISION ===
-    decision: str = ""  # Final decision
-    confidence: str = ""  # How confident am I? (NEW)
-    fallback: str = ""  # What if this fails? (NEW)
-
-    # === PHASE 6: VERIFICATION ===
-    risk_check: str = ""  # Safety and risk assessment
-    verify: str = ""  # How will I verify success? (NEW)
-
-    # === META ===
-    reflection: str = ""  # What did I learn? (NEW)
-    raw_content: str = ""
-
-    def is_valid(self) -> bool:
-        """Check if thinking block has meaningful content"""
-        # Valid if we have core understanding or decision
-        return bool(self.understand or self.decision or self.observe)
-
-    def get_confidence_level(self) -> str:
-        """Extract confidence level from thinking"""
-        if self.confidence:
-            confidence_lower = self.confidence.lower()
-            if any(
-                word in confidence_lower
-                for word in ["very high", "certain", "95%", "100%", "absolutely"]
-            ):
-                return "very_high"
-            elif any(
-                word in confidence_lower for word in ["high", "confident", "80%", "85%", "90%"]
-            ):
-                return "high"
-            elif any(
-                word in confidence_lower for word in ["medium", "moderate", "60%", "70%", "likely"]
-            ):
-                return "medium"
-            elif any(
-                word in confidence_lower for word in ["low", "uncertain", "unsure", "40%", "50%"]
-            ):
-                return "low"
-            else:
-                return "unknown"
-        return "unknown"
-
-    def has_fallback(self) -> bool:
-        """Check if a fallback plan exists"""
-        return bool(self.fallback and len(self.fallback.strip()) > 10)
-
-    def is_self_critical(self) -> bool:
-        """Check if thinking includes self-critique"""
-        return bool(self.counterargument and len(self.counterargument.strip()) > 10)
-
-    def summary(self) -> str:
-        """Get a short summary of the decision"""
-        if self.decision:
-            # Extract the key decision
-            lines = self.decision.strip().split("\n")
-            for line in lines:
-                if (
-                    "best choice" in line.lower()
-                    or "reason" in line.lower()
-                    or "choose" in line.lower()
-                ):
-                    return line.strip()
-            return lines[0] if lines else ""
-        if self.hypothesis:
-            return f"Hypothesis: {self.hypothesis.split(chr(10))[0][:60]}"
-        return ""
-
-    def quality_score(self) -> float:
-        """Calculate thinking quality score (0-1)"""
-        score = 0.0
-        weights = {
-            "understand": 0.15,
-            "context": 0.10,
-            "assumptions": 0.10,
-            "decompose": 0.10,
-            "options": 0.10,
-            "hypothesis": 0.10,
-            "counterargument": 0.10,
-            "decision": 0.15,
-            "confidence": 0.05,
-            "risk_check": 0.05,
-        }
-        for field, weight in weights.items():
-            value = getattr(self, field, "")
-            if value and len(value.strip()) > 10:
-                score += weight
-        return min(score, 1.0)
-
-
-def parse_thinking_block(text: str) -> Tuple[Optional[ThinkingBlock], str]:
-    """
-    Parse a thinking block from model output.
-
-    Supports both simple (5-step) and advanced (multi-phase) thinking formats.
+    Parse a thinking block from model output using the central ReasoningParser.
 
     Args:
         text: The model's response text
 
     Returns:
-        Tuple of (ThinkingBlock or None, remaining text without thinking block)
+        Tuple of (StructuredReasoning or None, remaining text without thinking block)
     """
-    # Pattern to match <thinking>...</thinking> blocks
-    pattern = r"<thinking>(.*?)</thinking>"
-    match = re.search(pattern, text, re.DOTALL | re.IGNORECASE)
-
-    if not match:
+    if "<thinking>" not in text:
         return None, text
 
-    thinking_content = match.group(1).strip()
-    remaining_text = text[: match.start()] + text[match.end() :]
-    remaining_text = remaining_text.strip()
+    parser = ReasoningParser()
 
-    # Parse sections within thinking block
-    block = ThinkingBlock(raw_content=thinking_content)
+    # Extract content inside tags
+    pattern = re.compile(r"<thinking>(.*?)</thinking>", re.DOTALL | re.IGNORECASE)
+    match = pattern.search(text)
 
-    # === MULTI-PHASE PARSING ===
-    # Supports flexible section headers with various formats
+    if match:
+        thinking_content = match.group(1).strip()
+        # Parse the structured reasoning
+        reasoning = parser.parse(thinking_content)
 
-    # Phase 1: Perception
-    section_patterns = {
-        # Perception phase
-        "observe": [
-            r"(?:OBSERVE|PERCEPTION|SEE|INPUT):?\s*(.*?)(?=(?:INTERPRET|UNDERSTAND|CONTEXT|ANALYZE|$))",
-            r"\[OBSERVE\]:?\s*(.*?)(?=\[|$)",
-        ],
-        "interpret": [
-            r"(?:INTERPRET|MEANING|IMPLIES):?\s*(.*?)(?=(?:UNDERSTAND|CONTEXT|ANALYZE|$))",
-        ],
-        # Comprehension phase
-        "understand": [
-            r"(?:\d+\.\s*)?UNDERSTAND(?:ING)?:?\s*(.*?)(?=(?:\d+\.\s*)?(?:CONTEXT|ASSUMPTIONS|ANALYZE|DECOMPOSE|OPTIONS|$))",
-            r"\[UNDERSTAND\]:?\s*(.*?)(?=\[|$)",
-            r"GOAL:?\s*(.*?)(?=(?:CONTEXT|$))",
-        ],
-        "context": [
-            r"(?:\d+\.\s*)?CONTEXT:?\s*(.*?)(?=(?:\d+\.\s*)?(?:ASSUMPTIONS|ANALYZE|DECOMPOSE|OPTIONS|$))",
-            r"\[CONTEXT\]:?\s*(.*?)(?=\[|$)",
-            r"KNOWN:?\s*(.*?)(?=(?:ASSUMPTIONS|OPTIONS|$))",
-        ],
-        "assumptions": [
-            r"(?:\d+\.\s*)?ASSUMPTIONS?:?\s*(.*?)(?=(?:\d+\.\s*)?(?:ANALYZE|DECOMPOSE|OPTIONS|HYPOTHESIS|$))",
-            r"\[ASSUMPTIONS?\]:?\s*(.*?)(?=\[|$)",
-            r"ASSUMING:?\s*(.*?)(?=(?:OPTIONS|$))",
-        ],
-        # Analysis phase
-        "decompose": [
-            r"(?:\d+\.\s*)?(?:DECOMPOSE|BREAKDOWN|SUB.?PROBLEMS?|STEPS?):?\s*(.*?)(?=(?:\d+\.\s*)?(?:DEPENDENCIES|OPTIONS|HYPOTHESIS|$))",
-            r"\[DECOMPOSE\]:?\s*(.*?)(?=\[|$)",
-        ],
-        "dependencies": [
-            r"(?:\d+\.\s*)?(?:DEPENDENCIES|DEPENDS|ORDER|SEQUENCE):?\s*(.*?)(?=(?:\d+\.\s*)?(?:OPTIONS|HYPOTHESIS|$))",
-            r"\[DEPENDENCIES\]:?\s*(.*?)(?=\[|$)",
-        ],
-        "options": [
-            r"(?:\d+\.\s*)?OPTIONS?:?\s*(.*?)(?=(?:\d+\.\s*)?(?:HYPOTHESIS|EVIDENCE|DECISION|CHOOSE|$))",
-            r"\[OPTIONS?\]:?\s*(.*?)(?=\[|$)",
-            r"ALTERNATIVES?:?\s*(.*?)(?=(?:DECISION|$))",
-        ],
-        # Reasoning phase
-        "hypothesis": [
-            r"(?:\d+\.\s*)?HYPOTHESIS:?\s*(.*?)(?=(?:\d+\.\s*)?(?:EVIDENCE|COUNTER|DECISION|$))",
-            r"\[HYPOTHESIS\]:?\s*(.*?)(?=\[|$)",
-            r"THEORY:?\s*(.*?)(?=(?:EVIDENCE|$))",
-        ],
-        "evidence": [
-            r"(?:\d+\.\s*)?EVIDENCE:?\s*(.*?)(?=(?:\d+\.\s*)?(?:COUNTER|DECISION|$))",
-            r"\[EVIDENCE\]:?\s*(.*?)(?=\[|$)",
-            r"SUPPORT(?:ING)?:?\s*(.*?)(?=(?:COUNTER|$))",
-        ],
-        "counterargument": [
-            r"(?:\d+\.\s*)?(?:COUNTER.?ARGUMENT|COUNTER|CHALLENGE|DEVIL.?S?.?ADVOCATE|WHY.?WRONG|CRITIQUE):?\s*(.*?)(?=(?:\d+\.\s*)?(?:DECISION|CONFIDENCE|$))",
-            r"\[COUNTER\]:?\s*(.*?)(?=\[|$)",
-            r"(?:BUT|HOWEVER|ALTERNATIVELY):?\s*(.*?)(?=(?:DECISION|$))",
-        ],
-        # Decision phase
-        "decision": [
-            r"(?:\d+\.\s*)?DECISION:?\s*(.*?)(?=(?:\d+\.\s*)?(?:CONFIDENCE|FALLBACK|RISK|VERIFY|$))",
-            r"\[DECISION\]:?\s*(.*?)(?=\[|$)",
-            r"(?:CHOOSE|SELECTED?|FINAL):?\s*(.*?)(?=(?:CONFIDENCE|RISK|$))",
-            r"BEST\s*CHOICE:?\s*(.*?)(?=(?:REASON|CONFIDENCE|$))",
-        ],
-        "confidence": [
-            r"(?:\d+\.\s*)?CONFIDENCE:?\s*(.*?)(?=(?:\d+\.\s*)?(?:FALLBACK|RISK|VERIFY|$))",
-            r"\[CONFIDENCE\]:?\s*(.*?)(?=\[|$)",
-            r"CERTAINTY:?\s*(.*?)(?=(?:FALLBACK|RISK|$))",
-        ],
-        "fallback": [
-            r"(?:\d+\.\s*)?(?:FALLBACK|BACKUP|PLAN.?B|IF.?FAILS?|ALTERNATIVE):?\s*(.*?)(?=(?:\d+\.\s*)?(?:RISK|VERIFY|$))",
-            r"\[FALLBACK\]:?\s*(.*?)(?=\[|$)",
-        ],
-        # Verification phase
-        "risk_check": [
-            r"(?:\d+\.\s*)?RISK(?:\s*CHECK)?:?\s*(.*?)(?=(?:\d+\.\s*)?(?:VERIFY|REFLECTION|$))",
-            r"\[RISK\]:?\s*(.*?)(?=\[|$)",
-            r"SAFETY:?\s*(.*?)(?=(?:VERIFY|$))",
-        ],
-        "verify": [
-            r"(?:\d+\.\s*)?(?:VERIFY|VALIDATION?|CHECK|TEST|CONFIRM):?\s*(.*?)(?=(?:\d+\.\s*)?(?:REFLECTION|$))",
-            r"\[VERIFY\]:?\s*(.*?)(?=\[|$)",
-        ],
-        # Meta phase
-        "reflection": [
-            r"(?:\d+\.\s*)?(?:REFLECTION?|LEARN(?:ED)?|INSIGHT|META):?\s*(.*?)$",
-            r"\[REFLECT(?:ION)?\]:?\s*(.*?)(?=\[|$)",
-        ],
-    }
+        # Remove the thinking block from the text to get the response
+        remaining_text = pattern.sub("", text).strip()
 
-    # Try each pattern for each section
-    for attr, patterns in section_patterns.items():
-        for pattern in patterns:
-            section_match = re.search(pattern, thinking_content, re.DOTALL | re.IGNORECASE)
-            if section_match:
-                value = section_match.group(1).strip()
-                if value and len(value) > 2:  # Ignore empty or trivial matches
-                    setattr(block, attr, value)
-                    break  # Use first matching pattern
+        return reasoning, remaining_text
 
-    return block, remaining_text
+    return None, text
 
 
 def format_thinking_display(
-    block: ThinkingBlock, console: Console, debug_mode: bool = False
+        block: Union[StructuredReasoning], console: Console, debug_mode: bool = False
 ) -> None:
     """
     Display a thinking block with Antigravity style.
@@ -317,7 +120,7 @@ def format_thinking_display(
     In debug mode (debug_mode=True): Shows full panel.
 
     Args:
-        block: The parsed thinking block
+        block: The parsed thinking block (StructuredReasoning)
         console: Rich console for output
         debug_mode: If True, show full verbose panel. If False, show collapsed summary.
     """
@@ -325,34 +128,46 @@ def format_thinking_display(
     
     # Get display instance
     antigravity = get_antigravity_display(console)
-    
-    # Determine phase name
-    phase = block.phase.value if hasattr(block, "phase") and block.phase else None
+
+    # Determine primary phase from what is populated in the block
+    # This is heuristic since StructuredReasoning contains all phases
+    primary_phase = None
+    if block.verification.is_complete():
+        primary_phase = "VERIFICATION"
+    elif block.decision.is_complete():
+        primary_phase = "DECISION"
+    elif block.reasoning.is_complete():
+        primary_phase = "REASONING"
+    elif block.analysis.is_complete():
+        primary_phase = "ANALYSIS"
+    elif block.comprehension.is_complete():
+        primary_phase = "COMPREHENSION"
+    else:
+        primary_phase = "THINKING"
     
     # Display using Antigravity style
     antigravity.display_thinking_block(
         content=block.raw_content,
-        phase=phase,
+        phase=primary_phase,
         collapsed=not debug_mode
     )
     
     # Update task mode based on phase
-    if phase:
-        phase_upper = phase.upper()
+    if primary_phase:
         new_mode = None
-        if phase_upper in ["PLANNING", "ANALYSIS", "COMPREHENSION", "PERCEPTION"]:
+        if primary_phase in ["PLANNING", "ANALYSIS", "COMPREHENSION", "PERCEPTION"]:
             new_mode = TaskMode.PLANNING
-        elif phase_upper in ["EXECUTION", "REASONING", "DECISION"]:
+        elif primary_phase in ["EXECUTION", "REASONING", "DECISION"]:
             new_mode = TaskMode.EXECUTION
-        elif phase_upper in ["VERIFICATION", "REFLECTION"]:
+        elif primary_phase in ["VERIFICATION", "REFLECTION"]:
             new_mode = TaskMode.VERIFICATION
             
         if new_mode and antigravity.current_mode and new_mode != antigravity.current_mode:
             antigravity.update_mode(new_mode)
             
     # Add progress update from goal/understanding
-    if hasattr(block, "understand") and block.understand:
-        summary = block.understand.split('\n')[0].strip()
+    if block.comprehension.core_understanding:
+        summary = block.comprehension.core_understanding.split('\n')[0].strip()
         # Remove bullet points
         if summary.startswith("- "):
             summary = summary[2:]
@@ -969,68 +784,83 @@ When the user says things like "yes", "proceed", "continue", "do it", "ok", or s
 
                         # Antigravity display integration
                         from hcode.ui.antigravity_display import get_antigravity_display
+                        from hcode.ui.live_todo_bar import get_stdout_lock, get_live_todo_bar
                         antigravity = get_antigravity_display(self.console)
-                        
-                        buffer = ""
-                        in_thinking = False
-                        thinking_content = []
-                        first_chunk = True
-                        displayed_thinking = False
-                        
-                        async for chunk in stream_result:
-                            response_parts.append(chunk)
-                            buffer += chunk
-                            
-                            # Check for thinking block start
-                            if "<thinking>" in buffer and not in_thinking:
-                                pre, post = buffer.split("<thinking>", 1)
-                                if pre:
-                                    antigravity.end_thinking()
-                                    print(pre, end="", flush=True)
-                                in_thinking = True
-                                buffer = post
-                                if not antigravity.thinking_start_time:
-                                    antigravity.start_thinking()
-                                
-                            if in_thinking:
-                                if "</thinking>" in buffer:
-                                    content, remaining = buffer.split("</thinking>", 1)
-                                    thinking_content.append(content)
+                        stdout_lock = get_stdout_lock()
+
+                        # Pause todo bar during streaming to prevent ANSI code interference
+                        live_bar = get_live_todo_bar(self.console)
+                        live_bar.pause()
+
+                        try:
+                            buffer = ""
+                            in_thinking = False
+                            thinking_content = []
+                            first_chunk = True
+                            displayed_thinking = False
+
+                            async for chunk in stream_result:
+                                response_parts.append(chunk)
+                                buffer += chunk
+
+                                # Check for thinking block start
+                                if "<thinking>" in buffer and not in_thinking:
+                                    pre, post = buffer.split("<thinking>", 1)
+                                    if pre:
+                                        antigravity.end_thinking()
+                                        with stdout_lock:
+                                            print(pre, end="", flush=True)
+                                    in_thinking = True
+                                    buffer = post
+                                    if not antigravity.thinking_start_time:
+                                        antigravity.start_thinking()
+
+                                if in_thinking:
+                                    if "</thinking>" in buffer:
+                                        content, remaining = buffer.split("</thinking>", 1)
+                                        thinking_content.append(content)
+                                        full_thinking = "".join(thinking_content)
+
+                                        antigravity.end_thinking()
+                                        antigravity.display_thinking_block(full_thinking)
+                                        displayed_thinking = True
+
+                                        in_thinking = False
+                                        buffer = remaining
+                                        thinking_content = []
+                                    else:
+                                        thinking_content.append(buffer)
+                                        buffer = ""
+                                else:
+                                    if "<" in buffer and len(buffer) < 20:
+                                        pass
+                                    else:
+                                        if first_chunk and buffer.strip():
+                                            antigravity.end_thinking()
+                                            first_chunk = False
+                                        with stdout_lock:
+                                            print(buffer, end="", flush=True)
+                                        buffer = ""
+
+                            if buffer:
+                                if in_thinking:
+                                    thinking_content.append(buffer)
                                     full_thinking = "".join(thinking_content)
-                                    
                                     antigravity.end_thinking()
                                     antigravity.display_thinking_block(full_thinking)
                                     displayed_thinking = True
-                                    
-                                    in_thinking = False
-                                    buffer = remaining
-                                    thinking_content = []
                                 else:
-                                    thinking_content.append(buffer)
-                                    buffer = ""
-                            else:
-                                if "<" in buffer and len(buffer) < 20:
-                                    pass
-                                else:
-                                    if first_chunk and buffer.strip():
+                                    if first_chunk:
                                         antigravity.end_thinking()
-                                        first_chunk = False
-                                    print(buffer, end="", flush=True)
-                                    buffer = ""
-                                    
-                        if buffer:
-                            if in_thinking:
-                                thinking_content.append(buffer)
-                                full_thinking = "".join(thinking_content)
-                                antigravity.end_thinking()
-                                antigravity.display_thinking_block(full_thinking)
-                                displayed_thinking = True
-                            else:
-                                if first_chunk:
-                                    antigravity.end_thinking()
-                                print(buffer, end="", flush=True)
+                                    with stdout_lock:
+                                        print(buffer, end="", flush=True)
 
-                        print()  # New line
+                            with stdout_lock:
+                                print()  # New line
+                        finally:
+                            # Resume todo bar rendering after streaming completes (even if error occurs)
+                            live_bar.resume()
+
                         response_text = "".join(response_parts)
                         # For streaming, we need to check finish reason differently
                         # Assume "stop" unless the response looks truncated
@@ -1110,7 +940,7 @@ When the user says things like "yes", "proceed", "continue", "do it", "ok", or s
                 # DEEP THINKING: Parse and display thinking blocks
                 thinking_block, response_without_thinking = parse_thinking_block(response_text)
 
-                if thinking_block and thinking_block.is_valid() and not displayed_thinking:
+                if thinking_block and is_valid_thinking(thinking_block) and not displayed_thinking:
                     # Display the thinking block (only shows verbose panel in debug mode)
                     debug_mode = self.config.get("debug", False) or self.config.get("ui", {}).get(
                         "debug_mode", False
@@ -1121,7 +951,7 @@ When the user says things like "yes", "proceed", "continue", "do it", "ok", or s
                     self.logger.log_interaction(
                         iteration=iteration,
                         request_messages=[],
-                        response_text=f"[THINKING] {thinking_block.summary()}",
+                        response_text=f"[THINKING] {get_thinking_summary(thinking_block)}",
                         finish_reason="thinking",
                         tool_calls_detected=0,
                         continuation_needed=False,
@@ -4234,7 +4064,7 @@ Continue working or provide your final answer:"""
         return normalized
 
     async def _execute_tool_calls(
-        self, tool_calls: list, require_confirmation: bool = True, max_retries: int = 2
+            self, tool_calls: list, require_confirmation: bool = False, max_retries: int = 2
     ) -> list:
         """
         Execute a list of tool calls and return results with optional confirmation for file operations.

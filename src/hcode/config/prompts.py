@@ -382,6 +382,64 @@ Stay focused on your assigned task and avoid scope creep."""
         examples = self._prompts_data.get("claude_examples", {})
         return list(examples.keys())
 
+    def get_reasoning_system_prompt(self) -> str:
+        """
+        Get the core reasoning system prompt.
+
+        Returns:
+            Reasoning system prompt string
+        """
+        return self._prompts_data.get("reasoning_prompts", {}).get("system", "")
+
+    def get_reasoning_template(self, depth: str) -> str:
+        """
+        Get a thinking template for a specific depth (quick, standard, deep).
+
+        Args:
+            depth: depth name
+
+        Returns:
+            Thinking template string
+        """
+        return self._prompts_data.get("reasoning_prompts", {}).get("templates", {}).get(depth, "")
+
+    def get_reasoning_enhancement(self, name: str) -> str:
+        """
+        Get an enhancement prompt (self_critique, uncertainty_handling, etc).
+
+        Args:
+            name: enhancement name
+
+        Returns:
+            Enhancement prompt string
+        """
+        return self._prompts_data.get("reasoning_prompts", {}).get("enhancements", {}).get(name, "")
+
+    def get_reasoning_task_specific(self, task_name: str) -> str:
+        """
+        Get a task-specific reasoning protocol.
+
+        Args:
+            task_name: Task name (debugging, refactoring, etc)
+
+        Returns:
+            Task specific protocol string
+        """
+        return self._prompts_data.get("reasoning_prompts", {}).get("task_specific", {}).get(task_name, "")
+
+    def get_phase_instruction(self, phase_name: str) -> str:
+        """
+        Get instruction for a specific reasoning phase.
+
+        Args:
+            phase_name: Name of the phase
+
+        Returns:
+            Instruction string
+        """
+        instructions = self._prompts_data.get("reasoning_prompts", {}).get("phase_instructions", {})
+        return instructions.get(phase_name, "Think about this aspect of the problem.")
+
 
 
 class ModelsConfig:
@@ -653,7 +711,18 @@ def get_claude_prompt() -> str:
     return get_prompts_config().get_claude_prompt()
 
 
+
 def get_claude_reasoning_phase(phase_name: str) -> str:
     """Convenience function to get a Claude reasoning phase"""
     return get_prompts_config().get_claude_reasoning_phase(phase_name)
+
+
+def get_reasoning_system_prompt() -> str:
+    """Convenience function to get reasoning system prompt"""
+    return get_prompts_config().get_reasoning_system_prompt()
+
+
+def get_phase_instruction(phase_name: str) -> str:
+    """Convenience function to get phase instruction"""
+    return get_prompts_config().get_phase_instruction(phase_name)
 

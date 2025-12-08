@@ -8,8 +8,9 @@ during agent execution.
 Key Features:
 - Receives todo updates via callback system (no polling)
 - Integrates with Rich streaming output
-- Uses ANSI positioning for persistent bottom display
+- Uses Rich controls for persistent bottom display causing no interference
 - Thread-safe updates from async execution
+- Cross-platform support via Rich
 """
 
 import sys
@@ -18,7 +19,12 @@ import time
 from datetime import datetime
 from typing import List, Dict, Any, Optional
 
-from rich.console import Console
+from rich.console import Console, ConsoleOptions, RenderResult
+from rich.control import Control
+from rich.segment import ControlType, Segment
+
+# Global write lock to coordinate streaming output and todo bar updates
+_stdout_write_lock = threading.RLock()
 
 from hcode.ui.todo_display import (
     ClaudeCodeTodoDisplay,
@@ -28,6 +34,15 @@ from hcode.tools.tool_callbacks import (
     ToolEventType,
     get_callback_manager,
 )
+
+
+class RawControl:
+    """Wrapper for raw ANSI control codes."""
+    def __init__(self, code: str):
+        self.code = code
+
+    def __rich_console__(self, console: Console, options: ConsoleOptions) -> RenderResult:
+        yield Segment(self.code, is_control=True)
 
 
 class LiveTodoBar:
@@ -46,13 +61,6 @@ class LiveTodoBar:
 
         bar.stop()  # Stop and cleanup
     """
-
-    # ANSI escape sequences for cursor positioning
-    SAVE_CURSOR = "\033[s"
-    RESTORE_CURSOR = "\033[u"
-    CLEAR_LINE = "\033[2K"
-    HIDE_CURSOR = "\033[?25l"
-    SHOW_CURSOR = "\033[?25h"
 
     def __init__(
         self, console: Optional[Console] = None, height: int = 6, show_shortcuts: bool = True
@@ -87,6 +95,14 @@ class LiveTodoBar:
         self._stop_event = threading.Event()
         self._update_thread: Optional[threading.Thread] = None
 
+        # Track last render state to avoid unnecessary updates
+        self._last_render_hash: Optional[int] = None
+        self._last_render_time: float = 0
+        self._min_update_interval: float = 1.0  # Minimum 1 second between updates
+
+        # Pause rendering during streaming to prevent ANSI code interference
+        self._paused: bool = False
+
     def _on_todo_update(self, event: ToolEvent) -> None:
         """
         Handle todo update events from the callback system.
@@ -100,8 +116,8 @@ class LiveTodoBar:
             with self._lock:
                 self.todos = list(event.todos)
 
-            # Immediately render the update
-            if self._active:
+            # Immediately render the update (unless paused)
+            if self._active and not self._paused:
                 self._render_status_bar()
 
     def start(self) -> None:
@@ -153,57 +169,72 @@ class LiveTodoBar:
 
     def _reserve_space(self) -> None:
         """Reserve space at the bottom of the terminal."""
-        # Print newlines to create space
-        for _ in range(self.height):
-            print()
-
-        # Move cursor back up
-        sys.stdout.write(f"\033[{self.height}A")
-        sys.stdout.flush()
+        with _stdout_write_lock:
+            # Print newlines to create space
+            self.console.print("\n" * self.height, end="")
+            
+            # Move cursor back up using Rich control
+            self.console.control(Control.move(0, -self.height))
 
     def _clear_status_area(self) -> None:
         """Clear the status bar area."""
-        terminal_height = self._get_terminal_height()
-
-        sys.stdout.write(self.SAVE_CURSOR)
-        for i in range(self.height):
-            row = terminal_height - self.height + i + 1
-            sys.stdout.write(f"\033[{row}H")
-            sys.stdout.write(self.CLEAR_LINE)
-        sys.stdout.write(self.RESTORE_CURSOR)
-        sys.stdout.flush()
-
-    def _get_terminal_height(self) -> int:
-        """Get terminal height."""
-        try:
-            import shutil
-
-            return shutil.get_terminal_size().lines
-        except Exception:
-            return 24  # Default
+        with _stdout_write_lock:
+            # We use standard ANSI codes wrapped in Rich Control for maximum compatibility
+            # Save cursor, move to bottom area, clear lines, restore cursor
+            
+            terminal_height = self.console.height
+            
+            # Create control sequence
+            controls = [
+                RawControl("\033[s"),  # Save cursor
+            ]
+            
+            for i in range(self.height):
+                row = terminal_height - self.height + i
+                controls.append(Control.move_to(0, row))
+                controls.append(Control(ControlType.ERASE_IN_LINE, 2)) # Clear whole line
+                
+            controls.append(RawControl("\033[u"))  # Restore cursor
+            
+            self.console.control(*controls)
 
     def _update_loop(self) -> None:
         """Background thread to update the elapsed time display."""
         while not self._stop_event.is_set():
             if self._active and self.todos:
-                self._render_status_bar()
-            time.sleep(0.5)  # Update twice per second
+                # Only render if enough time has passed since last update
+                current_time = time.time()
+                if current_time - self._last_render_time >= self._min_update_interval:
+                    self._render_status_bar()
+            time.sleep(1.0)  # Check once per second (rendering is throttled separately)
 
     def _render_status_bar(self) -> None:
         """Render the status bar at the bottom of the terminal."""
-        if not self._active:
+        if not self._active or self._paused:
             return
 
         with self._lock:
             if not self.todos:
                 return
 
-            terminal_height = self._get_terminal_height()
-
             # Calculate elapsed time
             elapsed = 0.0
             if self.start_time:
                 elapsed = (datetime.now() - self.start_time).total_seconds()
+
+            # Create a hash of current state to detect changes
+            state_hash = hash((
+                str(self.todos),
+                int(elapsed),  # Round to avoid updating every millisecond
+                self.token_count
+            ))
+
+            # Skip render if nothing changed
+            if state_hash == self._last_render_hash:
+                return
+
+            self._last_render_hash = state_hash
+            self._last_render_time = time.time()
 
             # Render to string
             from io import StringIO
@@ -228,23 +259,42 @@ class LiveTodoBar:
             output = string_buffer.getvalue()
             lines = output.split("\n")[: self.height]
 
-            # Position and render
-            sys.stdout.write(self.SAVE_CURSOR)
-
-            for i, line in enumerate(lines):
-                row = terminal_height - self.height + i + 1
-                sys.stdout.write(f"\033[{row}H")
-                sys.stdout.write(self.CLEAR_LINE)
-                # Handle Windows encoding issues with Unicode characters
+            # Position and render using Rich controls
+            with _stdout_write_lock:
                 try:
-                    sys.stdout.write(line)
-                except UnicodeEncodeError:
-                    # Fallback: replace problematic Unicode with ASCII alternatives
-                    safe_line = line.encode("ascii", "replace").decode("ascii")
-                    sys.stdout.write(safe_line)
+                    terminal_height = self.console.height
+                    
+                    controls = [
+                        RawControl("\033[s"),  # Save cursor
+                        Control(ControlType.HIDE_CURSOR),
+                    ]
+                    
+                    # Execute setup controls first
+                    self.console.control(*controls)
+                    
+                    # Now print lines at specific positions
+                    for i, line in enumerate(lines):
+                        row = terminal_height - self.height + i
+                        # Move to specific row
+                        self.console.control(Control.move_to(0, row))
+                        # Clear line first to ensure no artifacts
+                        self.console.control(Control(ControlType.ERASE_IN_LINE, 2))
+                        # Print line without newline via console.out which bypasses some rich formatting but uses the stream
+                        self.console.out(line, end="")
+                        
+                    # Restore cursor
+                    self.console.control(
+                        RawControl("\033[u"),  # Restore cursor
+                        Control(ControlType.SHOW_CURSOR)
+                    )
 
-            sys.stdout.write(self.RESTORE_CURSOR)
-            sys.stdout.flush()
+                except Exception:
+                    # Fallback if something goes wrong
+                    # Ensure cursor is shown at least
+                    try:
+                        self.console.control(Control(ControlType.SHOW_CURSOR))
+                    except:
+                        pass
 
     def update_todos(self, todos: List[Dict[str, Any]]) -> None:
         """
@@ -277,6 +327,27 @@ class LiveTodoBar:
     def is_active(self) -> bool:
         """Check if the bar is currently active."""
         return self._active
+
+    def pause(self) -> None:
+        """
+        Pause todo bar rendering.
+
+        Use this during streaming output to prevent ANSI codes
+        from interfering with the streamed content.
+        """
+        self._paused = True
+
+    def resume(self) -> None:
+        """
+        Resume todo bar rendering.
+
+        Call this after streaming completes to restore
+        the todo bar display.
+        """
+        self._paused = False
+        # Force a render after resuming
+        if self._active:
+            self._render_status_bar()
 
     def get_todos(self) -> List[Dict[str, Any]]:
         """Get the current todo list."""
@@ -388,3 +459,22 @@ def get_current_todos() -> List[Dict[str, Any]]:
     if _global_live_bar:
         return _global_live_bar.get_todos()
     return []
+
+
+def get_stdout_lock():
+    """
+    Get the global stdout write lock.
+
+    Use this lock when writing to stdout to prevent interference
+    with the live todo bar's ANSI positioning codes.
+
+    Returns:
+        The global stdout write lock
+
+    Example:
+        from hcode.ui.live_todo_bar import get_stdout_lock
+
+        with get_stdout_lock():
+            print("This won't interfere with todo bar", flush=True)
+    """
+    return _stdout_write_lock
