@@ -130,6 +130,27 @@ class BashTool(BaseTool):
         if timeout > max_timeout:
             timeout = max_timeout
 
+        # Show confirmation before executing command
+        try:
+            from hcode.ui.confirmation_display import get_confirmation_display
+            confirmation = get_confirmation_display()
+            
+            approved = confirmation.show_command_confirmation(
+                command=command,
+                description=description,
+                working_dir=str(self.root_dir)
+            )
+            
+            if not approved:
+                return ToolResult(
+                    success=False,
+                    output="",
+                    error="Command rejected by user"
+                )
+        except ImportError:
+            # If confirmation display not available, proceed without confirmation
+            pass
+
         try:
             if run_in_background:
                 return await self._execute_background(command, description)

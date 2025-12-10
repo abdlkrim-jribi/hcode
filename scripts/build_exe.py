@@ -1,13 +1,32 @@
 #!/usr/bin/env python3
 """
-HCode PyInstaller Build Script.
+HCode PyInstaller Build Script
+==============================
 
-Builds standalone executables for Windows, macOS, and Linux.
+This script automates the creation of standalone executables for the HCode
+application across Windows, macOS, and Linux platforms using PyInstaller.
 
-Usage:
-    python scripts/build_exe.py           # Build for current platform
-    python scripts/build_exe.py --debug   # Build with debug symbols
-    python scripts/build_exe.py --onedir  # Build as directory instead of single file
+The script performs the following steps:
+
+1. Detects the host platform and determines appropriate build settings.
+2. Verifies that PyInstaller is installed and that the entry point exists.
+3. Optionally cleans previous build artifacts.
+4. Constructs a PyInstaller command with required hidden imports and data files.
+5. Executes the build, optionally including debug symbols or building a one‑directory
+   layout instead of a single file.
+6. Verifies the resulting executable and optionally creates a release archive.
+
+Usage examples:
+
+    python scripts/build_exe.py               # Build for the current platform
+    python scripts/build_exe.py --debug       # Include debug symbols
+    python scripts/build_exe.py --onedir      # Build as a directory layout
+    python scripts/build_exe.py --no-clean    # Skip cleaning previous artifacts
+    python scripts/build_exe.py --no-verify   # Skip post‑build verification
+    python scripts/build_exe.py --no-archive  # Skip creating a release archive
+
+The script can be extended or customized by modifying the hidden import lists,
+collect package lists, or platform‑specific options.
 """
 
 from __future__ import annotations

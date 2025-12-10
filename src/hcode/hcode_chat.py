@@ -126,17 +126,18 @@ class HcodeChat:
     def _setup_shortcut_callbacks(self):
         """Set up keyboard shortcut callbacks"""
         self.shortcut_manager.register_callback(ShortcutAction.TOGGLE_MODE, self._toggle_mode)
+        # Use *args, **kwargs to handle any unexpected parameters
         self.shortcut_manager.register_callback(
-            ShortcutAction.SWITCH_TO_AUTO, lambda: self._set_mode(AgentMode.AUTO)
+            ShortcutAction.SWITCH_TO_AUTO, lambda *args, **kwargs: self._set_mode(AgentMode.AUTO)
         )
         self.shortcut_manager.register_callback(
-            ShortcutAction.SWITCH_TO_INTERACTIVE, lambda: self._set_mode(AgentMode.INTERACTIVE)
+            ShortcutAction.SWITCH_TO_INTERACTIVE, lambda *args, **kwargs: self._set_mode(AgentMode.INTERACTIVE)
         )
         self.shortcut_manager.register_callback(
-            ShortcutAction.SWITCH_TO_PLAN, lambda: self._set_mode(AgentMode.PLAN)
+            ShortcutAction.SWITCH_TO_PLAN, lambda *args, **kwargs: self._set_mode(AgentMode.PLAN)
         )
         self.shortcut_manager.register_callback(
-            ShortcutAction.SHOW_HELP, lambda: asyncio.create_task(self.show_help())
+            ShortcutAction.SHOW_HELP, lambda *args, **kwargs: asyncio.create_task(self.show_help())
         )
         self.shortcut_manager.register_callback(ShortcutAction.SHOW_TASKS, self.display_todos)
 

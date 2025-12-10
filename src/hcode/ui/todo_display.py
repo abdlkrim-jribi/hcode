@@ -681,17 +681,17 @@ class ClaudeCodeTodoDisplay:
         # Header line with sparkle and active task
         if current_task:
             active_text = current_task.get("activeForm") or current_task.get("content", "Working…")
-            text.append(f"{ICON_SPARKLE} ", style="bold yellow")
-            text.append(f"{active_text}… ", style="bold yellow")
+            text.append(f"{ICON_SPARKLE} ")
+            text.append(f"{active_text}… ")
         else:
             # All done or no in-progress
             completed = sum(1 for t in todos if t.get("status") == "completed")
             if completed == len(todos):
-                text.append(f"{ICON_SPARKLE} ", style="bold green")
-                text.append("All tasks completed ", style="bold green")
+                text.append(f"{ICON_SPARKLE} ")
+                text.append("All tasks completed ")
             else:
-                text.append(f"{ICON_SPARKLE} ", style="bold cyan")
-                text.append("Ready ", style="bold cyan")
+                text.append(f"{ICON_SPARKLE} ")
+                text.append("Ready ")
 
         # Status info in parentheses
         status_parts = []
@@ -711,7 +711,7 @@ class ClaudeCodeTodoDisplay:
         text.append("\n")
 
         # Todo items with branch connector
-        text.append(f" {ICON_BRANCH}  ", style="dim")
+        text.append(f" {ICON_BRANCH}  ")
 
         for i, todo in enumerate(todos):
             if i > 0:
@@ -721,11 +721,11 @@ class ClaudeCodeTodoDisplay:
             content = todo.get("content", "")
 
             if status == "completed":
-                text.append(f"{CHECKBOX_CHECKED} ", style="green")
-                text.append(content, style="green")
+                text.append(f"{CHECKBOX_CHECKED} ")
+                text.append(content)
             elif status == "in_progress":
-                text.append(f"{CHECKBOX_UNCHECKED} ", style="bold yellow")
-                text.append(content, style="bold yellow")
+                text.append(f"{CHECKBOX_UNCHECKED} ")
+                text.append(content)
             else:  # pending
                 text.append(f"{CHECKBOX_UNCHECKED} ", style="dim")
                 text.append(content, style="dim")

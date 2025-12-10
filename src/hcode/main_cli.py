@@ -524,8 +524,7 @@ def chat_mode(provider, session, show_todos, debug):
     ):
         """Display the todo progress bar in Claude Code style.
         
-        DISABLED: LiveTodoBar now handles all TODO rendering automatically.
-        This function is kept for compatibility but does nothing.
+        Shows the current todo list using ClaudeCodeTodoDisplay.
         
         Args:
             force: If True, show even if show_todos is disabled
@@ -534,8 +533,25 @@ def chat_mode(provider, session, show_todos, debug):
             elapsed_seconds: Time elapsed for current task
             token_count: Number of tokens used
         """
-        # DISABLED - LiveTodoBar handles all TODO display now
-        # This prevents duplicate todo lists from appearing
+        # Check if we should display
+        if not force and not reasoning_runner.show_todos:
+            return
+        
+        # Get todos from reasoning runner
+        todos = reasoning_runner.todos
+        
+        # Check if we have todos to display
+        if not todos and not show_empty:
+            return
+        
+        # NOTE: Todo display is now handled by live_todo_bar.print_final_status()
+        # Disabled to prevent duplicate printing:
+        # claude_todo_display.print(
+        #     todos=todos,
+        #     elapsed_seconds=elapsed_seconds,
+        #     token_count=token_count,
+        #     show_shortcuts=True,
+        # )
         pass
 
     # Helper function to convert Todo objects to dicts (needs to be outside loop)
@@ -999,6 +1015,9 @@ def chat_mode(provider, session, show_todos, debug):
             # Start task boundary display
             antigravity.start_task(task_name or "Processing Request", TaskMode.EXECUTION)
             
+            # Pause todo bar during streaming to prevent ANSI interference
+            live_todo_bar.pause()
+            
             # Start thinking timer
             antigravity.start_thinking()
             
@@ -1007,6 +1026,9 @@ def chat_mode(provider, session, show_todos, debug):
             finally:
                 # End thinking timer
                 antigravity.end_thinking()
+                
+                # Resume todo bar after streaming
+                live_todo_bar.resume()
             
             # Show task completion
             antigravity.end_task()

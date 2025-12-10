@@ -202,25 +202,25 @@ class ThinkingDisplayManager:
         try:
             if phase == ReasoningPhase.PERCEPTION and hasattr(output, 'observation'):
                 if output.observation:
-                    details.append(f"Observation: {output.observation[:80]}...")
+                    details.append(f"Observation: {output.observation}")
                 if output.implicit_needs:
                     details.append(f"Identified {len(output.implicit_needs)} implicit needs")
-            
+
             elif phase == ReasoningPhase.COMPREHENSION and hasattr(output, 'core_understanding'):
                 if output.core_understanding:
-                    details.append(f"Understanding: {output.core_understanding[:80]}...")
+                    details.append(f"Understanding: {output.core_understanding}")
                 if output.assumptions:
                     details.append(f"{len(output.assumptions)} assumptions made")
-            
+
             elif phase == ReasoningPhase.ANALYSIS and hasattr(output, 'decomposition'):
                 if output.decomposition:
                     details.append(f"Broke into {len(output.decomposition)} steps")
                 if output.options:
                     details.append(f"Identified {len(output.options)} options")
-            
+
             elif phase == ReasoningPhase.DECISION and hasattr(output, 'decision'):
                 if output.decision:
-                    details.append(f"Decision: {output.decision[:80]}...")
+                    details.append(f"Decision: {output.decision}")
                 if hasattr(output, 'confidence'):
                     details.append(f"Confidence: {output.confidence:.0%}")
             
@@ -328,8 +328,57 @@ def display_reasoning_summary(
         console.print()
 
 
+class SimpleThinkingDisplay:
+    """
+    Minimal thinking display matching Claude Code style.
+
+    Shows thinking as plain inline text without decoration.
+    No boxes, no phase names, no colors, no icons (except 💭 for collapsed).
+    """
+
+    def __init__(self, console: Optional[Console] = None):
+        """
+        Initialize simple thinking display.
+
+        Args:
+            console: Rich console for output (creates if None)
+        """
+        self.console = console or Console()
+
+    def show_thinking(self, content: str):
+        """
+        Display thinking inline as plain text.
+
+        Args:
+            content: The thinking content
+        """
+        if not content:
+            return
+
+        self.console.print()
+        # Just print plain text, slightly dimmed
+        for line in content.split('\n'):
+            if line.strip():
+                self.console.print(line, style="dim")
+        self.console.print()
+
+    def show_thinking_collapsed(self):
+        """Display collapsed thinking indicator."""
+        self.console.print("💭 Thinking...", style="dim italic")
+
+    def show_thinking_block(self, content: str):
+        """
+        Display a block of thinking without any formatting.
+
+        Args:
+            content: The thinking content block
+        """
+        self.show_thinking(content)
+
+
 __all__ = [
     "ThinkingDisplayManager",
+    "SimpleThinkingDisplay",
     "display_task_boundary",
     "display_reasoning_summary",
 ]

@@ -299,7 +299,7 @@ class UIConfig(BaseModel):
         description="Show verbose debug output"
     )
     show_thinking: bool = Field(
-        default=False,
+        default=True,
         description="Show model thinking/reasoning steps"
     )
     minimal_output: bool = Field(

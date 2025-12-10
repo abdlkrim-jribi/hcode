@@ -6,7 +6,9 @@
       "Bash(python:*)",
       "Bash(dir /B /S *.py)",
       "Bash(findstr:*)",
-      "Bash(pytest:*)"
+      "Bash(pytest:*)",
+      "Bash(dir:*)",
+      "Bash(grep:*)"
     ]
   }
 }

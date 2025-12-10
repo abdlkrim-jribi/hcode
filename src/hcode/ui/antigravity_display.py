@@ -209,51 +209,19 @@ class AntigravityDisplay:
     
     def start_thinking(self) -> None:
         """
-        Start the "Thought for Xs" animated timer.
+        Start the thinking timer.
         
-        Shows a live-updating timer that counts up while the agent thinks.
+        Prints a simple 'Thinking...' message instead of animated timer
+        to avoid conflicts with streaming output.
         """
         self.thinking_start_time = time.time()
         self._thinking_stop_event.clear()
         
-        self.console.print()
-        
-        def animate_thinking():
-            """Animation thread for thinking timer."""
-            icons = ["◐", "◓", "◑", "◒"]
-            icon_idx = 0
-            
-            while not self._thinking_stop_event.is_set():
-                elapsed = time.time() - self.thinking_start_time
-                icon = icons[icon_idx % len(icons)]
-                
-                text = Text()
-                text.append(f" {icon} ", style=f"bold {self._palette.warning}")
-                text.append("Thought for ", style=self._palette.text_muted)
-                text.append(f"{elapsed:.0f}s", style=f"bold {self._palette.warning}")
-                
-                if self._thinking_live:
-                    self._thinking_live.update(text)
-                    
-                icon_idx += 1
-                time.sleep(0.15)
-        
-        # Start live display
-        initial_text = Text()
-        initial_text.append(" ◐ ", style=f"bold {self._palette.warning}")
-        initial_text.append("Thought for ", style=self._palette.text_muted)
-        initial_text.append("0s", style=f"bold {self._palette.warning}")
-        
-        self._thinking_live = Live(
-            initial_text,
-            console=self.console,
-            refresh_per_second=10,
-            transient=True,
-        )
-        self._thinking_live.start()
-        
-        self._thinking_thread = threading.Thread(target=animate_thinking, daemon=True)
-        self._thinking_thread.start()
+        # Simple print instead of Rich Live (avoids conflicts with streaming)
+        text = Text()
+        text.append(" ◐ ", style=f"bold {self._palette.warning}")
+        text.append("Thinking...", style=self._palette.text_muted)
+        self.console.print(text)
         
     def end_thinking(self) -> float:
         """
@@ -264,10 +232,6 @@ class AntigravityDisplay:
         """
         self._thinking_stop_event.set()
         
-        if self._thinking_live:
-            self._thinking_live.stop()
-            self._thinking_live = None
-            
         duration = 0.0
         if self.thinking_start_time:
             duration = time.time() - self.thinking_start_time
@@ -425,38 +389,50 @@ class AntigravityDisplay:
         self,
         content: str,
         phase: Optional[str] = None,
-        collapsed: bool = True,
+        collapsed: bool = False,
     ) -> None:
         """
-        Display a thinking block in Antigravity style.
-        
+        Display a thinking block in Claude Code style.
+
+        Shows thinking with a visible indicator and content summary.
+
         Args:
             content: The thinking content
-            phase: Optional phase name (e.g., "PERCEPTION", "DECISION")
+            phase: Optional phase name (e.g., "PLANNING", "EXECUTION")
             collapsed: Whether to show collapsed (summary only)
         """
+        if not content:
+            return
+
+        # Calculate thinking duration if available
+        duration_str = ""
+        if self.thinking_start_time:
+            duration = time.time() - self.thinking_start_time
+            duration_str = f" ({duration:.0f}s)"
+
+        # Build header with phase indicator
+        header_parts = ["💭"]
+        if phase:
+            header_parts.append(f"[{phase}]")
+        header_parts.append(f"Thinking{duration_str}")
+        header = " ".join(header_parts)
+
+        self.console.print()
+        self.console.print(header, style=f"bold {self._palette.info}")
+
         if collapsed:
-            # Show just a summary line
-            summary = content.split('\n')[0][:80]
-            if len(content) > 80:
-                summary += "..."
-                
-            thinking_text = Text()
-            thinking_text.append("◊ ", style=f"bold {self._palette.warning}")
-            if phase:
-                thinking_text.append(f"[{phase}] ", style=f"italic {self._palette.secondary}")
-            thinking_text.append(summary, style=self._palette.text_muted)
-            self.console.print(thinking_text)
+            # Show just first line as summary
+            first_line = content.split('\n')[0].strip()
+            if first_line:
+                self.console.print(f"  └─ {first_line}", style=self._palette.text_muted)
         else:
-            # Show full thinking block
-            panel = Panel(
-                Markdown(content) if "```" in content else Text(content),
-                title=f"◊ Thinking{f' - {phase}' if phase else ''}",
-                title_align="left",
-                border_style=self._palette.warning,
-                padding=(0, 1),
-            )
-            self.console.print(panel)
+            # Show FULL content without truncation (Antigravity style)
+            lines = content.strip().split('\n')
+            for i, line in enumerate(lines):
+                prefix = "  │ " if i < len(lines) - 1 else "  └─ "
+                self.console.print(f"{prefix}{line}", style=self._palette.text_muted)
+
+        self.console.print()
 
 
 # Singleton instance for global access

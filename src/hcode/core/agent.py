@@ -68,14 +68,14 @@ def is_valid_thinking(block: Optional[StructuredReasoning]) -> bool:
 
 
 def get_thinking_summary(block: StructuredReasoning) -> str:
-    """Get a concise summary of the thinking"""
+    """Get a summary of the thinking (no truncation)"""
     if block.decision.decision:
-        return f"Decision: {block.decision.decision[:100]}..."
+        return f"Decision: {block.decision.decision}"
     if block.reasoning.hypothesis:
-        return f"Hypothesis: {block.reasoning.hypothesis[:100]}..."
+        return f"Hypothesis: {block.reasoning.hypothesis}"
     if block.comprehension.core_understanding:
-        return f"Understanding: {block.comprehension.core_understanding[:100]}..."
-    return block.raw_content[:100] + "..." if block.raw_content else "Empty thinking"
+        return f"Understanding: {block.comprehension.core_understanding}"
+    return block.raw_content if block.raw_content else "Empty thinking"
 
 
 def parse_thinking_block(text: str) -> Tuple[Optional[StructuredReasoning], str]:
@@ -145,11 +145,39 @@ def format_thinking_display(
     else:
         primary_phase = "THINKING"
     
-    # Display using Antigravity style
+    # Display using Antigravity style 
+    # Build clean thinking content without phase labels
+    thinking_lines = []
+    
+    # Show raw content directly if available (preferred - cleanest output)
+    if block.raw_content.strip():
+        # Just show the raw thinking without labels
+        thinking_lines.append(block.raw_content.strip())
+    else:
+        # Fallback: combine phase content without labels
+        if block.perception.observation:
+            thinking_lines.append(block.perception.observation)
+        
+        if block.comprehension.core_understanding:
+            thinking_lines.append(block.comprehension.core_understanding)
+        
+        if block.reasoning.hypothesis:
+            thinking_lines.append(block.reasoning.hypothesis)
+        
+        if block.decision.decision:
+            thinking_lines.append(block.decision.decision)
+    
+    # If nothing parsed, show raw content (first 500 chars)
+    if not thinking_lines and block.raw_content:
+        raw_preview = block.raw_content[:500].strip()
+        thinking_lines.append(raw_preview)
+    
+    content = "\n".join(thinking_lines) if thinking_lines else f"Phase: {primary_phase}"
+    
     antigravity.display_thinking_block(
-        content=block.raw_content,
+        content=content,
         phase=primary_phase,
-        collapsed=not debug_mode
+        collapsed=False  # Show thinking visibly
     )
     
     # Update task mode based on phase
@@ -375,6 +403,12 @@ class HcodeAgent:
         self.analytics.start_conversation(self.context_manager.session_id)
         self.execution_state.transition(ExecutionState.PLANNING)
 
+        # Start LiveTodoBar for real-time todo display
+        from hcode.ui.live_todo_bar import get_live_todo_bar
+        live_bar = get_live_todo_bar(self.console)
+        if not live_bar.is_active:
+            live_bar.start()
+
         try:
             # Use sub-agents if requested
             if use_sub_agents:
@@ -548,6 +582,13 @@ class HcodeAgent:
                 )
                 raise
 
+        finally:
+            # Stop LiveTodoBar when task completes (success or failure)
+            from hcode.ui.live_todo_bar import get_live_todo_bar
+            live_bar = get_live_todo_bar(self.console)
+            if live_bar.is_active:
+                live_bar.stop()
+
     def _build_system_prompt(self, query: Optional[str] = None) -> str:
         """Build system prompt with tool documentation and memory context (Claude Code style)"""
         # Get base system prompt from external config
@@ -689,6 +730,8 @@ When the user says things like "yes", "proceed", "continue", "do it", "ok", or s
         last_tool_call_iteration = 0
         consecutive_errors = 0  # Track consecutive errors for circuit breaker
         max_consecutive_errors = 3
+        consecutive_hallucinations = 0  # Track consecutive hallucinations to preventing infinite loops
+        max_consecutive_hallucinations = 5
         partial_file_content = {}  # Track partial file content for long writes
         accumulated_results = []  # Track all results even on failure
         last_successful_response = ""  # Keep track of last successful output
@@ -779,8 +822,8 @@ When the user says things like "yes", "proceed", "continue", "do it", "ok", or s
                             tools=tool_schemas if provider_name == "anthropic" else None,
                         )
 
-                        # Clear thinking indicator
-                        self.console.print(" " * 20, end="\r")
+                        # NOTE: Don't clear thinking indicator here - let it animate until content arrives
+                        # The thinking timer will be stopped when first response content is received
 
                         # Antigravity display integration
                         from hcode.ui.antigravity_display import get_antigravity_display
@@ -791,6 +834,10 @@ When the user says things like "yes", "proceed", "continue", "do it", "ok", or s
                         # Pause todo bar during streaming to prevent ANSI code interference
                         live_bar = get_live_todo_bar(self.console)
                         live_bar.pause()
+                        
+                        # Explicitly clear the status area to ensure no ghost lines remain
+                        # This prevents the "Thought for Xs" timer from overlapping or repeating
+                        live_bar._clear_status_area()
 
                         try:
                             buffer = ""
@@ -814,22 +861,37 @@ When the user says things like "yes", "proceed", "continue", "do it", "ok", or s
                                     buffer = post
                                     if not antigravity.thinking_start_time:
                                         antigravity.start_thinking()
+                                    # Add newline before thinking content starts
+                                    with stdout_lock:
+                                        print()  # New line to separate from timer
 
                                 if in_thinking:
                                     if "</thinking>" in buffer:
                                         content, remaining = buffer.split("</thinking>", 1)
                                         thinking_content.append(content)
+                                        # Suppress raw thinking output
+                                        # if content:
+                                        #     with stdout_lock:
+                                        #         print(content, end="", flush=True)
+                                        
                                         full_thinking = "".join(thinking_content)
 
                                         antigravity.end_thinking()
-                                        antigravity.display_thinking_block(full_thinking)
+
+                                        # Display thinking block
+                                        if full_thinking.strip():
+                                            antigravity.display_thinking_block(full_thinking)
                                         displayed_thinking = True
 
                                         in_thinking = False
                                         buffer = remaining
                                         thinking_content = []
                                     else:
+                                        # Streaming thinking content...
                                         thinking_content.append(buffer)
+                                        # Suppress raw thinking output
+                                        # with stdout_lock:
+                                        #     print(buffer, end="", flush=True)
                                         buffer = ""
                                 else:
                                     if "<" in buffer and len(buffer) < 20:
@@ -847,7 +909,10 @@ When the user says things like "yes", "proceed", "continue", "do it", "ok", or s
                                     thinking_content.append(buffer)
                                     full_thinking = "".join(thinking_content)
                                     antigravity.end_thinking()
-                                    antigravity.display_thinking_block(full_thinking)
+
+                                    # Display thinking block
+                                    if full_thinking.strip():
+                                        antigravity.display_thinking_block(full_thinking)
                                     displayed_thinking = True
                                 else:
                                     if first_chunk:
@@ -1061,15 +1126,15 @@ Then repeat your tool call.""",
                     action.get("tool", "").lower() == "todowrite" for action in completed_actions
                 )
 
-                # ENFORCE TODOWRITE: On iteration 2, if no TodoWrite used, prompt for it
-                if iteration == 2 and not has_used_todowrite and tool_calls:
+                # ENFORCE TODOWRITE: On iteration 1, if no TodoWrite used, prompt for it
+                if iteration == 1 and not has_used_todowrite and tool_calls:
                     self._debug_print(
                         f"[dim yellow][!] Reminder: Use TodoWrite to track your tasks![/dim yellow]"
                     )
                     # Add reminder to context
                     self.context_manager.add_message(
                         role="user",
-                        content="IMPORTANT: Please use TodoWrite to create a task list before continuing. Use TodoWrite with todos array to plan your steps.",
+                        content="CRITICAL: You MUST use TodoWrite tool now to create a task list. Call TodoWrite with todos array containing your planned steps (content, status='pending'|'in_progress'|'completed', activeForm). This is required for progress tracking.",
                         importance=1.0,
                         provider=self.current_provider,
                     )
@@ -1287,6 +1352,53 @@ What specific action will you take to address this error?"""
                 else:
                     consecutive_no_tool_calls += 1
 
+                    # DETECT HALLUCINATION: If model claims to have results without calling tools
+                    # This captures cases where model says "Result of reading X:" but didn't call Read
+                    hallucination_indicators = [
+                        "Result of reading",
+                        "Output of command",
+                        "Result of running",
+                        # "File content:", # Too broad, often valid explanation
+                        # "found in the file", # Too broad, often valid explanation
+                        # "The file contains:", # Too broad, often valid explanation
+                        # "cat ", # Too broad, likely valid command explanation
+                        # "grep ", # Too broad, likely valid command explanation
+                    ]
+                    
+                    # Only check non-thinking part
+                    check_text_lower = (response_without_thinking if thinking_block else response_text).lower()
+                    
+                    # Check if any indicator exists AND it looks like a claim of action
+                    is_hallucinating = any(ind.lower() in check_text_lower for ind in hallucination_indicators)
+                    
+                    if is_hallucinating:
+                        consecutive_hallucinations += 1
+                        
+                        # Stop if too many hallucinations
+                        if consecutive_hallucinations >= max_consecutive_hallucinations:
+                            self.console.print(f"\n[bold red][!] Too many consecutive hallucinations ({consecutive_hallucinations}). Stopping loop.[/bold red]")
+                            break
+                        
+                        self.console.print(f"\n[bold red]⚠️ DETECTED SIMULATED TOOL OUTPUT (HALLUCINATION {consecutive_hallucinations}/{max_consecutive_hallucinations})[/bold red]")
+                        self.console.print("[dim]Model claimed to show output but didn't call tools. Forcing retry...[/dim]\n")
+                        
+                        self.context_manager.add_message(
+                            role="user",
+                            content="""CRITICAL ERROR: You are hallucinating tool outputs!
+                            
+You claimed to show the result of reading a file or running a command, BUT YOU DID NOT ACTUALLY CALL ANY TOOL.
+
+You MUST emit the JSON for the tool call. Do not invent the output.
+
+Call the tool now:""",
+                            importance=1.0,
+                            provider=self.current_provider
+                        )
+                        continue
+                    else:
+                        # Reset counter if not hallucinating
+                        consecutive_hallucinations = 0
+
                 # ═══════════════════════════════════════════════════════════════════════════════
                 # LLM-DRIVEN COMPLETION: Let the model decide when task is complete
                 # Simple rules:
@@ -1311,7 +1423,9 @@ What specific action will you take to address this error?"""
                 # Task is complete if:
                 # - Model signaled done (no more tool calls, finish_reason=stop)
                 # - AND response is not empty/truncated
-                task_completed = model_signaled_done and len(response_stripped) > 10
+                # - AND response has content OUTSIDE of thinking block
+                check_text = response_without_thinking if thinking_block else response_text
+                task_completed = model_signaled_done and len(check_text.strip()) > 10
 
                 # Debug logging (only in debug mode)
                 self._debug_print(
@@ -1334,7 +1448,7 @@ What specific action will you take to address this error?"""
 
                 if task_completed:
                     # FIRST: Check if model provided a substantive answer to the user
-                    has_substantive = self._has_substantive_answer(response_text)
+                    has_substantive = self._has_substantive_answer(check_text)
 
                     if not has_substantive and answer_prompts < max_answer_prompts:
                         # Model stopped without providing actual answer - prompt for response
@@ -1459,7 +1573,7 @@ Please review the remaining items:
                     continue
 
                 # Check for substantive answer before allowing completion
-                has_substantive = self._has_substantive_answer(response_text)
+                has_substantive = self._has_substantive_answer(check_text)
 
                 if not has_substantive and answer_prompts < max_answer_prompts:
                     # Model stopped without providing actual answer - prompt for response
@@ -2279,8 +2393,8 @@ Please review and decide:
 
         # 1. Strip thinking blocks (all formats)
         thinking_patterns = [
-            r"<thinking>[\s\S]*?</thinking>",
-            r"<think>[\s\S]*?</think>",
+            r"<thinking>[\s\S]*?(?:</thinking>|$)",
+            r"<think>[\s\S]*?(?:</think>|$)",
             r"\[UNDERSTAND\][\s\S]*?(?=\[(?:CONTEXT|OPTIONS|DECISION|RISK|ASSUMPTIONS)\]|$)",
             r"\[CONTEXT\][\s\S]*?(?=\[(?:UNDERSTAND|OPTIONS|DECISION|RISK|ASSUMPTIONS)\]|$)",
             r"\[OPTIONS\][\s\S]*?(?=\[(?:UNDERSTAND|CONTEXT|DECISION|RISK|ASSUMPTIONS)\]|$)",

@@ -976,7 +976,29 @@ class GlobTool(BaseTool):
                 except ValueError:
                     relative_matches.append(str(match))
 
-            output = "\n".join(relative_matches) if relative_matches else "No matches found"
+            if relative_matches:
+                output = "\n".join(relative_matches)
+            else:
+                # No matches - provide helpful hints
+                # Find subdirectories that might be relevant
+                subdirs = []
+                try:
+                    for item in search_dir.iterdir():
+                        if item.is_dir() and not item.name.startswith('.'):
+                            # Look for CI/config related directories
+                            name_lower = item.name.lower()
+                            if any(keyword in name_lower for keyword in [
+                                'ci', 'config', 'github', 'gitlab', 'zuul', 'jenkins',
+                                'workflow', 'pipeline', 'azure', 'build'
+                            ]):
+                                subdirs.append(item.name)
+                except Exception:
+                    pass
+                
+                output = "No matches found"
+                if subdirs:
+                    output += f"\n\nHINT: Found potentially relevant directories: {', '.join(subdirs)}"
+                    output += "\nTry searching within these directories using the 'path' parameter."
 
             return ToolResult(
                 success=True,
@@ -990,6 +1012,7 @@ class GlobTool(BaseTool):
 
         except Exception as e:
             return ToolResult(success=False, output=None, error=str(e))
+
 
 
 class GrepTool(BaseTool):
@@ -1035,6 +1058,10 @@ class GrepTool(BaseTool):
         try:
             search_path = Path(path) if path else self.root_dir
 
+            # Handle glob as list or string (model may pass list)
+            if isinstance(glob, list):
+                glob = glob[0] if glob else None  # Use first pattern if list
+            
             # Compile regex pattern
             flags = re.IGNORECASE if case_insensitive else 0
             regex = re.compile(pattern, flags)
@@ -1086,7 +1113,51 @@ class GrepTool(BaseTool):
                 except Exception:
                     continue
 
-            output = "\n".join(results) if results else "No matches found"
+            if results:
+                output = "\n".join(results)
+            else:
+                # No matches - provide helpful hints with regex patterns
+                hints = []
+                
+                # Analyze the pattern to suggest alternatives
+                # Extract potential keywords from the pattern
+                import re as re_module
+                # Remove regex special chars to get base words
+                clean_pattern = re_module.sub(r'[.*+?^${}()|\[\]\\]', ' ', pattern)
+                words = [w for w in clean_pattern.replace('_', ' ').replace('-', ' ').split() if len(w) > 2]
+                
+                if len(words) >= 2:
+                    # Suggest regex with wildcards between words
+                    hints.append(f"Try regex pattern: {words[0]}.*{words[1]}")
+                    hints.append(f"Try reversed: {words[1]}.*{words[0]}")
+                    hints.append(f"Try hyphenated: {words[0]}-{words[1]} or {words[1]}-{words[0]}")
+                elif len(words) == 1:
+                    hints.append(f"Try broader search with just: {words[0]}")
+                
+                # Suggest case-insensitive if not already
+                if not case_insensitive:
+                    hints.append("Try with case_insensitive=True")
+                
+                # Look for config directories
+                subdirs = []
+                try:
+                    for item in search_path.iterdir():
+                        if item.is_dir() and not item.name.startswith('.'):
+                            name_lower = item.name.lower()
+                            if any(keyword in name_lower for keyword in [
+                                'ci', 'config', 'github', 'gitlab', 'zuul', 'jenkins',
+                                'workflow', 'pipeline', 'azure', 'build'
+                            ]):
+                                subdirs.append(item.name)
+                except Exception:
+                    pass
+                
+                if subdirs:
+                    hints.append(f"Try searching in: {', '.join(subdirs)}")
+                
+                output = "No matches found"
+                if hints:
+                    output += "\n\nHINTS (try these patterns):\n- " + "\n- ".join(hints)
 
             return ToolResult(
                 success=True,
@@ -1096,3 +1167,5 @@ class GrepTool(BaseTool):
 
         except Exception as e:
             return ToolResult(success=False, output=None, error=str(e))
+
+

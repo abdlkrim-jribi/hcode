@@ -105,6 +105,29 @@ class FuzzyEditTool(BaseTool):
             # Reconstruct content - handle potential list of strings vs single string
             new_content = "".join(new_lines)
 
+            # Show confirmation with diff preview before writing
+            try:
+                from hcode.ui.confirmation_display import get_confirmation_display
+                confirmation = get_confirmation_display()
+                
+                # Ask user for confirmation with diff preview
+                approved = confirmation.show_file_edit_confirmation(
+                    file_path=str(path),
+                    old_content=content,
+                    new_content=new_content,
+                    description=f"Fuzzy edit with {best_ratio:.0%} similarity match"
+                )
+                
+                if not approved:
+                    return ToolResult(
+                        success=False,
+                        output=None,
+                        error="Edit rejected by user"
+                    )
+            except ImportError:
+                # If confirmation display not available, proceed without confirmation
+                pass
+
             with open(path, "w", encoding="utf-8") as f:
                 f.write(new_content)
 

@@ -36,10 +36,13 @@ from hcode.tools.tool_callbacks import (
 )
 
 
+from rich.segment import Segment
+
 class RawControl:
     """Wrapper for raw ANSI control codes."""
     def __init__(self, code: str):
         self.code = code
+        self.segment = Segment(code)
 
     def __rich_console__(self, console: Console, options: ConsoleOptions) -> RenderResult:
         yield Segment(self.code, is_control=True)
@@ -114,11 +117,14 @@ class LiveTodoBar:
         """
         if event.todos is not None:
             with self._lock:
+                # Check if todos actually changed
+                todos_changed = str(self.todos) != str(event.todos)
                 self.todos = list(event.todos)
 
-            # Immediately render the update (unless paused)
-            if self._active and not self._paused:
-                self._render_status_bar()
+            # DISABLED: Printing on each todo update causes duplication on Windows
+            # Todos are shown only at task completion via print_final_status()
+            # if todos_changed and self._active and not self._paused:
+            #     self._print_simple_status()
 
     def start(self) -> None:
         """
@@ -151,6 +157,11 @@ class LiveTodoBar:
 
         Unregisters callbacks and cleans up display.
         """
+        # Print final todo status before stopping (only once)
+        if not getattr(self, '_final_printed', False):
+            self.print_final_status()
+            self._final_printed = True
+
         self._active = False
         self._stop_event.set()
 
@@ -164,8 +175,64 @@ class LiveTodoBar:
             self._callback_manager.unregister(ToolEventType.TODO_UPDATE, self._on_todo_update)
             self._callback_registered = False
 
-        # Clear the status area
-        self._clear_status_area()
+        # NOTE: Don't clear status area here - it would erase the final status we just printed
+
+    def _print_simple_status(self) -> None:
+        """Print todos as simple output (no ANSI positioning)."""
+        with self._lock:
+            if not self.todos:
+                return
+
+            # Calculate elapsed time
+            elapsed = 0.0
+            if self.start_time:
+                elapsed = (datetime.now() - self.start_time).total_seconds()
+
+            try:
+                # Render todos
+                rendered = self.todo_display.render(
+                    self.todos,
+                    elapsed_seconds=elapsed,
+                    token_count=self.token_count,
+                    show_shortcuts=True,
+                )
+
+                # Simple print without complex positioning
+                self.console.print(rendered)
+            except Exception:
+                pass  # Silently fail if rendering has issues
+
+    def print_final_status(self) -> None:
+        """Print the final todo status (called when task completes)."""
+        with self._lock:
+            # DEBUG: Always show todo count
+            todo_count = len(self.todos)
+            if todo_count == 0:
+                # Show message that no todos were created
+                self.console.print("\n[dim]No todos created for this task[/dim]")
+                return
+
+            # Calculate elapsed time
+            elapsed = 0.0
+            if self.start_time:
+                elapsed = (datetime.now() - self.start_time).total_seconds()
+
+            try:
+                # Render todos
+                rendered = self.todo_display.render(
+                    self.todos,
+                    elapsed_seconds=elapsed,
+                    token_count=self.token_count,
+                    show_shortcuts=False,  # Don't show shortcuts in final status
+                )
+
+                # Print with separators for visibility
+                self.console.print("\n" + "─" * 70)
+                self.console.print(rendered)
+                self.console.print("─" * 70 + "\n")
+            except Exception as e:
+                # Fallback: simple print if rendering fails
+                self.console.print(f"\n[dim]Task completed with {len(self.todos)} todos[/dim]\n")
 
     def _reserve_space(self) -> None:
         """Reserve space at the bottom of the terminal."""
@@ -192,7 +259,7 @@ class LiveTodoBar:
             for i in range(self.height):
                 row = terminal_height - self.height + i
                 controls.append(Control.move_to(0, row))
-                controls.append(Control(ControlType.ERASE_IN_LINE, 2)) # Clear whole line
+                controls.append(Control((ControlType.ERASE_IN_LINE, 2))) # Clear whole line
                 
             controls.append(RawControl("\033[u"))  # Restore cursor
             
@@ -201,12 +268,11 @@ class LiveTodoBar:
     def _update_loop(self) -> None:
         """Background thread to update the elapsed time display."""
         while not self._stop_event.is_set():
-            if self._active and self.todos:
-                # Only render if enough time has passed since last update
-                current_time = time.time()
-                if current_time - self._last_render_time >= self._min_update_interval:
-                    self._render_status_bar()
-            time.sleep(1.0)  # Check once per second (rendering is throttled separately)
+            time.sleep(1.0)
+            # DISABLED: ANSI cursor positioning causes duplication on Windows
+            # Todos are shown only on completion via print_final_status()
+            # if not self._paused and self._active:
+            #     self._render_status_bar()
 
     def _render_status_bar(self) -> None:
         """Render the status bar at the bottom of the terminal."""
@@ -278,9 +344,10 @@ class LiveTodoBar:
                         # Move to specific row
                         self.console.control(Control.move_to(0, row))
                         # Clear line first to ensure no artifacts
-                        self.console.control(Control(ControlType.ERASE_IN_LINE, 2))
-                        # Print line without newline via console.out which bypasses some rich formatting but uses the stream
-                        self.console.out(line, end="")
+                        self.console.control(Control((ControlType.ERASE_IN_LINE, 2)))
+                        # Write ANSI-formatted line directly to stdout
+                        sys.stdout.write(line)
+                        sys.stdout.flush()
                         
                     # Restore cursor
                     self.console.control(
@@ -306,8 +373,9 @@ class LiveTodoBar:
         with self._lock:
             self.todos = list(todos)
 
-        if self._active:
-            self._render_status_bar()
+        # DISABLED: Causes duplication on Windows
+        # if self._active:
+        #     self._render_status_bar()
 
     def update_tokens(self, token_count: int) -> None:
         """
@@ -345,9 +413,9 @@ class LiveTodoBar:
         the todo bar display.
         """
         self._paused = False
-        # Force a render after resuming
-        if self._active:
-            self._render_status_bar()
+        # DISABLED: Causes duplication on Windows
+        # if self._active:
+        #     self._render_status_bar()
 
     def get_todos(self) -> List[Dict[str, Any]]:
         """Get the current todo list."""
