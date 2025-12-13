@@ -742,9 +742,11 @@ When the user says things like "yes", "proceed", "continue", "do it", "ok", or s
 
         # SUBSTANTIVE ANSWER CHECK: Track prompts for actual user-facing response
         answer_prompts = 0  # Track how many times we've prompted for substantive answer
-        max_answer_prompts = (
-            2  # Safety limit - if model can't provide answer after 2 prompts, accept it
-        )
+        max_answer_prompts = 5  # Increased to handle thinking-only loops better
+        
+        # THINKING-ONLY LOOP DETECTION: Track when model outputs only thinking without action
+        thinking_only_prompts = 0
+        max_thinking_only_prompts = 5  # Max times to prompt before giving up
 
         # RETRY LOOP PREVENTION: Track failed commands to prevent infinite retries
         failed_commands: Dict[str, int] = {}  # command -> failure count
@@ -1425,7 +1427,87 @@ Call the tool now:""",
                 # - AND response is not empty/truncated
                 # - AND response has content OUTSIDE of thinking block
                 check_text = response_without_thinking if thinking_block else response_text
-                task_completed = model_signaled_done and len(check_text.strip()) > 10
+                
+                # CRITICAL FIX: Detect thinking-only responses (no actual content, no tool calls)
+                # This prevents marking task as complete when model just thinks without acting
+                is_thinking_only = (
+                    thinking_block and 
+                    (not response_without_thinking or len(response_without_thinking.strip()) < 20) and
+                    not tool_calls
+                )
+                
+                # CRITICAL FIX 2: Detect incomplete responses that end mid-sentence
+                # This catches cases like "To fulfill the request I must:" which is clearly unfinished
+                check_text_stripped = check_text.strip() if check_text else ""
+                is_incomplete_response = (
+                    not tool_calls and
+                    not self._has_substantive_answer(check_text) and
+                    (
+                        check_text_stripped.endswith(':') or  # Ends with colon (incomplete list)
+                        check_text_stripped.endswith('...') or  # Ends with ellipsis
+                        check_text_stripped.endswith(',') or  # Ends with comma
+                        (len(check_text_stripped) > 0 and len(check_text_stripped) < 100 and ':' in check_text_stripped)  # Short with colon
+                    )
+                )
+                
+                # If response is ONLY thinking block, DO NOT consider task complete
+                if is_thinking_only and thinking_only_prompts < max_thinking_only_prompts:
+                    thinking_only_prompts += 1
+                    self.console.print(
+                        f"[dim yellow][!] Thinking-only response detected, prompting for action (prompt {thinking_only_prompts}/{max_thinking_only_prompts})[/dim yellow]"
+                    )
+                    self.context_manager.add_message(
+                        role="user",
+                        content="""🚨 CRITICAL ERROR: You outputted ONLY a <thinking> block but NO tool call!
+
+This is WRONG. After thinking, you MUST output a tool call JSON.
+
+OUTPUT ONE OF THESE RIGHT NOW (pick the most relevant):
+
+To find files:
+{"tool": "Glob", "parameters": {"pattern": "**/*.py"}}
+
+To read a file:
+{"tool": "Read", "parameters": {"file_path": "path/to/file.py"}}
+
+To list directory:
+{"tool": "LS", "parameters": {"path": "."}}
+
+To search content:
+{"tool": "Grep", "parameters": {"pattern": "search_term"}}
+
+To edit a file (after reading it):
+{"tool": "Edit", "parameters": {"file_path": "file.py", "old_string": "old code", "new_string": "new code"}}
+
+DO NOT output more thinking. Output the JSON tool call NOW:""",
+                        importance=1.0,
+                        provider=self.current_provider,
+                    )
+                    continue
+                
+                # If response is incomplete (ends mid-sentence), prompt to continue
+                if is_incomplete_response and thinking_only_prompts < max_thinking_only_prompts:
+                    thinking_only_prompts += 1
+                    self.console.print(
+                        f"[dim yellow][!] Incomplete response detected (ends mid-sentence), prompting to continue (prompt {thinking_only_prompts}/{max_thinking_only_prompts})[/dim yellow]"
+                    )
+                    self.context_manager.add_message(
+                        role="user",
+                        content="""🚨 Your response was cut off! You said you would do something but didn't.
+
+OUTPUT A TOOL CALL NOW. Examples:
+
+{"tool": "Glob", "parameters": {"pattern": "**/*.py"}}
+{"tool": "Read", "parameters": {"file_path": "path/to/file.py"}}
+{"tool": "LS", "parameters": {"path": "."}}
+
+Do not describe what you will do - OUTPUT THE JSON:""",
+                        importance=1.0,
+                        provider=self.current_provider,
+                    )
+                    continue
+                
+                task_completed = model_signaled_done and len(check_text.strip()) > 10 and not is_thinking_only and not is_incomplete_response
 
                 # Debug logging (only in debug mode)
                 self._debug_print(

@@ -392,6 +392,25 @@ system_prompts:
     </thinking>
 
     **ALWAYS output your full thinking** so users can see your detailed reasoning process. DO NOT skip phases or provide minimal thinking.
+
+    **🚨 CRITICAL: ACTION REQUIRED AFTER THINKING 🚨**
+    
+    After EVERY thinking block, you MUST IMMEDIATELY output a tool call in JSON format.
+    
+    WRONG (DO NOT DO THIS):
+    ```
+    <thinking>I will use Glob to find files...</thinking>
+    ← STOPS HERE WITHOUT TOOL CALL
+    ```
+    
+    CORRECT (ALWAYS DO THIS):
+    ```
+    <thinking>I will use Glob to find files...</thinking>
+    
+    {"tool": "Glob", "parameters": {"pattern": "**/*.py"}}
+    ```
+    
+    If you only output thinking without a tool call, you have FAILED. The system will prompt you again.
     </reasoning_framework>
 
     <tool_usage>
