@@ -1450,6 +1450,19 @@ Call the tool now:""",
                     )
                 )
                 
+                # CRITICAL FIX 3: Detect when model outputs code blocks but doesn't call Write/Edit
+                # This is a hallucination pattern where the model shows code instead of actually editing files
+                import re
+                code_block_pattern = r'```(?:python|py|javascript|js|typescript|ts|json|yaml|yml|markdown|md|html|css|bash|shell|sh)?\s*\n'
+                has_code_blocks = bool(re.search(code_block_pattern, response_text, re.IGNORECASE))
+                has_write_or_edit_tool = any(
+                    tc.get('tool', '').lower() in ('write', 'writetool', 'edit', 'edittool', 'fuzzyedit')
+                    for tc in tool_calls
+                ) if tool_calls else False
+                
+                # If response has code blocks but no Write/Edit tool call, it's hallucinating file changes
+                is_code_block_hallucination = has_code_blocks and not has_write_or_edit_tool and not tool_calls
+                
                 # If response is ONLY thinking block, DO NOT consider task complete
                 if is_thinking_only and thinking_only_prompts < max_thinking_only_prompts:
                     thinking_only_prompts += 1
@@ -1507,7 +1520,37 @@ Do not describe what you will do - OUTPUT THE JSON:""",
                     )
                     continue
                 
-                task_completed = model_signaled_done and len(check_text.strip()) > 10 and not is_thinking_only and not is_incomplete_response
+                # If response has code blocks but no Write/Edit tool call, it's hallucinating file changes
+                if is_code_block_hallucination and thinking_only_prompts < max_thinking_only_prompts:
+                    thinking_only_prompts += 1
+                    self.console.print(
+                        f"[dim yellow][!] Code block hallucination detected - model showed code but didn't call Write/Edit tool (prompt {thinking_only_prompts}/{max_thinking_only_prompts})[/dim yellow]"
+                    )
+                    self.context_manager.add_message(
+                        role="user",
+                        content="""🚨 CRITICAL: You output code in markdown blocks but did NOT call the Write or Edit tool!
+
+SHOWING code is NOT the same as EDITING a file. You must call the Write or Edit tool.
+
+WRONG (what you did - this does NOTHING to files):
+```python
+def my_function():
+    pass
+```
+
+CORRECT (what you MUST do - this actually modifies the file):
+{"tool": "Write", "parameters": {"file_path": "/path/to/file.py", "content": "def my_function():\\n    pass"}}
+
+OR for smaller edits:
+{"tool": "Edit", "parameters": {"file_path": "/path/to/file.py", "old_string": "old code", "new_string": "new code"}}
+
+NOW call the Write or Edit tool to actually make the changes:""",
+                        importance=1.0,
+                        provider=self.current_provider,
+                    )
+                    continue
+                
+                task_completed = model_signaled_done and len(check_text.strip()) > 10 and not is_thinking_only and not is_incomplete_response and not is_code_block_hallucination
 
                 # Debug logging (only in debug mode)
                 self._debug_print(

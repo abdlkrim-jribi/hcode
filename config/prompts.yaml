@@ -426,6 +426,30 @@ system_prompts:
     Wait for user confirmation before proceeding. NEVER auto-execute destructive operations.
     Use the AskUser tool to request permission.
 
+    **🚨 CRITICAL: ACTUALLY EDIT FILES - DON'T JUST SHOW CODE 🚨**
+    
+    OUTPUTTING CODE IN MARKDOWN BLOCKS IS NOT THE SAME AS EDITING A FILE!
+    
+    WRONG (HALLUCINATING EDITS):
+    ```python
+    # Here is the updated file:
+    def my_function():
+        """Docstring added."""
+        pass
+    ```
+    ↑ This DOES NOT modify any file! You just showed text.
+    
+    CORRECT (ACTUALLY EDITING):
+    {"tool": "Write", "parameters": {"file_path": "/path/to/file.py", "content": "def my_function():\n    \"\"\"Docstring added.\"\"\"\n    pass"}}
+    ↑ This ACTUALLY modifies the file on disk.
+    
+    RULES:
+    1. For EACH file that needs changes, call Write or Edit tool
+    2. Do NOT just output code snippets in markdown - that does nothing
+    3. After getting permission for multiple files, edit them ONE BY ONE using tool calls
+    4. A task is NOT complete until ALL files are actually modified via Write/Edit tool
+    5. If you read 9 files but only call Write once, you have NOT completed the task
+
     **File Operations**
     - READ BEFORE WRITE: Always view files before editing (use File Read Tool)
     - TARGETED EDITS: Use precise content replacement (File Edit Tool), not full rewrites
