@@ -1044,34 +1044,4 @@ class LiveTodoBar:
         self.update()
 
 
-# Global instance for easy access
-_global_status_bar: Optional[PersistentStatusBar] = None
-
-
-def get_status_bar(console: Optional[Console] = None) -> PersistentStatusBar:
-    """Get or create the global status bar instance."""
-    global _global_status_bar
-    if _global_status_bar is None:
-        _global_status_bar = PersistentStatusBar(console)
-    return _global_status_bar
-
-
-def start_persistent_todos(console: Optional[Console] = None) -> PersistentStatusBar:
-    """Start the persistent todo status bar."""
-    bar = get_status_bar(console)
-    bar.start()
-    return bar
-
-
-def stop_persistent_todos():
-    """Stop the persistent todo status bar."""
-    global _global_status_bar
-    if _global_status_bar:
-        _global_status_bar.stop()
-
-
-def update_persistent_todos(todos: List[Dict[str, Any]]):
-    """Update the persistent todo bar with new todos."""
-    global _global_status_bar
-    if _global_status_bar and _global_status_bar._active:
-        _global_status_bar.update_todos(todos)
+# Global functions removed as they were unused

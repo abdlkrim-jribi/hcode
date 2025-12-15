@@ -747,6 +747,9 @@ When the user says things like "yes", "proceed", "continue", "do it", "ok", or s
         # THINKING-ONLY LOOP DETECTION: Track when model outputs only thinking without action
         thinking_only_prompts = 0
         max_thinking_only_prompts = 5  # Max times to prompt before giving up
+        
+        # MODIFIED FILES TRACKING: Prevent re-processing same files
+        modified_files = set()  # Track files that have been written this session
 
         # RETRY LOOP PREVENTION: Track failed commands to prevent infinite retries
         failed_commands: Dict[str, int] = {}  # command -> failure count
@@ -1158,6 +1161,36 @@ Then repeat your tool call.""",
                     consecutive_no_tool_calls = 0
                     last_tool_call_iteration = iteration
 
+                    # FILTER DUPLICATE FILE WRITES: Skip Write calls on already-modified files
+                    filtered_tool_calls = []
+                    skipped_files = []
+                    for tc in tool_calls:
+                        tc_tool = tc.get("tool", "").lower()
+                        tc_path = tc.get("parameters", {}).get("file_path", "")
+                        
+                        # Skip Write/Edit on already-modified files
+                        if tc_tool in ["write", "writetool", "edit", "edittool"] and tc_path in modified_files:
+                            skipped_files.append(tc_path)
+                            self.console.print(f"[dim yellow]⏭️ Skipping {tc_path} - already modified this session[/dim yellow]")
+                        else:
+                            filtered_tool_calls.append(tc)
+                    
+                    # Inject warning about skipped files
+                    if skipped_files:
+                        skip_msg = f"[SYSTEM] Skipped re-processing {len(skipped_files)} already-modified files: {', '.join(skipped_files[:3])}{'...' if len(skipped_files) > 3 else ''}"
+                        self.context_manager.add_message(
+                            role="user",
+                            content=skip_msg,
+                            importance=0.5,
+                            provider=self.current_provider,
+                        )
+                    
+                    # Execute only the filtered tool calls
+                    tool_calls = filtered_tool_calls
+                    if not tool_calls:
+                        # All calls were skipped - continue to next iteration
+                        continue
+
                     # Execute tool calls and add results to context
                     try:
                         tool_results = await self._execute_tool_calls(tool_calls)
@@ -1234,6 +1267,13 @@ Then repeat your tool call.""",
                                 )
 
                         if result.success:
+                            # TRACK MODIFIED FILES: Add to set when Write/Edit succeeds
+                            if tool_name.lower() in ["writetool", "write", "edittool", "edit", "fuzzyedit", "multiedit", "multiedittool"]:
+                                file_path = arguments.get("file_path", "")
+                                if file_path:
+                                    modified_files.add(file_path)
+                                    self._debug_print(f"[dim]📝 Tracked modified file: {file_path}[/dim]")
+                            
                             # Check if this was a truncated file write that needs continuation
                             is_truncated_write = (
                                 result.metadata
@@ -1459,9 +1499,21 @@ Call the tool now:""",
                     tc.get('tool', '').lower() in ('write', 'writetool', 'edit', 'edittool', 'fuzzyedit')
                     for tc in tool_calls
                 ) if tool_calls else False
-                
-                # If response has code blocks but no Write/Edit tool call, it's hallucinating file changes
-                is_code_block_hallucination = has_code_blocks and not has_write_or_edit_tool and not tool_calls
+
+                # Check if response contains evidence that tools were ALREADY executed (summary after edits)
+                # Evidence: diff markers, tool result boxes, completion messages
+                has_tool_execution_evidence = bool(
+                    re.search(r'(\+\d+ -\d+ lines changed|╭───.*───╮|\[\[OK\]\]|✓ Edit|✗ Edit failed)', response_text, re.IGNORECASE | re.MULTILINE)
+                )
+
+                # If response has code blocks but no Write/Edit tool call AND no evidence of prior execution, it's hallucinating
+                # Allow code blocks in summaries AFTER tool execution (when evidence is present)
+                is_code_block_hallucination = (
+                    has_code_blocks
+                    and not has_write_or_edit_tool
+                    and not tool_calls
+                    and not has_tool_execution_evidence
+                )
                 
                 # If response is ONLY thinking block, DO NOT consider task complete
                 if is_thinking_only and thinking_only_prompts < max_thinking_only_prompts:
@@ -1523,40 +1575,108 @@ Do not describe what you will do - OUTPUT THE JSON:""",
                 # If response has code blocks but no Write/Edit tool call, it's hallucinating file changes
                 if is_code_block_hallucination and thinking_only_prompts < max_thinking_only_prompts:
                     thinking_only_prompts += 1
+                    
+                    # CRITICAL FIX 4: Improved file path extraction
+                    # Try to extract file path from various markdown patterns
+                    extracted_files = []
+                    
+                    # Pattern 1: Headers like ### /path/to/file.py or **File:** /path/to/file.py
+                    # Matches: ### path, **path**, File: path, `path`
+                    header_matches = re.finditer(r'(?:###|\*\*|File:)\s*[`"]?([a-zA-Z]:[^:\n"<>|?*]+?\.[a-zA-Z0-9]+)[`"]?', response_text, re.IGNORECASE)
+                    for m in header_matches:
+                        path_candidate = m.group(1).strip()
+                        if path_candidate not in extracted_files:
+                            extracted_files.append(path_candidate)
+                            
+                    # Pattern 2: Comments inside code blocks (original method)
+                    # Matches: # /path/to/file.py inside code blocks
+                    code_comment_matches = re.finditer(r'```(?:python|py)?\s*\n(?:#\s*([^\n]+\.py))', response_text, re.IGNORECASE)
+                    for m in code_comment_matches:
+                        path_candidate = m.group(1).strip()
+                        if path_candidate not in extracted_files:
+                            extracted_files.append(path_candidate)
+                    
+                    # Pattern 3: "path/to/file.py" usually at start of lines or inside backticks
+                    # Fallback for simple mentions if nothing else found
+                    if not extracted_files:
+                        fallback_matches = re.finditer(r'`([a-zA-Z]:[^:\n"<>|?*]+?\.[a-zA-Z0-9]+)`', response_text, re.IGNORECASE)
+                        for m in fallback_matches:
+                            path_candidate = m.group(1).strip()
+                            if path_candidate not in extracted_files:
+                                extracted_files.append(path_candidate)
+
+                    # CRITICAL FIX 5: Sanitize extracted paths
+                    # Replace non-breaking hyphens (U+2011) that models often hallucinate with standard hyphens
+                    sanitized_files = []
+                    for f in extracted_files:
+                        clean_f = f.replace('\u2011', '-')
+                        if clean_f not in sanitized_files:
+                            sanitized_files.append(clean_f)
+                    extracted_files = sanitized_files
+
+                    # Construct error message based on findings
+                    if extracted_files:
+                        files_list = "\n".join([f'- "{f}"' for f in extracted_files])
+                        file_msg = f"You showed code for the following files:\n{files_list}"
+                        
+                        # Generate specific tool call examples for extracted files
+                        examples = ""
+                        for f in extracted_files[:3]: # Limit to 3 examples
+                             examples += f"""
+**Use EditTool for "{f}":**
+(Verify this path exists first - if you made a typo in the header, use the CORRECT path)
+{{"tool": "EditTool", "parameters": {{"file_path": "{f}", "old_string": "EXACT OLD TEXT", "new_string": "EXACT NEW TEXT"}}}}
+"""
+                    else:
+                        file_msg = "You showed code blocks but didn't call any tools."
+                        examples = """
+**Use EditTool:**
+{"tool": "EditTool", "parameters": {"file_path": "path/to/file.py", "old_string": "EXACT OLD TEXT", "new_string": "EXACT NEW TEXT"}}
+"""
+
                     self.console.print(
                         f"[dim yellow][!] Code block hallucination detected - model showed code but didn't call Write/Edit tool (prompt {thinking_only_prompts}/{max_thinking_only_prompts})[/dim yellow]"
                     )
                     self.context_manager.add_message(
                         role="user",
-                        content="""🚨 CRITICAL: You output code in markdown blocks but did NOT call the Write or Edit tool!
+                        content=f"""🚨🚨🚨 CATASTROPHIC FAILURE 🚨🚨🚨
 
-SHOWING code is NOT the same as EDITING a file. You must call the Write or Edit tool.
+{file_msg}
 
-WRONG (what you did - this does NOTHING to files):
-```python
-def my_function():
-    pass
-```
+BUT YOU DID NOT CALL EditTool or WriteTool!
 
-CORRECT (what you MUST do - this actually modifies the file):
-{"tool": "Write", "parameters": {"file_path": "/path/to/file.py", "content": "def my_function():\\n    pass"}}
+CODE BLOCKS DO NOTHING. THE FILES ARE UNCHANGED.
 
-OR for smaller edits:
-{"tool": "Edit", "parameters": {"file_path": "/path/to/file.py", "old_string": "old code", "new_string": "new code"}}
+You MUST call EditTool IMMEDIATELY.
 
-NOW call the Write or Edit tool to actually make the changes:""",
+{examples}
+
+**IMPORTANT:**
+1. Check if the file paths above are correct.
+2. If you typed the path wrong in your message, use the REAL path in the tool call.
+3. DO NOT just repeat the typo if the file doesn't exist!
+4. **DO NOT USE WriteTool for existing files.** 
+   Use **EditTool** to apply the changes as a patch.
+   `WriteTool` should ONLY be used for creating NEW files.
+
+DO NOT:
+❌ Read the file first (you already read it!)
+❌ Show another code block
+❌ Say "I can't write without reading first"
+❌ Explain what you'll do
+❌ Think more
+❌ **Use WriteTool** (unless creating a new file)
+
+DO:
+✅ Call EditTool RIGHT NOW
+✅ Use the code you just showed in the tool call
+
+Your next output MUST be ONLY the EditTool JSON, nothing else:""",
                         importance=1.0,
                         provider=self.current_provider,
                     )
                     continue
                 
-                task_completed = model_signaled_done and len(check_text.strip()) > 10 and not is_thinking_only and not is_incomplete_response and not is_code_block_hallucination
-
-                # Debug logging (only in debug mode)
-                self._debug_print(
-                    f"[dim][?] Iteration {iteration}: model_signaled_done={model_signaled_done}, all_todos_completed={all_todos_completed}, truncated={is_truncated}, finish={finish_reason}[/dim]"
-                )
-
                 # Check if there are incomplete todos that need attention
                 has_incomplete_todos = (
                     todos_state["total"] > 0 and todos_state["completed"] < todos_state["total"]
@@ -1565,10 +1685,84 @@ NOW call the Write or Edit tool to actually make the changes:""",
                     todos_state["total"] - todos_state["completed"] if has_incomplete_todos else 0
                 )
 
+                # Task completion check (without considering todos yet)
+                task_completed_signal = (
+                    model_signaled_done
+                    and len(check_text.strip()) > 10
+                    and not is_thinking_only
+                    and not is_incomplete_response
+                    and not is_code_block_hallucination
+                )
+
+                # Debug logging (only in debug mode)
+                self._debug_print(
+                    f"[dim][?] Iteration {iteration}: model_signaled_done={model_signaled_done}, incomplete_todos={incomplete_count}, all_todos_completed={all_todos_completed}, truncated={is_truncated}, finish={finish_reason}[/dim]"
+                )
+
+                # ═══════════════════════════════════════════════════════════════════════════════
+                # CRITICAL: If model stops with INCOMPLETE TODOS, force continuation!
+                # ═══════════════════════════════════════════════════════════════════════════════
+
+                if task_completed_signal and has_incomplete_todos and todo_continuation_prompts < max_todo_continuation_prompts:
+                    # Model signaled done BUT todos remain - FORCE continuation
+                    todo_continuation_prompts += 1
+                    pending_todos_list = self._format_pending_todos()
+                    self._debug_print(
+                        f"[dim yellow][!] Model stopped with {incomplete_count} todo(s) remaining - FORCING continuation (prompt {todo_continuation_prompts}/{max_todo_continuation_prompts})[/dim yellow]"
+                    )
+
+                    accumulated = "\n".join(all_response_parts)
+                    self.context_manager.add_message(
+                        role="assistant",
+                        content=accumulated,
+                        importance=0.7,
+                        provider=self.current_provider,
+                    )
+
+                    context_message = f"""🚨 STOP! You have {incomplete_count} INCOMPLETE todo item(s):
+{pending_todos_list}
+
+YOU MUST CONTINUE! Do NOT stop now!
+
+**Next steps:**
+1. Look at the first pending/in_progress todo
+2. If it says "in_progress" → Continue working on it
+3. If it says "pending" → Start working on it now
+4. Call the required tools (ReadTool → EditTool)
+5. Mark it completed in TodoWriteTool
+6. Move to the next todo
+
+DO NOT:
+❌ Say "I'm done" (you're not - {incomplete_count} todos remain!)
+❌ Provide a summary (not finished yet!)
+❌ Stop working
+
+DO:
+✅ Continue with the next file
+✅ Actually call ReadTool and EditTool
+✅ Process ALL remaining todos"""
+
+                    self.context_manager.add_message(
+                        role="user",
+                        content=context_message,
+                        importance=1.0,
+                        provider=self.current_provider,
+                    )
+                    continue  # Continue to next iteration - DON'T stop!
+
+                # Now determine if task is truly completed
+                # If we have a todo system and all todos are completed, task is complete
+                # Otherwise, require explicit model signal AND no incomplete todos
+                if todos_state["total"] > 0 and not has_incomplete_todos:
+                    # TodoWriteTool is active and all todos are completed → Task complete!
+                    task_completed = True
+                else:
+                    # No todo system or todos still pending → Use model signal
+                    task_completed = task_completed_signal and not has_incomplete_todos
+
                 # ═══════════════════════════════════════════════════════════════════════════════
                 # LLM-DRIVEN COMPLETION: Let the model make informed decisions
-                # Instead of forcing continuation, we inject todo state as context
-                # and let the LLM decide whether to continue or finalize
+                # This block only runs if task is truly completed (no incomplete todos)
                 # ═══════════════════════════════════════════════════════════════════════════════
 
                 if task_completed:
@@ -1607,46 +1801,9 @@ Start your response with the actual content the user requested, not with more th
                         )
                         continue
 
-                    # SECOND: Check if we should inform about incomplete todos
-                    if (
-                        has_incomplete_todos
-                        and todo_continuation_prompts < max_todo_continuation_prompts
-                    ):
-                        # Inject todo state and let LLM decide
-                        todo_continuation_prompts += 1
-                        pending_todos_list = self._format_pending_todos()
-                        self._debug_print(
-                            f"[dim yellow][!] Model stopped with {incomplete_count} todo(s) remaining (prompt {todo_continuation_prompts}/{max_todo_continuation_prompts})[/dim yellow]"
-                        )
-
-                        accumulated = "\n".join(all_response_parts)
-                        self.context_manager.add_message(
-                            role="assistant",
-                            content=accumulated,
-                            importance=0.7,
-                            provider=self.current_provider,
-                        )
-
-                        # LLM-driven: Give context and let model decide
-                        context_message = f"""[System Notice: Task Status Check]
-
-You have {incomplete_count} incomplete todo item(s):
-{pending_todos_list}
-
-Please review the remaining items:
-- If these tasks still need to be completed, continue working on them.
-- If these tasks are no longer relevant or were already addressed, you may mark them complete or provide your final summary.
-- If you believe the task is truly complete, provide a comprehensive summary of what was accomplished."""
-
-                        self.context_manager.add_message(
-                            role="user",
-                            content=context_message,
-                            importance=1.0,
-                            provider=self.current_provider,
-                        )
-                        continue
-
                     # Either all checks passed, or we've reached max prompts - trust LLM decision
+                    # NOTE: Incomplete todos check is now handled earlier (lines 1633-1678)
+                    # to prevent premature task completion
                     if not has_substantive and answer_prompts >= max_answer_prompts:
                         self._debug_print(
                             f"[dim yellow][!] Reached max answer prompts ({max_answer_prompts}), accepting response[/dim yellow]"
@@ -1817,7 +1974,7 @@ Please review and decide:
         """
         Check if there's pending work that the model should continue.
 
-        This is particularly important for GPT-OSS models that may stop
+        This is particularly important for some models that may stop
         mid-task without properly indicating they need to continue.
 
         Args:
@@ -1852,7 +2009,7 @@ Please review and decide:
                 return True
 
         # CRITICAL: Check if response looks like an incomplete tool call or JSON fragment
-        # GPT-OSS often outputs partial JSON when trying to continue
+        # Some models may output partial JSON when trying to continue
         json_fragment_patterns = [
             r"^\s*\{[^}]*$",  # Opening brace without closing
             r"^\s*\[[^\]]*$",  # Opening bracket without closing
@@ -2079,7 +2236,7 @@ Please review and decide:
         if response_text.count("```") % 2 == 1:
             return True
 
-        # Check for truncation patterns specific to GPT-OSS
+        # Check for common truncation patterns
         truncation_patterns = [
             response_text.rstrip().endswith(","),
             response_text.rstrip().endswith("{"),
@@ -3146,7 +3303,7 @@ Please review and decide:
                 else ""
             )
 
-        # For OpenAI/OSS models, add explicit format instructions
+        # For OpenAI-compatible models, add explicit format instructions to improve tool usage
         if "openai" in provider_name.lower() or "gpt" in str(self.current_provider).lower():
             # Detect if this is a read-only task
             task_lower = task.lower()
@@ -3347,7 +3504,7 @@ START NOW - think first, then act:"""
         """
         Get a prompt for when the model returns an empty or minimal response.
 
-        This happens when GPT-OSS models fail to engage with the task.
+        This happens when some models fail to engage with the task.
 
         Returns:
             Prompt string to force engagement
@@ -3384,7 +3541,7 @@ NOW respond with text explanation + tool call:"""
         """
         Get a prompt that encourages the model to continue with pending work.
 
-        This is especially important for GPT-OSS models that tend to output
+        This is especially important for some models that tend to output
         partial JSON or stop mid-task.
 
         Returns:
@@ -3535,7 +3692,7 @@ Continue working or provide your final answer:"""
                 return tool_calls
 
         # Fallback: Parse tool calls from text (for models that output JSON in text)
-        # This handles models like gpt-oss-120b that output tool calls as JSON text
+        # This handles models that output tool calls as JSON text instead of using native API
         tool_calls = self._parse_json_tool_calls_from_text(response_text)
 
         return tool_calls
@@ -3975,8 +4132,9 @@ Continue working or provide your final answer:"""
         if tool_calls:
             return tool_calls
 
-        # STRATEGY 5: Handle gpt-oss-120b specific patterns
+        # STRATEGY 5: Handle alternative tool call formats
         # Pattern: {"function": "ToolName", "args": {...}}
+        # Some models may use this format instead of standard tool/parameters
         func_pattern = (
             r'\{\s*["\']function["\']\s*:\s*["\'](\w+)["\']\s*,\s*["\']args["\']\s*:\s*(\{[^}]+\})'
         )
@@ -4329,9 +4487,76 @@ Continue working or provide your final answer:"""
             error_lower = error_msg.lower()
             return any(pattern in error_lower for pattern in TRANSIENT_ERRORS)
 
+        def validate_and_suggest_tool(tool_name: str) -> tuple[bool, str, str]:
+            """
+            Validate tool name and suggest corrections if invalid.
+
+            Returns:
+                Tuple of (is_valid, corrected_name, suggestion_message)
+            """
+            # Check if tool exists
+            tool = self.tool_manager.get_tool(tool_name)
+            if tool:
+                return True, tool_name, ""
+
+            # Tool doesn't exist - try to suggest corrections
+            available_tools = [t.name.lower() for t in self.tool_manager.list_tools()]
+
+            # Common mistakes and their corrections
+            common_mistakes = {
+                "fileread": "readtool",
+                "file_read": "readtool",
+                "readfile": "readtool",
+                "writefile": "writetool",
+                "file_write": "writetool",
+                "writetofile": "writetool",
+                "editfile": "edittool",
+                "file_edit": "edittool",
+                "modifyfile": "edittool",
+                "findfiles": "globtool",
+                "searchfiles": "greptool",
+                "search": "greptool",
+            }
+
+            # Check common mistakes
+            if tool_name in common_mistakes:
+                suggested = common_mistakes[tool_name]
+                return False, suggested, f"⚠️ Tool '{tool_name}' doesn't exist. Did you mean '{suggested}'?"
+
+            # Check for close matches using simple string distance
+            from difflib import get_close_matches
+            close_matches = get_close_matches(tool_name, available_tools, n=3, cutoff=0.6)
+
+            if close_matches:
+                suggested = close_matches[0]
+                others = ", ".join(close_matches[1:]) if len(close_matches) > 1 else ""
+                msg = f"⚠️ Tool '{tool_name}' doesn't exist. Did you mean '{suggested}'?"
+                if others:
+                    msg += f" (or: {others})"
+                return False, suggested, msg
+
+            return False, "", f"❌ Tool '{tool_name}' doesn't exist. Available tools: {', '.join(available_tools[:10])}"
+
         async def execute_with_retry(tool_name: str, arguments: dict) -> ToolResult:
             """Execute a tool with retry logic for transient failures"""
             last_error = None
+
+            # Validate tool name first
+            is_valid, corrected_name, suggestion_msg = validate_and_suggest_tool(tool_name)
+
+            if not is_valid:
+                # Tool doesn't exist - try to auto-correct or fail with helpful message
+                if corrected_name:
+                    self.console.print(f"[yellow]{suggestion_msg}[/yellow]")
+                    self.console.print(f"[dim]Auto-correcting: {tool_name} → {corrected_name}[/dim]")
+                    tool_name = corrected_name
+                else:
+                    self.console.print(f"[red]{suggestion_msg}[/red]")
+                    return ToolResult(
+                        success=False,
+                        output="",
+                        error=f"Invalid tool name: {tool_name}. {suggestion_msg}"
+                    )
 
             for attempt in range(max_retries + 1):
                 try:

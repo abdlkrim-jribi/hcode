@@ -229,6 +229,29 @@ class WriteTool(BaseTool):
             path = Path(file_path)
             file_key = str(path.absolute())
 
+            # CRITICAL SAFETY CHECK: Block WriteTool on existing files to force EditTool usage
+            # Unless explicitly in append mode
+            if path.exists() and mode == "overwrite":
+                 # Check if the content is exactly the same (idempotent write) - allowed
+                 try:
+                     with open(path, "r", encoding="utf-8", errors="ignore") as f:
+                         current_content = f.read()
+                     if current_content == content:
+                         return ToolResult(
+                            success=True, 
+                            output=f"File {path} already has this content (no change made).",
+                            metadata={"bytes_written": 0, "verified": True}
+                         )
+                 except:
+                     pass
+                 
+                 # Otherwise block it
+                 return ToolResult(
+                     success=False,
+                     output=None,
+                     error=f"ERROR: File '{path.name}' already exists. \n\n❌ WriteTool is for NEW files only.\n✅ You MUST use EditTool to modify existing files.\n\nUse EditTool with old_string/new_string to apply your changes."
+                 )
+
             # Handle append mode for chunked writes
             if mode == "append":
                 # Append to existing file or partial write buffer

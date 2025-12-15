@@ -314,7 +314,7 @@ class ToolExecutionContext:
         self,
         tool_manager: ToolManager,
         safety_enabled: bool = True,
-        require_confirmation: bool = True,
+        require_confirmation: bool = False,
         console=None,
     ):
         """

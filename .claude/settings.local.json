@@ -8,7 +8,9 @@
       "Bash(findstr:*)",
       "Bash(pytest:*)",
       "Bash(dir:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(copy:*)",
+      "Bash(cp:*)"
     ]
   }
 }
