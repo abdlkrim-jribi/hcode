@@ -32,6 +32,7 @@ from hcode.tools.interactive_tools import (
 )
 from hcode.tools.notebook_tools import NotebookEditTool, NotebookReadTool, NotebookExecuteTool
 from hcode.tools.web_tools import WebFetchTool, WebSearchTool, WebScrapeTool
+from hcode.tools.antigravity_tools import TaskBoundaryTool, NotifyUserTool
 
 
 class ToolManager:
@@ -115,15 +116,30 @@ class ToolManager:
         self.task_tool = TaskTool()  # Will be initialized with agent_orchestrator later
         self.tool_registry.register(self.task_tool)
         self.tool_registry.register(ExitPlanModeTool())
+        
+        # Antigravity Tools
+        self.tool_registry.register(TaskBoundaryTool())
+        self.tool_registry.register(NotifyUserTool())
 
         # Notebook tools
         self.tool_registry.register(NotebookEditTool(root_dir=str(self.root_dir)))
         self.tool_registry.register(NotebookReadTool(root_dir=str(self.root_dir)))
         self.tool_registry.register(NotebookExecuteTool(root_dir=str(self.root_dir)))
 
-        # Command system tools
         self.tool_registry.register(SlashCommandTool(self.command_registry))
         self.tool_registry.register(SkillTool(self.command_registry))
+
+        # Register Antigravity Aliases
+        # These aliases map the tool names used in the Antigravity prompt to Hcode's actual tools
+        if "greptool" in self.tool_registry.tools:
+            self.tool_registry.tools["grep_search"] = self.tool_registry.tools["greptool"]
+            self.tool_registry.tools["codebase_search"] = self.tool_registry.tools["greptool"]
+        
+        if "readtool" in self.tool_registry.tools:
+            self.tool_registry.tools["view_file"] = self.tool_registry.tools["readtool"]
+            
+        if "globtool" in self.tool_registry.tools:
+            self.tool_registry.tools["find_files"] = self.tool_registry.tools["globtool"]
 
     async def execute_tool(self, tool_name: str, **kwargs) -> ToolResult:
         """

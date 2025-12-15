@@ -1085,6 +1085,12 @@ class GrepTool(BaseTool):
             if isinstance(glob, list):
                 glob = glob[0] if glob else None  # Use first pattern if list
             
+            # Handle absolute glob patterns (e.g. D:\path\to\*.py)
+            if glob and Path(glob).is_absolute():
+                glob_path = Path(glob)
+                search_path = glob_path.parent
+                glob = glob_path.name
+            
             # Compile regex pattern
             flags = re.IGNORECASE if case_insensitive else 0
             regex = re.compile(pattern, flags)
