@@ -210,8 +210,9 @@ def cli(ctx, version):
 @click.option("-s", "--session", help="Session ID")
 @click.option("--stream/--no-stream", default=True, help="Stream responses")
 @click.option("--agents/--no-agents", default=False, help="Use specialized sub-agents")
+@click.option("--autonomous/--no-autonomous", default=False, help="Run in autonomous mode (skip confirmation)")
 @click.option("-v", "--verbose", is_flag=True, help="Verbose output")
-def run_task(task, provider, model, model_size, complexity, cost, session, stream, agents, verbose):
+def run_task(task, provider, model, model_size, complexity, cost, session, stream, agents, autonomous, verbose):
     """
     🚀 Execute a coding task with AI assistance
 
@@ -324,6 +325,7 @@ def run_task(task, provider, model, model_size, complexity, cost, session, strea
             openai_model=openai_model,
             preferences=preferences,
             session_id=session,
+            autonomous_mode=autonomous,
         )
 
         progress.update(init_task, completed=100)
@@ -401,7 +403,8 @@ def run_task(task, provider, model, model_size, complexity, cost, session, strea
 @click.option(
     "--debug", is_flag=True, help="Enable debug mode (show verbose output, thinking panels)"
 )
-def chat_mode(provider, session, show_todos, debug):
+@click.option("--autonomous/--no-autonomous", default=False, help="Run in autonomous mode (skip confirmation)")
+def chat_mode(provider, session, show_todos, debug, autonomous):
     """
     💬 Start an interactive chat session
 
@@ -465,6 +468,7 @@ def chat_mode(provider, session, show_todos, debug):
         preferences=preferences,
         session_id=session,
         config=config,
+        autonomous_mode=autonomous,
     )
 
     palette = get_palette()
@@ -996,16 +1000,16 @@ def chat_mode(provider, session, show_todos, debug):
                 live_todo_bar.update_todos(reasoning_runner.todos)
             live_todo_bar.start()
 
-            # Import Antigravity display for Claude Code style output
-            from hcode.ui.antigravity_display import (
-                AntigravityDisplay,
+            # Import Hcode display for Claude Code style output
+            from hcode.ui.hcode_display import (
+                HcodeDisplay,
                 TaskMode,
                 FileAction,
-                get_antigravity_display,
+                get_hcode_display,
             )
             
-            # Get Antigravity display instance
-            antigravity = get_antigravity_display(console)
+            # Get Hcode display instance
+            hcode_display = get_hcode_display(console)
             
             # Extract task name from user input
             task_name = user_input.split('\n')[0].strip()[:50]
@@ -1013,25 +1017,25 @@ def chat_mode(provider, session, show_todos, debug):
                 task_name = task_name[:47] + "..."
             
             # Start task boundary display
-            antigravity.start_task(task_name or "Processing Request", TaskMode.EXECUTION)
+            hcode_display.start_task(task_name or "Processing Request", TaskMode.EXECUTION)
             
             # Pause todo bar during streaming to prevent ANSI interference
             live_todo_bar.pause()
             
             # Start thinking timer
-            antigravity.start_thinking()
+            hcode_display.start_thinking()
             
             try:
                 result = asyncio.run(agent.execute_task(task=user_input, stream=True))
             finally:
                 # End thinking timer
-                antigravity.end_thinking()
+                hcode_display.end_thinking()
                 
                 # Resume todo bar after streaming
                 live_todo_bar.resume()
             
             # Show task completion
-            antigravity.end_task()
+            hcode_display.end_task()
 
             # Stop live todo bar after task
             if live_todo_bar.is_active:

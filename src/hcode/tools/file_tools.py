@@ -229,10 +229,9 @@ class WriteTool(BaseTool):
             path = Path(file_path)
             file_key = str(path.absolute())
 
-            # CRITICAL SAFETY CHECK: Block WriteTool on existing files to force EditTool usage
-            # Unless explicitly in append mode
+            # Allow overwriting if mode is overwrite
             if path.exists() and mode == "overwrite":
-                 # Check if the content is exactly the same (idempotent write) - allowed
+                 # Check if the content is exactly the same (idempotent write) - strictly optional optimization
                  try:
                      with open(path, "r", encoding="utf-8", errors="ignore") as f:
                          current_content = f.read()
@@ -244,13 +243,6 @@ class WriteTool(BaseTool):
                          )
                  except:
                      pass
-                 
-                 # Otherwise block it
-                 return ToolResult(
-                     success=False,
-                     output=None,
-                     error=f"ERROR: File '{path.name}' already exists. \n\n❌ WriteTool is for NEW files only.\n✅ You MUST use EditTool to modify existing files.\n\nUse EditTool with old_string/new_string to apply your changes."
-                 )
 
             # Handle append mode for chunked writes
             if mode == "append":
@@ -979,6 +971,38 @@ class GlobTool(BaseTool):
         try:
             search_dir = Path(path) if path else self.root_dir
 
+            if not search_dir.exists():
+                return ToolResult(
+                    success=False, output=None, error=f"Directory not found: {search_dir}"
+                )
+
+            # Handle absolute glob patterns (e.g. D:\path\to\*.py)
+            if Path(pattern).is_absolute():
+                # Use os.path.split to handle robust splitting including wildcards
+                import glob as glob_module
+                if glob_module.has_magic(pattern):
+                    # It's an absolute path with magic
+                    # Try to find the base directory
+                    base_part = pattern
+                    while glob_module.has_magic(base_part):
+                         base_part = os.path.dirname(base_part)
+                    
+                    if base_part and os.path.exists(base_part):
+                        search_dir = Path(base_part)
+                        # Construct relative pattern
+                        full_pat = Path(pattern)
+                        try:
+                            pattern = str(full_pat.relative_to(search_dir))
+                        except ValueError:
+                             # Fallback if relative conversion fails
+                             pass
+                else:
+                    # No magic, just an absolute path
+                    p = Path(pattern)
+                    search_dir = p.parent
+                    pattern = p.name
+
+            # Fallback path logic
             if not search_dir.exists():
                 return ToolResult(
                     success=False, output=None, error=f"Directory not found: {search_dir}"

@@ -89,7 +89,7 @@ task_overrides:
     max_tokens: 16384
 
   # Thinking/reasoning - balanced creativity for exploration
-  # Antigravity-style structured reasoning
+  # Hcode-style structured reasoning
   thinking:
     temperature: 0.6
     top_p: 0.95
@@ -199,7 +199,7 @@ gpt_oss:
   # Enable structured reasoning mode
   structured_reasoning: true
   
-  # Use Antigravity-style thinking blocks
+  # Use Hcode-style thinking blocks
   use_thinking_blocks: true
   
   # Default reasoning depth (quick, standard, deep)

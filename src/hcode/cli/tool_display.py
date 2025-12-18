@@ -156,6 +156,8 @@ class HcodeToolDisplay:
             self._display_write(arguments, result)
         elif tool_name_lower in ["edit"]:
             self._display_edit(arguments, result)
+        elif tool_name_lower in ["multiedit", "multiedittool"]:
+            self._display_multiedit(arguments, result)
         elif tool_name_lower in ["bash"]:
             self._display_bash(arguments, result)
         elif tool_name_lower in ["glob"]:
@@ -210,9 +212,9 @@ class HcodeToolDisplay:
             lines = content.split("\n") if content else []
             line_count = len(lines)
 
-            # Claude Code style header: ⎯⎯ file_path ⎯⎯
+            # Claude Code style header: ⎯⎯ Read: file_path ⎯⎯
             file_name = Path(file_path).name
-            self.console.print(f"\n  [bold cyan]{'─' * 3} {file_path} {'─' * 3}[/bold cyan]")
+            self.console.print(f"\n  [bold cyan]{'─' * 3} Read: {file_path} {'─' * 3}[/bold cyan]")
             self.console.print(f"  [dim]{line_count} lines{f' • {lang}' if lang else ''}[/dim]")
 
             # Show preview for all files (not just large ones)
@@ -278,11 +280,16 @@ class HcodeToolDisplay:
     # WRITE TOOL DISPLAY - Claude Code Style
     # ─────────────────────────────────────────────────────────
 
+    # ─────────────────────────────────────────────────────────
+    # WRITE TOOL DISPLAY - Claude Code Style
+    # ─────────────────────────────────────────────────────────
+
     def _display_write(self, arguments: Dict[str, Any], result: Any):
         """Display Write tool execution - Claude Code style"""
         file_path = arguments.get("file_path", "unknown")
         content = arguments.get("content", "")
         from pathlib import Path
+        from rich.markup import escape
 
         # Get file extension for language hint
         ext = Path(file_path).suffix.lower() if file_path else ""
@@ -307,7 +314,7 @@ class HcodeToolDisplay:
             byte_count = len(content.encode("utf-8"))
 
             # Claude Code style header
-            self.console.print(f"\n  [bold green]{'─' * 3} {file_path} {'─' * 3}[/bold green]")
+            self.console.print(f"\n  [bold green]{'─' * 3} Write: {file_path} {'─' * 3}[/bold green]")
             self.console.print(
                 f"  [dim]Created {line_count} lines ({byte_count} bytes){f' • {lang}' if lang else ''}[/dim]"
             )
@@ -315,7 +322,47 @@ class HcodeToolDisplay:
             self.console.print(
                 f"\n  [bold red]✗ Write failed:[/bold red] [{self.style.FILE_PATH}]{file_path}[/]"
             )
-            self.console.print(f"    [red]{result.error}[/red]")
+            # SAFE: Escape error message to prevent markup injection
+            self.console.print(f"    [red]{escape(str(result.error))}[/red]")
+
+    # ─────────────────────────────────────────────────────────
+    # MULTI-EDIT TOOL DISPLAY
+    # ─────────────────────────────────────────────────────────
+
+    def _display_multiedit(self, arguments: Dict[str, Any], result: Any):
+        """Display MultiEdit tool execution - Hcode style"""
+        file_path = arguments.get("file_path", "unknown")
+
+        if result.success:
+            metadata = result.metadata or {}
+            diff_summary = metadata.get("diff_summary", "")
+            total_edits = metadata.get("total_edits", 0)
+            total_replacements = metadata.get("total_replacements", 0)
+
+            # Parse simple diff summary if possible to colorize
+            # Expected format: "+X -Y" or similar
+            if "+" in diff_summary and "-" in diff_summary:
+                added = diff_summary.split("+")[1].split()[0]
+                removed = diff_summary.split("-")[1].strip()
+                diff_display = f"[green]+{added}[/green] [red]-{removed}[/red]"
+            else:
+                diff_display = diff_summary
+
+            # Claude Code style header
+            self.console.print(f"\n  [bold cyan]{'─' * 3} MultiEdit: {file_path} {'─' * 3}[/bold cyan]")
+            self.console.print(
+                f"  [dim]Applied {total_edits} edits ({total_replacements} replacements)[/dim]"
+            )
+            if diff_display:
+                self.console.print(f"  {diff_display} lines changed")
+
+        else:
+            self.console.print(
+                f"\n  [bold red]✗ MultiEdit failed:[/bold red] [{self.style.FILE_PATH}]{file_path}[/]"
+            )
+            from rich.markup import escape
+
+            self.console.print(f"    [red]{escape(str(result.error))}[/red]")
 
     # ─────────────────────────────────────────────────────────
     # EDIT TOOL DISPLAY - Claude Code Style
@@ -326,6 +373,7 @@ class HcodeToolDisplay:
         file_path = arguments.get("file_path", "unknown")
         old_string = arguments.get("old_string", "")
         new_string = arguments.get("new_string", "")
+        from rich.markup import escape
 
         if result.success:
             # Calculate change statistics
@@ -335,7 +383,7 @@ class HcodeToolDisplay:
             lines_added = len(new_lines)
 
             # Claude Code style header
-            self.console.print(f"\n  [bold cyan]{'─' * 3} {file_path} {'─' * 3}[/bold cyan]")
+            self.console.print(f"\n  [bold cyan]{'─' * 3} Edit: {file_path} {'─' * 3}[/bold cyan]")
             self.console.print(
                 f"  [green]+{lines_added}[/green] [red]-{lines_removed}[/red] lines changed"
             )
@@ -346,7 +394,8 @@ class HcodeToolDisplay:
             self.console.print(
                 f"\n  [bold red]✗ Edit failed:[/bold red] [{self.style.FILE_PATH}]{file_path}[/]"
             )
-            self.console.print(f"    [red]{result.error}[/red]")
+            # SAFE: Escape error message to prevent markup injection
+            self.console.print(f"    [red]{escape(str(result.error))}[/red]")
 
     def _show_diff_enhanced(self, old_string: str, new_string: str, max_lines: int = 20):
         """

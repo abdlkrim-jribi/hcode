@@ -32,7 +32,7 @@ from hcode.tools.interactive_tools import (
 )
 from hcode.tools.notebook_tools import NotebookEditTool, NotebookReadTool, NotebookExecuteTool
 from hcode.tools.web_tools import WebFetchTool, WebSearchTool, WebScrapeTool
-from hcode.tools.antigravity_tools import TaskBoundaryTool, NotifyUserTool
+from hcode.tools.hcode_tools import TaskBoundaryTool, NotifyUserTool
 
 
 class ToolManager:
@@ -117,7 +117,7 @@ class ToolManager:
         self.tool_registry.register(self.task_tool)
         self.tool_registry.register(ExitPlanModeTool())
         
-        # Antigravity Tools
+        # Hcode Tools
         self.tool_registry.register(TaskBoundaryTool())
         self.tool_registry.register(NotifyUserTool())
 
@@ -129,8 +129,8 @@ class ToolManager:
         self.tool_registry.register(SlashCommandTool(self.command_registry))
         self.tool_registry.register(SkillTool(self.command_registry))
 
-        # Register Antigravity Aliases
-        # These aliases map the tool names used in the Antigravity prompt to Hcode's actual tools
+        # Register Hcode Aliases
+        # These aliases map the tool names used in the Hcode prompt to Hcode's actual tools
         if "greptool" in self.tool_registry.tools:
             self.tool_registry.tools["grep_search"] = self.tool_registry.tools["greptool"]
             self.tool_registry.tools["codebase_search"] = self.tool_registry.tools["greptool"]

@@ -1,5 +1,9 @@
-"""
-Utility modules for Hcode.
+"""Utility modules for Hcode.
+
+This package provides helper modules that support configuration management, terminal formatting, and data validation across the HCode project. It re‑exports key functions and classes via ``__all__`` for convenient imports.
+
+Typical usage:
+    from hcode.utils import load_config, print_success
 """
 
 from hcode.utils.config import (

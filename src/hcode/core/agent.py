@@ -12,6 +12,7 @@ from rich.console import Console
 from .analytics import (
     get_analytics,
 )
+from rich.markup import escape
 from .context import ContextManager
 # Import optimization components
 from .optimizations import (
@@ -114,7 +115,7 @@ def format_thinking_display(
         block: Union[StructuredReasoning], console: Console, debug_mode: bool = False
 ) -> None:
     """
-    Display a thinking block with Antigravity style.
+    Display a thinking block with Hcode style.
 
     In normal mode (debug_mode=False): Shows collapsed summary.
     In debug mode (debug_mode=True): Shows full panel.
@@ -124,10 +125,10 @@ def format_thinking_display(
         console: Rich console for output
         debug_mode: If True, show full verbose panel. If False, show collapsed summary.
     """
-    from hcode.ui.antigravity_display import get_antigravity_display, TaskMode
+    from hcode.ui.hcode_display import get_hcode_display, TaskMode
     
     # Get display instance
-    antigravity = get_antigravity_display(console)
+    hcode_display = get_hcode_display(console)
 
     # Determine primary phase from what is populated in the block
     # This is heuristic since StructuredReasoning contains all phases
@@ -145,7 +146,7 @@ def format_thinking_display(
     else:
         primary_phase = "THINKING"
     
-    # Display using Antigravity style 
+    # Display using Hcode style 
     # Build clean thinking content without phase labels
     thinking_lines = []
     
@@ -174,7 +175,7 @@ def format_thinking_display(
     
     content = "\n".join(thinking_lines) if thinking_lines else f"Phase: {primary_phase}"
     
-    antigravity.display_thinking_block(
+    hcode_display.display_thinking_block(
         content=content,
         phase=primary_phase,
         collapsed=False  # Show thinking visibly
@@ -190,8 +191,8 @@ def format_thinking_display(
         elif primary_phase in ["VERIFICATION", "REFLECTION"]:
             new_mode = TaskMode.VERIFICATION
             
-        if new_mode and antigravity.current_mode and new_mode != antigravity.current_mode:
-            antigravity.update_mode(new_mode)
+        if new_mode and hcode_display.current_mode and new_mode != hcode_display.current_mode:
+            hcode_display.update_mode(new_mode)
             
     # Add progress update from goal/understanding
     if block.comprehension.core_understanding:
@@ -200,7 +201,7 @@ def format_thinking_display(
         if summary.startswith("- "):
             summary = summary[2:]
         if summary:
-            antigravity.add_progress(summary)
+            hcode_display.add_progress(summary)
 
 
 
@@ -231,6 +232,7 @@ class HcodeAgent:
         preferences: Optional[ProviderPreferences] = None,
         session_id: Optional[str] = None,
         config: Optional[Dict[str, Any]] = None,
+        autonomous_mode: bool = False,
     ):
         """
         Initialize Hcode agent.
@@ -252,6 +254,7 @@ class HcodeAgent:
         self._icons = Icons()
         self.config = config or {}
         self.session_id = session_id
+        self.autonomous_mode = autonomous_mode or self.config.get("autonomous_mode", False)
 
         # Initialize provider selector
         self.provider_selector = ProviderSelector(
@@ -408,6 +411,13 @@ class HcodeAgent:
         live_bar = get_live_todo_bar(self.console)
         if not live_bar.is_active:
             live_bar.start()
+
+        # Initialize Hcode Display for task header
+        from hcode.ui.hcode_display import get_hcode_display, TaskMode
+        hcode_display = get_hcode_display(self.console)
+        # Determine initial mode based on whether sub-agents are used
+        initial_mode = TaskMode.EXECUTION if use_sub_agents else TaskMode.PLANNING
+        hcode_display.start_task(task, initial_mode)
 
         try:
             # Use sub-agents if requested
@@ -588,6 +598,9 @@ class HcodeAgent:
             live_bar = get_live_todo_bar(self.console)
             if live_bar.is_active:
                 live_bar.stop()
+            
+            # End Hcode Task
+            hcode_display.end_task()
 
     def _build_system_prompt(self, query: Optional[str] = None) -> str:
         """Build system prompt with tool documentation and memory context (Claude Code style)"""
@@ -614,6 +627,45 @@ class HcodeAgent:
                     f"[dim yellow][!] Could not load memory context: {e}[/dim yellow]"
                 )
 
+        # INJECT CURRENT TASK AND PLAN
+        try:
+            hcode_dir = self.root_dir / ".hcode"
+            task_file = hcode_dir / "task.md"
+            plan_file = hcode_dir / "implementation_plan.md"
+            
+            context_injection = "\n\n## CURRENT TASK CONTEXT\n"
+            has_context = False
+            
+            if task_file.exists():
+                task_content = task_file.read_text(encoding="utf-8")
+                context_injection += f"\n### Current Task List ({task_file.name})\n{task_content}\n"
+                has_context = True
+                
+            if plan_file.exists():
+                plan_content = plan_file.read_text(encoding="utf-8")
+                context_injection += f"\n### Implementation Plan ({plan_file.name})\n{plan_content}\n"
+                has_context = True
+                
+            if has_context:
+                base_prompt += context_injection
+                
+        except Exception as e:
+            self.console.print(f"[dim yellow][!] Could not inject task context: {e}[/dim yellow]")
+
+        # AUTONOMOUS MODE INSTRUCTION
+        if self.autonomous_mode:
+            base_prompt += """
+
+## AUTONOMOUS EXECUTION MODE
+Active Mode: **AUTONOMOUS**
+
+You are operating in AUTONOMOUS MODE.
+1. You do NOT need to ask for user approval for implementation plans.
+2. You should create the plan and relevant artifacts, but then PROCEED DIRECTLY to Execution.
+3. DO NOT STOP to ask the user to review the plan.
+4. Execute the plan immediately after creating it.
+"""
+
         return base_prompt
 
     def _get_tool_call_format_instructions(self) -> str:
@@ -631,17 +683,17 @@ To use tools, output JSON in a code fence. You can include explanations, but the
 
 ### Available Tools:
 
-**WriteTool** - Write/create files (MOST IMPORTANT - use this to generate requested content):
+**WriteTool** - Create NEW files only:
 ```json
 {"tool": "WriteTool", "parameters": {"file_path": "filename.ext", "content": "full file content here"}}
 ```
 
-**ReadTool** - Read existing files:
+**ReadTool** - Read existing files (REQUIRED before editing):
 ```json
 {"tool": "ReadTool", "parameters": {"file_path": "path/to/file"}}
 ```
 
-**EditTool** - Modify existing files:
+**EditTool** - Modify portions of EXISTING files:
 ```json
 {"tool": "EditTool", "parameters": {"file_path": "path/to/file", "old_string": "text to replace", "new_string": "new text"}}
 ```
@@ -666,16 +718,19 @@ To use tools, output JSON in a code fence. You can include explanations, but the
 {"tool": "LSTool", "parameters": {"path": "."}}
 ```
 
-### CRITICAL: When asked to CREATE or GENERATE a file:
-1. Generate the COMPLETE content directly
-2. Use WriteTool immediately with the full content
-3. Do NOT ask questions - just create the file
-4. Do NOT explore the codebase first unless specifically asked
+### CRITICAL RULES:
+1. **WriteTool vs EditTool**:
+   - Use `WriteTool` for creating NEW files or OVERWRITING existing files (with cautious intent).
+   - Use `EditTool` for precise modifications to EXISTING files.
 
-Example - User asks "Create a hello.html file":
-```json
-{"tool": "WriteTool", "parameters": {"file_path": "hello.html", "content": "<!DOCTYPE html>\\n<html>\\n<head><title>Hello</title></head>\\n<body><h1>Hello World</h1></body>\\n</html>"}}
-```
+2. **Editing Safety**:
+   - You MUST read the file (`ReadTool`) before using `EditTool` to ensure you have the exact `old_string`.
+   - `old_string` must match the file content EXACTLY (including whitespace/indentation).
+
+3. **Code Generation**:
+   - Providing a code block in your response DOES NOT create the file.
+   - You MUST call `WriteTool` or `EditTool` to apply changes.
+   - Do NOT ask the user to "do it" manually. YOU must check the tool output.
 
 ### IMPORTANT for multi-line content:
 Use \\n for newlines in JSON strings. The system will convert them to actual newlines.
@@ -775,6 +830,17 @@ When the user says things like "yes", "proceed", "continue", "do it", "ok", or s
                 if iteration > 1 and iteration % 10 == 0:
                     self._debug_print(f"[dim][...] Processing... (iteration {iteration})[/dim]")
 
+                # DYNAMIC CONTEXT REFRESH: Reload system prompt to include latest task.md/plan.md
+                # This ensures the model "sees" the updated task status immediately
+                if iteration > 1:
+                    try:
+                        # Re-build system prompt (query=None to avoid expensive memory re-fetch)
+                        refreshed_prompt = self._build_system_prompt(query=None)
+                        self.context_manager.set_system_prompt(refreshed_prompt)
+                        # self._debug_print("[dim]↻ Refreshed system prompt with latest task context[/dim]")
+                    except Exception as refresh_err:
+                        self._debug_print(f"[dim yellow]⚠ Failed to refresh context: {refresh_err}[/dim yellow]")
+
                 # LOOP DETECTION: Check if we're stuck repeating the same response
                 if len(recent_responses) >= stuck_threshold:
                     # Check for repeated responses
@@ -830,10 +896,10 @@ When the user says things like "yes", "proceed", "continue", "do it", "ok", or s
                         # NOTE: Don't clear thinking indicator here - let it animate until content arrives
                         # The thinking timer will be stopped when first response content is received
 
-                        # Antigravity display integration
-                        from hcode.ui.antigravity_display import get_antigravity_display
+                        # Hcode display integration
+                        from hcode.ui.hcode_display import get_hcode_display
                         from hcode.ui.live_todo_bar import get_stdout_lock, get_live_todo_bar
-                        antigravity = get_antigravity_display(self.console)
+                        hcode_display = get_hcode_display(self.console)
                         stdout_lock = get_stdout_lock()
 
                         # Pause todo bar during streaming to prevent ANSI code interference
@@ -859,13 +925,13 @@ When the user says things like "yes", "proceed", "continue", "do it", "ok", or s
                                 if "<thinking>" in buffer and not in_thinking:
                                     pre, post = buffer.split("<thinking>", 1)
                                     if pre:
-                                        antigravity.end_thinking()
+                                        hcode_display.end_thinking()
                                         with stdout_lock:
                                             print(pre, end="", flush=True)
                                     in_thinking = True
                                     buffer = post
-                                    if not antigravity.thinking_start_time:
-                                        antigravity.start_thinking()
+                                    if not hcode_display.thinking_start_time:
+                                        hcode_display.start_thinking()
                                     # Add newline before thinking content starts
                                     with stdout_lock:
                                         print()  # New line to separate from timer
@@ -881,11 +947,11 @@ When the user says things like "yes", "proceed", "continue", "do it", "ok", or s
                                         
                                         full_thinking = "".join(thinking_content)
 
-                                        antigravity.end_thinking()
+                                        hcode_display.end_thinking()
 
                                         # Display thinking block
                                         if full_thinking.strip():
-                                            antigravity.display_thinking_block(full_thinking)
+                                            hcode_display.display_thinking_block(full_thinking)
                                         displayed_thinking = True
 
                                         in_thinking = False
@@ -903,7 +969,7 @@ When the user says things like "yes", "proceed", "continue", "do it", "ok", or s
                                         pass
                                     else:
                                         if first_chunk and buffer.strip():
-                                            antigravity.end_thinking()
+                                            hcode_display.end_thinking()
                                             first_chunk = False
                                         with stdout_lock:
                                             print(buffer, end="", flush=True)
@@ -913,15 +979,15 @@ When the user says things like "yes", "proceed", "continue", "do it", "ok", or s
                                 if in_thinking:
                                     thinking_content.append(buffer)
                                     full_thinking = "".join(thinking_content)
-                                    antigravity.end_thinking()
+                                    hcode_display.end_thinking()
 
                                     # Display thinking block
                                     if full_thinking.strip():
-                                        antigravity.display_thinking_block(full_thinking)
+                                        hcode_display.display_thinking_block(full_thinking)
                                     displayed_thinking = True
                                 else:
                                     if first_chunk:
-                                        antigravity.end_thinking()
+                                        hcode_display.end_thinking()
                                     with stdout_lock:
                                         print(buffer, end="", flush=True)
 
@@ -1207,26 +1273,26 @@ Then repeat your tool call.""",
                             # AUTO-UPDATE TODOS: Mark matching todos as completed
                             self._auto_update_todos(action)
                             
-                            # ANTIGRAVITY: Track file operations
+                            # HCODE: Track file operations
                             if result.success:
                                 try:
-                                    from hcode.ui.antigravity_display import get_antigravity_display, FileAction
-                                    antigravity = get_antigravity_display(self.console)
+                                    from hcode.ui.hcode_display import get_hcode_display, FileAction
+                                    hcode_display = get_hcode_display(self.console)
                                     
                                     t_lower = tool_name.lower()
                                     if "write" in t_lower or "edit" in t_lower or "replace" in t_lower:
                                         fpath = arguments.get("file_path") or arguments.get("target_file") or arguments.get("targetfile")
                                         if fpath:
-                                            antigravity.track_file(fpath, FileAction.EDITED)
+                                            hcode_display.track_file(fpath, FileAction.EDITED)
                                     elif "read" in t_lower or "view" in t_lower:
                                         fpath = arguments.get("file_path") or arguments.get("absolute_path") or arguments.get("absolutepath")
                                         if fpath:
-                                            antigravity.track_file(fpath, FileAction.VIEWED)
+                                            hcode_display.track_file(fpath, FileAction.VIEWED)
                                 except Exception:
                                     pass  # Don't fail if tracking fails
                     except Exception as tool_error:
                         self.console.print(
-                            f"[bold red][!] Tool execution error: {tool_error}[/bold red]"
+                            f"[bold red][!] Tool execution error: {escape(str(tool_error))}[/bold red]"
                         )
                         tool_results = []
                         # Continue anyway - don't crash
@@ -1413,7 +1479,7 @@ What specific action will you take to address this error?"""
                     # Check if any indicator exists AND it looks like a claim of action
                     is_hallucinating = any(ind.lower() in check_text_lower for ind in hallucination_indicators)
                     
-                    if is_hallucinating:
+                    if is_hallucinating: # Hallucination check ENABLED
                         consecutive_hallucinations += 1
                         
                         # Stop if too many hallucinations
@@ -1572,110 +1638,11 @@ Do not describe what you will do - OUTPUT THE JSON:""",
                     )
                     continue
                 
-                # If response has code blocks but no Write/Edit tool call, it's hallucinating file changes
-                if is_code_block_hallucination and thinking_only_prompts < max_thinking_only_prompts:
-                    thinking_only_prompts += 1
-                    
-                    # CRITICAL FIX 4: Improved file path extraction
-                    # Try to extract file path from various markdown patterns
-                    extracted_files = []
-                    
-                    # Pattern 1: Headers like ### /path/to/file.py or **File:** /path/to/file.py
-                    # Matches: ### path, **path**, File: path, `path`
-                    header_matches = re.finditer(r'(?:###|\*\*|File:)\s*[`"]?([a-zA-Z]:[^:\n"<>|?*]+?\.[a-zA-Z0-9]+)[`"]?', response_text, re.IGNORECASE)
-                    for m in header_matches:
-                        path_candidate = m.group(1).strip()
-                        if path_candidate not in extracted_files:
-                            extracted_files.append(path_candidate)
-                            
-                    # Pattern 2: Comments inside code blocks (original method)
-                    # Matches: # /path/to/file.py inside code blocks
-                    code_comment_matches = re.finditer(r'```(?:python|py)?\s*\n(?:#\s*([^\n]+\.py))', response_text, re.IGNORECASE)
-                    for m in code_comment_matches:
-                        path_candidate = m.group(1).strip()
-                        if path_candidate not in extracted_files:
-                            extracted_files.append(path_candidate)
-                    
-                    # Pattern 3: "path/to/file.py" usually at start of lines or inside backticks
-                    # Fallback for simple mentions if nothing else found
-                    if not extracted_files:
-                        fallback_matches = re.finditer(r'`([a-zA-Z]:[^:\n"<>|?*]+?\.[a-zA-Z0-9]+)`', response_text, re.IGNORECASE)
-                        for m in fallback_matches:
-                            path_candidate = m.group(1).strip()
-                            if path_candidate not in extracted_files:
-                                extracted_files.append(path_candidate)
-
-                    # CRITICAL FIX 5: Sanitize extracted paths
-                    # Replace non-breaking hyphens (U+2011) that models often hallucinate with standard hyphens
-                    sanitized_files = []
-                    for f in extracted_files:
-                        clean_f = f.replace('\u2011', '-')
-                        if clean_f not in sanitized_files:
-                            sanitized_files.append(clean_f)
-                    extracted_files = sanitized_files
-
-                    # Construct error message based on findings
-                    if extracted_files:
-                        files_list = "\n".join([f'- "{f}"' for f in extracted_files])
-                        file_msg = f"You showed code for the following files:\n{files_list}"
-                        
-                        # Generate specific tool call examples for extracted files
-                        examples = ""
-                        for f in extracted_files[:3]: # Limit to 3 examples
-                             examples += f"""
-**Use EditTool for "{f}":**
-(Verify this path exists first - if you made a typo in the header, use the CORRECT path)
-{{"tool": "EditTool", "parameters": {{"file_path": "{f}", "old_string": "EXACT OLD TEXT", "new_string": "EXACT NEW TEXT"}}}}
-"""
-                    else:
-                        file_msg = "You showed code blocks but didn't call any tools."
-                        examples = """
-**Use EditTool:**
-{"tool": "EditTool", "parameters": {"file_path": "path/to/file.py", "old_string": "EXACT OLD TEXT", "new_string": "EXACT NEW TEXT"}}
-"""
-
-                    self.console.print(
-                        f"[dim yellow][!] Code block hallucination detected - model showed code but didn't call Write/Edit tool (prompt {thinking_only_prompts}/{max_thinking_only_prompts})[/dim yellow]"
-                    )
-                    self.context_manager.add_message(
-                        role="user",
-                        content=f"""🚨🚨🚨 CATASTROPHIC FAILURE 🚨🚨🚨
-
-{file_msg}
-
-BUT YOU DID NOT CALL EditTool or WriteTool!
-
-CODE BLOCKS DO NOTHING. THE FILES ARE UNCHANGED.
-
-You MUST call EditTool IMMEDIATELY.
-
-{examples}
-
-**IMPORTANT:**
-1. Check if the file paths above are correct.
-2. If you typed the path wrong in your message, use the REAL path in the tool call.
-3. DO NOT just repeat the typo if the file doesn't exist!
-4. **DO NOT USE WriteTool for existing files.** 
-   Use **EditTool** to apply the changes as a patch.
-   `WriteTool` should ONLY be used for creating NEW files.
-
-DO NOT:
-❌ Read the file first (you already read it!)
-❌ Show another code block
-❌ Say "I can't write without reading first"
-❌ Explain what you'll do
-❌ Think more
-❌ **Use WriteTool** (unless creating a new file)
-
-DO:
-✅ Call EditTool RIGHT NOW
-✅ Use the code you just showed in the tool call
-
-Your next output MUST be ONLY the EditTool JSON, nothing else:""",
-                        importance=1.0,
-                        provider=self.current_provider,
-                    )
-                    continue
+                # Hallucination detection enabled
+                if is_code_block_hallucination:
+                     pass
+                # End of hallucination detection block cleanup
+                # End of hallucination block cleanup
                 
                 # Check if there are incomplete todos that need attention
                 has_incomplete_todos = (

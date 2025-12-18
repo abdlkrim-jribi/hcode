@@ -148,23 +148,14 @@ class ReasoningPromptBuilder:
         return "\n".join(prompt_parts)
 
     def _quick_thinking_template(self) -> str:
-        return self.prompts_config.get_reasoning_template("quick")
+        return "Briefly analyze the request and decide on the next step."
 
     def _standard_thinking_template(self) -> str:
-        base_template = self.prompts_config.get_reasoning_template("standard")
-        # Enhance standard template with mandatory action enforcement to prevent hallucinations
-        action_enforcer = """
-<next_action_enforcement>
-CRITICAL: You must conclude your thinking with exact JSON tool call you will make next.
-[NEXT_TOOL_NAME] Name of tool to call (e.g. EditTool)
-[NEXT_TOOL_PARAMS] Key parameters for the tool
-[CONFIDENCE] 0.0-1.0
-</next_action_enforcement>
-"""
-        return base_template + "\n" + action_enforcer
+        return ""
+
 
     def _deep_thinking_template(self) -> str:
-        return self.prompts_config.get_reasoning_template("deep")
+        return self._standard_thinking_template()
 
     def build_refinement_prompt(self, original_reasoning: str, feedback: str, outcome: str) -> str:
         """
