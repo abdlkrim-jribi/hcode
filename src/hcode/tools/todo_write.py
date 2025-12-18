@@ -4,7 +4,9 @@ TodoWrite tool matching Claude Code exactly.
 Handles batch todo updates with validation.
 """
 
+from pathlib import Path
 from typing import Any, Dict, List, Optional
+import os
 
 from hcode.agent.todo import TodoManager, TodoStatus
 from hcode.tools.base_tool import BaseTool, ToolParameter, ToolResult
@@ -100,16 +102,18 @@ Completion rules:
         "required": ["todos"],
     }
 
-    def __init__(self, todo_manager: Optional[TodoManager] = None):
+    def __init__(self, todo_manager: Optional[TodoManager] = None, root_dir: Optional[str] = None):
         """
         Initialize TodoWrite tool.
 
         Args:
             todo_manager: Optional TodoManager instance
+            root_dir: Project root directory for writing task.md
         """
         super().__init__()
         self.name = "TodoWrite"  # Override default name
         self.todo_manager = todo_manager or TodoManager()
+        self.root_dir = Path(root_dir) if root_dir else Path.cwd()
 
     @property
     def todos(self) -> List[Dict[str, Any]]:
@@ -174,6 +178,12 @@ Completion rules:
                 )
             except ImportError:
                 pass  # Callbacks not available, continue without
+
+            # SYNC TO task.md FILE
+            self._sync_to_task_file(updated_todos)
+
+            # CHECK IF ALL COMPLETE -> GENERATE WALKTHROUGH
+            self._generate_walkthrough_if_complete(updated_todos, stats)
 
             return ToolResult(
                 success=True,
@@ -258,3 +268,74 @@ Completion rules:
     def get_schema(self) -> Dict[str, Any]:
         """Get tool schema"""
         return {"name": self.name, "description": self.description, "parameters": self.parameters}
+
+    def _sync_to_task_file(self, todos: List[Dict[str, Any]]) -> None:
+        """
+        Sync todo list to .hcode/task.md file.
+
+        Args:
+            todos: List of todo dictionaries
+        """
+        try:
+            hcode_dir = self.root_dir / ".hcode"
+            hcode_dir.mkdir(parents=True, exist_ok=True)
+            task_file = hcode_dir / "task.md"
+
+            # Convert todos to markdown
+            lines = ["# Tasks\n\n"]
+            for todo in todos:
+                status = todo.get("status", "pending")
+                content = todo.get("content", "")
+
+                if status == "completed":
+                    marker = "[x]"
+                elif status == "in_progress":
+                    marker = "[/]"
+                elif status == "blocked":
+                    marker = "[!]"
+                elif status == "skipped":
+                    marker = "[-]"
+                else:  # pending
+                    marker = "[ ]"
+
+                lines.append(f"- {marker} {content}\n")
+
+            task_file.write_text("".join(lines), encoding="utf-8")
+        except Exception:
+            pass  # Silently fail - file sync is best-effort
+
+    def _generate_walkthrough_if_complete(self, todos: List[Dict[str, Any]], stats: Dict[str, Any]) -> None:
+        """
+        Generate walkthrough.md if all tasks are complete.
+
+        Args:
+            todos: List of todo dictionaries
+            stats: Progress statistics
+        """
+        try:
+            # Check if all todos are completed or skipped
+            total = len(todos)
+            completed = sum(1 for t in todos if t.get("status") in ("completed", "skipped"))
+
+            if total > 0 and completed == total:
+                hcode_dir = self.root_dir / ".hcode"
+                hcode_dir.mkdir(parents=True, exist_ok=True)
+                walkthrough_file = hcode_dir / "walkthrough.md"
+
+                # Generate walkthrough content
+                lines = ["# Task Walkthrough\n\n"]
+                lines.append("## Completed Tasks\n\n")
+                for todo in todos:
+                    content = todo.get("content", "")
+                    status = todo.get("status", "pending")
+                    if status == "completed":
+                        lines.append(f"- ✅ {content}\n")
+                    elif status == "skipped":
+                        lines.append(f"- ⏭️ {content} (skipped)\n")
+
+                lines.append("\n## Summary\n\n")
+                lines.append(f"All {total} task(s) have been completed.\n")
+
+                walkthrough_file.write_text("".join(lines), encoding="utf-8")
+        except Exception:
+            pass  # Silently fail - walkthrough generation is best-effort

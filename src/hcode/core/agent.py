@@ -1572,13 +1572,22 @@ Call the tool now:""",
                     re.search(r'(\+\d+ -\d+ lines changed|╭───.*───╮|\[\[OK\]\]|✓ Edit|✗ Edit failed)', response_text, re.IGNORECASE | re.MULTILINE)
                 )
 
+                # Check if response is providing a summary or walkthrough (allow code blocks in this case)
+                is_walkthrough_context = (
+                    'walkthrough.md' in response_text.lower() or
+                    'summary' in response_text.lower() or
+                    'verification' in response_text.lower() or
+                    'task.md' in response_text.lower()
+                )
+
                 # If response has code blocks but no Write/Edit tool call AND no evidence of prior execution, it's hallucinating
-                # Allow code blocks in summaries AFTER tool execution (when evidence is present)
+                # CAUTION: Allow code blocks in summaries/walkthroughs to prevent false positives
                 is_code_block_hallucination = (
                     has_code_blocks
                     and not has_write_or_edit_tool
                     and not tool_calls
                     and not has_tool_execution_evidence
+                    and not is_walkthrough_context
                 )
                 
                 # If response is ONLY thinking block, DO NOT consider task complete
@@ -1638,11 +1647,44 @@ Do not describe what you will do - OUTPUT THE JSON:""",
                     )
                     continue
                 
-                # Hallucination detection enabled
+                # Hallucination detection: Code blocks shown without using tools
                 if is_code_block_hallucination:
-                     pass
-                # End of hallucination detection block cleanup
-                # End of hallucination block cleanup
+                    consecutive_hallucinations += 1
+                    
+                    if consecutive_hallucinations >= max_consecutive_hallucinations:
+                        self.console.print(f"\n[bold red][!] Too many code block hallucinations ({consecutive_hallucinations}). Stopping loop.[/bold red]")
+                        break
+                    
+                    self.console.print(f"\n[bold red]⚠️ CODE BLOCK HALLUCINATION DETECTED ({consecutive_hallucinations}/{max_consecutive_hallucinations})[/bold red]")
+                    self.console.print("[dim]You showed code but didn't call Write/Edit tool. You MUST use tools to modify files![/dim]\n")
+                    
+                    self.context_manager.add_message(
+                        role="user",
+                        content="""CRITICAL ERROR: CODE BLOCK HALLUCINATION DETECTED!
+
+You showed code blocks in your response but DID NOT call Write or Edit tool.
+
+This is WRONG! You cannot just show code - you MUST use tools to create/modify files.
+
+RULES:
+1. To CREATE a new file: Use Write tool
+2. To MODIFY an existing file: First Read it, then use Edit tool
+3. NEVER just show code in chat - always use the tools
+
+Output the tool call JSON NOW:
+
+To create a file:
+{"tool": "Write", "parameters": {"file_path": "path/to/file.py", "content": "file content here"}}
+
+To edit a file:
+{"tool": "Edit", "parameters": {"file_path": "path/to/file.py", "old_string": "old code", "new_string": "new code"}}""",
+                        importance=1.0,
+                        provider=self.current_provider,
+                    )
+                    continue
+                else:
+                    # Reset counter if not hallucinating
+                    consecutive_hallucinations = 0
                 
                 # Check if there are incomplete todos that need attention
                 has_incomplete_todos = (

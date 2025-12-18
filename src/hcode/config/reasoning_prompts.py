@@ -151,7 +151,10 @@ class ReasoningPromptBuilder:
         return "Briefly analyze the request and decide on the next step."
 
     def _standard_thinking_template(self) -> str:
-        return ""
+        return """THINK → TOOL (no code blocks in chat)
+1. What does user want?
+2. What tool do I call IMMEDIATELY?
+NO PROSE describing code. Just call the tool."""
 
 
     def _deep_thinking_template(self) -> str:

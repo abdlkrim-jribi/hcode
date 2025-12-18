@@ -104,10 +104,10 @@ class ToolManager:
 
         # Interactive tools
         self.tool_registry.register(AskUserQuestionTool())
-        self.todo_write_tool = TodoWriteTool()
-        self.tool_registry.register(self.todo_write_tool)
-        self.todo_read_tool = TodoReadTool()
-        self.tool_registry.register(self.todo_read_tool)
+        # self.todo_write_tool = TodoWriteTool()
+        # self.tool_registry.register(self.todo_write_tool)
+        # self.todo_read_tool = TodoReadTool()
+        # self.tool_registry.register(self.todo_read_tool)
         self.tool_registry.register(ConfirmTool())
         self.tool_registry.register(DisplayPanelTool())
         self.tool_registry.register(ProgressTool())

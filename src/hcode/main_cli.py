@@ -1017,13 +1017,13 @@ def chat_mode(provider, session, show_todos, debug, autonomous):
                 task_name = task_name[:47] + "..."
             
             # Start task boundary display
-            hcode_display.start_task(task_name or "Processing Request", TaskMode.EXECUTION)
+            hcode_display.start_task(task_name or "Processing Request", TaskMode.PLANNING)
             
             # Pause todo bar during streaming to prevent ANSI interference
             live_todo_bar.pause()
             
-            # Start thinking timer
-            hcode_display.start_thinking()
+            # Let agent manage thinking display during execution
+            # hcode_display.start_thinking()
             
             try:
                 result = asyncio.run(agent.execute_task(task=user_input, stream=True))

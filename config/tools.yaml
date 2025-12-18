@@ -238,27 +238,7 @@ tools:
   # TASK MANAGEMENT
   # ==========================================================================
 
-  TodoWrite:
-    name: "TodoWrite"
-    description: |
-      Use this tool to create and manage a structured task list for your current coding session. This helps you track progress, organize complex tasks, and demonstrate thoroughness to the user.
 
-      When to Use This Tool:
-      1. Complex multi-step tasks - When a task requires 3 or more distinct steps
-      2. User provides multiple tasks - When users provide a list of things to be done
-      3. After receiving new instructions - Immediately capture user requirements as todos
-      4. When you start working on a task - Mark it as in_progress BEFORE beginning work
-      5. After completing a task - Mark it as completed
-
-      Task States:
-      - pending: Task not yet started
-      - in_progress: Currently working on (limit to ONE task at a time)
-      - completed: Task finished successfully
-    parameters:
-      todos:
-        type: array
-        description: "The updated todo list with content, status, and activeForm for each item"
-        required: true
 
   # ==========================================================================
   # USER INTERACTION
