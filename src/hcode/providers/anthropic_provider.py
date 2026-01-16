@@ -7,7 +7,7 @@ import os
 from typing import List, AsyncIterator, Dict, Any, Optional
 
 from anthropic import AsyncAnthropic
-from hcode.providers.base import AIProvider
+from hcode.providers.base import AIProvider, ToolCall
 from hcode.memory import Message
 from hcode.providers import CompletionResponse, Usage
 from tenacity import retry, stop_after_attempt, wait_exponential
@@ -106,7 +106,7 @@ class AnthropicProvider(AIProvider):
             return await self._complete(request_params)
 
     async def _complete(self, params: Dict[str, Any]) -> CompletionResponse:
-        """Non-streaming completion"""
+        """Non-streaming completion with native tool_use parsing"""
         response = await self.client.messages.create(**params)
 
         usage = Usage(
@@ -117,12 +117,28 @@ class AnthropicProvider(AIProvider):
 
         self._update_usage(usage)
 
+        # Parse content blocks - may include text and tool_use blocks
+        text_content = ""
+        tool_calls = []
+        
+        for block in response.content:
+            if block.type == "text":
+                text_content += block.text
+            elif block.type == "tool_use":
+                # Native tool call from Claude
+                tool_calls.append(ToolCall(
+                    id=block.id,
+                    name=block.name,
+                    arguments=block.input if isinstance(block.input, dict) else {}
+                ))
+
         return CompletionResponse(
-            content=response.content[0].text,
+            content=text_content,
             usage=usage,
             model=response.model,
             finish_reason=response.stop_reason or "stop",
             raw_response=response,
+            tool_calls=tool_calls if tool_calls else None
         )
 
     async def _stream_completion(self, params: Dict[str, Any]) -> AsyncIterator[str]:

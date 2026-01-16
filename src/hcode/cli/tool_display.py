@@ -20,6 +20,7 @@ import sys
 from typing import Optional, Dict, Any
 
 from rich.console import Console
+from rich.markup import escape
 
 # Import output handler for smart truncation
 from hcode.core.output_handler import (
@@ -214,7 +215,7 @@ class HcodeToolDisplay:
 
             # Claude Code style header: ⎯⎯ Read: file_path ⎯⎯
             file_name = Path(file_path).name
-            self.console.print(f"\n  [bold cyan]{'─' * 3} Read: {file_path} {'─' * 3}[/bold cyan]")
+            self.console.print(f"\n  [bold cyan]{'─' * 3} Read: {escape(file_path)} {'─' * 3}[/bold cyan]")
             self.console.print(f"  [dim]{line_count} lines{f' • {lang}' if lang else ''}[/dim]")
 
             # Show preview for all files (not just large ones)
@@ -223,7 +224,7 @@ class HcodeToolDisplay:
             self.console.print(
                 f"\n  [bold red]✗ Read failed:[/bold red] [{self.style.FILE_PATH}]{file_path}[/]"
             )
-            self.console.print(f"    [red]{result.error}[/red]")
+            self.console.print(f"    [red]{escape(str(result.error))}[/red]")
 
     def _show_file_preview_enhanced(
         self, content: str, file_path: str, lang: str = "", max_preview_lines: int = 25
@@ -314,7 +315,7 @@ class HcodeToolDisplay:
             byte_count = len(content.encode("utf-8"))
 
             # Claude Code style header
-            self.console.print(f"\n  [bold green]{'─' * 3} Write: {file_path} {'─' * 3}[/bold green]")
+            self.console.print(f"\n  [bold green]{'─' * 3} Write: {escape(file_path)} {'─' * 3}[/bold green]")
             self.console.print(
                 f"  [dim]Created {line_count} lines ({byte_count} bytes){f' • {lang}' if lang else ''}[/dim]"
             )
@@ -349,7 +350,7 @@ class HcodeToolDisplay:
                 diff_display = diff_summary
 
             # Claude Code style header
-            self.console.print(f"\n  [bold cyan]{'─' * 3} MultiEdit: {file_path} {'─' * 3}[/bold cyan]")
+            self.console.print(f"\n  [bold cyan]{'─' * 3} MultiEdit: {escape(file_path)} {'─' * 3}[/bold cyan]")
             self.console.print(
                 f"  [dim]Applied {total_edits} edits ({total_replacements} replacements)[/dim]"
             )
@@ -383,7 +384,7 @@ class HcodeToolDisplay:
             lines_added = len(new_lines)
 
             # Claude Code style header
-            self.console.print(f"\n  [bold cyan]{'─' * 3} Edit: {file_path} {'─' * 3}[/bold cyan]")
+            self.console.print(f"\n  [bold cyan]{'─' * 3} Edit: {escape(file_path)} {'─' * 3}[/bold cyan]")
             self.console.print(
                 f"  [green]+{lines_added}[/green] [red]-{lines_removed}[/red] lines changed"
             )
@@ -472,7 +473,7 @@ class HcodeToolDisplay:
         # Show command
         self.console.print(
             f"  {self.style.ICON_BASH} [bold]Bash[/bold] "
-            f"[{self.style.TOOL_NAME}]{display_cmd}[/]"
+            f"[{self.style.TOOL_NAME}]{escape(display_cmd)}[/]"
         )
 
         if result.success:
@@ -488,11 +489,11 @@ class HcodeToolDisplay:
             # For multi-line errors, show them properly
             error_lines = error_msg.strip().split("\n")
             if len(error_lines) == 1:
-                self.console.print(f"    [{self.style.TOOL_ERROR}]Error: {error_lines[0]}[/]")
+                self.console.print(f"    [{self.style.TOOL_ERROR}]Error: {escape(error_lines[0])}[/]")
             else:
                 self.console.print(f"    [{self.style.TOOL_ERROR}]Error:[/]")
                 for line in error_lines[:5]:
-                    self.console.print(f"    [{self.style.TOOL_ERROR}]  {line}[/]")
+                    self.console.print(f"    [{self.style.TOOL_ERROR}]  {escape(line)}[/]")
                 if len(error_lines) > 5:
                     self.console.print(
                         f"    [{self.style.DIM}]... ({len(error_lines) - 5} more lines)[/]"
@@ -535,9 +536,9 @@ class HcodeToolDisplay:
                 if any(
                     word in line.lower() for word in ["error", "exception", "failed", "traceback"]
                 ):
-                    self.console.print(f"    [{self.style.TOOL_ERROR}]{line}[/]")
+                    self.console.print(f"    [{self.style.TOOL_ERROR}]{escape(line)}[/]")
                 else:
-                    self.console.print(f"    [{self.style.DIM}]{line}[/]")
+                    self.console.print(f"    [{self.style.DIM}]{escape(line)}[/]")
 
             if len(content_lines) > 30:
                 self.console.print(
@@ -606,7 +607,7 @@ class HcodeToolDisplay:
             display_line = line[:68] if len(line) <= 68 else line[:65] + "..."
 
             self.console.print(
-                f"    {self.style.BOX_V} [{line_style}]{display_line:<68}[/] {self.style.BOX_V}"
+                f"    {self.style.BOX_V} [{line_style}]{escape(display_line):<68}[/] {self.style.BOX_V}"
             )
 
         self.console.print(f"    {self.style.BOX_BL}{self.style.BOX_H * 70}{self.style.BOX_BR}")
@@ -630,8 +631,8 @@ class HcodeToolDisplay:
 
             self.console.print(
                 f"  {self.style.ICON_GLOB} [bold]Glob[/bold] "
-                f"[{self.style.TOOL_NAME}]{pattern}[/] "
-                f"[{self.style.DIM}]in {path}[/] "
+                f"[{self.style.TOOL_NAME}]{escape(pattern)}[/] "
+                f"[{self.style.DIM}]in {escape(path)}[/] "
                 f"[{self.style.DIM}]({file_count} files)[/]"
             )
 
@@ -639,14 +640,14 @@ class HcodeToolDisplay:
             if files and file_count > 0:
                 for f in files[:5]:
                     if f.strip():
-                        self.console.print(f"    [{self.style.DIM}]{f}[/]")
+                        self.console.print(f"    [{self.style.DIM}]{escape(f)}[/]")
                 if file_count > 5:
                     self.console.print(f"    [{self.style.DIM}]... and {file_count - 5} more[/]")
         else:
             self.console.print(
                 f"  [{self.style.TOOL_ERROR}]{self.style.ICON_ERROR}[/] "
-                f"[bold]Glob[/bold] [{self.style.TOOL_NAME}]{pattern}[/] "
-                f"[{self.style.TOOL_ERROR}]failed: {result.error}[/]"
+                f"[bold]Glob[/bold] [{self.style.TOOL_NAME}]{escape(pattern)}[/] "
+                f"[{self.style.TOOL_ERROR}]failed: {escape(str(result.error))}[/]"
             )
 
     # ─────────────────────────────────────────────────────────
@@ -665,7 +666,7 @@ class HcodeToolDisplay:
 
             self.console.print(
                 f"  {self.style.ICON_GREP} [bold]Grep[/bold] "
-                f"[{self.style.TOOL_NAME}]{pattern}[/] "
+                f"[{self.style.TOOL_NAME}]{escape(pattern)}[/] "
                 f"[{self.style.DIM}]({match_count} matches)[/]"
             )
 
@@ -677,14 +678,14 @@ class HcodeToolDisplay:
                 for m in matches[:10]:
                     if m.strip():
                         display = m[:80] + "..." if len(m) > 80 else m
-                        self.console.print(f"    [{self.style.DIM}]{display}[/]")
+                        self.console.print(f"    [{self.style.DIM}]{escape(display)}[/]")
                 if match_count > 10:
                     self.console.print(f"    [{self.style.DIM}]... and {match_count - 10} more[/]")
         else:
             self.console.print(
                 f"  [{self.style.TOOL_ERROR}]{self.style.ICON_ERROR}[/] "
                 f"[bold]Grep[/bold] [{self.style.TOOL_NAME}]{pattern}[/] "
-                f"[{self.style.TOOL_ERROR}]failed: {result.error}[/]"
+                f"[{self.style.TOOL_ERROR}]failed: {escape(str(result.error))}[/]"
             )
 
     def _show_grep_output(self, output: str, pattern: str, total_matches: int):
@@ -744,7 +745,7 @@ class HcodeToolDisplay:
 
             self.console.print(
                 f"  {self._icons.FOLDER} [bold]Listed[/bold] "
-                f"[{self.style.FILE_PATH}]{path}[/] "
+                f"[{self.style.FILE_PATH}]{escape(path)}[/] "
                 f"[{self.style.DIM}]({item_count} items)[/]"
             )
 
@@ -752,14 +753,14 @@ class HcodeToolDisplay:
             if items and item_count > 0:
                 for item in items[:8]:
                     if item.strip():
-                        self.console.print(f"    [{self.style.DIM}]{item}[/]")
+                        self.console.print(f"    [{self.style.DIM}]{escape(item)}[/]")
                 if item_count > 8:
                     self.console.print(f"    [{self.style.DIM}]... and {item_count - 8} more[/]")
         else:
             self.console.print(
                 f"  [{self.style.TOOL_ERROR}]{self.style.ICON_ERROR}[/] "
                 f"[bold]LS[/bold] [{self.style.FILE_PATH}]{path}[/] "
-                f"[{self.style.TOOL_ERROR}]failed: {result.error}[/]"
+                f"[{self.style.TOOL_ERROR}]failed: {escape(str(result.error))}[/]"
             )
 
     # ─────────────────────────────────────────────────────────
@@ -778,12 +779,12 @@ class HcodeToolDisplay:
             # Show brief output if available
             if result.output:
                 preview = result.output[:100] + "..." if len(result.output) > 100 else result.output
-                self.console.print(f"    [{self.style.DIM}]{preview}[/]")
+                self.console.print(f"    [{self.style.DIM}]{escape(preview)}[/]")
         else:
             self.console.print(
                 f"  [{self.style.TOOL_ERROR}]{self.style.ICON_ERROR}[/] "
                 f"[bold]{tool_name}[/bold] "
-                f"[{self.style.TOOL_ERROR}]failed: {result.error}[/]"
+                f"[{self.style.TOOL_ERROR}]failed: {escape(str(result.error))}[/]"
             )
 
     # ─────────────────────────────────────────────────────────

@@ -8,7 +8,8 @@ from typing import List, AsyncIterator, Dict, Any, Optional
 
 import httpx
 import tiktoken
-from hcode.providers.base import AIProvider, Message, Usage, CompletionResponse
+from hcode.providers.base import AIProvider, Message, Usage, CompletionResponse, ToolCall
+import json
 from openai import AsyncOpenAI, APIConnectionError, APITimeoutError, RateLimitError, APIStatusError
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
@@ -373,7 +374,7 @@ class OpenAIProvider(AIProvider):
             raise
 
     async def _complete(self, params: Dict[str, Any]) -> CompletionResponse:
-        """Non-streaming completion"""
+        """Non-streaming completion with native function call parsing"""
         try:
             response = await self.client.chat.completions.create(**params)
 
@@ -386,12 +387,29 @@ class OpenAIProvider(AIProvider):
             self._update_usage(usage)
 
             content = response.choices[0].message.content or ""
-
-            # Handle function calls if present
+            
+            # Parse native function calls into ToolCall objects
+            parsed_tool_calls = []
             if response.choices[0].message.tool_calls:
-                # Include function call information in the response
-                tool_calls = response.choices[0].message.tool_calls
-                content += f"\n[Function calls: {len(tool_calls)}]"
+                for tc in response.choices[0].message.tool_calls:
+                    try:
+                        # Parse arguments from JSON string
+                        args = {}
+                        if hasattr(tc.function, 'arguments') and tc.function.arguments:
+                            try:
+                                args = json.loads(tc.function.arguments)
+                            except json.JSONDecodeError:
+                                # If JSON parsing fails, store as raw string
+                                args = {"_raw": tc.function.arguments}
+                        
+                        parsed_tool_calls.append(ToolCall(
+                            id=tc.id,
+                            name=tc.function.name,
+                            arguments=args
+                        ))
+                    except Exception:
+                        # Skip malformed tool calls but log
+                        pass
 
             return CompletionResponse(
                 content=content,
@@ -399,6 +417,7 @@ class OpenAIProvider(AIProvider):
                 model=response.model,
                 finish_reason=response.choices[0].finish_reason or "stop",
                 raw_response=response,
+                tool_calls=parsed_tool_calls if parsed_tool_calls else None
             )
         except Exception as e:
             # Re-raise with better error message for connection errors

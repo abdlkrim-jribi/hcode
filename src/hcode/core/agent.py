@@ -248,7 +248,8 @@ class HcodeAgent:
             session_id: Session ID to resume
             config: Configuration dictionary
         """
-        self.root_dir = Path(root_dir or Path.cwd())
+        # Detect project root by looking for marker files
+        self.root_dir = self._find_project_root(Path(root_dir)) if root_dir else self._find_project_root(Path.cwd())
         self.console = get_themed_console()  # Use themed console
         self._palette = get_palette()
         self._icons = Icons()
@@ -374,6 +375,35 @@ class HcodeAgent:
                 )
             except Exception as e:
                 self.console.print(f"[dim yellow]Resilient provider unavailable: {e}[/dim yellow]")
+
+    def _find_project_root(self, start_path: Path) -> Path:
+        """
+        Find the project root by looking for marker files.
+        
+        Traverses parent directories looking for .git, pyproject.toml, setup.py,
+        or package.json to identify the project root.
+        
+        Args:
+            start_path: Directory to start searching from
+            
+        Returns:
+            Project root path, or start_path if no markers found
+        """
+        markers = [".git", "pyproject.toml", "setup.py", "package.json", ".hcode"]
+        current = start_path.resolve()
+        
+        # Traverse up to 10 levels (safety limit)
+        for _ in range(10):
+            for marker in markers:
+                if (current / marker).exists():
+                    return current
+            parent = current.parent
+            if parent == current:  # Reached filesystem root
+                break
+            current = parent
+        
+        # Fallback to original path if no markers found
+        return start_path.resolve()
 
     async def execute_task(
         self,
@@ -548,9 +578,9 @@ class HcodeAgent:
 
             # Handle LLMConnectionError specifically
             if isinstance(e, LLMConnectionError):
-                self.console.print(f"[bold red][X] LLM Connection Error:[/bold red] {str(e)}")
+                self.console.print(f"[bold red][X] LLM Connection Error:[/bold red] {escape(str(e))}")
                 if hasattr(e, "base_url") and e.base_url:
-                    self.console.print(f"[dim]API Endpoint: {e.base_url}[/dim]")
+                    self.console.print(f"[dim]API Endpoint: {escape(e.base_url)}[/dim]")
                 self.console.print(
                     "[dim]Check your network connection and API endpoint configuration.[/dim]"
                 )
@@ -561,14 +591,14 @@ class HcodeAgent:
 
             # Handle built-in connection errors
             elif isinstance(e, ConnectionError) or "connection" in error_str:
-                self.console.print(f"[bold red][X] Connection Error:[/bold red] {str(e)}")
+                self.console.print(f"[bold red][X] Connection Error:[/bold red] {escape(str(e))}")
                 self.console.print(
                     "[dim]Check your network connection and API endpoint configuration.[/dim]"
                 )
                 raise
 
             elif isinstance(e, TimeoutError) or "timeout" in error_str:
-                self.console.print(f"[bold red][X] Timeout Error:[/bold red] {str(e)}")
+                self.console.print(f"[bold red][X] Timeout Error:[/bold red] {escape(str(e))}")
                 self.console.print(
                     "[dim]The request took too long. Try again or increase timeout in config.[/dim]"
                 )
@@ -576,19 +606,19 @@ class HcodeAgent:
 
             elif isinstance(e, RuntimeError):
                 if "rate limit" in error_str:
-                    self.console.print(f"[bold yellow][!] Rate Limited:[/bold yellow] {str(e)}")
+                    self.console.print(f"[bold yellow][!] Rate Limited:[/bold yellow] {escape(str(e))}")
                     self.console.print("[dim]Please wait a moment before trying again.[/dim]")
                 else:
-                    self.console.print(f"[bold red][X] Error:[/bold red] {str(e)}")
+                    self.console.print(f"[bold red][X] Error:[/bold red] {escape(str(e))}")
                 raise
 
             elif isinstance(e, ValueError):
-                self.console.print(f"[bold red][X] Configuration Error:[/bold red] {str(e)}")
+                self.console.print(f"[bold red][X] Configuration Error:[/bold red] {escape(str(e))}")
                 raise
 
             else:
                 self.console.print(
-                    f"[bold red][X] Unexpected Error ({error_type}):[/bold red] {str(e)}"
+                    f"[bold red][X] Unexpected Error ({error_type}):[/bold red] {escape(str(e))}"
                 )
                 raise
 
@@ -615,6 +645,17 @@ class HcodeAgent:
 
         # Add tool documentation
         base_prompt += "\n\n" + tool_docs
+        
+        # INJECT PROJECT ROOT CONTEXT so model knows correct paths
+        base_prompt += f"""
+
+## WORKING ENVIRONMENT
+**Project Root**: {self.root_dir}
+**Current Working Directory**: {Path.cwd()}
+**OS**: Windows
+
+IMPORTANT: When using tools that require file paths, ALWAYS use paths relative to or within the project root above.
+DO NOT use generic paths like "/workspace" or "/home/user". Use the actual project root shown above."""
 
         # Add memory context if available
         if self.memory_manager:
@@ -880,6 +921,7 @@ When the user says things like "yes", "proceed", "continue", "do it", "ok", or s
                 finish_reason = "stop"
                 response_text = ""
                 raw_response = None
+                response = None  # Initialize to prevent UnboundLocalError if exception occurs early
                 displayed_thinking = False
 
                 try:
@@ -1046,7 +1088,7 @@ When the user says things like "yes", "proceed", "continue", "do it", "ok", or s
                     consecutive_errors += 1
                     error_msg = str(gen_error)
                     self.console.print(
-                        f"[bold red][!] Generation error (attempt {consecutive_errors}/{max_consecutive_errors}): {error_msg[:100]}[/bold red]"
+                        f"[bold red][!] Generation error (attempt {consecutive_errors}/{max_consecutive_errors}): {escape(error_msg[:100])}[/bold red]"
                     )
 
                     if consecutive_errors >= max_consecutive_errors:
@@ -1156,7 +1198,7 @@ When the user says things like "yes", "proceed", "continue", "do it", "ok", or s
                             r"^\s*\[(?:UNDERSTAND|CONTEXT|OPTIONS|DECISION|RISK|ASSUMPTIONS|OK|!)\]",
                             display_text,
                         ):
-                            self.console.print(f"\n{display_text}\n")
+                            self.console.print(f"\n{escape(display_text)}\n")
 
                 # THINKING ENFORCEMENT: For OpenAI/OSS models, if no thinking block found
                 # on first iteration with a tool call, request thinking first
@@ -1188,7 +1230,57 @@ Then repeat your tool call.""",
                         continue
 
                 # Check for and execute tool calls
-                tool_calls = self._extract_tool_calls(raw_response, response_text, provider_name)
+                # 1. First checks native tool calls (from Anthropic/OpenAI providers)
+                # 2. Falls back to regex extraction if no native calls found
+                
+                tool_calls = []
+                
+                # Check for native function calls
+                if hasattr(response, "tool_calls") and response.tool_calls:
+                    # Convert ToolCall objects to dictionaries for processing
+                    for tc in response.tool_calls:
+                        tool_calls.append({
+                            "tool": tc.name,
+                            "name": tc.name,   # Support both conventions
+                            "parameters": tc.arguments,
+                            "arguments": tc.arguments, # Support both conventions
+                            "id": tc.id,
+                            "type": "native" # Flag as native
+                        })
+                
+                # Fallback to text extraction if no native calls found
+                if not tool_calls:
+                    tool_calls = self._extract_tool_calls(raw_response, response_text, provider_name)
+                    
+                # VALIDATION LAYER: Validate tool calls before execution
+                if tool_calls:
+                    from hcode.tools.validator import ToolCallValidator
+                    validator = ToolCallValidator(self.tool_manager)
+                    
+                    validated_calls = []
+                    for tc in tool_calls:
+                        tool_name = tc.get("name") or tc.get("tool", "")
+                        args = tc.get("arguments") or tc.get("parameters", {})
+                        
+                        validation = validator.validate(tool_name, args)
+                        if not validation.is_valid:
+                            self.console.print(f"[bold red]❌ Tool Validation Failed: {validation.error_message}[/bold red]")
+                            # Add error back to context so model can correct itself
+                            self.context_manager.add_message(
+                                role="user",
+                                content=f"Tool call validation failed: {validation.error_message}. Please correct your tool call.",
+                                importance=1.0,
+                                provider=self.current_provider
+                            )
+                            continue
+                            
+                        # Log any warnings
+                        for warn in validation.warnings:
+                            self.console.print(f"[yellow]⚠️  Tool Warning: {warn}[/yellow]")
+                            
+                        validated_calls.append(tc)
+                    
+                    tool_calls = validated_calls
 
                 # Track if TodoWrite has been used
                 has_used_todowrite = any(
@@ -1237,7 +1329,7 @@ Then repeat your tool call.""",
                         # Skip Write/Edit on already-modified files
                         if tc_tool in ["write", "writetool", "edit", "edittool"] and tc_path in modified_files:
                             skipped_files.append(tc_path)
-                            self.console.print(f"[dim yellow]⏭️ Skipping {tc_path} - already modified this session[/dim yellow]")
+                            self.console.print(f"[dim yellow]⏭️ Skipping {escape(tc_path)} - already modified this session[/dim yellow]")
                         else:
                             filtered_tool_calls.append(tc)
                     
@@ -1650,6 +1742,16 @@ Do not describe what you will do - OUTPUT THE JSON:""",
                 # Hallucination detection: Code blocks shown without using tools
                 if is_code_block_hallucination:
                     consecutive_hallucinations += 1
+                    
+                    # CRITICAL FIX: Add the hallucinated response to context logic
+                    # The model needs to see that it outputted code blocks to understand the error message.
+                    # Otherwise it sees "CRITICAL ERROR: You showed code" but doesn't see its own message.
+                    self.context_manager.add_message(
+                        role="assistant",
+                        content=response_text,
+                        importance=0.5, # Low importance but necessary for context
+                        provider=self.current_provider,
+                    )
                     
                     if consecutive_hallucinations >= max_consecutive_hallucinations:
                         self.console.print(f"\n[bold red][!] Too many code block hallucinations ({consecutive_hallucinations}). Stopping loop.[/bold red]")
@@ -2676,6 +2778,9 @@ Please review and decide:
 
         IMPORTANT: Very strict - only returns True if there's clear user-facing prose
         that actually answers a question (not just tool calls or thinking).
+        
+        ALSO: Recognizes imperative task completions (e.g., "I created the file")
+        which don't need full explanatory prose.
         """
         import re
 
@@ -2717,6 +2822,63 @@ Please review and decide:
         clean_text = re.sub(r"\n\s*\n\s*\n+", "\n\n", clean_text)
         response_stripped = clean_text.strip()
         response_lower = response_stripped.lower()
+
+        # ═══════════════════════════════════════════════════════════════════════════════
+        # IMPERATIVE TASK COMPLETION CHECK (NEW)
+        # Recognizes action completion phrases like "I created", "file was written"
+        # These are valid completions for imperative tasks (not Q&A)
+        # ═══════════════════════════════════════════════════════════════════════════════
+        action_completion_indicators = [
+            # File operations
+            "i have created",
+            "i created",
+            "file was created",
+            "file has been created",
+            "successfully created",
+            "i have written",
+            "i wrote",
+            "file was written",
+            "successfully written",
+            "i have read",
+            "i read the",
+            "content of the file",
+            "file contents",
+            # Task completion
+            "task completed",
+            "task is complete",
+            "completed successfully",
+            "done.",
+            "finished.",
+            "complete.",
+            # Verification
+            "verified",
+            "verification complete",
+            "confirmed",
+            "matches",
+            "correct",
+            # List/Directory operations
+            "i have listed",
+            "directory contains",
+            "files found",
+            "here are the files",
+        ]
+        
+        has_action_completion = any(ind in response_lower for ind in action_completion_indicators)
+        
+        # If action completion detected and has some content (5+ chars), accept it
+        # NOTE: Lowered from 30 to 5 because phrases like "Done." are valid completions
+        if has_action_completion and len(response_stripped) >= 5:
+            return True
+
+        # QUESTION DETECTION: If the model asks a question (ends with ?), it's a substantive interaction
+        # We should stop and wait for the answer.
+        # Check for length >= 20 to avoid trivial questions like "Really?"
+        if response_stripped.endswith("?") and len(response_stripped) >= 20:
+            return True
+
+        # ═══════════════════════════════════════════════════════════════════════════════
+        # ORIGINAL Q&A ANSWER DETECTION (for explanatory responses)
+        # ═══════════════════════════════════════════════════════════════════════════════
 
         # STRICT CHECK 1: Must have substantial remaining text (at least 100 chars)
         # After stripping all tool calls and thinking, there should be real content

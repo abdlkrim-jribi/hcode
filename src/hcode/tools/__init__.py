@@ -56,6 +56,7 @@ from hcode.tools.tool_selector import (
     select_tools_for_task,
 )
 from hcode.tools.web_tools import WebFetchTool, WebSearchTool, WebScrapeTool
+from hcode.tools.validator import ToolCallValidator, ValidationResult
 
 __all__ = [
     # Core
@@ -66,6 +67,9 @@ __all__ = [
     "ToolParameter",
     "ToolRegistry",
     "ToolCategory",
+    # Validation
+    "ToolCallValidator",
+    "ValidationResult",
     # File Tools
     "ReadTool",
     "WriteTool",

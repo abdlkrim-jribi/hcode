@@ -67,10 +67,5 @@ def validate_collection(
         Tuple[bool, List[Any]]: A tuple where the first element is ``True`` if all items are valid,
         and the second element is a list of the invalid items (empty if all are valid).
     """
-
-    collection: Iterable,
-    validator: Callable[[Any], bool],
-) -> Tuple[bool, List[Any]]:
-
     invalid_items = [item for item in collection if not validator(item)]
     return (len(invalid_items) == 0, invalid_items)

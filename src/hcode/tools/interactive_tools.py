@@ -182,8 +182,10 @@ class AskUserQuestionTool(BaseTool):
                         # If not a number, treat as direct text input
                         answers[header] = response
 
+            # Convert answers dict to string for downstream processing
+            output_str = "\n".join(f"{k}: {v}" for k, v in answers.items())
             return ToolResult(
-                success=True, output=answers, metadata={"questions_asked": len(questions)}
+                success=True, output=output_str, metadata={"questions_asked": len(questions), "answers": answers}
             )
 
         except Exception as e:

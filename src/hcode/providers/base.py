@@ -46,6 +46,18 @@ class Usage:
 
 
 @dataclass
+class ToolCall:
+    """Represents a tool call from the model (native function calling)"""
+    
+    id: str  # Unique identifier for this tool call
+    name: str  # Tool name
+    arguments: Dict[str, Any]  # Tool arguments as a dictionary
+    
+    def to_dict(self) -> Dict[str, Any]:
+        return {"id": self.id, "name": self.name, "arguments": self.arguments}
+
+
+@dataclass
 class CompletionResponse:
     """Response from an AI completion request"""
 
@@ -54,6 +66,7 @@ class CompletionResponse:
     model: str
     finish_reason: str
     raw_response: Optional[Any] = None
+    tool_calls: Optional[List["ToolCall"]] = None  # Native tool calls from the model
 
 
 class AIProvider(ABC):

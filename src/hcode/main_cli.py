@@ -377,9 +377,10 @@ def run_task(task, provider, model, model_size, complexity, cost, session, strea
         console.print(f"\n[yellow]{EMOJI['warning']} Interrupted by user[/yellow]")
         sys.exit(0)
     except Exception as e:
+        from rich.markup import escape
         console.print(
             Panel(
-                f"[red]{EMOJI['cross']} Error: {str(e)}[/red]\n\n"
+                f"[red]{EMOJI['cross']} Error: {escape(str(e))}[/red]\n\n"
                 "[dim]Use --verbose for detailed error information[/dim]",
                 title="[red]Execution Failed[/red]",
                 border_style="red",

@@ -191,6 +191,23 @@ class BashTool(BaseTool):
                 },
             )
 
+        # Handle 'true' and 'false' for cross-platform compatibility
+        if command.strip() == "true":
+            return ToolResult(
+                success=True,
+                output="",
+                error=None,
+                metadata={"exit_code": 0, "duration": 0.0, "description": description},
+            )
+
+        if command.strip() == "false":
+            return ToolResult(
+                success=False,
+                output="",
+                error="Command failed with exit code 1",
+                metadata={"exit_code": 1, "duration": 0.0, "description": description},
+            )
+
         try:
             if is_windows:
                 # On Windows, use cmd.exe explicitly for better compatibility

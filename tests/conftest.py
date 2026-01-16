@@ -12,8 +12,5 @@ if src_path not in sys.path:
     sys.path.insert(0, src_path)
 
 # Import the Tester class from the correct package location
-try:
-    from hcode._impl.tester import Tester
-except ImportError:
-    # Fallback to relative import if package structure differs
-    from .._impl.tester import Tester
+# Import the Tester class from the correct package location
+from hcode._impl.tester import Tester
