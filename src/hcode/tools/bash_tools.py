@@ -115,15 +115,76 @@ class BashTool(BaseTool):
             ),
         ]
 
+    def _translate_command(self, command: str) -> str:
+        """Translate Unix commands to Windows equivalents if on Windows"""
+        import sys
+        if sys.platform != "win32" or not command:
+            return command
+            
+        # Simple tokenization
+        parts = command.strip().split()
+        if not parts:
+            return command
+            
+        base_cmd = parts[0]
+        args = " ".join(parts[1:])
+        
+        # Helper to replace forward slashes with backslashes in args
+        def fix_paths(s):
+            return s.replace("/", "\\")
+            
+        # Command mappings
+        if base_cmd == "ls":
+            # Handle common flags roughly
+            if "-R" in args:
+                return f"dir /s {args.replace('-R', '')}"
+            elif "-la" in args or "-al" in args:
+                return f"dir /a {args.replace('-la', '').replace('-al', '')}"
+            return f"dir {args}"
+            
+        elif base_cmd == "cp":
+            return f"copy {fix_paths(args)}"
+            
+        elif base_cmd == "mv":
+            return f"move {fix_paths(args)}"
+            
+        elif base_cmd == "rm":
+            # rm -rf -> rmdir /s /q for dirs, or del for files
+            # This is tricky because rm works on both. 
+            # safe bet: del for files. rmdir for dirs requires knowing it's a dir.
+            # For now, map simple rm to del
+            if "-rf" in args:
+                 return f"rmdir /s /q {fix_paths(args).replace('-rf', '')}"
+            return f"del {fix_paths(args)}"
+            
+        elif base_cmd == "cat":
+            return f"type {fix_paths(args)}"
+            
+        elif base_cmd == "grep":
+            return f"findstr {args}"
+            
+        elif base_cmd == "touch":
+            if args:
+                return f"type nul >> {fix_paths(args)}"
+                
+        return command
+
     async def execute(self, **kwargs) -> ToolResult:
         """Execute bash command"""
-        command = kwargs.get("command")
+        raw_command = kwargs.get("command")
         timeout = kwargs.get("timeout", 120000) / 1000  # Convert ms to seconds
         run_in_background = kwargs.get("run_in_background", False)
-        description = kwargs.get("description", command[:50])
+        description = kwargs.get("description", raw_command[:50] if raw_command else "")
 
-        if not command:
+        if not raw_command:
             return ToolResult(success=False, output="", error="Command is required")
+            
+        # Translate command for Windows
+        command = self._translate_command(raw_command)
+        
+        # If translation changed the command, notify in description/metadata
+        if command != raw_command and description == raw_command[:50]:
+             description = f"{raw_command} (translated to {command})"
 
         # Validate timeout
         max_timeout = 600000 / 1000  # 10 minutes in seconds

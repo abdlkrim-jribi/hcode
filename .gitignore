@@ -27,7 +27,7 @@ env/
 .venv
 
 # Poetry
-poetry.lock
+# poetry.lock  <-- Commented out to allow committing
 .poetry/
 
 # IDE
@@ -44,6 +44,12 @@ poetry.lock
 *.hcode-session
 .hcode_history
 .benchmarks/
+.claude/
+output/
+coverage_output.txt
+full_test_output.txt
+report.html
+src/reports/
 
 # Environment variables
 .env

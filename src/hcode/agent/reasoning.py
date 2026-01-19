@@ -487,45 +487,46 @@ class ReasoningParser:
     }
 
     # Field extraction patterns
+    # Field extraction patterns
     FIELD_PATTERNS = {
         # Perception
-        "observation": r"(?:OBSERVE|OBSERVATION|What I see)[:\s]*(.+?)(?=\n[A-Z]|\n\n|$)",
-        "implicit_needs": r"(?:IMPLICIT|Implicit needs?)[:\s]*(.+?)(?=\n[A-Z]|\n\n|$)",
+        "observation": r"(?:OBSERVE|OBSERVATION|What I see)[:\s]*(.+?)(?=\r?\n\s*[A-Z]|\r?\n\s*\r?\n|$)",
+        "implicit_needs": r"(?:IMPLICIT|Implicit needs?)[:\s]*(.+?)(?=\r?\n\s*[A-Z]|\r?\n\s*\r?\n|$)",
         # Comprehension
-        "core_understanding": r"(?:UNDERSTAND|Core understanding|CORE)[:\s]*(.+?)(?=\n[A-Z]|\n\n|$)",
-        "context": r"(?:CONTEXT|Context)[:\s]*(.+?)(?=\n[A-Z]|\n\n|$)",
-        "assumptions": r"(?:ASSUMPTIONS?|Assumptions?)[:\s]*(.+?)(?=\n[A-Z]|\n\n|$)",
+        "core_understanding": r"(?:UNDERSTAND|Core understanding|CORE)[:\s]*(.+?)(?=\r?\n\s*[A-Z]|\r?\n\s*\r?\n|$)",
+        "context": r"(?:CONTEXT|Context)[:\s]*(.+?)(?=\r?\n\s*[A-Z]|\r?\n\s*\r?\n|$)",
+        "assumptions": r"(?:ASSUMPTIONS?|Assumptions?)[:\s]*(.+?)(?=\r?\n\s*[A-Z]|\r?\n\s*\r?\n|$)",
         # Analysis
-        "decomposition": r"(?:DECOMPOSE|Decomposition|Steps?)[:\s]*(.+?)(?=\n[A-Z]|\n\n|$)",
-        "options": r"(?:OPTIONS?|Alternatives?)[:\s]*(.+?)(?=\n[A-Z]|\n\n|$)",
-        "risks": r"(?:RISKS?|Risk factors?)[:\s]*(.+?)(?=\n[A-Z]|\n\n|$)",
+        "decomposition": r"(?:DECOMPOSE|Decomposition|Steps?)[:\s]*(.+?)(?=\r?\n\s*[A-Z]|\r?\n\s*\r?\n|$)",
+        "options": r"(?:OPTIONS?|Alternatives?)[:\s]*(.+?)(?=\r?\n\s*[A-Z]|\r?\n\s*\r?\n|$)",
+        "risks": r"(?:RISKS?|Risk factors?)[:\s]*(.+?)(?=\r?\n\s*[A-Z]|\r?\n\s*\r?\n|$)",
         # Reasoning
-        "hypothesis": r"(?:HYPOTHESIS|Hypothesis)[:\s]*(.+?)(?=\n[A-Z]|\n\n|$)",
-        "evidence_for": r"(?:EVIDENCE FOR|Evidence for|Supporting)[:\s]*(.+?)(?=\n[A-Z]|\n\n|$)",
-        "evidence_against": r"(?:EVIDENCE AGAINST|Evidence against|Opposing)[:\s]*(.+?)(?=\n[A-Z]|\n\n|$)",
-        "counter_arguments": r"(?:COUNTER|Counter-?arguments?)[:\s]*(.+?)(?=\n[A-Z]|\n\n|$)",
+        "hypothesis": r"(?:HYPOTHESIS|Hypothesis)[:\s]*(.+?)(?=\r?\n\s*[A-Z]|\r?\n\s*\r?\n|$)",
+        "evidence_for": r"(?:EVIDENCE FOR|Evidence for|Supporting)[:\s]*(.+?)(?=\r?\n\s*[A-Z]|\r?\n\s*\r?\n|$)",
+        "evidence_against": r"(?:EVIDENCE AGAINST|Evidence against|Opposing)[:\s]*(.+?)(?=\r?\n\s*[A-Z]|\r?\n\s*\r?\n|$)",
+        "counter_arguments": r"(?:COUNTER|Counter-?arguments?)[:\s]*(.+?)(?=\r?\n\s*[A-Z]|\r?\n\s*\r?\n|$)",
         # Decision
-        "decision": r"(?:DECISION|Decision|CHOICE|Choice)[:\s]*(.+?)(?=\n[A-Z]|\n\n|$)",
-        "justification": r"(?:JUSTIFICATION|Justification|WHY|Why)[:\s]*(.+?)(?=\n[A-Z]|\n\n|$)",
+        "decision": r"(?:DECISION|Decision|CHOICE|Choice)[:\s]*(.+?)(?=\r?\n\s*[A-Z]|\r?\n\s*\r?\n|$)",
+        "justification": r"(?:JUSTIFICATION|Justification|WHY|Why)[:\s]*(.+?)(?=\r?\n\s*[A-Z]|\r?\n\s*\r?\n|$)",
         "confidence": r"(?:CONFIDENCE|Confidence)[:\s]*(\d+(?:\.\d+)?)",
-        "fallback": r"(?:FALLBACK|Fallback|Plan B)[:\s]*(.+?)(?=\n[A-Z]|\n\n|$)",
-        "action_items": r"(?:ACTIONS?|Action items?|TODO|Tasks?)[:\s]*(.+?)(?=\n[A-Z]|\n\n|$)",
+        "fallback": r"(?:FALLBACK|Fallback|Plan B)[:\s]*(.+?)(?=\r?\n\s*[A-Z]|\r?\n\s*\r?\n|$)",
+        "action_items": r"(?:ACTIONS?|Action items?|TODO|Tasks?|Action)[:\s]*(.+?)(?=\r?\n\s*[A-Z]|\r?\n\s*\r?\n|$)",
         # Verification
-        "safety_check": r"(?:SAFETY|Safety check|RISK CHECK)[:\s]*(.+?)(?=\n[A-Z]|\n\n|$)",
-        "validation": r"(?:VALIDATE|Validation|VERIFY)[:\s]*(.+?)(?=\n[A-Z]|\n\n|$)",
-        "potential_issues": r"(?:ISSUES?|Potential issues?|Problems?)[:\s]*(.+?)(?=\n[A-Z]|\n\n|$)",
+        "safety_check": r"(?:SAFETY|Safety check|RISK CHECK)[:\s]*(.+?)(?=\r?\n\s*[A-Z]|\r?\n\s*\r?\n|$)",
+        "validation": r"(?:VALIDATE|Validation|VERIFY)[:\s]*(.+?)(?=\r?\n\s*[A-Z]|\r?\n\s*\r?\n|$)",
+        "potential_issues": r"(?:ISSUES?|Potential issues?|Problems?)[:\s]*(.+?)(?=\r?\n\s*[A-Z]|\r?\n\s*\r?\n|$)",
         # Change Impact (NEW)
-        "files_affected": r"(?:FILES?\s*AFFECTED|Affected files?)[:\s]*(.+?)(?=\n[A-Z]|\n\n|$)",
-        "dependencies_affected": r"(?:DEPENDENCIES?\s*AFFECTED|Affected dependencies?)[:\s]*(.+?)(?=\n[A-Z]|\n\n|$)",
-        "breaking_changes": r"(?:BREAKING\s*CHANGES?|Breaking changes?)[:\s]*(.+?)(?=\n[A-Z]|\n\n|$)",
-        "side_effects": r"(?:SIDE\s*EFFECTS?|Side effects?)[:\s]*(.+?)(?=\n[A-Z]|\n\n|$)",
-        "rollback_strategy": r"(?:ROLLBACK|Rollback strategy)[:\s]*(.+?)(?=\n[A-Z]|\n\n|$)",
+        "files_affected": r"(?:FILES?\s*AFFECTED|Affected files?)[:\s]*(.+?)(?=\r?\n\s*[A-Z]|\r?\n\s*\r?\n|$)",
+        "dependencies_affected": r"(?:DEPENDENCIES?\s*AFFECTED|Affected dependencies?)[:\s]*(.+?)(?=\r?\n\s*[A-Z]|\r?\n\s*\r?\n|$)",
+        "breaking_changes": r"(?:BREAKING\s*CHANGES?|Breaking changes?)[:\s]*(.+?)(?=\r?\n\s*[A-Z]|\r?\n\s*\r?\n|$)",
+        "side_effects": r"(?:SIDE\s*EFFECTS?|Side effects?)[:\s]*(.+?)(?=\r?\n\s*[A-Z]|\r?\n\s*\r?\n|$)",
+        "rollback_strategy": r"(?:ROLLBACK|Rollback strategy)[:\s]*(.+?)(?=\r?\n\s*[A-Z]|\r?\n\s*\r?\n|$)",
         "impact_score": r"(?:IMPACT\s*SCORE|Impact score)[:\s]*(\d+(?:\.\d+)?)",
         # Pre-Execution Review (NEW)
-        "what_will_change": r"(?:WHAT\s*WILL\s*CHANGE|What will change)[:\s]*(.+?)(?=\n[A-Z]|\n\n|$)",
-        "what_could_go_wrong": r"(?:WHAT\s*COULD\s*GO\s*WRONG|Risks?|What could go wrong)[:\s]*(.+?)(?=\n[A-Z]|\n\n|$)",
-        "alternative_approaches": r"(?:ALTERNATIVES?|Alternative approaches?)[:\s]*(.+?)(?=\n[A-Z]|\n\n|$)",
-        "approval_reason": r"(?:APPROVAL\s*REASON|Why approve)[:\s]*(.+?)(?=\n[A-Z]|\n\n|$)",
+        "what_will_change": r"(?:WHAT\s*WILL\s*CHANGE|What will change)[:\s]*(.+?)(?=\r?\n\s*[A-Z]|\r?\n\s*\r?\n|$)",
+        "what_could_go_wrong": r"(?:WHAT\s*COULD\s*GO\s*WRONG|Risks?|What could go wrong)[:\s]*(.+?)(?=\r?\n\s*[A-Z]|\r?\n\s*\r?\n|$)",
+        "alternative_approaches": r"(?:ALTERNATIVES?|Alternative approaches?)[:\s]*(.+?)(?=\r?\n\s*[A-Z]|\r?\n\s*\r?\n|$)",
+        "approval_reason": r"(?:APPROVAL\s*REASON|Why approve)[:\s]*(.+?)(?=\r?\n\s*[A-Z]|\r?\n\s*\r?\n|$)",
     }
 
     def __init__(self):

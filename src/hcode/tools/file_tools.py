@@ -562,6 +562,55 @@ class EditTool(BaseTool):
         except Exception as e:
             return f"diff error: {e}"
 
+    def _fuzzy_find(self, content: str, target: str) -> tuple[bool, str, int]:
+        """
+        Attempt to find target in content using fuzzy matching.
+        Strategy: 
+        1. Strip target to ignore indentation/newlines at ends.
+        2. Split by whitespace and rejoin with \s+ to allow flexible whitespace.
+        
+        Returns:
+            Tuple of (found, matched_string, count_matches)
+        """
+        import re
+        
+        # 1. Handling Indentation/Line Breaks issues:
+        # Strip the target string. This allows finding the block even if 
+        # the user provided extra indentation or newlines at the start/end
+        # that aren't strictly part of the content signature.
+        clean_target = target.strip()
+        if not clean_target:
+             return False, "", 0
+             
+        # 2. Flexible Whitespace:
+        # Split by whitespace sequences to handle "  " vs " " vs "\n" mismatch
+        parts = re.split(r"\s+", clean_target)
+        
+        # Escape each part to treat as literal
+        escaped_parts = [re.escape(p) for p in parts]
+        
+        # Join with \s+ pattern (one or more whitespace characters)
+        # This matches: "a b" -> "a\s+b" -> matching "a  b", "a\nb", etc.
+        fuzzy_pattern_str = r"\s+".join(escaped_parts)
+        
+        # Compile pattern
+        try:
+            pattern = re.compile(fuzzy_pattern_str, re.DOTALL)
+            matches = list(pattern.finditer(content))
+            
+            if not matches:
+                return False, "", 0
+                
+            # If unique match found, return the exact string that matched
+            if len(matches) == 1:
+                return True, matches[0].group(0), 1
+                
+            return True, "", len(matches)
+            
+        except re.error:
+            # Fallback for complex patterns or regex errors
+            return False, "", 0
+
     async def execute(
         self,
         file_path: str,
@@ -592,29 +641,59 @@ class EditTool(BaseTool):
 
             # Store original content for diff
             original_content = content
+            
+            # Match state tracking
+            match_found = False
+            actual_old_string = old_string
 
-            # Check if old_string exists
-            if old_string not in content:
+            # 1. Try exact match
+            if old_string in content:
+                match_found = True
+            else:
+                # 2. Try fuzzy match (fallback)
+                fuzzy_found, fuzzy_match, match_count = self._fuzzy_find(content, old_string)
+                if fuzzy_found:
+                    if match_count == 1:
+                        match_found = True
+                        actual_old_string = fuzzy_match
+                        # Log that we used fuzzy matching
+                        # (Ideally we'd warn the user, but for now we proceed if unique)
+                    elif match_count > 1:
+                        return ToolResult(
+                            success=False,
+                            output=None,
+                            error=f"String not found exactly, and fuzzy match found {match_count} occurrences. Please be more specific or use replace_all=True with exact string.",
+                        )
+            
+            if not match_found:
                 return ToolResult(
                     success=False,
                     output=None,
-                    error=f"String not found in file: {old_string[:100]}...",
+                    error=f"String not found in file (tried exact and fuzzy match): {old_string[:100]}...",
                 )
 
             # Check if replacement would be ambiguous
-            if not replace_all and content.count(old_string) > 1:
+            if not replace_all and content.count(actual_old_string) > 1:
                 return ToolResult(
                     success=False,
                     output=None,
-                    error=f"String appears {content.count(old_string)} times. Use replace_all=True or provide more context.",
+                    error=f"String appears {content.count(actual_old_string)} times. Use replace_all=True or provide more context.",
                 )
 
             # Perform replacement
             if replace_all:
-                new_content = content.replace(old_string, new_string)
-                replacements = content.count(old_string)
+                if actual_old_string != old_string:
+                     # If using fuzzy match, we can't easily replace-all safely without regex logic for all occurrences
+                     # For now, restrict fuzzy-match to single replacement or demand exact string for global replace
+                     return ToolResult(
+                        success=False,
+                        output=None,
+                        error="Fuzzy matching is only supported for single replacements. Please verify the exact string for global replacement.",
+                     )
+                new_content = content.replace(actual_old_string, new_string)
+                replacements = content.count(actual_old_string)
             else:
-                new_content = content.replace(old_string, new_string, 1)
+                new_content = content.replace(actual_old_string, new_string, 1)
                 replacements = 1
 
             # Write back
@@ -623,16 +702,21 @@ class EditTool(BaseTool):
 
             # Show diff
             diff_summary = self._show_diff(str(path), original_content, new_content)
+            
+            return_msg = f"File edited successfully. Replaced {replacements} occurrence(s). ({diff_summary})"
+            if actual_old_string != old_string:
+                return_msg += "\nNote: Used fuzzy matching to ignore whitespace differences."
 
             return ToolResult(
                 success=True,
-                output=f"File edited successfully. Replaced {replacements} occurrence(s). ({diff_summary})",
+                output=return_msg,
                 metadata={
                     "file_path": str(path),
                     "replacements": replacements,
-                    "old_length": len(old_string),
+                    "old_length": len(actual_old_string),
                     "new_length": len(new_string),
                     "diff_summary": diff_summary,
+                    "fuzzy_match": actual_old_string != old_string
                 },
             )
 

@@ -148,17 +148,76 @@ class ReasoningPromptBuilder:
         return "\n".join(prompt_parts)
 
     def _quick_thinking_template(self) -> str:
-        return "Briefly analyze the request and decide on the next step."
+        return """[PERCEPTION]
+Observation: <brief situation>
+
+[ANALYSIS]
+Key factors: <main points>
+Risk factor: <low/medium/high>
+
+[DECISION]
+Action: <immediate next step>
+Confidence: 0.0-1.0"""
 
     def _standard_thinking_template(self) -> str:
-        return """THINK → TOOL (no code blocks in chat)
-1. What does user want?
-2. What tool do I call IMMEDIATELY?
-NO PROSE describing code. Just call the tool."""
+        return """[PERCEPTION]
+Observation: <what is the situation/request>
+Implicit needs: <what is implied but not stated>
 
+[ANALYSIS]
+Decomposition:
+1. <step 1>
+2. <step 2>
+Options:
+- <option A>
+- <option B>
+Risks: <potential issues>
+
+[DECISION]
+Decision: <what to do>
+Justification: <why>
+Confidence: 0.0-1.0
+Action items:
+- <specific tool call or action>"""
 
     def _deep_thinking_template(self) -> str:
-        return self._standard_thinking_template()
+        return """[PERCEPTION]
+Observation: <detailed observation>
+Key entities: <important components/files>
+
+[COMPREHENSION]
+Core understanding: <what is the root problem>
+Assumptions: <what are we assuming>
+Constraints: <what are the limits>
+
+[ANALYSIS]
+Decomposition: <breakdown of steps>
+Dependencies: <what depends on what>
+Options: <alternatives considered>
+
+[REASONING]
+Hypothesis: <proposed solution>
+Evidence for: <why it will work>
+Evidence against: <why it might fail>
+Confidence: 0.0-1.0
+
+[CHANGE IMPACT]
+Files affected: <list of files>
+Breaking changes: <any API breaks>
+Side effects: <potential unintended consequences>
+
+[DECISION]
+Decision: <final choice>
+Justification: <reasoning>
+Fallback: <plan B>
+
+[PRE-EXECUTION REVIEW]
+What will change: <summary of changes>
+What could go wrong: <immediate risks>
+
+[VERIFICATION]
+Safety check: <pre-flight checks>
+Validation steps: <how to verify success>"""
 
     def build_refinement_prompt(self, original_reasoning: str, feedback: str, outcome: str) -> str:
         """
