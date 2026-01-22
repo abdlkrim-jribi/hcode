@@ -14,12 +14,12 @@ Key features:
 
 
 def method_name():
-    from typing import Dict, Any, Optional, List
+    from typing import Dict, Any, Optional
     return Any, Dict, Optional
 
 
 Any, Dict, Optional = method_name()
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
 
 

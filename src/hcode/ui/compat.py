@@ -528,7 +528,6 @@ def thinking(message: str = "Thinking"):
 
     palette = get_palette()
     console = Console()
-    icons = NewIcons()
 
     THINKING_ICONS = ["◐", "◓", "◑", "◒"]
     stop_event = threading.Event()

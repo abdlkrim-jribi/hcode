@@ -8,8 +8,6 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Optional, List, Dict, Any, Tuple
 
-from hcode.ui.icons import Icons
-from hcode.ui.theme import get_palette
 from rich.align import Align
 from rich.box import ROUNDED, SIMPLE
 from rich.console import Group, RenderableType
@@ -20,6 +18,9 @@ from rich.rule import Rule
 from rich.table import Table
 from rich.text import Text
 from rich.tree import Tree
+
+from hcode.ui.icons import Icons
+from hcode.ui.theme import get_palette
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -503,8 +504,6 @@ class TokenUsagePanel:
 
     def render(self) -> Text:
         """Render token usage (inline, not panel)."""
-        palette = get_palette()
-        total = self.input_tokens + self.output_tokens
 
         text = Text()
         text.append("◈ ", style=f"bold {palette.secondary}")

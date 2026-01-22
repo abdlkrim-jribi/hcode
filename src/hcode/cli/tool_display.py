@@ -214,7 +214,7 @@ class HcodeToolDisplay:
             line_count = len(lines)
 
             # Claude Code style header: ⎯⎯ Read: file_path ⎯⎯
-            file_name = Path(file_path).name
+
             self.console.print(f"\n  [bold cyan]{'─' * 3} Read: {escape(file_path)} {'─' * 3}[/bold cyan]")
             self.console.print(f"  [dim]{line_count} lines{f' • {lang}' if lang else ''}[/dim]")
 
@@ -657,7 +657,6 @@ class HcodeToolDisplay:
     def _display_grep(self, arguments: Dict[str, Any], result: Any):
         """Display Grep tool execution - Hcode style with smart output handling"""
         pattern = arguments.get("pattern", "")
-        path = arguments.get("path", ".")
 
         if result.success:
             output = result.output.strip() if result.output else ""

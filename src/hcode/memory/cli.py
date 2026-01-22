@@ -226,7 +226,7 @@ def cmd_export(args):
 
 def cmd_import(args):
     """Import memory data."""
-    project_root = Path(args.path).resolve() if args.path else Path.cwd()
+
     input_path = Path(args.input).resolve()
 
     if not input_path.exists():
@@ -241,7 +241,6 @@ def cmd_import(args):
 def cmd_edit(args):
     """Edit an AGENT.md file."""
     project_root = Path(args.path).resolve() if args.path else Path.cwd()
-    file_memory = FileMemory(project_root)
 
     if args.scope == "global":
         file_path = config.global_memory_path

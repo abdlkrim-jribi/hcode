@@ -113,7 +113,7 @@ class NotebookEditTool(BaseTool):
 
             elif edit_mode == "delete":
                 # Delete cell
-                deleted_cell = notebook["cells"].pop(cell_idx)
+                notebook["cells"].pop(cell_idx)
                 operation = "deleted"
 
             else:

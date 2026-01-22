@@ -312,7 +312,7 @@ class CommandCompleter(Completer):
             for alias in cmd.aliases:
                 self.command_map[alias] = cmd
 
-    def get_completions(self, document: Document, complete_event) -> Iterable[Completion]:
+    def get_completions(self, document: Document, _complete_event) -> Iterable[Completion]:
         """Generate command completions."""
         text = document.text_before_cursor
 
@@ -356,7 +356,7 @@ class SmartPhraseCompleter(Completer):
     def __init__(self, phrases: Optional[Dict[str, List[str]]] = None):
         self.phrases = phrases or SMART_PHRASES
 
-    def get_completions(self, document: Document, complete_event) -> Iterable[Completion]:
+    def get_completions(self, document: Document, _complete_event) -> Iterable[Completion]:
         """Generate phrase completions."""
         text = document.text_before_cursor.lower().strip()
 
@@ -427,7 +427,7 @@ class FilePathCompleter(Completer):
         scan(self.root_dir)
         return files[:500]  # Limit results
 
-    def get_completions(self, document: Document, complete_event) -> Iterable[Completion]:
+    def get_completions(self, document: Document, _complete_event) -> Iterable[Completion]:
         """Generate file path completions."""
         text = document.text_before_cursor
 

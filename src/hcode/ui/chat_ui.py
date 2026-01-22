@@ -7,6 +7,13 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional, AsyncIterator, List, Any
 
+from rich.console import Console, RenderableType
+from rich.live import Live
+from rich.markdown import Markdown
+from rich.padding import Padding
+from rich.rule import Rule
+from rich.text import Text
+
 from hcode.ui.animations import ThinkingAnimation
 from hcode.ui.panels import (
     WelcomePanel,
@@ -18,12 +25,6 @@ from hcode.ui.panels import (
     TokenUsagePanel,
 )
 from hcode.ui.theme import ThemeMode, get_theme, get_palette
-from rich.console import Console, RenderableType
-from rich.live import Live
-from rich.markdown import Markdown
-from rich.padding import Padding
-from rich.rule import Rule
-from rich.text import Text
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -387,7 +388,6 @@ class ChatSession:
 
     def _show_help(self) -> None:
         """Show help information."""
-        palette = get_palette()
 
         commands = [
             ("/help", "Show this help message"),

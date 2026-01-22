@@ -3,12 +3,12 @@ Intelligent provider selection and routing logic.
 Chooses the best AI provider based on task requirements, cost, and availability.
 """
 
-from enum import Enum
-from typing import Optional, List, Dict, Any
 from dataclasses import dataclass
+from enum import Enum
+from typing import Optional, List, Dict
 
-from hcode.providers.base import AIProvider, ModelType
 from hcode.providers.anthropic_provider import AnthropicProvider
+from hcode.providers.base import AIProvider
 from hcode.providers.openai_provider import OpenAIProvider
 
 
@@ -281,7 +281,7 @@ class ProviderSelector:
 
         return None
 
-    def switch_provider(self, from_provider: str, to_provider: str) -> bool:
+    def switch_provider(self, _: str, to_provider: str) -> bool:
         """
         Switch from one provider to another.
 

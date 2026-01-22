@@ -412,7 +412,7 @@ class ResilientProvider:
         if provider_name == self._primary_name and provider_name != self._current_name:
             if self.get_health(provider_name) == ProviderHealth.HEALTHY:
                 # Primary recovered, switch back
-                old_provider = self._current_name
+
                 self._current_name = self._primary_name
                 if self._on_recovery:
                     self._on_recovery(provider_name)
@@ -524,7 +524,6 @@ class ResilientProvider:
         if health == ProviderHealth.CIRCUIT_OPEN:
             return False
 
-        old_provider = self._current_name
         self._current_name = to_provider
 
         return True
@@ -594,7 +593,7 @@ class ResilientStreamWrapper:
             self._completed = True
             raise
 
-        except Exception as e:
+        except Exception:
             # Mid-stream failure, attempt recovery
             self._current_stream = None
 

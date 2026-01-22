@@ -10,22 +10,18 @@ Provides Claude Code/Hcode style reasoning display with:
 - Phase-by-phase reasoning display
 """
 
-import time
 import threading
-from datetime import datetime
-from typing import Optional, List, Dict, Any, Set
+import time
 from contextlib import contextmanager
 from dataclasses import dataclass, field
+from datetime import datetime
 from enum import Enum
+from typing import Optional, List, Dict
 
-from rich.console import Console, Group
+from rich.console import Console
 from rich.live import Live
-from rich.panel import Panel
-from rich.table import Table
-from rich.text import Text
-from rich.padding import Padding
 from rich.rule import Rule
-from rich.markdown import Markdown
+from rich.text import Text
 
 # Import theme system
 try:

@@ -1,7 +1,7 @@
 
 
 import re
-from typing import Any, Callable, Iterable, List, Tuple, Union
+from typing import Any, Callable, Iterable, List, Tuple
 
 
 def is_email(value: str) -> bool:

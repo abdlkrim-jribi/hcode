@@ -3,15 +3,16 @@ OpenAI GPT API provider implementation.
 Supports GPT-4, GPT-4-Turbo, and GPT-3.5 models with function calling.
 """
 
+import json
 import os
 from typing import List, AsyncIterator, Dict, Any, Optional
 
 import httpx
 import tiktoken
-from hcode.providers.base import AIProvider, Message, Usage, CompletionResponse, ToolCall
-import json
 from openai import AsyncOpenAI, APIConnectionError, APITimeoutError, RateLimitError, APIStatusError
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+
+from hcode.providers.base import AIProvider, Message, Usage, CompletionResponse, ToolCall
 
 
 class LLMConnectionError(Exception):
@@ -427,7 +428,7 @@ class OpenAIProvider(AIProvider):
         """Streaming completion"""
         params["stream"] = True
 
-        total_tokens = 0
+
         content_tokens = []
 
         try:
@@ -560,7 +561,7 @@ class OpenAIProvider(AIProvider):
 
         try:
             # Make a minimal API call to test connectivity
-            response = await self.client.chat.completions.create(
+            await self.client.chat.completions.create(
                 model=self.model, messages=[{"role": "user", "content": "Hi"}], max_tokens=5
             )
             return True, f"Connected to {self.model}{endpoint_info}"

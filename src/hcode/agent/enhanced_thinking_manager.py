@@ -151,17 +151,10 @@ class EnhancedThinkingManager:
         self.todo_manager = manager
         self.todo_integrator.set_todo_manager(manager)
 
-    def add_thinking_listener(self, listener: Callable[[ThinkingBlock], None]):
-        """Add listener for thinking events"""
-        self.thinking_listeners.append(listener)
-
     def add_reasoning_listener(self, listener: Callable[[StructuredReasoning], None]):
         """Add listener for reasoning events"""
         self.reasoning_listeners.append(listener)
 
-    def add_todo_listener(self, listener: Callable[[List[Dict[str, Any]]], None]):
-        """Add listener for todo updates"""
-        self.todo_listeners.append(listener)
 
     # =========================================================================
     # MAIN THINKING INTERFACE
@@ -592,7 +585,7 @@ Respond with your {phase.value} analysis:"""
 
     def _update_todos_from_reasoning(self, reasoning: StructuredReasoning) -> List[Dict[str, Any]]:
         """Update todos based on reasoning output"""
-        new_todos = self.todo_integrator.extract_todos_from_reasoning(reasoning)
+        self.todo_integrator.extract_todos_from_reasoning(reasoning)
 
         # Get current todos if manager exists
         current_todos = []

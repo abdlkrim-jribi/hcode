@@ -11,6 +11,8 @@ if TYPE_CHECKING:
     pass
 
 from .base_tool import BaseTool, ToolResult, ToolParameter, ToolCategory
+from ..utils.path_security import validate_file_path_for_tool
+from ..utils.structured_logging import log_warning
 
 
 class ReadTool(BaseTool):
@@ -39,10 +41,12 @@ class ReadTool(BaseTool):
     ) -> ToolResult:
         """Read file contents with line numbers"""
         try:
-            path = Path(file_path)
+            # Path security validation
+            validation = validate_file_path_for_tool(file_path, self.root_dir, operation="read")
+            if not validation.is_valid:
+                return ToolResult(success=False, output=None, error=validation.error)
 
-            if not path.exists():
-                return ToolResult(success=False, output=None, error=f"File not found: {file_path}")
+            path = validation.canonical_path
 
             if not path.is_file():
                 return ToolResult(success=False, output=None, error=f"Not a file: {file_path}")
@@ -226,8 +230,13 @@ class WriteTool(BaseTool):
             if use_preview:
                 return await self._execute_with_preview(file_path, content, mode, is_partial)
 
-            path = Path(file_path)
-            file_key = str(path.absolute())
+            # Path security validation
+            validation = validate_file_path_for_tool(file_path, self.root_dir, operation="write")
+            if not validation.is_valid:
+                return ToolResult(success=False, output=None, error=validation.error)
+
+            path = validation.canonical_path
+            file_key = str(path)
 
             # Allow overwriting if mode is overwrite
             if path.exists() and mode == "overwrite":
@@ -241,8 +250,9 @@ class WriteTool(BaseTool):
                             output=f"File {path} already has this content (no change made).",
                             metadata={"bytes_written": 0, "verified": True}
                          )
-                 except:
-                     pass
+                 except Exception as e:
+                     log_warning("Failed to read existing content for idempotent check",
+                                 error=str(e), file_path=str(path))
 
             # Handle append mode for chunked writes
             if mode == "append":
@@ -324,8 +334,9 @@ class WriteTool(BaseTool):
             try:
                 if content:
                     self._partial_writes[str(Path(file_path).absolute())] = content
-            except:
-                pass
+            except Exception as save_err:
+                log_warning("Failed to save partial content on error",
+                            error=str(save_err), file_path=file_path)
             return ToolResult(success=False, output=None, error=str(e))
 
     async def _execute_with_preview(
@@ -391,7 +402,7 @@ class WriteTool(BaseTool):
 
         try:
             from ..ui import DiffDisplay
-            from rich.panel import Panel
+
             from rich.text import Text
 
             # Show diff
@@ -630,10 +641,12 @@ class EditTool(BaseTool):
                     file_path, old_string, new_string, replace_all
                 )
 
-            path = Path(file_path)
+            # Path security validation
+            validation = validate_file_path_for_tool(file_path, self.root_dir, operation="edit")
+            if not validation.is_valid:
+                return ToolResult(success=False, output=None, error=validation.error)
 
-            if not path.exists():
-                return ToolResult(success=False, output=None, error=f"File not found: {file_path}")
+            path = validation.canonical_path
 
             # Read file
             with open(path, "r", encoding="utf-8") as f:

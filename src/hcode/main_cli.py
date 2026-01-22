@@ -1003,9 +1003,7 @@ def chat_mode(provider, session, show_todos, debug, autonomous):
 
             # Import Hcode display for Claude Code style output
             from hcode.ui.hcode_display import (
-                HcodeDisplay,
                 TaskMode,
-                FileAction,
                 get_hcode_display,
             )
             
@@ -1803,7 +1801,7 @@ def debug_issue(error_description, provider):
 
     console.print("\n[bold cyan]Analysis:[/bold cyan]\n")
 
-    result = asyncio.run(
+    asyncio.run(
         agent.execute_task(
             f"Debug this issue: {error_description}\n\n"
             "Please:\n"

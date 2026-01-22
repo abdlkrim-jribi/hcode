@@ -8,11 +8,11 @@ from pathlib import Path
 from typing import Dict, Any, List, Union
 
 from rich.console import Console
+from rich.markup import escape
 
 from .analytics import (
     get_analytics,
 )
-from rich.markup import escape
 from .context import ContextManager
 # Import optimization components
 from .optimizations import (
@@ -341,7 +341,6 @@ class HcodeAgent:
         if anthropic_key and openai_key:
             try:
                 from ..providers.resilient_provider import (
-                    ResilientProvider,
                     create_resilient_provider,
                 )
 
@@ -427,7 +426,7 @@ class HcodeAgent:
             Task result
         """
         # Start safety transaction
-        tx_id = self.safety_guard.start_transaction(description=task)
+        self.safety_guard.start_transaction(description=task)
 
         # Track execution with analytics
         import time
@@ -540,7 +539,7 @@ class HcodeAgent:
 
             # Track completion with analytics
             self.execution_state.transition(ExecutionState.COMPLETED)
-            task_duration = time.time() - task_start_time
+
             self.analytics.end_conversation(
                 self.context_manager.session_id,
                 success=True,
@@ -825,7 +824,10 @@ When the user says things like "yes", "proceed", "continue", "do it", "ok", or s
         consecutive_no_tool_calls = 0  # Track iterations without tool calls
         last_tool_call_iteration = 0
         consecutive_errors = 0  # Track consecutive errors for circuit breaker
-        max_consecutive_errors = 3
+        # Load limit settings (configurable via HCODE_AGENT_ env vars or config)
+        from ..config.settings import get_agent_settings
+        _agent_settings = get_agent_settings()
+        max_consecutive_errors = _agent_settings.consecutive_error_threshold
         consecutive_hallucinations = 0  # Track consecutive hallucinations to preventing infinite loops
         max_consecutive_hallucinations = 5
         partial_file_content = {}  # Track partial file content for long writes
@@ -842,7 +844,7 @@ When the user says things like "yes", "proceed", "continue", "do it", "ok", or s
         
         # THINKING-ONLY LOOP DETECTION: Track when model outputs only thinking without action
         thinking_only_prompts = 0
-        max_thinking_only_prompts = 5  # Max times to prompt before giving up
+        max_thinking_only_prompts = _agent_settings.max_thinking_only_iterations  # Configurable
         
         # MODIFIED FILES TRACKING: Prevent re-processing same files
         modified_files = set()  # Track files that have been written this session
@@ -854,10 +856,10 @@ When the user says things like "yes", "proceed", "continue", "do it", "ok", or s
         # LOOP DETECTION: Track recent responses to detect stuck loops
         recent_responses: List[str] = []
         max_recent_responses = 5
-        stuck_threshold = 3  # If same response appears this many times, we're stuck
+        stuck_threshold = _agent_settings.stuck_threshold  # Configurable: if same response appears this many times, we're stuck
 
         # MAX ITERATION SAFETY: Prevent runaway loops
-        max_iterations = 50  # Safety limit - should complete most tasks
+        max_iterations = _agent_settings.max_iterations  # Configurable: safety limit for task iterations
 
         # TASK TRACKING: Track completed actions for summary
         completed_actions: List[Dict[str, Any]] = []
@@ -1931,7 +1933,7 @@ Start your response with the actual content the user requested, not with more th
                     self._debug_print(
                         f"[bold {self._palette.success}]{self._icons.SUCCESS} Task completed![/bold {self._palette.success}]"
                     )
-                    summary = self._generate_task_summary(completed_actions, response_text)
+                    summary = self._generate_task_summary(completed_actions)
                     if summary and self._is_debug_mode():
                         self.console.print(summary)
                     break
@@ -2040,7 +2042,7 @@ Please review and decide:
                 self._debug_print(
                     f"[bold {self._palette.success}]{self._icons.SUCCESS} Task completed![/bold {self._palette.success}]"
                 )
-                summary = self._generate_task_summary(completed_actions, response_text)
+                summary = self._generate_task_summary(completed_actions)
                 if summary and self._is_debug_mode():
                     self.console.print(summary)
                 break
@@ -2068,7 +2070,7 @@ Please review and decide:
             self._debug_print(
                 f"[bold yellow][!] Reached maximum iterations ({max_iterations}). Stopping.[/bold yellow]"
             )
-            summary = self._generate_task_summary(completed_actions, response_text)
+            summary = self._generate_task_summary(completed_actions)
             if summary and self._is_debug_mode():
                 self.console.print(summary)
 
@@ -3181,7 +3183,7 @@ Please review and decide:
             return False
 
     def _generate_task_summary(
-        self, completed_actions: List[Dict[str, Any]], final_response: str
+            self, completed_actions: List[Dict[str, Any]]
     ) -> str:
         """
         Generate a clean summary of the completed task.
