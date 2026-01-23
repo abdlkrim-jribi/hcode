@@ -6,6 +6,15 @@ import asyncio
 import os
 import sys
 
+# Force UTF-8 for stdout/stderr to prevent encoding issues on Windows
+# This is critical because the LLM may output characters (like non-breaking hyphens)
+# that are valid Unicode but not in the default Windows console codepage (cp1252).
+# if sys.platform == "win32":
+#     if hasattr(sys.stdout, "reconfigure"):
+#         sys.stdout.reconfigure(encoding="utf-8")
+#     if hasattr(sys.stderr, "reconfigure"):
+#         sys.stderr.reconfigure(encoding="utf-8")
+
 import click
 from dotenv import load_dotenv
 
@@ -59,7 +68,7 @@ from hcode.ui.live_todo_bar import (
 )
 
 # Import reasoning components for automatic todo extraction
-from hcode.core.agent import parse_thinking_block
+from hcode.core.response_handler import parse_thinking_block
 from hcode.agent.reasoning import ReasoningParser, ReasoningToTodoIntegrator
 
 # Get themed console

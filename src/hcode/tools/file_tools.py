@@ -41,6 +41,16 @@ class ReadTool(BaseTool):
     ) -> ToolResult:
         """Read file contents with line numbers"""
         try:
+            # FIX: Handle environment-specific path hallucinations
+            if file_path:
+                lower_path = file_path.lower().replace("\\", "/")
+                if lower_path.startswith("/workspace") or lower_path.startswith("workspace/"):
+                    clean_path = lower_path.replace("/workspace", "").replace("workspace/", "").lstrip("/")
+                    file_path = str(self.root_dir / clean_path)
+                elif lower_path.startswith("/app") or lower_path.startswith("app/"):
+                    clean_path = lower_path.replace("/app", "").replace("app/", "").lstrip("/")
+                    file_path = str(self.root_dir / clean_path)
+
             # Path security validation
             validation = validate_file_path_for_tool(file_path, self.root_dir, operation="read")
             if not validation.is_valid:
@@ -224,6 +234,16 @@ class WriteTool(BaseTool):
         - Preview mode for reviewing changes before applying
         """
         try:
+            # FIX: Handle environment-specific path hallucinations
+            if file_path:
+                lower_path = file_path.lower().replace("\\", "/")
+                if lower_path.startswith("/workspace") or lower_path.startswith("workspace/"):
+                    clean_path = lower_path.replace("/workspace", "").replace("workspace/", "").lstrip("/")
+                    file_path = str(self.root_dir / clean_path)
+                elif lower_path.startswith("/app") or lower_path.startswith("app/"):
+                    clean_path = lower_path.replace("/app", "").replace("app/", "").lstrip("/")
+                    file_path = str(self.root_dir / clean_path)
+
             # Check if preview mode is enabled (either instance or parameter)
             use_preview = preview or self.preview_mode
 
@@ -633,6 +653,16 @@ class EditTool(BaseTool):
     ) -> ToolResult:
         """Edit file by replacing old_string with new_string"""
         try:
+            # FIX: Handle environment-specific path hallucinations
+            if file_path:
+                lower_path = file_path.lower().replace("\\", "/")
+                if lower_path.startswith("/workspace") or lower_path.startswith("workspace/"):
+                    clean_path = lower_path.replace("/workspace", "").replace("workspace/", "").lstrip("/")
+                    file_path = str(self.root_dir / clean_path)
+                elif lower_path.startswith("/app") or lower_path.startswith("app/"):
+                    clean_path = lower_path.replace("/app", "").replace("app/", "").lstrip("/")
+                    file_path = str(self.root_dir / clean_path)
+
             # Check if preview mode is enabled
             use_preview = preview or self.preview_mode
 
@@ -1068,6 +1098,20 @@ class GlobTool(BaseTool):
         try:
             search_dir = Path(path) if path else self.root_dir
 
+        """Execute glob search"""
+        try:
+            # FIX: Handle environment-specific path hallucinations
+            if path:
+                lower_path = path.lower().replace("\\", "/")
+                if lower_path.startswith("/workspace") or lower_path.startswith("workspace/"):
+                    clean_path = lower_path.replace("/workspace", "").replace("workspace/", "").lstrip("/")
+                    path = str(self.root_dir / clean_path)
+                elif lower_path.startswith("/app") or lower_path.startswith("app/"):
+                    clean_path = lower_path.replace("/app", "").replace("app/", "").lstrip("/")
+                    path = str(self.root_dir / clean_path)
+
+            search_dir = Path(path) if path else self.root_dir
+
             if not search_dir.exists():
                 return ToolResult(
                     success=False, output=None, error=f"Directory not found: {search_dir}"
@@ -1199,7 +1243,19 @@ class GrepTool(BaseTool):
         """Search for pattern in files"""
         import re
 
+        import re
+
         try:
+            # FIX: Handle environment-specific path hallucinations
+            if path:
+                lower_path = path.lower().replace("\\", "/")
+                if lower_path.startswith("/workspace") or lower_path.startswith("workspace/"):
+                    clean_path = lower_path.replace("/workspace", "").replace("workspace/", "").lstrip("/")
+                    path = str(self.root_dir / clean_path)
+                elif lower_path.startswith("/app") or lower_path.startswith("app/"):
+                    clean_path = lower_path.replace("/app", "").replace("app/", "").lstrip("/")
+                    path = str(self.root_dir / clean_path)
+
             search_path = Path(path) if path else self.root_dir
 
             # Handle glob as list or string (model may pass list)

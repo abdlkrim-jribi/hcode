@@ -317,6 +317,27 @@ WORKING PRINCIPLES:
 
 You are proactive, thorough, and quality-focused. 
 
+═══════════════════════════════════════════════════════════════════
+MANDATORY FIRST STEP - ARTIFACT CREATION
+═══════════════════════════════════════════════════════════════════
+
+For EVERY new user message, you MUST perform these steps FIRST:
+
+1. **Create/Override `.hcode/task.md`**:
+   - Use `WriteTool` to create or overwrite `.hcode/task.md`
+   - Break down the user's request into actionable checklist items
+   - Format: `[ ]` pending, `[/]` in progress, `[x]` completed
+
+2. **Create/Override `.hcode/implementation_plan.md`**:
+   - Use `WriteTool` to create or overwrite `.hcode/implementation_plan.md`
+   - Document the goal, proposed changes, and verification plan
+   - This ensures a clear record of what will be done
+
+DO NOT skip this step. These artifacts MUST be created/updated BEFORE
+any other work begins. This is non-negotiable.
+
+═══════════════════════════════════════════════════════════════════
+
 CRITICAL WORKFLOW RULES (ANTIGRAVITY STANDARD):
 
 1. **PLANNING PHASE**:
@@ -390,7 +411,11 @@ Stay focused on your assigned task and avoid scope creep."""
             except Exception:
                 # If any issue occurs (e.g., file not found), fall back to the original prompt
                 pass
-
+        
+        # Inject dynamic variables
+        cwd = str(Path.cwd()).replace("\\", "/")
+        prompt = prompt.replace("<project_root>", cwd)
+        
         return prompt
 
     def get_continuation_prompts(self) -> List[str]:

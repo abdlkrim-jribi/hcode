@@ -14,7 +14,7 @@ tools:
     parameters:
       file_path:
         type: string
-        description: "The absolute path to the file to read"
+        description: "The path to the file to read (relative to project root preferred)"
         required: true
       offset:
         type: integer
@@ -39,7 +39,7 @@ tools:
     parameters:
       file_path:
         type: string
-        description: "The absolute path to the file to write (must be absolute, not relative)"
+        description: "The path to the file to write (relative to project root preferred)"
         required: true
       content:
         type: string
@@ -100,7 +100,7 @@ tools:
     parameters:
       file_path:
         type: string
-        description: "The absolute path to the file to modify"
+        description: "The path to the file to modify (relative to project root preferred)"
         required: true
       old_string:
         type: string
@@ -164,7 +164,7 @@ tools:
     parameters:
       path:
         type: string
-        description: "The absolute path to the directory to list"
+        description: "The path to the directory to list (relative to project root preferred)"
         required: true
 
   # ==========================================================================
@@ -260,6 +260,39 @@ tools:
       options:
         type: array
         description: "Optional list of choices for the user"
+        required: false
+
+  TodoWrite:
+    name: "TodoWrite"
+    description: |
+      Manage todo lists for tracking task progress. Use this to update the user on your progress.
+      
+      The 'todos' parameter is a list of objects, where each object has:
+      - content: The task description
+      - status: 'pending', 'in_progress', or 'completed'
+      - activeForm: A short present-tense action phrase (e.g., "Reading file") if in_progress, else same as content.
+    parameters:
+      todos:
+        type: array
+        description: "List of todo items. Each item must have 'content', 'status', and 'activeForm'."
+        required: true
+
+  TodoRead:
+    name: "TodoRead"
+    description: "Read the current todo list to check progress."
+    parameters: {}
+
+  Confirm:
+    name: "Confirm"
+    description: "Ask the user for confirmation before a critical action."
+    parameters:
+      message:
+        type: string
+        description: "The confirmation message/question"
+        required: true
+      default:
+        type: boolean
+        description: "Default value (true/false)"
         required: false
 
   # ==========================================================================

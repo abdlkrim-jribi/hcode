@@ -2,6 +2,27 @@
 Comprehensive tool system for Hcode.
 Includes file operations, web tools, interactive features, and more.
 """
+# Python files in this directory:
+# - hcode_tools.py
+# - file_tools.py
+# - fuzzy_edit_tool.py
+# - command_system.py
+# - git_tools.py
+# - notebook_tools.py
+# - todo_write.py
+# - validator.py
+# - tool_manager.py
+# - bash_tools.py
+# - interactive_tools.py
+# - __init__.py
+# - base_tool.py
+# - web_tools.py
+# - executor.py
+# - diff_tools.py
+# - tool_callbacks.py
+# - parallel_executor.py
+# - agent_tools.py
+# - tool_selector.py
 
 from hcode.tools.agent_tools import TaskTool, ExitPlanModeTool, TodoReadTool
 from hcode.tools.base_tool import BaseTool, ToolResult, ToolParameter, ToolRegistry, ToolCategory

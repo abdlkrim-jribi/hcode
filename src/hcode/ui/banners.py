@@ -14,12 +14,21 @@ from rich.style import Style
 from rich.text import Text
 
 from hcode.ui.theme import get_palette, ColorUtils
+from hcode.ui.icons import USE_UNICODE
 
 # ═══════════════════════════════════════════════════════════════════════
 # MAIN LOGO VARIANTS
 # ═══════════════════════════════════════════════════════════════════════
 
-LOGO_CYBER = r"""
+LOGO_ASCII = r"""
+ _   _  ____  ___  ____  _____
+| | | |/ ___|/ _ \|  _ \| ____|
+| |_| | |   | | | | | | |  _|
+|  _  | |___| |_| | |_| | |___
+|_| |_|\____|\___/|____/|_____|
+"""
+
+LOGO_CYBER = LOGO_ASCII if not USE_UNICODE else r"""
 ██╗  ██╗ ██████╗ ██████╗ ██████╗ ███████╗
 ██║  ██║██╔════╝██╔═══██╗██╔══██╗██╔════╝
 ███████║██║     ██║   ██║██║  ██║█████╗
@@ -28,7 +37,7 @@ LOGO_CYBER = r"""
 ╚═╝  ╚═╝ ╚═════╝ ╚═════╝ ╚═════╝ ╚══════╝
 """
 
-LOGO_NEON = r"""
+LOGO_NEON = LOGO_ASCII if not USE_UNICODE else r"""
     ▄█    █▄     ▄████████  ▄██████▄  ████████▄     ▄████████
    ███    ███   ███    ███ ███    ███ ███   ▀███   ███    ███
    ███    ███   ███    █▀  ███    ███ ███    ███   ███    █▀
@@ -47,13 +56,13 @@ LOGO_MINIMAL = r"""
 |_| |_|\____|\___/|____/|_____|
 """
 
-LOGO_GLITCH = r"""
+LOGO_GLITCH = LOGO_ASCII if not USE_UNICODE else r"""
 ╦ ╦┌─┐┌─┐┌┬┐┌─┐  ╔═╗╦  ╦
 ╠═╣│  │ │ ││├┤   ╠═╣║  ║
 ╩ ╩└─┘└─┘─┴┘└─┘  ╩ ╩╩═╝╩
 """
 
-LOGO_FUTURISTIC = r"""
+LOGO_FUTURISTIC = LOGO_ASCII if not USE_UNICODE else r"""
 ╔═══════════════════════════════════════════════════════════════╗
 ║                                                               ║
 ║   ▄▄   ▄▄ ▄▄▄▄▄▄▄ ▄▄▄▄▄▄▄ ▄▄▄▄▄▄  ▄▄▄▄▄▄▄    ▄▄▄▄▄▄ ▄▄▄▄▄▄▄  ║
@@ -67,24 +76,24 @@ LOGO_FUTURISTIC = r"""
 ╚═══════════════════════════════════════════════════════════════╝
 """
 
-LOGO_SMALL = r"""
+LOGO_SMALL = LOGO_ASCII if not USE_UNICODE else r"""
 ╦ ╦╔═╗╔═╗╔╦╗╔═╗
 ╠═╣║  ║ ║ ║║║╣
 ╩ ╩╚═╝╚═╝═╩╝╚═╝
 """
 
-LOGO_TECH = r"""
+LOGO_TECH = LOGO_ASCII if not USE_UNICODE else r"""
 ┌─┐┌─┐┌┬┐┌─┐  ┬ ┬┌─┐┌─┐┌┬┐┌─┐
 │  │ │ │││├┤   ├─┤│  │ │ ││├┤
 └─┘└─┘─┴┘└─┘  ┴ ┴└─┘└─┘─┴┘└─┘
 """
 
-LOGO_BLOCK = r"""
+LOGO_BLOCK = LOGO_ASCII if not USE_UNICODE else r"""
 █░█ █▀▀ █▀█ █▀▄ █▀▀
 █▀█ █▄▄ █▄█ █▄▀ ██▄
 """
 
-LOGO_DOTS = r"""
+LOGO_DOTS = LOGO_ASCII if not USE_UNICODE else r"""
 ⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
 ⣿⣿⡟⠛⠛⠛⠛⠛⠛⠛⠛⣿⣿⣿⣿⣿⡟⠛⢿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
 ⣿⣿⡇⠀⢠⣶⣶⣶⣶⡆⠀⣿⣿⣿⣿⡏⠀⣴⠀⢹⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
