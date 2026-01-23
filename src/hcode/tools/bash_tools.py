@@ -625,6 +625,16 @@ class LSTool(BaseTool):
         if not path_str:
             return ToolResult(success=False, output="", error="path is required")
 
+        # FIX: Handle environment-specific path hallucinations - redirect to actual root
+        # This is critical because LLMs often assume these paths exist
+        lower_path = path_str.lower().replace("\\", "/")
+        if lower_path.startswith("/workspace") or lower_path.startswith("workspace/"):
+            clean_path = lower_path.replace("/workspace", "").replace("workspace/", "").lstrip("/")
+            path_str = str(self.root_dir / clean_path)
+        elif lower_path.startswith("/app") or lower_path.startswith("app/"):
+            clean_path = lower_path.replace("/app", "").replace("app/", "").lstrip("/")
+            path_str = str(self.root_dir / clean_path)
+
         # Handle "/" on Windows - convert to current working directory
         if sys.platform == "win32" and path_str == "/":
             path_str = str(self.root_dir)

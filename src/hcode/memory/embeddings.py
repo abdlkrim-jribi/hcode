@@ -8,6 +8,7 @@ import json
 from typing import List, Optional, Union
 
 import numpy as np
+
 from hcode.memory.config import config
 
 
@@ -310,7 +311,9 @@ def get_embedding_model_safe() -> Union[EmbeddingModel, FallbackEmbedding]:
     Get embedding model with fallback if sentence-transformers unavailable.
     """
     try:
-        import sentence_transformers
+        import importlib.util
+        if importlib.util.find_spec("sentence_transformers") is None:
+            raise ImportError()
 
         return EmbeddingModel()
     except ImportError:

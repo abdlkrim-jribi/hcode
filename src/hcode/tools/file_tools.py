@@ -11,6 +11,8 @@ if TYPE_CHECKING:
     pass
 
 from .base_tool import BaseTool, ToolResult, ToolParameter, ToolCategory
+from ..utils.path_security import validate_file_path_for_tool
+from ..utils.structured_logging import log_warning
 
 
 class ReadTool(BaseTool):
@@ -39,10 +41,22 @@ class ReadTool(BaseTool):
     ) -> ToolResult:
         """Read file contents with line numbers"""
         try:
-            path = Path(file_path)
+            # FIX: Handle environment-specific path hallucinations
+            if file_path:
+                lower_path = file_path.lower().replace("\\", "/")
+                if lower_path.startswith("/workspace") or lower_path.startswith("workspace/"):
+                    clean_path = lower_path.replace("/workspace", "").replace("workspace/", "").lstrip("/")
+                    file_path = str(self.root_dir / clean_path)
+                elif lower_path.startswith("/app") or lower_path.startswith("app/"):
+                    clean_path = lower_path.replace("/app", "").replace("app/", "").lstrip("/")
+                    file_path = str(self.root_dir / clean_path)
 
-            if not path.exists():
-                return ToolResult(success=False, output=None, error=f"File not found: {file_path}")
+            # Path security validation
+            validation = validate_file_path_for_tool(file_path, self.root_dir, operation="read")
+            if not validation.is_valid:
+                return ToolResult(success=False, output=None, error=validation.error)
+
+            path = validation.canonical_path
 
             if not path.is_file():
                 return ToolResult(success=False, output=None, error=f"Not a file: {file_path}")
@@ -220,14 +234,29 @@ class WriteTool(BaseTool):
         - Preview mode for reviewing changes before applying
         """
         try:
+            # FIX: Handle environment-specific path hallucinations
+            if file_path:
+                lower_path = file_path.lower().replace("\\", "/")
+                if lower_path.startswith("/workspace") or lower_path.startswith("workspace/"):
+                    clean_path = lower_path.replace("/workspace", "").replace("workspace/", "").lstrip("/")
+                    file_path = str(self.root_dir / clean_path)
+                elif lower_path.startswith("/app") or lower_path.startswith("app/"):
+                    clean_path = lower_path.replace("/app", "").replace("app/", "").lstrip("/")
+                    file_path = str(self.root_dir / clean_path)
+
             # Check if preview mode is enabled (either instance or parameter)
             use_preview = preview or self.preview_mode
 
             if use_preview:
                 return await self._execute_with_preview(file_path, content, mode, is_partial)
 
-            path = Path(file_path)
-            file_key = str(path.absolute())
+            # Path security validation
+            validation = validate_file_path_for_tool(file_path, self.root_dir, operation="write")
+            if not validation.is_valid:
+                return ToolResult(success=False, output=None, error=validation.error)
+
+            path = validation.canonical_path
+            file_key = str(path)
 
             # Allow overwriting if mode is overwrite
             if path.exists() and mode == "overwrite":
@@ -241,8 +270,9 @@ class WriteTool(BaseTool):
                             output=f"File {path} already has this content (no change made).",
                             metadata={"bytes_written": 0, "verified": True}
                          )
-                 except:
-                     pass
+                 except Exception as e:
+                     log_warning("Failed to read existing content for idempotent check",
+                                 error=str(e), file_path=str(path))
 
             # Handle append mode for chunked writes
             if mode == "append":
@@ -324,8 +354,9 @@ class WriteTool(BaseTool):
             try:
                 if content:
                     self._partial_writes[str(Path(file_path).absolute())] = content
-            except:
-                pass
+            except Exception as save_err:
+                log_warning("Failed to save partial content on error",
+                            error=str(save_err), file_path=file_path)
             return ToolResult(success=False, output=None, error=str(e))
 
     async def _execute_with_preview(
@@ -391,7 +422,7 @@ class WriteTool(BaseTool):
 
         try:
             from ..ui import DiffDisplay
-            from rich.panel import Panel
+
             from rich.text import Text
 
             # Show diff
@@ -622,6 +653,16 @@ class EditTool(BaseTool):
     ) -> ToolResult:
         """Edit file by replacing old_string with new_string"""
         try:
+            # FIX: Handle environment-specific path hallucinations
+            if file_path:
+                lower_path = file_path.lower().replace("\\", "/")
+                if lower_path.startswith("/workspace") or lower_path.startswith("workspace/"):
+                    clean_path = lower_path.replace("/workspace", "").replace("workspace/", "").lstrip("/")
+                    file_path = str(self.root_dir / clean_path)
+                elif lower_path.startswith("/app") or lower_path.startswith("app/"):
+                    clean_path = lower_path.replace("/app", "").replace("app/", "").lstrip("/")
+                    file_path = str(self.root_dir / clean_path)
+
             # Check if preview mode is enabled
             use_preview = preview or self.preview_mode
 
@@ -630,10 +671,12 @@ class EditTool(BaseTool):
                     file_path, old_string, new_string, replace_all
                 )
 
-            path = Path(file_path)
+            # Path security validation
+            validation = validate_file_path_for_tool(file_path, self.root_dir, operation="edit")
+            if not validation.is_valid:
+                return ToolResult(success=False, output=None, error=validation.error)
 
-            if not path.exists():
-                return ToolResult(success=False, output=None, error=f"File not found: {file_path}")
+            path = validation.canonical_path
 
             # Read file
             with open(path, "r", encoding="utf-8") as f:
@@ -1055,6 +1098,20 @@ class GlobTool(BaseTool):
         try:
             search_dir = Path(path) if path else self.root_dir
 
+        """Execute glob search"""
+        try:
+            # FIX: Handle environment-specific path hallucinations
+            if path:
+                lower_path = path.lower().replace("\\", "/")
+                if lower_path.startswith("/workspace") or lower_path.startswith("workspace/"):
+                    clean_path = lower_path.replace("/workspace", "").replace("workspace/", "").lstrip("/")
+                    path = str(self.root_dir / clean_path)
+                elif lower_path.startswith("/app") or lower_path.startswith("app/"):
+                    clean_path = lower_path.replace("/app", "").replace("app/", "").lstrip("/")
+                    path = str(self.root_dir / clean_path)
+
+            search_dir = Path(path) if path else self.root_dir
+
             if not search_dir.exists():
                 return ToolResult(
                     success=False, output=None, error=f"Directory not found: {search_dir}"
@@ -1186,7 +1243,19 @@ class GrepTool(BaseTool):
         """Search for pattern in files"""
         import re
 
+        import re
+
         try:
+            # FIX: Handle environment-specific path hallucinations
+            if path:
+                lower_path = path.lower().replace("\\", "/")
+                if lower_path.startswith("/workspace") or lower_path.startswith("workspace/"):
+                    clean_path = lower_path.replace("/workspace", "").replace("workspace/", "").lstrip("/")
+                    path = str(self.root_dir / clean_path)
+                elif lower_path.startswith("/app") or lower_path.startswith("app/"):
+                    clean_path = lower_path.replace("/app", "").replace("app/", "").lstrip("/")
+                    path = str(self.root_dir / clean_path)
+
             search_path = Path(path) if path else self.root_dir
 
             # Handle glob as list or string (model may pass list)

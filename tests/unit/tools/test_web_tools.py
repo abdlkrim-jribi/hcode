@@ -9,10 +9,10 @@ external HTTP calls and ensure deterministic outcomes.
 """
 
 import pytest
-import asyncio
+
 import sys
 import os
-from unittest.mock import Mock, AsyncMock, patch, MagicMock
+from unittest.mock import Mock, AsyncMock, patch
 from datetime import datetime, timedelta
 
 # Add src to path
@@ -78,7 +78,7 @@ class TestWebFetchTool:
     @pytest.mark.asyncio
     async def test_fetch_http_upgrade(self):
         """Test HTTP URLs are upgraded to HTTPS"""
-        tool = WebFetchTool()
+        WebFetchTool()
 
         # This test verifies the URL transformation logic
         # The actual fetch would use HTTPS

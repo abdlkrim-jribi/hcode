@@ -10,10 +10,9 @@ from typing import Optional, List, Tuple
 
 from rich.console import Console
 from rich.panel import Panel
+from rich.prompt import Confirm
 from rich.syntax import Syntax
 from rich.text import Text
-from rich.prompt import Confirm
-from rich.table import Table
 
 
 class ConfirmationDisplay:
