@@ -22,8 +22,9 @@ from hcode.tools.bash_tools import (
     KillShellTool,
     LSTool,
     BashShellManager,
+    BackgroundShell,
 )
-from hcode.tools.base_tool import ToolCategory
+from hcode.tools.base_tool import ToolResult, ToolCategory
 
 
 # Skip tests that require bash on Windows if bash is not available
@@ -154,7 +155,7 @@ class TestBashTool:
         tool = BashTool(root_dir=temp_dir)
 
         # Command that should fail
-        await tool.execute(command="ls /nonexistent_path_12345")
+        result = await tool.execute(command="ls /nonexistent_path_12345")
 
         # Either the command fails or produces error
         # On Windows without bash this might not work as expected
@@ -171,7 +172,7 @@ class TestBashTool:
         else:
             command = "sleep 10"
 
-        await tool.execute(command=command, timeout=500)  # 500ms timeout
+        result = await tool.execute(command=command, timeout=500)  # 500ms timeout
 
         # Should timeout or fail
         # The result depends on timing
@@ -209,7 +210,7 @@ class TestBashTool:
         if IS_WINDOWS:
             result = await tool.execute(command="dir nonexistent_file_xyz")
         else:
-            await tool.execute(command="ls nonexistent_file_xyz 2>&1")
+            result = await tool.execute(command="ls nonexistent_file_xyz 2>&1")
 
         # Should capture the error message
 
@@ -472,7 +473,7 @@ class TestBashToolIntegration:
         tool = BashTool(root_dir=temp_dir)
 
         if not IS_WINDOWS:
-            await tool.execute(command="echo 'hello world' | wc -w")
+            result = await tool.execute(command="echo 'hello world' | wc -w")
             # Note: output format may vary
 
 

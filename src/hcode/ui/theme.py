@@ -44,6 +44,7 @@ class ColorPalette:
     bg_medium: str = "#1A1A2E"  # Dark blue-black
     bg_light: str = "#16213E"  # Navy accent
     bg_elevated: str = "#1F1F3D"  # Elevated surfaces
+    bg_hover: str = "#2A2A4A"  # Hover states
 
     # ═══════════════════════════════════════════════════════════════
     # SEMANTIC COLORS

@@ -2,8 +2,10 @@ import asyncio
 import os
 import sys
 import io
+import json
 from pathlib import Path
 from unittest.mock import MagicMock
+from dataclasses import asdict
 
 # Force UTF-8 encoding
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
@@ -32,7 +34,7 @@ def create_mock_agent(scenario_name, responses):
     mock_provider = MagicMock(spec=OpenAIProvider)
     mock_provider.name = "openai"
     mock_provider.model = "gpt-oss-120b"
-    mock_provider.count_tokens.side_effect = lambda _: 10 
+    mock_provider.count_tokens.side_effect = lambda x: 10 
     mock_provider.get_context_window.return_value = 128000
     mock_provider.supports_function_calling.return_value = True
     mock_provider._total_usage = Usage(0, 0, 0)

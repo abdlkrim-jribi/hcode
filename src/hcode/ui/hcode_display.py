@@ -10,24 +10,28 @@ Provides Claude Code/Hcode style reasoning display with:
 - Phase-by-phase reasoning display
 """
 
-import threading
 import time
+import threading
+from datetime import datetime
+from typing import Optional, List, Dict, Any, Set
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from datetime import datetime
 from enum import Enum
-from typing import Optional, List, Dict
 
-from rich.console import Console
+from rich.console import Console, Group
 from rich.live import Live
-from rich.rule import Rule
+from rich.panel import Panel
+from rich.table import Table
 from rich.text import Text
+from rich.padding import Padding
+from rich.rule import Rule
+from rich.markdown import Markdown
 
 # Import theme system
 try:
-    from . import get_palette, Icons, Borders, get_console
+    from . import get_palette, Icons, get_console
 except ImportError:
-    from hcode.ui import get_palette, Icons, Borders, get_console
+    from hcode.ui import get_palette, Icons, get_console
 
 
 class TaskMode(Enum):
@@ -182,7 +186,7 @@ class HcodeDisplay:
             
             self.console.print()
             end_text = Text()
-            end_text.append(f"{self._icons.SUCCESS} ", style=f"bold {self._palette.success}")
+            end_text.append(f"✓ ", style=f"bold {self._palette.success}")
             end_text.append(f"Task completed ", style=self._palette.text_primary)
             end_text.append(f"({duration:.1f}s)", style=self._palette.text_muted)
             self.console.print(end_text)
@@ -216,7 +220,7 @@ class HcodeDisplay:
         
         # Simple print instead of Rich Live (avoids conflicts with streaming)
         text = Text()
-        text.append(f" {self._icons.LOADING} ", style=f"bold {self._palette.warning}")
+        text.append(" ◐ ", style=f"bold {self._palette.warning}")
         text.append("Thinking...", style=self._palette.text_muted)
         self.console.print(text)
         
@@ -235,7 +239,7 @@ class HcodeDisplay:
             
             # Show final "Thought for Xs" message
             final_text = Text()
-            final_text.append(f"{self._icons.INFO} ", style=f"bold {self._palette.info}")
+            final_text.append("💡 ", style=f"bold {self._palette.info}")
             final_text.append("Thought for ", style=self._palette.text_muted)
             final_text.append(f"{duration:.0f}s", style=f"bold {self._palette.info}")
             self.console.print(final_text)
@@ -297,7 +301,7 @@ class HcodeDisplay:
         self.console.print("Progress Updates", style=f"bold {self._palette.info}")
         
         for update in self.progress_updates:
-            icon = self._icons.SUCCESS if update.completed else self._icons.PENDING
+            icon = "✓" if update.completed else "○"
             style = self._palette.success if update.completed else self._palette.text_muted
             self.console.print(f"  {icon} {update.number}. {update.message}", style=style)
             
@@ -408,7 +412,7 @@ class HcodeDisplay:
             duration_str = f" ({duration:.0f}s)"
 
         # Build header with phase indicator
-        header_parts = [self._icons.THINKING]
+        header_parts = ["💭"]
         if phase:
             header_parts.append(f"[{phase}]")
         header_parts.append(f"Thinking{duration_str}")
@@ -421,17 +425,13 @@ class HcodeDisplay:
             # Show just first line as summary
             first_line = content.split('\n')[0].strip()
             if first_line:
-                prefix = f"  {Borders.CORNER_BL}{Borders.HORIZONTAL} "
-                text = Text(f"{prefix}{first_line}", style=self._palette.text_muted)
+                text = Text(f"  └─ {first_line}", style=self._palette.text_muted)
                 self.console.print(text)
         else:
             # Show FULL content without truncation (Hcode style)
             lines = content.strip().split('\n')
             for i, line in enumerate(lines):
-                if i < len(lines) - 1:
-                    prefix = f"  {Borders.VERTICAL} "
-                else:
-                    prefix = f"  {Borders.CORNER_BL}{Borders.HORIZONTAL} "
+                prefix = "  │ " if i < len(lines) - 1 else "  └─ "
                 text = Text(f"{prefix}{line}", style=self._palette.text_muted)
                 self.console.print(text)
 

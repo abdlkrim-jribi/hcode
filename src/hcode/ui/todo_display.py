@@ -19,28 +19,26 @@ from datetime import datetime
 from enum import Enum
 from typing import Optional, List, Dict, Any, Callable
 
+from hcode.ui.theme import get_palette
 from rich.box import ROUNDED
 from rich.console import Console, Group, RenderableType
 from rich.live import Live
 from rich.panel import Panel
 from rich.text import Text
 
-from hcode.ui.icons import USE_UNICODE, Icons
-from hcode.ui.theme import get_palette
-
 # ═══════════════════════════════════════════════════════════════════════
 # CLAUDE CODE STYLE CONSTANTS
 # ═══════════════════════════════════════════════════════════════════════
 
-# Checkbox characters (Claude Code style) - with ASCII fallbacks
-CHECKBOX_CHECKED = "☒" if USE_UNICODE else "[X]"
-CHECKBOX_UNCHECKED = "☐" if USE_UNICODE else "[ ]"
-CHECKBOX_IN_PROGRESS = "☐" if USE_UNICODE else "[ ]"  # In-progress shown with sparkle header instead
+# Checkbox characters (Claude Code style)
+CHECKBOX_CHECKED = "☒"
+CHECKBOX_UNCHECKED = "☐"
+CHECKBOX_IN_PROGRESS = "☐"  # In-progress shown with sparkle header instead
 
-# Icons - with ASCII fallbacks
-ICON_SPARKLE = "✶" if USE_UNICODE else "*"
-ICON_BRANCH = "⎿" if USE_UNICODE else "|"
-ICON_BULLET = "●" if USE_UNICODE else "*"
+# Icons
+ICON_SPARKLE = "✶"
+ICON_BRANCH = "⎿"
+ICON_BULLET = "●"
 
 
 class TodoDisplayStatus(Enum):
@@ -91,15 +89,15 @@ class TodoDisplayRenderer:
 
     # Status icons and colors
     STATUS_CONFIG = {
-        TodoDisplayStatus.PENDING: (Icons.TODO_PENDING, "dim white"),
-        TodoDisplayStatus.IN_PROGRESS: (Icons.TODO_IN_PROGRESS, "bold yellow"),
-        TodoDisplayStatus.COMPLETED: (Icons.COMPLETE, "bold green"),
-        TodoDisplayStatus.BLOCKED: (Icons.ERROR, "bold red"),
-        TodoDisplayStatus.SKIPPED: (Icons.TODO_SKIPPED, "dim"),
+        TodoDisplayStatus.PENDING: ("○", "dim white"),
+        TodoDisplayStatus.IN_PROGRESS: ("◐", "bold yellow"),
+        TodoDisplayStatus.COMPLETED: ("●", "bold green"),
+        TodoDisplayStatus.BLOCKED: ("⊗", "bold red"),
+        TodoDisplayStatus.SKIPPED: ("⊘", "dim"),
     }
 
-    # Animation frames for in-progress - use Icons class with ASCII fallbacks
-    PROGRESS_FRAMES = Icons.SPINNER_ORBIT
+    # Animation frames for in-progress
+    PROGRESS_FRAMES = ["◐", "◓", "◑", "◒"]
 
     def __init__(self, max_visible: int = 5):
         """
@@ -140,7 +138,7 @@ class TodoDisplayRenderer:
 
         # Count by status
         completed = sum(1 for t in todos if t.status == TodoDisplayStatus.COMPLETED)
-
+        in_progress = sum(1 for t in todos if t.status == TodoDisplayStatus.IN_PROGRESS)
         total = len(todos)
 
         # Progress indicator
@@ -225,9 +223,9 @@ class TodoDisplayRenderer:
         text = Text()
         text.append("  ")
 
-        # Progress bar - use Icons with ASCII fallbacks
-        text.append(Icons.PROGRESS_FULL * filled, style="bold green")
-        text.append(Icons.PROGRESS_LIGHT * empty, style="dim")
+        # Progress bar
+        text.append("▓" * filled, style="bold green")
+        text.append("░" * empty, style="dim")
 
         text.append(f"  {percentage:.0f}%", style="bold cyan")
         text.append(f"  ({done}/{total})", style="dim")
@@ -532,8 +530,8 @@ class TodoStatusBar:
         """Render status bar"""
         text = Text()
 
-        # Icon - use Icons class for ASCII fallback
-        text.append(f"{Icons.DIAMOND_SMALL} ", style=f"bold {self.palette.secondary}")
+        # Icon
+        text.append("◈ ", style=f"bold {self.palette.secondary}")
 
         # Progress
         text.append(f"{completed}/{total}", style="bold cyan")
@@ -541,8 +539,8 @@ class TodoStatusBar:
 
         # Current task
         if current_task:
-            text.append(f"  {Icons.BOX_V}  ", style="dim")
-            text.append(f"{Icons.LOADING} ", style="bold yellow")
+            text.append("  │  ", style="dim")
+            text.append("◐ ", style="bold yellow")
 
             if len(current_task) > 50:
                 current_task = current_task[:47] + "..."

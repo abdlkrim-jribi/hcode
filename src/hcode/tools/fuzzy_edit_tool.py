@@ -3,10 +3,10 @@ Fuzzy edit tool for Hcode.
 Allows applying changes with fuzzy matching when exact context is missing.
 """
 
-import difflib
 import os
+import difflib
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Dict, Any, Tuple
 
 from hcode.tools.base_tool import BaseTool, ToolResult, ToolParameter, ToolCategory
 

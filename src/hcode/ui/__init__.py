@@ -39,9 +39,6 @@ Example Usage:
 # THEME EXPORTS
 # ═══════════════════════════════════════════════════════════════════════
 
-# Create a global console instance for convenience
-from rich.console import Console as _Console
-
 from hcode.ui.animations import (
     # Spinner definitions
     CYBER_SPINNERS,
@@ -191,6 +188,8 @@ from hcode.ui.theme import (
     # Theme definitions
     THEMES,
 )
+# Create a global console instance for convenience
+from rich.console import Console as _Console
 
 # ═══════════════════════════════════════════════════════════════════════hcode.ui
 # BANNER EXPORTS
@@ -447,7 +446,7 @@ __all__ = [
 # COMPATIBILITY LAYER (Legacy cli.styles support)
 # ═══════════════════════════════════════════════════════════════════════
 
-from .compat import (  # noqa: F401
+from .compat import (
     # Colors
     Colors,
     # Borders

@@ -14,32 +14,13 @@ IS_WINDOWS = sys.platform == "win32"
 
 
 def supports_unicode() -> bool:
-    """Check if terminal supports Unicode.
-    
-    Returns True if the terminal can handle Unicode characters safely.
-    Falls back to checking stdout encoding as last resort.
-    """
+    """Check if terminal supports Unicode."""
     if IS_WINDOWS:
-        # Check encoding first - if strictly cp1252/mbcs, we likely can't print emojis/complex chars
-        # despite what the terminal claims it can do.
-        try:
-            encoding = getattr(sys.stdout, 'encoding', None)
-            if encoding and encoding.lower() not in ('utf-8', 'utf8'):
-                return False
-        except Exception:
-            pass
-
-        # Modern Windows terminals that support Unicode
-        if (
-            os.environ.get("WT_SESSION") is not None  # Windows Terminal
-            or os.environ.get("ConEmuANSI") == "ON"   # ConEmu
-            or os.environ.get("TERM_PROGRAM") == "vscode"  # VS Code
-        ):
-            return True
-        
-        # Default to ASCII-safe on Windows
-        return False
-    
+        return (
+            os.environ.get("WT_SESSION") is not None
+            or os.environ.get("ConEmuANSI") == "ON"
+            or os.environ.get("TERM_PROGRAM") == "vscode"
+        )
     return True
 
 
@@ -331,71 +312,42 @@ class Icons:
 
 
 class Emoji:
-    """Emoji helper for consistent usage with ASCII fallbacks."""
+    """Emoji helper for consistent usage."""
 
     @staticmethod
     def status(status: str) -> str:
         """Get emoji for status."""
-        if USE_UNICODE:
-            status_map = {
-                "success": "✅",
-                "error": "❌",
-                "warning": "⚠️",
-                "info": "ℹ️",
-                "loading": "⏳",
-                "complete": "✨",
-                "thinking": "🤔",
-                "working": "⚙️",
-                "rocket": "🚀",
-                "fire": "🔥",
-                "star": "⭐",
-                "check": "✓",
-                "cross": "✗",
-            }
-        else:
-            status_map = {
-                "success": "[OK]",
-                "error": "[X]",
-                "warning": "[!]",
-                "info": "[i]",
-                "loading": "[~]",
-                "complete": "[*]",
-                "thinking": "[...]",
-                "working": "[G]",
-                "rocket": "[^]",
-                "fire": "[!]",
-                "star": "[*]",
-                "check": "[OK]",
-                "cross": "[X]",
-            }
-        return status_map.get(status.lower(), "*" if not USE_UNICODE else "•")
+        status_map = {
+            "success": "✅",
+            "error": "❌",
+            "warning": "⚠️",
+            "info": "ℹ️",
+            "loading": "⏳",
+            "complete": "✨",
+            "thinking": "🤔",
+            "working": "⚙️",
+            "rocket": "🚀",
+            "fire": "🔥",
+            "star": "⭐",
+            "check": "✓",
+            "cross": "✗",
+        }
+        return status_map.get(status.lower(), "•")
 
     @staticmethod
     def mood(mood: str) -> str:
         """Get emoji for mood/state."""
-        if USE_UNICODE:
-            mood_map = {
-                "happy": "😊",
-                "sad": "😢",
-                "confused": "😕",
-                "excited": "🎉",
-                "thinking": "🤔",
-                "sleeping": "😴",
-                "working": "💪",
-                "celebrating": "🎊",
-            }
-        else:
-            mood_map = {
-                "happy": ":)",
-                "sad": ":(",
-                "confused": ":?",
-                "excited": ":D",
-                "thinking": "...",
-                "sleeping": "zzz",
-                "working": "[!]",
-                "celebrating": "[*]",
-            }
-        return mood_map.get(mood.lower(), ":)" if not USE_UNICODE else "🙂")
+        mood_map = {
+            "happy": "😊",
+            "sad": "😢",
+            "confused": "😕",
+            "excited": "🎉",
+            "thinking": "🤔",
+            "sleeping": "😴",
+            "working": "💪",
+            "celebrating": "🎊",
+        }
+        return mood_map.get(mood.lower(), "🙂")
 
 
 # ═══════════════════════════════════════════════════════════════════════
