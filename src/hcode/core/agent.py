@@ -1400,7 +1400,8 @@ Then repeat your tool call.""",
 The file was written but the content appears incomplete. You MUST continue writing the remaining content.
 
 To continue the file, use WriteTool with mode='append':
-{{"tool": "WriteTool", "parameters": {{"file_path": "{file_path}", "content": "<remaining content>", "mode": "append"}}}}
+{{"tool": "Write", "parameters": {{"TargetFile": "{file_path}", "CodeContent": "<remaining content>", "mode": "append"}}}}
+
 
 IMPORTANT: Continue from EXACTLY where the content was cut off. Do not restart the file.
 
@@ -1599,8 +1600,42 @@ Call the tool now:""",
                 # CRITICAL FIX 3: Detect when model outputs code blocks but doesn't call Write/Edit
                 # This is a hallucination pattern where the model shows code instead of actually editing files
                 import re
-                code_block_pattern = r'```(?:python|py|javascript|js|typescript|ts|json|yaml|yml|markdown|md|html|css|bash|shell|sh)?\s*\n'
-                has_code_blocks = bool(re.search(code_block_pattern, response_text, re.IGNORECASE))
+                
+                # Check for code blocks, but be smart about it
+                # We want to catch:
+                # 1. Large blocks of code
+                # 2. Blocks that look like file content
+                # We want to ignore:
+                # 1. File paths showing where to look
+                # 2. Terminal commands (pip install, ls, etc)
+                # 3. Short snippets referencing code
+                
+                code_block_pattern = r'```(?:\w+)?\s*\n(.*?)```'
+                matches = re.findall(code_block_pattern, response_text, re.DOTALL)
+                
+                has_suspicious_code_blocks = False
+                for content in matches:
+                    content = content.strip()
+                    lines = content.split('\n')
+                    
+                    # Ignore short 1-line blocks (likely paths or commands)
+                    if len(lines) <= 1:
+                        continue
+                        
+                    # Ignore blocks that look like directory listings (contain timestamps/sizes)
+                    if any("bytes" in line or "dir" in line.lower() for line in lines[:3]):
+                        continue
+                        
+                    # Ignore blocks matching command outputs (common in bash tool)
+                    if any(line.startswith("STDOUT:") or line.startswith("STDERR:") for line in lines):
+                        continue
+
+                    # If we got here, it's a multi-line block that isn't obviously safe
+                    has_suspicious_code_blocks = True
+                    break
+
+                has_code_blocks = has_suspicious_code_blocks
+                
                 has_write_or_edit_tool = any(
                     tc.get('tool', '').lower() in ('write', 'writetool', 'edit', 'edittool', 'fuzzyedit')
                     for tc in tool_calls
@@ -1645,21 +1680,22 @@ This is WRONG. After thinking, you MUST output a tool call JSON.
 OUTPUT ONE OF THESE RIGHT NOW (pick the most relevant):
 
 To find files:
-{"tool": "Glob", "parameters": {"pattern": "**/*.py"}}
+{"tool": "Glob", "parameters": {"Pattern": "**/*.py"}}
 
 To read a file:
-{"tool": "Read", "parameters": {"file_path": "path/to/file.py"}}
+{"tool": "Read", "parameters": {"AbsolutePath": "path/to/file.py"}}
 
 To list directory:
-{"tool": "LS", "parameters": {"path": "."}}
+{"tool": "LS", "parameters": {"DirectoryPath": "."}}
 
 To search content:
-{"tool": "Grep", "parameters": {"pattern": "search_term"}}
+{"tool": "Grep", "parameters": {"Query": "search_term", "SearchPath": "."}}
 
 To edit a file (after reading it):
-{"tool": "Edit", "parameters": {"file_path": "file.py", "old_string": "old code", "new_string": "new code"}}
+{"tool": "Edit", "parameters": {"TargetFile": "file.py", "TargetContent": "old code", "ReplacementContent": "new code"}}
 
 DO NOT output more thinking. Output the JSON tool call NOW:""",
+
                         importance=1.0,
                         provider=self.current_provider,
                     )
@@ -1677,11 +1713,12 @@ DO NOT output more thinking. Output the JSON tool call NOW:""",
 
 OUTPUT A TOOL CALL NOW. Examples:
 
-{"tool": "Glob", "parameters": {"pattern": "**/*.py"}}
-{"tool": "Read", "parameters": {"file_path": "path/to/file.py"}}
-{"tool": "LS", "parameters": {"path": "."}}
+{"tool": "Glob", "parameters": {"Pattern": "**/*.py"}}
+{"tool": "Read", "parameters": {"AbsolutePath": "path/to/file.py"}}
+{"tool": "LS", "parameters": {"DirectoryPath": "."}}
 
 Do not describe what you will do - OUTPUT THE JSON:""",
+
                         importance=1.0,
                         provider=self.current_provider,
                     )
@@ -1724,10 +1761,11 @@ RULES:
 Output the tool call JSON NOW:
 
 To create a file:
-{"tool": "Write", "parameters": {"file_path": "path/to/file.py", "content": "file content here"}}
+{"tool": "Write", "parameters": {"TargetFile": "path/to/file.py", "CodeContent": "file content here"}}
 
 To edit a file:
-{"tool": "Edit", "parameters": {"file_path": "path/to/file.py", "old_string": "old code", "new_string": "new code"}}""",
+{"tool": "Edit", "parameters": {"TargetFile": "path/to/file.py", "TargetContent": "old code", "ReplacementContent": "new code"}}""",
+
                         importance=1.0,
                         provider=self.current_provider,
                     )
@@ -3495,7 +3533,7 @@ CRITICAL CONSTRAINTS:
 - Do NOT run tests (pytest, unittest, etc.)
 - Do NOT execute any code
 - Do NOT modify any files
-- ONLY use: LS, Glob, Grep, Read
+- ONLY use: LS, Glob, Grep, Read, codebase_search
 
 MANDATORY RESPONSE FORMAT:
 1. First, output a <thinking> block with your reasoning
@@ -3515,7 +3553,7 @@ Example:
 5. RISK CHECK: This is read-only, safe to proceed
 </thinking>
 
-{{"tool": "LS", "parameters": {{"path": "."}}}}
+{{"tool": "LS", "parameters": {{"DirectoryPath": "."}}}}
 
 START NOW - think first, then explore:"""
             else:
@@ -3525,18 +3563,24 @@ MANDATORY RESPONSE FORMAT:
 1. First, output a <thinking> block with your reasoning
 2. Then call the appropriate tool
 
+EFFICIENCY RULES:
+- **Multiple Edits**: Use `MultiReplaceFileContent` for multiple non-contiguous edits to the same file.
+- **Targeted Testing**: Run tests for the specific file/component first (e.g., `pytest path/to/file.py`). Do NOT run the full suite unless requested.
+- **Batching**: Group independent operations where possible.
+
 Example:
 <thinking>
 1. UNDERSTAND: User wants [what]
 2. CONTEXT: I know [context]
-3. OPTIONS: [list possible tools]
+3. OPTIONS: [list possible tools, prioritizing MultiReplaceFileContent for multi-edits]
 4. DECISION: Best choice is [tool] because [reason]
 5. RISK CHECK: [is this safe?]
+6. EFFICIENCY: I will use MultiReplace to batch edits.
 </thinking>
 
 {{"tool": "ToolName", "parameters": {{"key": "value"}}}}
 
-Available: Bash, Read, Write, Edit, Glob, Grep, LS
+Available: Bash, Read, Write, Edit, MultiReplaceFileContent, Glob, Grep, LS
 
 START NOW - think first, then act:"""
 
@@ -3637,7 +3681,8 @@ You MUST respond with BOTH:
 Example correct response:
 "I'll explore the repository structure first.
 
-{"tool": "LS", "parameters": {"path": "."}}"
+{"tool": "LS", "parameters": {"DirectoryPath": "."}}"
+
 
 NOW respond with text explanation + tool call:"""
 
@@ -3650,7 +3695,7 @@ You MUST respond with BOTH:
 Example correct response:
 "I'll explore the codebase to understand the structure.
 
-{"tool": "LS", "parameters": {"path": "."}}"
+{"tool": "LS", "parameters": {"DirectoryPath": "."}}"
 
 NOW respond with text explanation + tool call:"""
 
@@ -3674,9 +3719,9 @@ NOW respond with text explanation + tool call:"""
 CORRECT FORMAT: {{"tool": "ToolName", "parameters": {{"key": "value"}}}}
 
 The "tool" key is REQUIRED. Examples:
-- {{"tool": "Bash", "parameters": {{"command": "python -m pytest"}}}}
-- {{"tool": "Read", "parameters": {{"file_path": "tests/test_file.py"}}}}
-- {{"tool": "LS", "parameters": {{"path": "."}}}}
+- {{"tool": "Bash", "parameters": {{"CommandLine": "python -m pytest"}}}}
+- {{"tool": "Read", "parameters": {{"AbsolutePath": "tests/test_file.py"}}}}
+- {{"tool": "LS", "parameters": {{"DirectoryPath": "."}}}}
 
 Fix your response and output a VALID tool call now:"""
 
@@ -3871,15 +3916,29 @@ Continue working or provide your final answer:"""
 
             # Validate based on tool type
             if tool_lower in ["ls", "list"]:
-                # LS needs path, and "/" on Windows is suspicious - fix it
-                path = args.get("path", "")
+                # LS needs DirectoryPath (or path as alias), and "/" on Windows is suspicious - fix it
+                # Check both DirectoryPath and path (path is an alias)
+                path = args.get("DirectoryPath") or args.get("path", "")
+                
                 if path == "/" or path == "\\":
                     self.console.print(
                         f"[dim yellow][!] Fixing LS root path '{path}' to '.' (current directory)[/dim yellow]"
                     )
-                    args["path"] = "."  # This modifies in place
+                    # Normalize to DirectoryPath
+                    args["DirectoryPath"] = "."
+                    if "path" in args:
+                        del args["path"]
                 elif not path:
-                    args["path"] = "."  # Default to current directory
+                    # Default to current directory - use primary parameter name
+                    args["DirectoryPath"] = "."
+                    if "path" in args:
+                        del args["path"]
+                else:
+                    # Normalize: if only path is provided, convert to DirectoryPath
+                    if "path" in args and "DirectoryPath" not in args:
+                        args["DirectoryPath"] = args["path"]
+                        del args["path"]
+                
                 return True
 
             if tool_lower in ["read"]:

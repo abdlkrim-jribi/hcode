@@ -13,36 +13,38 @@ from pathlib import Path
 class TestFilesystemComponent:
     """Test filesystem component basic functionality."""
 
-    def test_filesystem_import(self):
+    def test_filesystem_import(self) -> None:
         """Test filesystem module imports."""
-        from hcode.core.filesystem import FileSystem
+        from hcode.core.filesystem import FileSystemManager
 
-        assert FileSystem is not None
+        assert FileSystemManager is not None
 
-    def test_filesystem_instantiation(self):
+    async def test_filesystem_instantiation(self):
         """Test FileSystem can be instantiated."""
-        from hcode.core.filesystem import FileSystem
+        from hcode.core.filesystem import FileSystemManager
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            fs = FileSystem(root_path=Path(tmpdir))
+            fs = FileSystemManager(root_dir=tmpdir)
             assert fs is not None
 
-    def test_filesystem_read_write(self):
+    @pytest.mark.asyncio
+    async def test_filesystem_read_write(self):
         """Test FileSystem can read and write files."""
-        from hcode.core.filesystem import FileSystem
+        from hcode.core.filesystem import FileSystemManager
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            fs = FileSystem(root_path=Path(tmpdir))
-            test_file = Path(tmpdir) / "test.txt"
+            fs = FileSystemManager(root_dir=tmpdir)
+            test_file = "test.txt"
             test_content = "Hello, HCode!"
 
             # Write
-            fs.write_file(test_file, test_content)
-            assert test_file.exists()
+            await fs.write_file(test_file, test_content)
+            assert (Path(tmpdir) / test_file).exists()
 
             # Read
-            content = fs.read_file(test_file)
+            content = await fs.read_file(test_file)
             assert content == test_content
+
 
 
 class TestSafetyComponent:
@@ -50,16 +52,17 @@ class TestSafetyComponent:
 
     def test_safety_import(self):
         """Test safety module imports."""
-        from hcode.core.safety import SafetyChecker
+        from hcode.core.safety import SafetyGuard
 
-        assert SafetyChecker is not None
+        assert SafetyGuard is not None
 
     def test_safety_instantiation(self):
-        """Test SafetyChecker can be instantiated."""
-        from hcode.core.safety import SafetyChecker
+        """Test SafetyGuard can be instantiated."""
+        from hcode.core.safety import SafetyGuard
 
-        checker = SafetyChecker()
+        checker = SafetyGuard()
         assert checker is not None
+
 
 
 class TestContextComponent:
@@ -67,9 +70,10 @@ class TestContextComponent:
 
     def test_context_import(self):
         """Test context module imports."""
-        from hcode.core.context import Context
+        from hcode.core.context import ContextManager
 
-        assert Context is not None
+        assert ContextManager is not None
+
 
 
 class TestContinuationComponent:
@@ -122,6 +126,7 @@ class TestHCodeContextComponent:
 
     def test_hcode_context_import(self):
         """Test hcode_context module imports."""
-        from hcode.core.hcode_context import HCodeContext
+        from hcode.core.continuation import ContextWindowManager
 
-        assert HCodeContext is not None
+        assert ContextWindowManager is not None
+

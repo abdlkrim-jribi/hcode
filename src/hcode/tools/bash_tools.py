@@ -626,6 +626,14 @@ class LSTool(BaseTool):
             ToolParameter("path", "string", "Alias for DirectoryPath", default=None),
         ]
 
+    def validate_parameters(self, **kwargs) -> tuple[bool, Optional[str]]:
+        """Validate parameters allowing for strict aliases"""
+        # Check required: DirectoryPath (or path)
+        if "DirectoryPath" not in kwargs and "path" not in kwargs:
+             return False, "Missing required parameter: DirectoryPath"
+        return True, None
+
+
     async def execute(self, DirectoryPath: str = None, path: str = None, **kwargs) -> ToolResult:
         """List directory contents"""
         import sys

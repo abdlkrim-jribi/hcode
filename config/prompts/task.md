@@ -24,6 +24,7 @@ This file is also EXTREMELY helpful for planning tasks, and for breaking down la
 3. DO NOT start tasks until you have marked them in progress.
 4. As you learn more about your implementation, you can add new tasks, add subtasks, remove tasks, or re-order tasks.
 5. ONLY mark tasks as completed if you have actually completed them.
+6. **Granularity**: Avoid creating dozens of identical sub-tasks for repetitive operations that can be handled by a single tool call (e.g., "Docstring method 1", "Docstring method 2", etc.). Instead, use a broader task like "Add docstrings to all methods in file.py" to avoid overwhelming the task log.
 
 ## Format
 

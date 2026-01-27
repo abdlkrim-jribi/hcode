@@ -51,7 +51,7 @@ class MemoryManager:
             session_id: Session identifier (auto-generated if not provided)
             config: Optional custom configuration
         """
-        self.config = config or globals()["config"]
+        self.config = config or MemoryConfig()
         self.project_root = project_root or Path.cwd()
 
         # Generate project ID from path
