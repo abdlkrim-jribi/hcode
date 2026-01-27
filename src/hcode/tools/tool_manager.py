@@ -13,6 +13,7 @@ from hcode.tools.bash_tools import BashTool, BashOutputTool, KillShellTool, LSTo
 from hcode.tools.command_system import SlashCommandTool, SkillTool, CommandRegistry
 from hcode.tools.diff_tools import DiffPreviewTool, ApplyChangeTool, RejectChangeTool
 from hcode.tools.file_tools import ReadTool, WriteTool, EditTool, MultiEditTool, GlobTool, GrepTool
+from hcode.tools.outline_tool import ViewFileOutlineTool
 from hcode.tools.git_tools import (
     GitStatusTool,
     GitDiffTool,
@@ -75,6 +76,7 @@ class ToolManager:
         self.tool_registry.register(GrepTool(root_dir=str(self.root_dir)))
         self.tool_registry.register(LSTool(root_dir=str(self.root_dir)))
         self.tool_registry.register(FuzzyEditTool(root_dir=str(self.root_dir)))
+        self.tool_registry.register(ViewFileOutlineTool(root_dir=str(self.root_dir)))
 
         # Git tools
         self.tool_registry.register(GitStatusTool(root_dir=str(self.root_dir)))
@@ -144,6 +146,9 @@ class ToolManager:
             
         if "globtool" in self.tool_registry.tools:
             self.tool_registry.tools["find_files"] = self.tool_registry.tools["globtool"]
+            
+        if "viewfileoutlinetool" in self.tool_registry.tools:
+            self.tool_registry.tools["view_file_outline"] = self.tool_registry.tools["viewfileoutlinetool"]
 
     async def execute_tool(self, tool_name: str, **kwargs) -> ToolResult:
         """

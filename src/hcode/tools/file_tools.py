@@ -15,8 +15,18 @@ from .base_tool import BaseTool, ToolResult, ToolParameter, ToolCategory
 
 class ReadTool(BaseTool):
     """
-    Read files from the filesystem with support for line ranges and offsets.
+    View the contents of a file from the local filesystem.
+    Text file usage:
+    - The lines of the file are 1-indexed
+    - The first time you read a new file the tool will enforce reading 800 lines to understand as much about the file as possible
+    - The output of this tool call will be the file contents from StartLine to EndLine (inclusive)
+    - You can view at most 800 lines at a time
+    - To view the whole file do not pass StartLine or EndLine arguments
+    Binary file usage:
+    - Do not provide StartLine or EndLine arguments, this tool always returns the entire file (if manageable)
     """
+
+    MAX_LINES = 800
 
     def __init__(self, root_dir: Optional[str] = None):
         super().__init__()
@@ -26,49 +36,132 @@ class ReadTool(BaseTool):
     def get_parameters(self) -> List[ToolParameter]:
         return [
             ToolParameter(
-                "file_path", "string", "Absolute path to the file to read", required=True
+                "AbsolutePath", "string", "Path to file to view. Must be an absolute path.", required=True
             ),
             ToolParameter(
-                "offset", "integer", "Line number to start reading from (1-indexed)", default=1
+                "StartLine", 
+                "integer", 
+                "Optional. Startline to view, 1-indexed as usual, inclusive. This value must be less than or equal to EndLine.",
+                default=None
             ),
-            ToolParameter("limit", "integer", "Number of lines to read", default=None),
+            ToolParameter(
+                "EndLine", 
+                "integer", 
+                "Optional. Endline to view, 1-indexed as usual, inclusive. This value must be greater than or equal to StartLine.",
+                default=None
+            ),
+            # Legacy parameters for backward compatibility
+            ToolParameter("file_path", "string", "Alias for AbsolutePath", default=None),
+            ToolParameter("offset", "integer", "Alias for StartLine", default=None),
+            ToolParameter("limit", "integer", "Implies EndLine (StartLine + limit)", default=None),
         ]
 
     async def execute(
-        self, file_path: str, offset: int = 1, limit: Optional[int] = None, **kwargs
+        self, 
+        AbsolutePath: str = None, 
+        StartLine: Optional[int] = None, 
+        EndLine: Optional[int] = None,
+        file_path: str = None,
+        offset: int = None,
+        limit: int = None,
+        **kwargs
     ) -> ToolResult:
-        """Read file contents with line numbers"""
+        """Read file contents with detailed control"""
+        
+        # 1. Parameter Normalization
+        # Support legacy params if new ones aren't provided
+        path_str = AbsolutePath or file_path
+        if not path_str:
+            return ToolResult(success=False, output=None, error="AbsolutePath (or file_path) is required")
+            
+        start = StartLine
+        if start is None and offset is not None:
+             start = offset
+             
+        end = EndLine
+        if end is None and limit is not None and start is not None:
+            end = start + limit
+            
         try:
-            path = Path(file_path)
+            path = Path(path_str)
 
             if not path.exists():
-                return ToolResult(success=False, output=None, error=f"File not found: {file_path}")
+                return ToolResult(success=False, output=None, error=f"File not found: {path_str}")
 
             if not path.is_file():
-                return ToolResult(success=False, output=None, error=f"Not a file: {file_path}")
+                return ToolResult(success=False, output=None, error=f"Not a file: {path_str}")
 
-            with open(path, "r", encoding="utf-8", errors="ignore") as f:
-                lines = f.readlines()
+            # Check for binary file (simple heuristic)
+            is_binary = False
+            try:
+                with open(path, "r", encoding="utf-8", errors="ignore") as f:
+                     # Read first chunk to check for null bytes or encoding issues?
+                     # For now, relying on encoding="utf-8", errors="ignore" makes it "text safe" mostly.
+                     # But let's read distinct lines.
+                     all_lines = f.readlines()
+            except Exception as e:
+                # If we really can't read it as text
+                 return ToolResult(success=False, output=None, error=f"Error reading file (binary?): {str(e)}")
 
-            # Apply offset and limit
-            start_idx = max(0, offset - 1)
-            end_idx = start_idx + limit if limit else len(lines)
-            selected_lines = lines[start_idx:end_idx]
+            total_lines = len(all_lines)
+            
+            # 2. Logic for viewing range
+            # Rules:
+            # - 1-indexed
+            # - Max 800 lines
+            # - If start/end not provided, view first 800.
+            
+            if start is None:
+                start = 1
+            if end is None:
+                end = min(total_lines, start + self.MAX_LINES - 1)
+                # If default view covers the whole file, great. If not, it's capped.
+            
+            # Validate Constraints
+            if start < 1:
+                start = 1
+            if start > total_lines and total_lines > 0:
+                 # Start beyond file?
+                 return ToolResult(success=False, output=None, error=f"StartLine {start} is beyond end of file ({total_lines} lines)")
+            
+            if end > total_lines:
+                end = total_lines
+            
+            if end < start:
+                 return ToolResult(success=False, output=None, error=f"EndLine {end} cannot be less than StartLine {start}")
 
-            # Format with line numbers (using cat -n format)
-            output = ""
-            for idx, line in enumerate(selected_lines, start=offset):
-                output += f"{idx:6d}\t{line}"
-
+            count_requested = end - start + 1
+            if count_requested > self.MAX_LINES:
+                # Enforce limit
+                end = start + self.MAX_LINES - 1
+                truncated = True
+                truncation_msg = f" (Request > {self.MAX_LINES} lines, truncated)"
+            else:
+                truncated = False
+                truncation_msg = ""
+            
+            selected_lines = all_lines[start-1 : end]
+            
+            # 3. Format Output
+            output_str = ""
+            for idx, line in enumerate(selected_lines, start=start):
+                # rstrip line to avoid double newlines if line has one, but keep indentation
+                # actually, 'cat -n' style usually preserves the line end, but we are appending to string.
+                # let's strip the newline char from the line itself for formatting.
+                clean_line = line.rstrip('\n\r') 
+                output_str += f"{idx:6d}\t{clean_line}\n"
+                
             return ToolResult(
                 success=True,
-                output=output,
+                output=output_str,
                 metadata={
                     "file_path": str(path),
-                    "total_lines": len(lines),
-                    "lines_read": len(selected_lines),
-                    "offset": offset,
-                },
+                    "total_lines": total_lines,
+                    "lines_shown": len(selected_lines),
+                    "start_line": start,
+                    "end_line": end,
+                    "truncated": truncated
+                }
             )
 
         except Exception as e:
