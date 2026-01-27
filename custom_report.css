@@ -1,0 +1,77 @@
+/* custom_report.css – Modern styling for pytest‑html reports */
+
+/* Import a clean Google Font */
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
+
+/* Base page styling */
+body {
+    font-family: 'Roboto', sans-serif;
+    background-color: #f9fafb;
+    color: #2d3748;
+    line-height: 1.6;
+    margin: 0;
+    padding: 0;
+}
+
+/* Header */
+#header {
+    background: linear-gradient(135deg, #4a90e2, #357ab8);
+    color: #fff;
+    padding: 1.5rem;
+    text-align: center;
+    border-bottom: 4px solid #2c3e50;
+}
+#header h1 {
+    margin: 0;
+    font-size: 2rem;
+    font-weight: 500;
+}
+
+/* Summary table */
+.summary {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1.5rem 0;
+}
+.summary th, .summary td {
+    padding: 0.75rem 1rem;
+    border: 1px solid #e2e8f0;
+    text-align: left;
+}
+.summary th {
+    background-color: #edf2f7;
+    font-weight: 500;
+}
+.summary tr:nth-child(even) {
+    background-color: #f1f5f9;
+}
+
+/* Test result rows – colour coding */
+.pass {
+    background-color: #e6fffa;
+    color: #2f855a;
+}
+.fail {
+    background-color: #ffe6e6;
+    color: #c53030;
+}
+.skip {
+    background-color: #fffbea;
+    color: #d69e2e;
+}
+
+/* Footer */
+#footer {
+    text-align: center;
+    font-size: 0.9rem;
+    color: #718096;
+    margin-top: 2rem;
+    padding: 1rem;
+    border-top: 1px solid #e2e8f0;
+}
+
+/* Responsive tweaks */
+@media (max-width: 768px) {
+    #header h1 { font-size: 1.5rem; }
+    .summary th, .summary td { padding: 0.5rem; }
+}
