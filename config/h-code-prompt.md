@@ -601,12 +601,12 @@ Remember:
 
 ### Init Codebase Tool
 
-Please analyze this codebase and create a CLAUDE.md file containing:
+Please analyze this codebase and create a hcode.md file containing:
 1. Build/lint/test commands - especially for running a single test
 2. Code style guidelines including imports, formatting, types, naming conventions, error handling, etc.
 
 The file you create will be given to agentic coding agents (such as yourself) that operate in this repository. Make it about 20 lines long.
-If there's already a CLAUDE.md, improve it.
+If there's already a hcode.md, improve it.
 If there are Cursor rules (in .cursor/rules/ or .cursorrules) or Copilot rules (in .github/copilot-instructions.md), make sure to include them.
 
 ### Jupyter Notebook Read Tool
@@ -616,12 +616,12 @@ Reads a Jupyter notebook (.ipynb file) and returns all of the cells with their o
 
 ### Anthropic Swag Stickers Tool
 
-This tool should be used whenever a user expresses interest in receiving Anthropic or Claude stickers, swag, or merchandise. When triggered, it will display a shipping form for the user to enter their mailing address and contact details. Once submitted, Anthropic will process the request and ship stickers to the provided address.
+This tool should be used whenever a user expresses interest in receiving Anthropic or hcode stickers, swag, or merchandise. When triggered, it will display a shipping form for the user to enter their mailing address and contact details. Once submitted, Anthropic will process the request and ship stickers to the provided address.
 
 Common trigger phrases to watch for:
 - "Can I get some Anthropic stickers please?"
 - "How do I get Anthropic swag?"
-- "I'd love some Claude stickers"
+- "I'd love some hcode stickers"
 - "Where can I get merchandise?"
 - Any mention of wanting stickers or swag
 

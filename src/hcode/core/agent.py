@@ -436,11 +436,7 @@ class HcodeAgent:
         self.analytics.start_conversation(self.context_manager.session_id)
         self.execution_state.transition(ExecutionState.PLANNING)
 
-        # Start LiveTodoBar for real-time todo display
-        from hcode.ui.live_todo_bar import get_live_todo_bar
-        live_bar = get_live_todo_bar(self.console)
-        if not live_bar.is_active:
-            live_bar.start()
+
 
         # Initialize Hcode Display for task header
         from hcode.ui.hcode_display import get_hcode_display, TaskMode
@@ -622,22 +618,17 @@ class HcodeAgent:
                 )
                 raise
 
-        finally:
-            # Stop LiveTodoBar when task completes (success or failure)
-            from hcode.ui.live_todo_bar import get_live_todo_bar
-            live_bar = get_live_todo_bar(self.console)
-            if live_bar.is_active:
-                live_bar.stop()
+
             
             # End Hcode Task
             hcode_display.end_task()
 
     def _build_system_prompt(self, query: Optional[str] = None) -> str:
-        """Build system prompt with tool documentation and memory context (Claude Code style)"""
+        """Build system prompt with tool documentation and memory context """
         # Get base system prompt from external config
         base_prompt = self.current_provider.get_system_prompt_for_coding()
 
-        # Get tool documentation from external config (Claude Code style)
+        # Get tool documentation from external config
         from ..config.tools import get_tools_config
 
         tools_config = get_tools_config()
@@ -648,14 +639,13 @@ class HcodeAgent:
         
         # INJECT PROJECT ROOT CONTEXT so model knows correct paths
         base_prompt += f"""
+<user_information>
+The USER's OS version is Windows.
+The user has 1 active workspaces, each defined by a URI and a CorpusName. Multiple URIs potentially map to the same CorpusName. The mapping is shown as follows in the format [URI] -> [CorpusName]:
+{self.root_dir} -> main
 
-## WORKING ENVIRONMENT
-**Project Root**: {self.root_dir}
-**Current Working Directory**: {Path.cwd()}
-**OS**: Windows
-
-IMPORTANT: When using tools that require file paths, ALWAYS use paths relative to or within the project root above.
-DO NOT use generic paths like "/workspace" or "/home/user". Use the actual project root shown above."""
+Code relating to the user's requests should be written in the locations listed above. Avoid writing project code files to tmp, in the .gemini dir, or directly to the Desktop and similar folders unless explicitly asked.
+</user_information>"""
 
         # Add memory context if available
         if self.memory_manager:
@@ -789,7 +779,7 @@ When the user says things like "yes", "proceed", "continue", "do it", "ok", or s
         Execute task with tool calling support, automatic tool execution loop,
         and automatic continuation for long outputs.
 
-        Implements Claude Code-like seamless generation by:
+        Implements hCode seamless generation by:
         1. Detecting when output is truncated (finish_reason = "length")
         2. Automatically continuing generation
         3. Merging responses seamlessly
@@ -809,7 +799,7 @@ When the user says things like "yes", "proceed", "continue", "do it", "ok", or s
         - Model is stuck in a loop (same response repeated)
         """
 
-        # Get tool schemas from external config (Claude Code style)
+        # Get tool schemas from external config
         from ..config.tools import get_tools_config
 
         tools_config = get_tools_config()
@@ -912,7 +902,6 @@ When the user says things like "yes", "proceed", "continue", "do it", "ok", or s
 
                 messages = self.context_manager.get_messages(max_tokens=available_for_context)
 
-                # CLAUDE CODE STYLE: Show thinking indicator on first iteration
                 if iteration == 1:
                     if self._is_debug_mode():
                         self.console.print(f"[dim][*] Thinking...[/dim]", end="\r")
@@ -1927,7 +1916,6 @@ Start your response with the actual content the user requested, not with more th
                             f"[dim yellow][!] Reached max continuation prompts ({max_todo_continuation_prompts}), accepting LLM decision[/dim yellow]"
                         )
 
-                    # Only show task completed message in debug mode (Claude Code doesn't show this)
                     self._debug_print(
                         f"[bold {self._palette.success}]{self._icons.SUCCESS} Task completed![/bold {self._palette.success}]"
                     )
@@ -3593,7 +3581,6 @@ Available: Bash, Read, Write, Edit, Glob, Grep, LS
 
 START NOW - think first, then act:"""
 
-        # For Claude/Anthropic, just return the task as-is
         return task
 
     def _maybe_clear_context_for_new_task(self, task: str) -> None:
@@ -4880,7 +4867,7 @@ Continue working or provide your final answer:"""
 
     def _display_pending_writes(self, write_operations: list):
         """
-        Display pending write operations for user review - Claude Code style.
+        Display pending write operations for user review.
 
         Shows actual file diffs with syntax highlighting:
         - For new files: shows full content with + prefix (green)
@@ -4994,7 +4981,7 @@ Continue working or provide your final answer:"""
 
     def _display_tool_result(self, tool_name: str, result, arguments: dict):
         """
-        Display tool execution result in Claude Code style.
+        Display tool execution result in style.
 
         Uses the HcodeToolDisplay class for consistent formatting:
         - WriteTool: Only show file path and byte count (no content)

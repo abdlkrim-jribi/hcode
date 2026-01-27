@@ -7,7 +7,7 @@ import os
 from pathlib import Path
 from typing import Optional, Dict, Any, List
 
-from hcode.tools.agent_tools import TaskTool, ExitPlanModeTool, TodoReadTool
+from hcode.tools.agent_tools import TaskTool, ExitPlanModeTool
 from hcode.tools.base_tool import ToolRegistry, BaseTool, ToolResult
 from hcode.tools.bash_tools import BashTool, BashOutputTool, KillShellTool, LSTool, SearchOutputTool
 from hcode.tools.command_system import SlashCommandTool, SkillTool, CommandRegistry
@@ -25,7 +25,6 @@ from hcode.tools.git_tools import (
 from hcode.tools.fuzzy_edit_tool import FuzzyEditTool
 from hcode.tools.interactive_tools import (
     AskUserQuestionTool,
-    TodoWriteTool,
     ConfirmTool,
     DisplayPanelTool,
     ProgressTool,
@@ -33,6 +32,8 @@ from hcode.tools.interactive_tools import (
 from hcode.tools.notebook_tools import NotebookEditTool, NotebookReadTool, NotebookExecuteTool
 from hcode.tools.web_tools import WebFetchTool, WebSearchTool, WebScrapeTool
 from hcode.tools.hcode_tools import TaskBoundaryTool, NotifyUserTool
+from hcode.tools.todo_write import TodoWriteTool
+from hcode.tools.todo_read import TodoReadTool
 
 
 class ToolManager:
@@ -104,13 +105,16 @@ class ToolManager:
 
         # Interactive tools
         self.tool_registry.register(AskUserQuestionTool())
-        self.todo_write_tool = TodoWriteTool()
-        self.tool_registry.register(self.todo_write_tool)
-        self.todo_read_tool = TodoReadTool()
-        self.tool_registry.register(self.todo_read_tool)
+
         self.tool_registry.register(ConfirmTool())
         self.tool_registry.register(DisplayPanelTool())
         self.tool_registry.register(ProgressTool())
+
+        # Todo tools
+        self.todo_write_tool = TodoWriteTool(root_dir=str(self.root_dir))
+        self.tool_registry.register(self.todo_write_tool)
+        self.todo_read_tool = TodoReadTool(root_dir=str(self.root_dir))
+        self.tool_registry.register(self.todo_read_tool)
 
         # Agent tools
         self.task_tool = TaskTool()  # Will be initialized with agent_orchestrator later
@@ -249,17 +253,7 @@ class ToolManager:
         """Convenience method for asking user questions"""
         return await self.execute_tool("askuserquestiontool", questions=questions)
 
-    async def update_todos(self, todos: List[Dict[str, str]]) -> ToolResult:
-        """Convenience method for updating todos"""
-        result = await self.execute_tool("todowritetool", todos=todos)
-        # Sync todos to TodoRead tool
-        if hasattr(self, "todo_read_tool"):
-            self.todo_read_tool.set_todos(todos)
-        return result
 
-    async def read_todos(self) -> ToolResult:
-        """Convenience method for reading todos"""
-        return await self.execute_tool("todoreadtool")
 
     def set_agent_orchestrator(self, agent_orchestrator):
         """Set the agent orchestrator for the Task tool"""
