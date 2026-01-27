@@ -2,7 +2,7 @@
 
 ## Overview
 
-Antigravity implements a multi-layered context compaction system to manage token limits while preserving important information across long conversations and multiple sessions.
+Hcode implements a multi-layered context compaction system to manage token limits while preserving important information across long conversations and multiple sessions.
 
 ## Compaction Mechanisms
 

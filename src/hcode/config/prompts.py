@@ -159,7 +159,8 @@ class PromptsConfig:
         base_dir = Path.cwd() / "config" / "prompts"
         
         # List of modules to load in order
-        modules = [
+        # List of modules to load in order (PRIORITY)
+        priority_modules = [
             "identity.md",
             "agentic_mode_overview.md",
             "task_boundary_tool.md",
@@ -178,21 +179,90 @@ class PromptsConfig:
             "workflows.md",
             "user_rules.md"
         ]
+        
+        # 1. Load priority modules first
+        modules_to_load = list(priority_modules)
+        
+        # 2. Discover other .md files dynamically
+        try:
+            priority_set = set(priority_modules)
+            # Find all .md files in the directory
+            all_md_files = [f.name for f in base_dir.glob("*.md")]
+            
+            # Filter out ones we already have in priority list
+            extra_modules = [
+                f for f in all_md_files 
+                if f not in priority_set
+            ]
+            
+            # Sort alphabetically for deterministic behavior
+            extra_modules.sort()
+            
+            # Append to loading list
+            modules_to_load.extend(extra_modules)
+            
+        except Exception as e:
+            print(f"Warning: Failed to discover dynamic prompts: {e}")
 
         prompt_parts = []
         
         try:
-            for module_name in modules:
+            for module_name in modules_to_load:
                 module_file = base_dir / module_name
                 if module_file.exists():
                     prompt_parts.append(module_file.read_text(encoding="utf-8"))
             
             return "\n\n".join(prompt_parts)
 
+
         except Exception as e:
             # Basic fallback if everything fails, but ideally we shouldn't fail if files exist
             print(f"Error loading modular prompts: {e}")
             return "Error loading system prompt. Please check config/prompts directory."
+
+    def _try_load_prompt_file(self, prompt_key: str) -> Optional[str]:
+        """
+        Try to load a prompt from a file in config/prompts/
+        
+        Args:
+            prompt_key: The key used to request the prompt (e.g. 'fast_prompt')
+            
+        Returns:
+            The prompt content if found, None otherwise
+        """
+        # Define the base prompt directory
+        base_dir = Path.cwd() / "config" / "prompts"
+        if not base_dir.exists():
+            return None
+            
+        # 1. Try exact match with extensions
+        for ext in [".txt", ".md"]:
+            f = base_dir / f"{prompt_key}{ext}"
+            if f.exists():
+                return f.read_text(encoding="utf-8")
+                
+        # 2. Try mapping common keys to specific files
+        # Map keys like 'fast_prompt' to 'Fast Prompt.txt'
+        special_mappings = {
+            "fast_prompt": "Fast Prompt.txt",
+            "fast_agent": "Fast Prompt.txt",
+            "planning_mode": "planning-mode.txt" 
+        }
+        
+        if prompt_key in special_mappings:
+            f = base_dir / special_mappings[prompt_key]
+            if f.exists():
+                return f.read_text(encoding="utf-8")
+                
+        # 3. Try normalizing key (replace underscores with spaces)
+        # e.g. 'fast_prompt' -> 'Fast Prompt.txt'
+        normalized = prompt_key.replace("_", " ").title() # fast_prompt -> Fast Prompt
+        for ext in [".txt", ".md"]:
+             f = base_dir / f"{normalized}{ext}"
+             if f.exists():
+                 return f.read_text(encoding="utf-8")
+                 
+        return None
 
 
     def _default_openai_prompt(self) -> str:
@@ -274,7 +344,15 @@ Stay focused on your assigned task and avoid scope creep."""
             The system prompt string, with optional memory file content prepended for OpenAI coding prompts.
         """
         prompts = self._prompts_data.get("system_prompts", {})
-        prompt = prompts.get(prompt_type, self._default_coding_prompt())
+        prompt = prompts.get(prompt_type)
+        
+        # If not found in config, try to load from file
+        if not prompt:
+            prompt = self._try_load_prompt_file(prompt_type)
+            
+        # Fallback to default if still not found
+        if not prompt:
+            prompt = self._default_coding_prompt()
 
         # If this is the OpenAI coding prompt, prepend the memory file content (e.g., CLAUDE.md)
         if prompt_type == "openai_coding":

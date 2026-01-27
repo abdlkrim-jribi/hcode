@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Cortex system is Antigravity's core agent architecture for planning and executing coding tasks. It uses a step-based execution model with various step types for different operations.
+The Cortex system is Hcode's core agent architecture for planning and executing coding tasks. It uses a step-based execution model with various step types for different operations.
 
 ## Architecture
 

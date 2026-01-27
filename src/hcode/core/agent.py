@@ -714,54 +714,13 @@ To use tools, output JSON in a code fence. You can include explanations, but the
 
 ### Available Tools:
 
-**WriteTool** - Create NEW files only:
-```json
-{"tool": "WriteTool", "parameters": {"file_path": "filename.ext", "content": "full file content here"}}
-```
-
-**ReadTool** - Read existing files (REQUIRED before editing):
-```json
-{"tool": "ReadTool", "parameters": {"file_path": "path/to/file"}}
-```
-
-**EditTool** - Modify portions of EXISTING files:
-```json
-{"tool": "EditTool", "parameters": {"file_path": "path/to/file", "old_string": "text to replace", "new_string": "new text"}}
-```
-
-**GlobTool** - Find files by pattern:
-```json
-{"tool": "GlobTool", "parameters": {"pattern": "**/*.py"}}
-```
-
-**GrepTool** - Search file contents:
-```json
-{"tool": "GrepTool", "parameters": {"pattern": "search_term"}}
-```
-
-**BashTool** - Run shell commands:
-```json
-{"tool": "BashTool", "parameters": {"command": "ls -la"}}
-```
-
-**LSTool** - List directory:
-```json
-{"tool": "LSTool", "parameters": {"path": "."}}
-```
+{self.tool_manager.get_tool_documentation()}
 
 ### CRITICAL RULES:
-1. **WriteTool vs EditTool**:
-   - Use `WriteTool` for creating NEW files or OVERWRITING existing files (with cautious intent).
-   - Use `EditTool` for precise modifications to EXISTING files.
-
-2. **Editing Safety**:
-   - You MUST read the file (`ReadTool`) before using `EditTool` to ensure you have the exact `old_string`.
-   - `old_string` must match the file content EXACTLY (including whitespace/indentation).
-
-3. **Code Generation**:
-   - Providing a code block in your response DOES NOT create the file.
-   - You MUST call `WriteTool` or `EditTool` to apply changes.
-   - Do NOT ask the user to "do it" manually. YOU must check the tool output.
+1. **Tool Names**: Use the exact names shown above.
+2. **Parameters**: Use the exact parameter names.
+3. **Paths**: ALWAYS use absolute paths for file parameters.
+4. **Editing**: You MUST read the file (`view_file`) before using `replace_file_content` to ensure you have the exact `TargetContent`.
 
 ### IMPORTANT for multi-line content:
 Use \\n for newlines in JSON strings. The system will convert them to actual newlines.

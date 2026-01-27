@@ -1,8 +1,12 @@
 """
-Tests for Claude Code-style todo display.
+Tests for the Claude Code‑style todo display utilities.
 
-Tests the new ClaudeCodeTodoDisplay class that renders todos
-in the style shown by Claude Code.
+This module contains a comprehensive test suite for the
+`ClaudeCodeTodoDisplay` class and its associated convenience
+functions. The tests verify rendering of todo items in the
+Claude Code visual style, handling of various task statuses,
+keyboard shortcuts, elapsed time, token counts, and edge cases
+such as long task names and special characters.
 """
 
 import pytest
@@ -16,7 +20,7 @@ from pathlib import Path
 # Add src to path
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "src"))
 
-from hcode.ui.todo_display import (
+from hcode.ui.todo_display import (  # noqa: E402
     ClaudeCodeTodoDisplay,
     render_claude_code_todos,
     print_claude_code_todos,
@@ -28,7 +32,13 @@ from hcode.ui.todo_display import (
 
 
 def strip_ansi(text: str) -> str:
-    """Remove ANSI escape codes from text for easier testing."""
+    """Remove ANSI escape codes from a string.
+
+The `strip_ansi` helper strips out any ANSI escape sequences
+(e.g., colour codes) from the provided text, returning a plain
+string. This simplifies assertions in tests that compare rendered
+output without needing to account for terminal colour codes.
+"""
     ansi_escape = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
     return ansi_escape.sub("", text)
 

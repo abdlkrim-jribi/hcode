@@ -1,72 +1,45 @@
 """
 Base Tool Module – Core abstractions for the Hcode framework.
 
-The Hcode framework relies on a set of *tools* that encapsulate discrete
-operations such as file manipulation, code execution, searching, and web
-interactions.  This module defines the foundational building blocks that all
-concrete tool implementations inherit from and that the runtime uses to
-discover, validate, and invoke tools in a uniform way.
+This module defines the foundational building blocks used by the Hcode
+framework to implement *tools* – self‑contained units that perform a
+specific operation such as file manipulation, code execution, searching,
+or web interaction.  The abstractions provided here enable a uniform
+interface for discovery, validation, and invocation of concrete tool
+implementations.
 
-Key components
----------------
-- **ToolCategory** (`Enum`): Enumerates the high‑level categories of tools
-  (e.g., ``file_operation``, ``code_execution``, ``search``, ``web``, etc.).
-  Categories enable filtering and help generate user‑friendly documentation.
+Public API
+----------
+- :class:`ToolCategory` – Enum of high‑level tool categories.
+- :class:`ToolParameter` – Dataclass describing a single tool argument.
+- :class:`ToolResult` – Dataclass representing the outcome of a tool call.
+- :class:`BaseTool` – Abstract base class that all concrete tools inherit
+  from.  Sub‑classes must implement ``execute`` and ``get_parameters``.
+  Helper methods include ``get_description``, ``validate_parameters``,
+  ``to_function_schema`` and ``to_anthropic_tool_schema``.
+- :class:`ToolRegistry` – Central registry for tool instances, providing
+  name resolution, category filtering, schema generation and asynchronous
+  execution.
 
-- **ToolParameter** (`@dataclass`): Describes a single parameter accepted by a
-  tool.  Fields include ``name``, ``type`` (JSON‑schema compatible), a human
-  readable ``description``, a ``required`` flag and an optional ``default``
-  value.  Instances are used for automatic schema generation.
-
-- **ToolResult** (`@dataclass`): Represents the outcome of a tool execution.
-  It contains a ``success`` flag, the ``output`` produced by the tool, an
-  optional ``error`` message and optional ``metadata`` for additional context.
-
-- **BaseTool** (`ABC`): Abstract base class for all tools.  It provides a
-  ``name`` (derived from the concrete class) and a ``category`` (default
-  ``CUSTOM``).  Sub‑classes must implement the asynchronous ``execute`` method
-  and the ``get_parameters`` method.  Helper methods include
-  ``get_description``, ``validate_parameters``, ``to_function_schema`` and
-  ``to_anthropic_tool_schema`` for OpenAI and Anthropic function calling.
-
-- **ToolRegistry**: Central registry that holds instantiated tools, resolves
-  tool names (including a large alias map for model compatibility), lists
-  tools by category, and offers utilities to retrieve function schemas and
-  execute tools asynchronously.
-
-Usage example
+Typical usage
 -------------
-```python
-from hcode.tools.base_tool import (
-    ToolRegistry,
-    BaseTool,
-    ToolParameter,
-    ToolResult,
-)
+>>> from hcode.tools.base_tool import ToolRegistry, BaseTool, ToolParameter, ToolResult
+>>> class EchoTool(BaseTool):
+...     def __init__(self):
+...         super().__init__()
+...         self.category = ToolCategory.INTERACTIVE
+...     async def execute(self, **kwargs) -> ToolResult:
+...         return ToolResult(success=True, output=kwargs.get("message", ""))
+...     def get_parameters(self) -> list[ToolParameter]:
+...         return [ToolParameter(name="message", type="string", description="Message to echo", required=True)]
+>>> registry = ToolRegistry()
+>>> registry.register(EchoTool())
+>>> result = await registry.execute_tool("echotool", message="Hello")
+>>> print(result)  # Success: Hello
 
-class EchoTool(BaseTool):
-    def __init__(self):
-        super().__init__()
-        self.category = ToolCategory.INTERACTIVE
-
-    async def execute(self, **kwargs) -> ToolResult:
-        message = kwargs.get("message", "")
-        return ToolResult(success=True, output=message)
-
-    def get_parameters(self) -> list[ToolParameter]:
-        return [ToolParameter(name="message", type="string", description="Message to echo", required=True)]
-
-registry = ToolRegistry()
-registry.register(EchoTool())
-
-result = await registry.execute_tool("echotool", message="Hello, Hcode!")
-print(result)  # -> Success: Hello, Hcode!
-```
-
-The module is deliberately lightweight – it contains no external
-dependencies and is safe to import in any environment.  All concrete tools
-live in ``src/hcode/tools`` and are automatically discovered by the
-registry when registered.
+The module has no external dependencies and can be safely imported in any
+environment.  All concrete tool implementations reside in
+``src/hcode/tools`` and are automatically discovered by the registry.
 """
 
 from abc import ABC, abstractmethod
@@ -211,7 +184,12 @@ class BaseTool(ABC):
         pass
 
     def get_description(self) -> str:
-        """Get tool description"""
+        """
+        Get the tool's description.
+
+        Returns:
+            str: The tool's docstring if available, otherwise a default fallback message.
+        """
         return self.__doc__ or "No description available"
 
     def validate_parameters(self, **kwargs) -> tuple[bool, Optional[str]]:
@@ -280,19 +258,13 @@ class BaseTool(ABC):
 
 
 class ToolRegistry:
-    """Central registry for all available Hcode tools.
+    """
+    Central registry for all available Hcode tools.
 
     The registry stores instantiated tool objects, resolves tool names (including a large
     alias map for model compatibility), lists tools by category, and provides utilities to
     retrieve function schemas and execute tools asynchronously.
     """
-    """Central registry for all Hcode tools.
-
-    The registry stores instantiated tool objects, resolves tool names (including a large
-    alias map for model compatibility), and provides utilities for listing tools,
-    retrieving function schemas, and executing tools asynchronously.
-    """
-    """Registry for managing available tools"""
 
     # Tool name aliases for common variations
     # Maps alternate names -> canonical registered name (lowercase class name)
@@ -464,7 +436,13 @@ class ToolRegistry:
         self.tools: Dict[str, BaseTool] = {}
 
     def register(self, tool: BaseTool):
-        """Register a tool"""
+        """
+        Register a new tool instance with the registry.
+
+        Args:
+            tool (BaseTool): The instantiated tool object to register.
+                             The tool is stored using its lowercase name as the key.
+        """
         self.tools[tool.name.lower()] = tool
 
     def get_tool(self, name: str) -> Optional[BaseTool]:
@@ -548,21 +526,57 @@ class ToolRegistry:
         return None
 
     def list_tools(self, category: Optional[ToolCategory] = None) -> List[BaseTool]:
-        """List all tools, optionally filtered by category"""
+        """
+        List registered tools, optionally filtered by the given category.
+
+        Args:
+            category (Optional[ToolCategory]): If provided, only tools belonging to this
+                                               category will be returned.
+
+        Returns:
+            List[BaseTool]: A list of tool instances matching the criteria.
+        """
         if category:
             return [t for t in self.tools.values() if t.category == category]
         return list(self.tools.values())
 
     def get_function_schemas(self) -> List[Dict[str, Any]]:
-        """Get OpenAI function schemas for all tools"""
+        """
+        Get OpenAI function schemas for all registered tools.
+
+        Returns:
+            List[Dict[str, Any]]: A list of function schema dictionaries compatible
+                                  with OpenAI's function calling API.
+        """
         return [tool.to_function_schema() for tool in self.tools.values()]
 
     def get_anthropic_schemas(self) -> List[Dict[str, Any]]:
-        """Get Anthropic tool schemas for all tools"""
+        """
+        Get Anthropic tool schemas for all registered tools.
+
+        Returns:
+            List[Dict[str, Any]]: A list of tool schema dictionaries compatible
+                                  with Anthropic's tool use API.
+        """
         return [tool.to_anthropic_tool_schema() for tool in self.tools.values()]
 
     async def execute_tool(self, name: str, **kwargs) -> ToolResult:
-        """Execute a tool by name"""
+        """
+        Execute a registered tool by its name or alias.
+
+        This method performs the following steps:
+        1. Resolves the tool name to a concrete tool instance.
+        2. Validates the provided arguments against the tool's parameter schema.
+        3. Executes the tool asynchronously and captures the result/error.
+
+        Args:
+            name (str): The name or alias of the tool to execute.
+            **kwargs: Arbitrary keyword arguments passed to the tool's execute method.
+
+        Returns:
+            ToolResult: The outcome of the tool execution, containing success status,
+                        output data, and any error messages.
+        """
         tool = self.get_tool(name)
 
         if not tool:

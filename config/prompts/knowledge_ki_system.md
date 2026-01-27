@@ -2,7 +2,7 @@
 
 ## Overview
 
-Antigravity uses a **Knowledge Items (KI) system** as its primary mechanism for persistent memory and context compaction. This system allows the AI to "remember" important information across conversation sessions without maintaining full conversation history.
+Hcode uses a **Knowledge Items (KI) system** as its primary mechanism for persistent memory and context compaction. This system allows the AI to "remember" important information across conversation sessions without maintaining full conversation history.
 
 ## What Are Knowledge Items?
 

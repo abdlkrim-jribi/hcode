@@ -22,11 +22,11 @@ async def verify():
         config.reload()
         coding_prompt = config.get_system_prompt("coding_agent")
         
-        # Check alignment with Antigravity
+        # Check alignment with Hcode
         checks = [
 
             ("<identity>", "Identity Block"),
-            ("Antigravity", "Antigravity Name"),
+            ("Hcode", "Hcode Name"),
             ("<task_boundary_tool>", "Task Boundary Definition"),
             ("task.md", "Task Artifact Definition"),
             ("implementation_plan.md", "Impl Plan Artifact Definition"),
