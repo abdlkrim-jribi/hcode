@@ -1,6 +1,15 @@
 """
-Base tool interface for Hcode tool system.
-Inspired by Hcode's sophisticated tool architecture.
+Base tool module for the Hcode framework.
+
+This module provides the foundational abstractions and utilities that all Hcode tools rely on. It defines:
+
+* **ToolCategory** – an ``Enum`` enumerating supported tool categories such as file operations, code execution, search, web interactions, etc.
+* **ToolParameter** – a ``dataclass`` describing a single tool parameter (name, type, description, required flag, and default value).
+* **ToolResult** – a ``dataclass`` representing the outcome of a tool execution, containing a success flag, the output, an optional error message, and optional metadata.
+* **BaseTool** – an abstract base class that concrete tool implementations inherit from. It supplies a common ``name`` and ``category`` attribute and declares the abstract ``execute`` and ``get_parameters`` methods. Helper methods for description, parameter validation, and schema generation are also provided.
+* **ToolRegistry** – a registry that stores tool instances, resolves tool names (including many aliases), and offers utilities for listing tools, retrieving function schemas, and executing tools asynchronously.
+
+The design mirrors the original Hcode tool architecture, delivering a consistent interface for tool discovery, validation, and execution across the framework.
 """
 
 from abc import ABC, abstractmethod

@@ -508,7 +508,7 @@ class ReasoningParser:
         # Decision
         "decision": r"(?:DECISION|Decision|CHOICE|Choice)[:\s]*(.+?)(?=\r?\n\s*[A-Z]|\r?\n\s*\r?\n|$)",
         "justification": r"(?:JUSTIFICATION|Justification|WHY|Why)[:\s]*(.+?)(?=\r?\n\s*[A-Z]|\r?\n\s*\r?\n|$)",
-        "confidence": r"(?:CONFIDENCE|Confidence)[:\s]*(\d+(?:\.\d+)?)",
+        "confidence": r"(?:CONFIDENCE|Confidence)[:\s]*(.+?)(?=\r?\n\s*[A-Z]|\r?\n\s*\r?\n|$)",
         "fallback": r"(?:FALLBACK|Fallback|Plan B)[:\s]*(.+?)(?=\r?\n\s*[A-Z]|\r?\n\s*\r?\n|$)",
         "action_items": r"(?:ACTIONS?|Action items?|TODO|Tasks?|Action)[:\s]*(.+?)(?=\r?\n\s*[A-Z]|\r?\n\s*\r?\n|$)",
         # Verification
@@ -608,6 +608,42 @@ class ReasoningParser:
 
         return result
 
+    def _parse_confidence(self, confidence_str: str) -> float:
+        """Parse confidence score from string"""
+        if not confidence_str:
+            return 0.0
+
+        # Try numeric/percentage first (more specific)
+        try:
+            # Extract number if present (e.g., "Very High (95%)" -> 95)
+            # Match number possibly followed by %
+            match = re.search(r"(\d+(?:\.\d+)?)\s*%", confidence_str)
+            if match:
+                val = float(match.group(1))
+                if val > 1.0:
+                    val = val / 100.0
+                return val
+
+            # Direct number match
+            if confidence_str.strip().replace(".", "").isdigit():
+                val = float(confidence_str.strip())
+                if val > 1.0:
+                    val = val / 100.0
+                return val
+        except ValueError:
+            pass
+
+        # Handle text-based confidence keywords
+        lower_conf = confidence_str.lower()
+        if "high" in lower_conf:
+            return 0.9
+        if "medium" in lower_conf:
+            return 0.5
+        if "low" in lower_conf:
+            return 0.2
+
+        return 0.0
+
     def _extract_thinking_block(self, content: str) -> Optional[str]:
         """Extract content from <thinking> tags"""
         pattern = re.compile(r"<thinking>(.*?)</thinking>", re.DOTALL | re.IGNORECASE)
@@ -699,7 +735,7 @@ class ReasoningParser:
 
         # Fall back to splitting by newlines for non-list content
         lines = [line.strip() for line in raw.split("\n") if line.strip() and len(line.strip()) > 5]
-        return lines[:10]  # Limit to 10 items
+        return lines[:50]  # Limit to 50 items (increased from 10)
 
     def _parse_perception(self, content: str) -> PerceptionOutput:
         """Parse perception phase content"""
@@ -744,14 +780,7 @@ class ReasoningParser:
     def _parse_reasoning(self, content: str) -> ReasoningOutput:
         """Parse reasoning phase content"""
         confidence_str = self._extract_field(content, "confidence")
-        confidence = 0.0
-        if confidence_str:
-            try:
-                confidence = float(confidence_str)
-                if confidence > 1:
-                    confidence = confidence / 100.0  # Convert percentage
-            except ValueError:
-                pass
+        confidence = self._parse_confidence(confidence_str)
 
         return ReasoningOutput(
             hypothesis=self._extract_field(content, "hypothesis") or content[:200],
@@ -765,14 +794,7 @@ class ReasoningParser:
     def _parse_decision(self, content: str) -> DecisionOutput:
         """Parse decision phase content"""
         confidence_str = self._extract_field(content, "confidence")
-        confidence = 0.0
-        if confidence_str:
-            try:
-                confidence = float(confidence_str)
-                if confidence > 1:
-                    confidence = confidence / 100.0
-            except ValueError:
-                pass
+        confidence = self._parse_confidence(confidence_str)
 
         return DecisionOutput(
             decision=self._extract_field(content, "decision") or content[:200],
@@ -786,14 +808,7 @@ class ReasoningParser:
     def _parse_verification(self, content: str) -> VerificationOutput:
         """Parse verification phase content"""
         confidence_str = self._extract_field(content, "confidence")
-        confidence = 0.0
-        if confidence_str:
-            try:
-                confidence = float(confidence_str)
-                if confidence > 1:
-                    confidence = confidence / 100.0
-            except ValueError:
-                pass
+        confidence = self._parse_confidence(confidence_str)
 
         # Determine if ready to execute
         ready_indicators = ["ready", "proceed", "execute", "safe to", "approved"]
@@ -842,33 +857,22 @@ class ReasoningParser:
     def _parse_pre_execution_review(self, content: str) -> PreExecutionReviewOutput:
         """Parse pre-execution review phase content (NEW)"""
         confidence_str = self._extract_field(content, "confidence")
-        confidence = 0.0
-        if confidence_str:
-            try:
-                confidence = float(confidence_str)
-                if confidence > 1:
-                    confidence = confidence / 100.0
-            except ValueError:
-                pass
+        confidence = self._parse_confidence(confidence_str)
 
         # Determine if approval needed
-        approval_indicators = ["approval", "confirm", "review", "check"]
-        approval_needed = any(ind in content.lower() for ind in approval_indicators)
+        approval_indicators = ["needed", "required", "yes", "true"]
+        needed_str = self._extract_field(content, "approval_needed") or "true"
+        approval_needed = any(ind in needed_str.lower() for ind in approval_indicators)
 
-        # Determine if proceed is recommended
-        proceed_indicators = ["proceed", "safe", "ready", "recommend"]
-        proceed = any(ind in content.lower() for ind in proceed_indicators)
-
-        # Extract what could go wrong
-        what_could_go_wrong = self._extract_list(content, "what_could_go_wrong")
-        if not what_could_go_wrong:
-            # Also look for risks
-            what_could_go_wrong = self._extract_list(content, "risks")
+        # Determine recommendation
+        rec_indicators = ["proceed", "go ahead", "approve", "yes"]
+        rec_str = self._extract_field(content, "recommendation")
+        proceed = any(ind in rec_str.lower() for ind in rec_indicators)
 
         return PreExecutionReviewOutput(
-            changes_summary=self._extract_list(content, "changes"),
+            changes_summary=self._extract_list(content, "changes_summary"),
             what_will_change=self._extract_field(content, "what_will_change") or content[:200],
-            what_could_go_wrong=what_could_go_wrong,
+            what_could_go_wrong=self._extract_list(content, "what_could_go_wrong"),
             alternative_approaches=self._extract_list(content, "alternative_approaches"),
             confidence_in_approach=confidence,
             user_approval_needed=approval_needed,
