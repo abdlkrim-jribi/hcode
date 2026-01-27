@@ -180,7 +180,7 @@ class SessionMemory:
             with open(file_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
             return Session.from_dict(data)
-        except (json.JSONDecodeError, KeyError):
+        except (json.JSONDecodeError, KeyError) as e:
             # Corrupted session file, create new
             return self._create_session()
 

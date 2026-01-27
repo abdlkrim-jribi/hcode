@@ -1,39 +1,8 @@
 """
-exceptions.py
-==============
+HCode Custom Exception Hierarchy.
 
-Custom exception hierarchy for the **Hcode** tooling suite.
-
-The original implementation contained minimal documentation, making it
-hard for new contributors to understand the purpose of each exception
-type.  This module now provides clear, concise docstrings for every
-exception class, describing when it should be raised and what information
-it carries.
-
-All exceptions inherit from :class:`HcodeError`, which itself derives
-from :class:`Exception`.  This design allows callers to catch either a
-specific error (e.g., :class:`InvalidConfigurationError`) or any Hcode‑
-related error by catching :class:`HcodeError`.
-
-Typical usage:
-
-```python
-from hcode.exceptions import InvalidConfigurationError
-
-def load_config(path: str) -> dict:
-    if not os.path.exists(path):
-        raise InvalidConfigurationError(f"Config file not found: {path}")
-    # ... load logic ...
-
-try:
-    config = load_config("settings.yaml")
-except HcodeError as exc:
-    logger.error("Hcode failed: %s", exc)
-    raise
-```
-
-The hierarchy is deliberately flat – each subclass represents a distinct
-error condition that can be handled independently if needed.
+Provides structured exceptions for error handling throughout the application.
+All HCode-specific exceptions inherit from HCodeError.
 """
 
 from __future__ import annotations

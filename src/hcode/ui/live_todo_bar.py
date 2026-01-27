@@ -21,7 +21,7 @@ from typing import List, Dict, Any, Optional
 
 from rich.console import Console, ConsoleOptions, RenderResult
 from rich.control import Control
-from rich.segment import ControlType
+from rich.segment import ControlType, Segment
 
 # Global write lock to coordinate streaming output and todo bar updates
 _stdout_write_lock = threading.RLock()
@@ -118,7 +118,7 @@ class LiveTodoBar:
         if event.todos is not None:
             with self._lock:
                 # Check if todos actually changed
-
+                todos_changed = str(self.todos) != str(event.todos)
                 self.todos = list(event.todos)
 
             # DISABLED: Printing on each todo update causes duplication on Windows
@@ -230,7 +230,7 @@ class LiveTodoBar:
                 self.console.print("\n" + "─" * 70)
                 self.console.print(rendered)
                 self.console.print("─" * 70 + "\n")
-            except Exception:
+            except Exception as e:
                 # Fallback: simple print if rendering fails
                 self.console.print(f"\n[dim]Task completed with {len(self.todos)} todos[/dim]\n")
 

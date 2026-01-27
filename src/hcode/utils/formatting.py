@@ -1,13 +1,11 @@
 
 
 from __future__ import annotations
-
 import os
 import platform
 from contextlib import contextmanager
 from enum import Enum
 from typing import Any, Generator
-
 from rich import box
 from rich.console import Console
 from rich.live import Live
@@ -22,6 +20,7 @@ from rich.progress import (
     TimeElapsedColumn,
 )
 from rich.syntax import Syntax
+from rich.table import Table
 from rich.text import Text
 from rich.theme import Theme
 
@@ -290,7 +289,29 @@ def render_panel(
     )
 
 
+def create_table(
+    title: str | None = None,
+    columns: list[tuple[str, str]] | None = None,
+    box_style: Any = box.ROUNDED,
+) -> Table:
+    """Create a ``rich`` ``Table`` with optional columns.
 
+    Args:
+        title: Optional table title.
+        columns: Optional list of ``(header, style)`` tuples.
+        box_style: The box style to use for the table borders.
+
+    Returns:
+        An empty ``Table`` ready for rows to be added.
+
+    Raises:
+        None
+    """
+    table = Table(title=title, box=box_style)
+    if columns:
+        for name, style in columns:
+            table.add_column(name, style=style)
+    return table
 
 
 def create_progress(

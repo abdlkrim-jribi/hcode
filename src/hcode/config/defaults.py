@@ -1,10 +1,7 @@
 """
 HCode Default Configurations.
 
-This module defines the default configuration values and constants used throughout the HCode
-framework, including version information, model settings, pricing, context windows, and
-various operational defaults. These defaults can be overridden by user‑provided
-configuration files.
+This module contains default configuration values and constants used throughout HCode.
 """
 
 from __future__ import annotations

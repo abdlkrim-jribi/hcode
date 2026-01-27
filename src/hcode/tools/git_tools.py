@@ -5,7 +5,7 @@ Git integration tools for Hcode.
 import asyncio
 import os
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 
 from hcode.tools.base_tool import BaseTool, ToolResult, ToolParameter, ToolCategory
 
@@ -181,6 +181,4 @@ class GitBranchTool(BaseGitTool):
     async def execute(self, list_branches: bool = True, delete_branch: Optional[str] = None, **kwargs) -> ToolResult:
         if delete_branch:
             return await self._run_git(["branch", "-d", delete_branch])
-        if list_branches:
-            return await self._run_git(["branch", "-a"])
-        return ToolResult(success=True, output="No action specified")
+        return await self._run_git(["branch", "-a"])

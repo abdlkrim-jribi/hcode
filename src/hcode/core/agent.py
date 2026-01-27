@@ -8,11 +8,11 @@ from pathlib import Path
 from typing import Dict, Any, List, Union
 
 from rich.console import Console
-from rich.markup import escape
 
 from .analytics import (
     get_analytics,
 )
+from rich.markup import escape
 from .context import ContextManager
 # Import optimization components
 from .optimizations import (
@@ -55,25 +55,153 @@ from typing import Tuple, Optional
 from hcode.agent.reasoning import ReasoningParser, StructuredReasoning
 
 
+def is_valid_thinking(block: Optional[StructuredReasoning]) -> bool:
+    """Check if thinking block has meaningful content"""
+    if not block:
+        return False
+    return (
+            block.perception.is_complete()
+            or block.comprehension.is_complete()
+            or block.decision.is_complete()
+            or block.analysis.is_complete()
+            or len(block.raw_content) > 20
+    )
 
 
-
-# Import Refactored Components
-from .loop_detector import LoopDetector
-from .circuit_breaker import CircuitBreaker
-from .response_handler import ResponseHandler
-from .output_renderer import OutputRenderer
-
-
-
-
-
+def get_thinking_summary(block: StructuredReasoning) -> str:
+    """Get a summary of the thinking (no truncation)"""
+    if block.decision.decision:
+        return f"Decision: {block.decision.decision}"
+    if block.reasoning.hypothesis:
+        return f"Hypothesis: {block.reasoning.hypothesis}"
+    if block.comprehension.core_understanding:
+        return f"Understanding: {block.comprehension.core_understanding}"
+    return block.raw_content if block.raw_content else "Empty thinking"
 
 
+def parse_thinking_block(text: str) -> Tuple[Optional[StructuredReasoning], str]:
+    """
+    Parse a thinking block from model output using the central ReasoningParser.
+
+    Args:
+        text: The model's response text
+
+    Returns:
+        Tuple of (StructuredReasoning or None, remaining text without thinking block)
+    """
+    if "<thinking>" not in text:
+        return None, text
+
+    parser = ReasoningParser()
+
+    # Extract content inside tags
+    pattern = re.compile(r"<thinking>(.*?)</thinking>", re.DOTALL | re.IGNORECASE)
+    match = pattern.search(text)
+
+    if match:
+        thinking_content = match.group(1).strip()
+        # Parse the structured reasoning
+        reasoning = parser.parse(thinking_content)
+
+        # Remove the thinking block from the text to get the response
+        remaining_text = pattern.sub("", text).strip()
+
+        return reasoning, remaining_text
+
+    return None, text
 
 
+def format_thinking_display(
+        block: Union[StructuredReasoning], console: Console, debug_mode: bool = False
+) -> None:
+    """
+    Display a thinking block with Hcode style.
+
+    In normal mode (debug_mode=False): Shows collapsed summary.
+    In debug mode (debug_mode=True): Shows full panel.
+
+    Args:
+        block: The parsed thinking block (StructuredReasoning)
+        console: Rich console for output
+        debug_mode: If True, show full verbose panel. If False, show collapsed summary.
+    """
+    from hcode.ui.hcode_display import get_hcode_display, TaskMode
+    
+    # Get display instance
+    hcode_display = get_hcode_display(console)
+
+    # Determine primary phase from what is populated in the block
+    # This is heuristic since StructuredReasoning contains all phases
+    primary_phase = None
+    if block.verification.is_complete():
+        primary_phase = "VERIFICATION"
+    elif block.decision.is_complete():
+        primary_phase = "DECISION"
+    elif block.reasoning.is_complete():
+        primary_phase = "REASONING"
+    elif block.analysis.is_complete():
+        primary_phase = "ANALYSIS"
+    elif block.comprehension.is_complete():
+        primary_phase = "COMPREHENSION"
+    else:
+        primary_phase = "THINKING"
+    
+    # Display using Hcode style 
+    # Build clean thinking content without phase labels
+    thinking_lines = []
+    
+    # Show raw content directly if available (preferred - cleanest output)
+    if block.raw_content.strip():
+        # Just show the raw thinking without labels
+        thinking_lines.append(block.raw_content.strip())
+    else:
+        # Fallback: combine phase content without labels
+        if block.perception.observation:
+            thinking_lines.append(block.perception.observation)
+        
+        if block.comprehension.core_understanding:
+            thinking_lines.append(block.comprehension.core_understanding)
+        
+        if block.reasoning.hypothesis:
+            thinking_lines.append(block.reasoning.hypothesis)
+        
+        if block.decision.decision:
+            thinking_lines.append(block.decision.decision)
+    
+    # If nothing parsed, show raw content (first 500 chars)
+    if not thinking_lines and block.raw_content:
+        raw_preview = block.raw_content[:500].strip()
+        thinking_lines.append(raw_preview)
+    
+    content = "\n".join(thinking_lines) if thinking_lines else f"Phase: {primary_phase}"
+    
+    hcode_display.display_thinking_block(
+        content=content,
+        phase=primary_phase,
+        collapsed=False  # Show thinking visibly
+    )
+    
+    # Update task mode based on phase
+    if primary_phase:
+        new_mode = None
+        if primary_phase in ["PLANNING", "ANALYSIS", "COMPREHENSION", "PERCEPTION"]:
+            new_mode = TaskMode.PLANNING
+        elif primary_phase in ["EXECUTION", "REASONING", "DECISION"]:
+            new_mode = TaskMode.EXECUTION
+        elif primary_phase in ["VERIFICATION", "REFLECTION"]:
+            new_mode = TaskMode.VERIFICATION
             
-
+        if new_mode and hcode_display.current_mode and new_mode != hcode_display.current_mode:
+            hcode_display.update_mode(new_mode)
+            
+    # Add progress update from goal/understanding
+    if block.comprehension.core_understanding:
+        summary = block.comprehension.core_understanding.split('\n')[0].strip()
+        # Remove bullet points
+        if summary.startswith("- "):
+            summary = summary[2:]
+        if summary:
+            hcode_display.add_progress(summary)
 
 
 
@@ -191,51 +319,6 @@ class HcodeAgent:
         # Initialize resilient provider if multiple providers available
         self._init_resilient_provider(anthropic_key, openai_key, openai_base_url)
 
-        # Initialize refactored components
-        from ..config.settings import get_agent_settings
-        settings = get_agent_settings()
-        
-        self.renderer = OutputRenderer(self.console, debug_mode=self._is_debug_mode())
-        self.response_handler = ResponseHandler(tool_manager=self.tool_manager)
-        
-        self.loop_detector = LoopDetector(
-            stuck_threshold=settings.stuck_threshold,
-            max_recent_responses=5,
-            max_thinking_only_prompts=settings.max_thinking_only_iterations,
-        )
-
-        # ═══════════════════════════════════════════════════════════════════════════════
-        # TOOL CONFIGURATION VALIDATION
-        # Validate tools.yaml against actual registered tools
-        # ═══════════════════════════════════════════════════════════════════════════════
-        try:
-            from hcode.config.tools import get_tools_config
-            tools_cfg = get_tools_config()
-            registered_names = list(self.tool_manager.tool_registry.tools.keys())
-            
-            # Map canonical names to aliases for validation
-            validation_names = registered_names.copy()
-            # Add capitalized versions as they are common in YAML
-            validation_names.extend([n.capitalize() for n in registered_names])
-            # Add Tool suffix versions
-            validation_names.extend([f"{n.capitalize()}Tool" for n in registered_names])
-            
-            # Also allow aliases defined in the registry
-            for alias, canonical in self.tool_manager.tool_registry.TOOL_ALIASES.items():
-                validation_names.append(alias)
-                validation_names.append(alias.capitalize())
-
-            config_errors = tools_cfg.validate_health(validation_names)
-            for error in config_errors:
-                self.renderer.show_warning(f"Tool Config: {error}")
-        except Exception as e:
-            self._debug_print(f"[dim yellow]Tool config validation skipped: {e}[/dim yellow]")
-        
-        self.circuit_breaker = CircuitBreaker(
-            max_consecutive_errors=settings.consecutive_error_threshold,
-            max_command_retries=2
-        )
-
     def _is_debug_mode(self) -> bool:
         """Check if debug mode is enabled."""
         return self.config.get("debug", False) or self.config.get("ui", {}).get("debug_mode", False)
@@ -258,6 +341,7 @@ class HcodeAgent:
         if anthropic_key and openai_key:
             try:
                 from ..providers.resilient_provider import (
+                    ResilientProvider,
                     create_resilient_provider,
                 )
 
@@ -343,7 +427,7 @@ class HcodeAgent:
             Task result
         """
         # Start safety transaction
-        self.safety_guard.start_transaction(description=task)
+        tx_id = self.safety_guard.start_transaction(description=task)
 
         # Track execution with analytics
         import time
@@ -456,7 +540,7 @@ class HcodeAgent:
 
             # Track completion with analytics
             self.execution_state.transition(ExecutionState.COMPLETED)
-
+            task_duration = time.time() - task_start_time
             self.analytics.end_conversation(
                 self.context_manager.session_id,
                 success=True,
@@ -571,7 +655,7 @@ class HcodeAgent:
 **OS**: Windows
 
 IMPORTANT: When using tools that require file paths, ALWAYS use paths relative to or within the project root above.
-DO NOT use generic paths that assume a specific environment. Use the actual project root shown above."""
+DO NOT use generic paths like "/workspace" or "/home/user". Use the actual project root shown above."""
 
         # Add memory context if available
         if self.memory_manager:
@@ -702,10 +786,32 @@ When the user says things like "yes", "proceed", "continue", "do it", "ok", or s
 
     async def _execute_with_tools(self, stream: bool = False) -> str:
         """
-        Execute task with tool calling support, using refactored components.
+        Execute task with tool calling support, automatic tool execution loop,
+        and automatic continuation for long outputs.
+
+        Implements Claude Code-like seamless generation by:
+        1. Detecting when output is truncated (finish_reason = "length")
+        2. Automatically continuing generation
+        3. Merging responses seamlessly
+        4. Checking todo list for incomplete tasks and continuing
+        5. STOPPING ONLY when the task is truly complete
+
+        ROBUSTNESS FEATURES:
+        - Graceful error recovery - never crashes, always returns something
+        - Automatic retry on transient errors
+        - Truncated content detection and continuation
+        - Partial results saved on failure
+        - NO HARD ITERATION LIMIT - continues until task completion
+
+        The agent will continue until:
+        - Task is explicitly completed (model says done/complete)
+        - Too many consecutive errors occur (circuit breaker)
+        - Model is stuck in a loop (same response repeated)
         """
-        # Get tool schemas from external config
+
+        # Get tool schemas from external config (Claude Code style)
         from ..config.tools import get_tools_config
+
         tools_config = get_tools_config()
         provider_name = self.current_provider.get_provider_name().lower()
 
@@ -716,310 +822,1264 @@ When the user says things like "yes", "proceed", "continue", "do it", "ok", or s
 
         all_response_parts = []
         iteration = 0
-        
-        # Helper states
-        completed_actions = []
-        modified_files = set()
-        recent_write_or_edit = False  # Track if we just did a Write/Edit (suppresses false positives)
-        
-        # Load limits
-        from ..config.settings import get_agent_settings
-        settings = get_agent_settings()
-        max_iterations = settings.max_iterations
+        consecutive_no_tool_calls = 0  # Track iterations without tool calls
+        last_tool_call_iteration = 0
+        consecutive_errors = 0  # Track consecutive errors for circuit breaker
+        max_consecutive_errors = 3
+        consecutive_hallucinations = 0  # Track consecutive hallucinations to preventing infinite loops
+        max_consecutive_hallucinations = 5
+        partial_file_content = {}  # Track partial file content for long writes
+        accumulated_results = []  # Track all results even on failure
+        last_successful_response = ""  # Keep track of last successful output
 
+        # LLM-DRIVEN COMPLETION: Track todo continuation prompts
+        todo_continuation_prompts = 0  # Track how many times we've prompted about incomplete todos
+        max_todo_continuation_prompts = 3  # Safety limit to prevent infinite loops
+
+        # SUBSTANTIVE ANSWER CHECK: Track prompts for actual user-facing response
+        answer_prompts = 0  # Track how many times we've prompted for substantive answer
+        max_answer_prompts = 5  # Increased to handle thinking-only loops better
+        
+        # THINKING-ONLY LOOP DETECTION: Track when model outputs only thinking without action
+        thinking_only_prompts = 0
+        max_thinking_only_prompts = 5  # Max times to prompt before giving up
+        
+        # MODIFIED FILES TRACKING: Prevent re-processing same files
+        modified_files = set()  # Track files that have been written this session
+
+        # RETRY LOOP PREVENTION: Track failed commands to prevent infinite retries
+        failed_commands: Dict[str, int] = {}  # command -> failure count
+        max_command_retries = 2  # Maximum times to retry the same failing command
+
+        # LOOP DETECTION: Track recent responses to detect stuck loops
+        recent_responses: List[str] = []
+        max_recent_responses = 5
+        stuck_threshold = 3  # If same response appears this many times, we're stuck
+
+        # MAX ITERATION SAFETY: Prevent runaway loops
+        max_iterations = 50  # Safety limit - should complete most tasks
+
+        # TASK TRACKING: Track completed actions for summary
+        completed_actions: List[Dict[str, Any]] = []
+
+        # Continue until task completion or max iterations
         while iteration < max_iterations:
-            try:
+            try:  # ROBUSTNESS: Wrap each iteration in try-except
                 iteration += 1
-                
-                # 1. State & Loop Checks
-                loop_status = self.loop_detector.check_stuck_loop()
-                if loop_status.should_stop:
-                    self.renderer.show_warning(loop_status.reason)
-                    break
 
-                # 2. Context Refresh (Dynamic System Prompt)
+                # Progress feedback every 10 iterations
+                if iteration > 1 and iteration % 10 == 0:
+                    self._debug_print(f"[dim][...] Processing... (iteration {iteration})[/dim]")
+
+                # DYNAMIC CONTEXT REFRESH: Reload system prompt to include latest task.md/plan.md
+                # This ensures the model "sees" the updated task status immediately
                 if iteration > 1:
                     try:
+                        # Re-build system prompt (query=None to avoid expensive memory re-fetch)
                         refreshed_prompt = self._build_system_prompt(query=None)
                         self.context_manager.set_system_prompt(refreshed_prompt)
-                    except Exception as e:
-                        self._debug_print(f"Failed to refresh context: {e}")
+                        # self._debug_print("[dim]↻ Refreshed system prompt with latest task context[/dim]")
+                    except Exception as refresh_err:
+                        self._debug_print(f"[dim yellow]⚠ Failed to refresh context: {refresh_err}[/dim yellow]")
 
-                # 3. Context Management
-                # Calculate available tokens
+                # LOOP DETECTION: Check if we're stuck repeating the same response
+                if len(recent_responses) >= stuck_threshold:
+                    # Check for repeated responses
+                    last_response_hash = hash(recent_responses[-1][:500]) if recent_responses else 0
+                    repeat_count = sum(
+                        1 for r in recent_responses if hash(r[:500]) == last_response_hash
+                    )
+                    if repeat_count >= stuck_threshold:
+                        self._debug_print(
+                            f"[yellow][!] Detected stuck loop (same response {repeat_count} times). Breaking out.[/yellow]"
+                        )
+                        break
+
+                # Get messages with context - ensure we leave room for output
                 context_window = self.current_provider.get_context_window()
-                available_for_context = context_window - self.current_provider.max_tokens - 2000
-                if available_for_context < 4000:
-                    available_for_context = 4000
-                    
+                max_output_tokens = self.current_provider.max_tokens
+
+                # Calculate available tokens for context, with safety minimum
+                available_for_context = context_window - max_output_tokens - 2000  # Extra buffer
+                min_context_tokens = 4000  # Minimum context to be useful
+
+                if available_for_context < min_context_tokens:
+                    # Context overflow - need to truncate more aggressively
+                    self._debug_print(
+                        f"[yellow][!] Context near limit. Truncating older messages.[/yellow]"
+                    )
+                    available_for_context = min_context_tokens
+
                 messages = self.context_manager.get_messages(max_tokens=available_for_context)
 
-                # 4. Generate Response
-                if iteration == 1 and self._is_debug_mode():
-                     self.console.print("[dim][*] Thinking...[/dim]", end="\r")
+                # CLAUDE CODE STYLE: Show thinking indicator on first iteration
+                if iteration == 1:
+                    if self._is_debug_mode():
+                        self.console.print(f"[dim][*] Thinking...[/dim]", end="\r")
 
+                # Generate completion with tools
+                finish_reason = "stop"
                 response_text = ""
                 raw_response = None
-                finish_reason = "stop"
-                
+                response = None  # Initialize to prevent UnboundLocalError if exception occurs early
+                displayed_thinking = False
+
                 try:
-                    # Execute generation (delegated to simpler block or helper in future)
                     if stream and iteration == 1:
-                        # Streaming Logic
+                        # Only stream the first iteration
                         response_parts = []
-                        
-                        # Use existing stream handling logic (simplified)
-                         # Hcode display integration
-                        from hcode.ui.hcode_display import get_hcode_display
-                        hcode_display = get_hcode_display(self.console)
-                        
-                        # We still keep some UI logic here for streaming because it's tightly coupled to the provider stream
-                        # Ideally this moves to OutputRenderer too
                         stream_result = await self.current_provider.generate_completion(
                             messages=messages,
                             stream=True,
                             functions=tool_schemas if provider_name == "openai" else None,
                             tools=tool_schemas if provider_name == "anthropic" else None,
                         )
-                        
-                        # ... Simplified streaming Loop ...
-                        async for chunk in stream_result:
-                            response_parts.append(chunk)
-                            # (We would delegate real-time rendering to renderer here)
-                            print(chunk, end="", flush=True) 
 
-                        print() # Newline
-                        response_text = "".join(response_parts)
+                        # NOTE: Don't clear thinking indicator here - let it animate until content arrives
+                        # The thinking timer will be stopped when first response content is received
+
+                        # Hcode display integration
+                        from hcode.ui.hcode_display import get_hcode_display
+                        from hcode.ui.live_todo_bar import get_stdout_lock, get_live_todo_bar
+                        hcode_display = get_hcode_display(self.console)
+                        stdout_lock = get_stdout_lock()
+
+                        # Pause todo bar during streaming to prevent ANSI code interference
+                        live_bar = get_live_todo_bar(self.console)
+                        live_bar.pause()
                         
+                        # Explicitly clear the status area to ensure no ghost lines remain
+                        # This prevents the "Thought for Xs" timer from overlapping or repeating
+                        live_bar._clear_status_area()
+
+                        try:
+                            buffer = ""
+                            in_thinking = False
+                            thinking_content = []
+                            first_chunk = True
+                            displayed_thinking = False
+
+                            async for chunk in stream_result:
+                                response_parts.append(chunk)
+                                buffer += chunk
+
+                                # Check for thinking block start
+                                if "<thinking>" in buffer and not in_thinking:
+                                    pre, post = buffer.split("<thinking>", 1)
+                                    if pre:
+                                        hcode_display.end_thinking()
+                                        with stdout_lock:
+                                            print(pre, end="", flush=True)
+                                    in_thinking = True
+                                    buffer = post
+                                    if not hcode_display.thinking_start_time:
+                                        hcode_display.start_thinking()
+                                    # Add newline before thinking content starts
+                                    with stdout_lock:
+                                        print()  # New line to separate from timer
+
+                                if in_thinking:
+                                    if "</thinking>" in buffer:
+                                        content, remaining = buffer.split("</thinking>", 1)
+                                        thinking_content.append(content)
+                                        # Suppress raw thinking output
+                                        # if content:
+                                        #     with stdout_lock:
+                                        #         print(content, end="", flush=True)
+                                        
+                                        full_thinking = "".join(thinking_content)
+
+                                        hcode_display.end_thinking()
+
+                                        # Display thinking block
+                                        if full_thinking.strip():
+                                            hcode_display.display_thinking_block(full_thinking)
+                                        displayed_thinking = True
+
+                                        in_thinking = False
+                                        buffer = remaining
+                                        thinking_content = []
+                                    else:
+                                        # Streaming thinking content...
+                                        thinking_content.append(buffer)
+                                        # Suppress raw thinking output
+                                        # with stdout_lock:
+                                        #     print(buffer, end="", flush=True)
+                                        buffer = ""
+                                else:
+                                    if "<" in buffer and len(buffer) < 20:
+                                        pass
+                                    else:
+                                        if first_chunk and buffer.strip():
+                                            hcode_display.end_thinking()
+                                            first_chunk = False
+                                        with stdout_lock:
+                                            print(buffer, end="", flush=True)
+                                        buffer = ""
+
+                            if buffer:
+                                if in_thinking:
+                                    thinking_content.append(buffer)
+                                    full_thinking = "".join(thinking_content)
+                                    hcode_display.end_thinking()
+
+                                    # Display thinking block
+                                    if full_thinking.strip():
+                                        hcode_display.display_thinking_block(full_thinking)
+                                    displayed_thinking = True
+                                else:
+                                    if first_chunk:
+                                        hcode_display.end_thinking()
+                                    with stdout_lock:
+                                        print(buffer, end="", flush=True)
+
+                            with stdout_lock:
+                                print()  # New line
+                        finally:
+                            # Resume todo bar rendering after streaming completes (even if error occurs)
+                            live_bar.resume()
+
+                        response_text = "".join(response_parts)
+                        # For streaming, we need to check finish reason differently
+                        # Assume "stop" unless the response looks truncated
                         if self.continuation_manager.should_continue("stop", response_text):
                             finish_reason = "length"
-
                     else:
-                        # Non-streaming
                         response = await self.current_provider.generate_completion(
                             messages=messages,
                             stream=False,
                             functions=tool_schemas if provider_name == "openai" else None,
                             tools=tool_schemas if provider_name == "anthropic" else None,
                         )
+
+                        # Clear thinking indicator
                         if iteration == 1:
                             self.console.print(" " * 20, end="\r")
-                            
-                        response_text = response.content
-                        raw_response = getattr(response, "raw_response", None)
-                        finish_reason = getattr(response, "finish_reason", "stop")
 
-                    # Record Success
-                    self.circuit_breaker.record_success()
-                    all_response_parts.append(response_text)
+                        response_text = response.content
+                        raw_response = (
+                            response.raw_response if hasattr(response, "raw_response") else None
+                        )
+                        finish_reason = (
+                            response.finish_reason if hasattr(response, "finish_reason") else "stop"
+                        )
+
+                    # Success - reset error counter and save successful response
+                    consecutive_errors = 0
+                    if response_text.strip():
+                        last_successful_response = response_text
+
+                    # EMPTY RESPONSE HANDLING: If first response is empty, add explicit instruction
+                    if iteration == 1 and not response_text.strip():
+                        self.console.print(
+                            f"[dim yellow][!] Empty first response. Adding guidance...[/dim yellow]"
+                        )
+                        # Add a direct instruction to the context
+                        self.context_manager.add_message(
+                            role="user",
+                            content="Please respond to the task above. Start with a brief explanation of what you'll do, then call a tool.",
+                            importance=1.0,
+                            provider=self.current_provider,
+                        )
+                        continue  # Retry with the guidance
 
                 except Exception as gen_error:
-                    # Circuit Breaker Handling
-                    status = self.circuit_breaker.record_error(gen_error)
-                    self.renderer.show_error(f"Generation error: {gen_error}")
-                    
-                    if status.is_open:
-                        self.renderer.show_error("Circuit breaker open. Stopping.")
-                        if all_response_parts:
-                            return "\n".join(all_response_parts)
-                        return f"Error: {gen_error}"
-                        
-                    await asyncio.sleep(status.backoff_time)
-                    continue
-
-                # 5. Parse Response & Display
-                self.loop_detector.track_response(response_text)
-                
-                thinking, response_content = self.response_handler.parse_thinking(response_text)
-                
-                if thinking:
-                    self.renderer.show_thinking(thinking)
-                
-                # Display clean text
-                clean_text = self.response_handler.clean_response_text(response_content)
-                self.renderer.show_response(clean_text)
-
-                # 6. Extract & Validate Tools
-                tool_calls = self.response_handler.extract_tool_calls(raw_response, response_text, provider_name)
-                valid_calls, validation_errors = self.response_handler.validate_tool_calls(tool_calls)
-
-                # Handle validation errors
-                for error in validation_errors:
-                    self.renderer.show_error(error)
-                    self.context_manager.add_message(
-                        role="user",
-                        content=f"Tool Validation Error: {error}",
-                        importance=1.0,
-                        provider=self.current_provider
+                    # Handle generation errors gracefully
+                    consecutive_errors += 1
+                    error_msg = str(gen_error)
+                    self.console.print(
+                        f"[bold red][!] Generation error (attempt {consecutive_errors}/{max_consecutive_errors}): {escape(error_msg[:100])}[/bold red]"
                     )
 
-                # 7. Execute Tools
-                if valid_calls:
-                    # Filter already modified files
-                    filtered_calls = []
-                    for tc in valid_calls:
-                        path_param = tc.get("arguments", {}).get("file_path", "")
-                        if tc.get("name") in ["Write", "Edit"] and path_param in modified_files:
-                            self.renderer.show_warning(f"Skipping {path_param} - already modified")
+                    if consecutive_errors >= max_consecutive_errors:
+                        self.console.print(
+                            f"[bold red][X] Too many consecutive errors. Returning accumulated results.[/bold red]"
+                        )
+                        # Return whatever we have so far
+                        if all_response_parts:
+                            return "\n".join(all_response_parts)
+                        elif last_successful_response:
+                            return last_successful_response
                         else:
-                            filtered_calls.append(tc)
+                            return f"Task interrupted due to errors: {error_msg}"
+
+                    # Wait before retry
+                    await asyncio.sleep(2)
+                    continue
+
+                all_response_parts.append(response_text)
+                accumulated_results.append({"iteration": iteration, "response": response_text})
+
+                # LOOP DETECTION: Track recent responses
+                recent_responses.append(response_text)
+                if len(recent_responses) > max_recent_responses:
+                    recent_responses.pop(0)  # Remove oldest
+
+                # DEEP THINKING: Parse and display thinking blocks
+                thinking_block, response_without_thinking = parse_thinking_block(response_text)
+
+                if thinking_block and is_valid_thinking(thinking_block) and not displayed_thinking:
+                    # Display the thinking block (only shows verbose panel in debug mode)
+                    debug_mode = self.config.get("debug", False) or self.config.get("ui", {}).get(
+                        "debug_mode", False
+                    )
+                    format_thinking_display(thinking_block, self.console, debug_mode=debug_mode)
+
+                    # Log the thinking for debugging
+                    self.logger.log_interaction(
+                        iteration=iteration,
+                        request_messages=[],
+                        response_text=f"[THINKING] {get_thinking_summary(thinking_block)}",
+                        finish_reason="thinking",
+                        tool_calls_detected=0,
+                        continuation_needed=False,
+                        pending_work_detected=False,
+                        metadata={"thinking": thinking_block.raw_content},
+                    )
+
+                    # AUTO-EXTRACT TODOS FROM THINKING BLOCK - DISABLED
+                    # This was causing garbage todos from thinking text patterns
+                    # Let the model explicitly call TodoWrite instead
+                    # auto_todos = self._extract_todos_from_thinking(thinking_block.raw_content)
+                    # if auto_todos and iteration <= 2:
+                    #     ... (disabled - creates garbage todos from thinking patterns)
+
+                # ═══════════════════════════════════════════════════════════════════════════════
+                # DISPLAY RESPONSE TEXT: Show the actual response to the user (not just thinking)
+                # For non-streaming iterations, we need to explicitly display the response
+                # ═══════════════════════════════════════════════════════════════════════════════
+                if iteration > 1 or not stream:
+                    # Get the response without thinking and without tool call JSON
+                    display_text = (
+                        response_without_thinking if response_without_thinking else response_text
+                    )
+
+                    # Strip out tool call JSON patterns (these shouldn't be shown to user)
+                    import re
+
+                    # Remove JSON blocks inside code fences (```json ... ```)
+                    display_text = re.sub(r"```json\s*\{[\s\S]*?\}\s*```", "", display_text)
+
+                    # Remove multiline JSON tool calls with nested content
+                    # This handles: {"tool": "X", "parameters": {...}}
+                    display_text = re.sub(
+                        r'\{\s*"tool"\s*:\s*"[^"]+"\s*,\s*"parameters"\s*:\s*\{[\s\S]*?\}\s*\}',
+                        "",
+                        display_text,
+                        flags=re.DOTALL,
+                    )
+
+                    # Remove TodoWrite JSON specifically (handles arrays in todos)
+                    display_text = re.sub(
+                        r'\{\s*"tool"\s*:\s*"TodoWrite"\s*,\s*"parameters"\s*:\s*\{[\s\S]*?"todos"\s*:\s*\[[\s\S]*?\]\s*\}\s*\}',
+                        "",
+                        display_text,
+                        flags=re.DOTALL,
+                    )
+
+                    # Remove simple tool JSON
+                    display_text = re.sub(
+                        r'\{\s*"tool"\s*:\s*"[^"]+"\s*\}', "", display_text, flags=re.DOTALL
+                    )
+
+                    # Remove any remaining JSON objects that look like tool calls
+                    display_text = re.sub(
+                        r'\{[^{}]*"tool"[^{}]*\}', "", display_text, flags=re.DOTALL
+                    )
+
+                    # Clean up excess whitespace
+                    display_text = re.sub(r"\n\s*\n\s*\n+", "\n\n", display_text)
+                    display_text = display_text.strip()
+
+                    # Only display if there's substantive content (not just whitespace or tool metadata)
+                    if display_text and len(display_text) > 20:
+                        # Check it's not just thinking metadata patterns
+                        if not re.match(
+                            r"^\s*\[(?:UNDERSTAND|CONTEXT|OPTIONS|DECISION|RISK|ASSUMPTIONS|OK|!)\]",
+                            display_text,
+                        ):
+                            self.console.print(f"\n{escape(display_text)}\n")
+
+                # THINKING ENFORCEMENT: For OpenAI/OSS models, if no thinking block found
+                # on first iteration with a tool call, request thinking first
+                if provider_name == "openai" and iteration == 1:
+                    tool_calls_preview = self._extract_tool_calls(
+                        raw_response, response_text, provider_name
+                    )
+                    if tool_calls_preview and not thinking_block:
+                        # Model skipped thinking - request it thinks first
+                        self._debug_print(
+                            f"[dim yellow][!] Requesting deeper thinking before tool use...[/dim yellow]"
+                        )
+                        self.context_manager.add_message(
+                            role="user",
+                            content="""STOP! Before using that tool, you MUST think first.
+
+Output a <thinking> block that explains:
+1. UNDERSTAND: What is the user asking?
+2. CONTEXT: What do I know?
+3. OPTIONS: What tools could I use?
+4. DECISION: Why this specific tool?
+5. RISK CHECK: Is this safe?
+
+Then repeat your tool call.""",
+                            importance=1.0,
+                            provider=self.current_provider,
+                        )
+                        # Don't execute the tool yet, continue to get thinking
+                        continue
+
+                # Check for and execute tool calls
+                # 1. First checks native tool calls (from Anthropic/OpenAI providers)
+                # 2. Falls back to regex extraction if no native calls found
+                
+                tool_calls = []
+                
+                # Check for native function calls
+                if hasattr(response, "tool_calls") and response.tool_calls:
+                    # Convert ToolCall objects to dictionaries for processing
+                    for tc in response.tool_calls:
+                        tool_calls.append({
+                            "tool": tc.name,
+                            "name": tc.name,   # Support both conventions
+                            "parameters": tc.arguments,
+                            "arguments": tc.arguments, # Support both conventions
+                            "id": tc.id,
+                            "type": "native" # Flag as native
+                        })
+                
+                # Fallback to text extraction if no native calls found
+                if not tool_calls:
+                    tool_calls = self._extract_tool_calls(raw_response, response_text, provider_name)
                     
-                    # Execute
-                    tool_results = await self._execute_tool_calls(filtered_calls)
+                # VALIDATION LAYER: Validate tool calls before execution
+                if tool_calls:
+                    from hcode.tools.validator import ToolCallValidator
+                    validator = ToolCallValidator(self.tool_manager)
                     
-                    # Process Results
-                    for tool_name, result, args in tool_results:
-                        self.renderer.show_tool_result(tool_name, result, args)
+                    validated_calls = []
+                    for tc in tool_calls:
+                        tool_name = tc.get("name") or tc.get("tool", "")
+                        args = tc.get("arguments") or tc.get("parameters", {})
                         
-                        if result.success:
-                            # Update Loop Detector state
-                            self.loop_detector.track_thinking_only(has_tools=True)
-                            
-                            # Track modified files
-                            if tool_name in ["Write", "Edit"]:
-                                path = args.get("file_path")
-                                if path: modified_files.add(path)
-                                recent_write_or_edit = True  # Mark for hallucination suppression
-                                
-                        else:
-                            # Circuit breaker for specific command logic could go here
-                            pass
-                            
-                else:
-                    # No tools used
-                    loop_res = self.loop_detector.track_thinking_only(has_tools=False)
-                    # Check for hallucination using robust confidence scoring
-                    is_hallucinating = False
-                    hallucination_confidence = 0.0
-                    
-                    has_code_block = "```" in response_text
-                    
-                    if has_code_block:
-                        import re
-                        text_lower = response_text.lower()
-                        
-                        # ═══════════════════════════════════════════════════════════════════
-                        # POSITIVE INDICATORS (suggest hallucination)
-                        # ═══════════════════════════════════════════════════════════════════
-                        
-                        # Strong action phrases (weight: +0.4 each, max contributes 0.8)
-                        strong_action_phrases = [
-                            "i updated", "i fixed", "i modified", "i changed", 
-                            "i wrote", "i created the file", "i applied", 
-                            "i have updated", "i have fixed", "i have modified",
-                            "made the changes", "applied the fix", "file has been updated",
-                            "changes have been applied", "here are the changes i made",
-                        ]
-                        strong_matches = sum(1 for p in strong_action_phrases if p in text_lower)
-                        hallucination_confidence += min(strong_matches * 0.4, 0.8)
-                        
-                        # Weak action phrases (weight: +0.2 each, max contributes 0.4)
-                        weak_action_phrases = [
-                            "updated", "fixed", "modified", "changed", "wrote",
-                        ]
-                        weak_matches = sum(1 for p in weak_action_phrases if p in text_lower)
-                        hallucination_confidence += min(weak_matches * 0.2, 0.4)
-                        
-                        # File path patterns in code blocks (weight: +0.3)
-                        # Suggests the code is meant for a specific file
-                        file_path_pattern = re.compile(r"```\w*\n.*?(?:# (?:file|path):|// (?:file|path):|\w+\.\w+)", re.IGNORECASE | re.DOTALL)
-                        if file_path_pattern.search(response_text):
-                            hallucination_confidence += 0.3
-                        
-                        # Diff-like content (weight: +0.4)
-                        # Suggests an edit was intended
-                        if re.search(r"```diff|^[-+].*\n[-+]", response_text, re.MULTILINE):
-                            hallucination_confidence += 0.4
-                        
-                        # ═══════════════════════════════════════════════════════════════════
-                        # NEGATIVE INDICATORS (reduce hallucination score)
-                        # ═══════════════════════════════════════════════════════════════════
-                        
-                        # Explanatory phrases (weight: -0.3 each, max reduction 0.6)
-                        explanatory_phrases = [
-                            "here is an example", "for example", "you could", "you can",
-                            "this would look like", "something like", "consider using",
-                            "you might want to", "one approach is", "the syntax is",
-                            "here's how", "this is how", "would be:", "looks like:",
-                        ]
-                        explanatory_matches = sum(1 for p in explanatory_phrases if p in text_lower)
-                        hallucination_confidence -= min(explanatory_matches * 0.3, 0.6)
-                        
-                        # Read-only task context (weight: -0.5)
-                        if hasattr(self, "_current_task_is_readonly") and self._current_task_is_readonly:
-                            hallucination_confidence -= 0.5
-                        
-                        # Recent successful Write/Edit (weight: -0.6)
-                        # Confirmation code blocks after successful edits are normal
-                        if recent_write_or_edit:
-                            hallucination_confidence -= 0.6
-                            recent_write_or_edit = False  # Reset for next iteration
-                        
-                        # Question-answering patterns (weight: -0.3)
-                        qa_patterns = [
-                            "the answer is", "this shows", "this demonstrates",
-                            "this is because", "as shown above", "the output would be",
-                        ]
-                        if any(p in text_lower for p in qa_patterns):
-                            hallucination_confidence -= 0.3
-                        
-                        # ═══════════════════════════════════════════════════════════════════
-                        # DECISION: Threshold-based detection
-                        # ═══════════════════════════════════════════════════════════════════
-                        
-                        # Clamp confidence to [0, 1]
-                        hallucination_confidence = max(0.0, min(1.0, hallucination_confidence))
-                        
-                        # Threshold: 0.5 = likely hallucination
-                        if hallucination_confidence >= 0.5:
-                            is_hallucinating = True
-                            confidence_pct = int(hallucination_confidence * 100)
-                            self.renderer.show_warning(
-                                f"[!] Possible hallucination detected ({confidence_pct}% confidence) - "
-                                f"code shown but Write/Edit tool not called"
-                            )
-                            
-                            # Add corrective prompt
+                        validation = validator.validate(tool_name, args)
+                        if not validation.is_valid:
+                            self.console.print(f"[bold red]❌ Tool Validation Failed: {validation.error_message}[/bold red]")
+                            # Add error back to context so model can correct itself
                             self.context_manager.add_message(
-                                role="user", 
-                                content=(
-                                    "SYSTEM WARNING: You showed code but didn't call WriteTool or EditTool. "
-                                    "If you intended to apply changes to files, you MUST use the appropriate tools. "
-                                    "If this was just an example for the user, you can ignore this warning."
-                                ),
+                                role="user",
+                                content=f"Tool call validation failed: {validation.error_message}. Please correct your tool call.",
                                 importance=1.0,
                                 provider=self.current_provider
                             )
-                        elif hallucination_confidence >= 0.3:
-                            # Low confidence - just log for debugging
-                            self._debug_print(
-                                f"[dim yellow][?] Borderline hallucination signal ({int(hallucination_confidence*100)}%)[/dim yellow]"
-                            )
+                            continue
+                            
+                        # Log any warnings
+                        for warn in validation.warnings:
+                            self.console.print(f"[yellow]⚠️  Tool Warning: {warn}[/yellow]")
+                            
+                        validated_calls.append(tc)
+                    
+                    tool_calls = validated_calls
 
-                    loop_res = self.loop_detector.track_hallucination(is_hallucinating)
-                    if loop_res.should_stop:
-                         self.renderer.show_error(loop_res.reason)
-                         break
-                
-                # Add Assistant Message to Context
-                self.context_manager.add_message(
-                    role="assistant",
-                    content=response_text,
-                    importance=0.7,
-                    provider=self.current_provider
+                # Track if TodoWrite has been used
+                has_used_todowrite = any(
+                    tc.get("name", "").lower() == "todowrite" for tc in (tool_calls or [])
+                ) or any(
+                    action.get("tool", "").lower() == "todowrite" for action in completed_actions
                 )
 
-                # Stop conditions logic...
-                if not valid_calls and iteration > 1:
-                    # Heuristic for completion if no tools and we have a response
-                    return response_text
+                # ENFORCE TODOWRITE: On iteration 1, if no TodoWrite used, prompt for it
+                if iteration == 1 and not has_used_todowrite and tool_calls:
+                    self._debug_print(
+                        f"[dim yellow][!] Reminder: Use TodoWrite to track your tasks![/dim yellow]"
+                    )
+                    # Add reminder to context
+                    self.context_manager.add_message(
+                        role="user",
+                        content="CRITICAL: You MUST use TodoWrite tool now to create a task list. Call TodoWrite with todos array containing your planned steps (content, status='pending'|'in_progress'|'completed', activeForm). This is required for progress tracking.",
+                        importance=1.0,
+                        provider=self.current_provider,
+                    )
 
-            except Exception as e:
-                self.renderer.show_error(f"Critical loop error: {e}", is_fatal=True)
-                break
+                # Log this interaction (full response, not truncated)
+                self.logger.log_interaction(
+                    iteration=iteration,
+                    request_messages=(
+                        messages[-3:] if len(messages) > 3 else messages
+                    ),  # Last 3 for brevity
+                    response_text=response_text,  # FULL response
+                    finish_reason=finish_reason,
+                    tool_calls_detected=len(tool_calls) if tool_calls else 0,
+                    continuation_needed=False,  # Will update if needed
+                    pending_work_detected=False,  # Will update if needed
+                )
+
+                if tool_calls:
+                    consecutive_no_tool_calls = 0
+                    last_tool_call_iteration = iteration
+
+                    # FILTER DUPLICATE FILE WRITES: Skip Write calls on already-modified files
+                    filtered_tool_calls = []
+                    skipped_files = []
+                    for tc in tool_calls:
+                        tc_tool = tc.get("tool", "").lower()
+                        tc_path = tc.get("parameters", {}).get("file_path", "")
+                        
+                        # Skip Write/Edit on already-modified files
+                        if tc_tool in ["write", "writetool", "edit", "edittool"] and tc_path in modified_files:
+                            skipped_files.append(tc_path)
+                            self.console.print(f"[dim yellow]⏭️ Skipping {escape(tc_path)} - already modified this session[/dim yellow]")
+                        else:
+                            filtered_tool_calls.append(tc)
+                    
+                    # Inject warning about skipped files
+                    if skipped_files:
+                        skip_msg = f"[SYSTEM] Skipped re-processing {len(skipped_files)} already-modified files: {', '.join(skipped_files[:3])}{'...' if len(skipped_files) > 3 else ''}"
+                        self.context_manager.add_message(
+                            role="user",
+                            content=skip_msg,
+                            importance=0.5,
+                            provider=self.current_provider,
+                        )
+                    
+                    # Execute only the filtered tool calls
+                    tool_calls = filtered_tool_calls
+                    if not tool_calls:
+                        # All calls were skipped - continue to next iteration
+                        continue
+
+                    # Execute tool calls and add results to context
+                    try:
+                        tool_results = await self._execute_tool_calls(tool_calls)
+                        # Track completed actions for summary
+                        for tool_name, result, arguments in tool_results:
+                            action = {
+                                "tool": tool_name,
+                                "success": result.success,
+                                "args": arguments,
+                                "iteration": iteration,
+                            }
+                            completed_actions.append(action)
+
+                            # AUTO-UPDATE TODOS: Mark matching todos as completed
+                            self._auto_update_todos(action)
+                            
+                            # HCODE: Track file operations
+                            if result.success:
+                                try:
+                                    from hcode.ui.hcode_display import get_hcode_display, FileAction
+                                    hcode_display = get_hcode_display(self.console)
+                                    
+                                    t_lower = tool_name.lower()
+                                    if "write" in t_lower or "edit" in t_lower or "replace" in t_lower:
+                                        fpath = arguments.get("file_path") or arguments.get("target_file") or arguments.get("targetfile")
+                                        if fpath:
+                                            hcode_display.track_file(fpath, FileAction.EDITED)
+                                    elif "read" in t_lower or "view" in t_lower:
+                                        fpath = arguments.get("file_path") or arguments.get("absolute_path") or arguments.get("absolutepath")
+                                        if fpath:
+                                            hcode_display.track_file(fpath, FileAction.VIEWED)
+                                except Exception:
+                                    pass  # Don't fail if tracking fails
+                    except Exception as tool_error:
+                        self.console.print(
+                            f"[bold red][!] Tool execution error: {escape(str(tool_error))}[/bold red]"
+                        )
+                        tool_results = []
+                        # Continue anyway - don't crash
+
+                    # Add assistant message with tool calls to context
+                    self.context_manager.add_message(
+                        role="assistant",
+                        content=response_text,
+                        importance=0.7,
+                        provider=self.current_provider,
+                    )
+
+                    # Add tool results to context with continuation guidance
+                    for tool_name, result, arguments in tool_results:
+                        # Log tool call with FULL output (not truncated)
+                        self.logger.log_tool_call(
+                            tool_name=tool_name,
+                            arguments=arguments,
+                            success=result.success,
+                            output=result.output,  # FULL output for debugging
+                            error=result.error,
+                            metadata=result.metadata if hasattr(result, "metadata") else {},
+                        )
+
+                        # RETRY LOOP PREVENTION: Track failed commands
+                        if not result.success:
+                            # Create a unique key for the command
+                            cmd_key = self._get_command_key(tool_name, arguments)
+                            failed_commands[cmd_key] = failed_commands.get(cmd_key, 0) + 1
+
+                            if failed_commands[cmd_key] > max_command_retries:
+                                self.console.print(
+                                    f"[bold red][!] Command has failed {failed_commands[cmd_key]} times. Stopping retry loop.[/bold red]"
+                                )
+                                self.logger.log_error(
+                                    f"Retry loop detected: {tool_name} failed {failed_commands[cmd_key]} times",
+                                    context={"command_key": cmd_key, "arguments": arguments},
+                                )
+
+                        if result.success:
+                            # TRACK MODIFIED FILES: Add to set when Write/Edit succeeds
+                            if tool_name.lower() in ["writetool", "write", "edittool", "edit", "fuzzyedit", "multiedit", "multiedittool"]:
+                                file_path = arguments.get("file_path", "")
+                                if file_path:
+                                    modified_files.add(file_path)
+                                    self._debug_print(f"[dim]📝 Tracked modified file: {file_path}[/dim]")
+                            
+                            # Check if this was a truncated file write that needs continuation
+                            is_truncated_write = (
+                                result.metadata
+                                and result.metadata.get("is_truncated", False)
+                                and tool_name.lower() in ["writetool", "write"]
+                            )
+
+                            if is_truncated_write:
+                                # Special handling for truncated file writes
+                                file_path = arguments.get("file_path", "the file")
+                                truncation_reason = result.metadata.get(
+                                    "truncation_reason", "incomplete content"
+                                )
+                                result_content = f"""Tool '{tool_name}' wrote PARTIAL content to {file_path}.
+
+[!]️ FILE CONTENT IS TRUNCATED: {truncation_reason}
+
+The file was written but the content appears incomplete. You MUST continue writing the remaining content.
+
+To continue the file, use WriteTool with mode='append':
+{{"tool": "WriteTool", "parameters": {{"file_path": "{file_path}", "content": "<remaining content>", "mode": "append"}}}}
+
+IMPORTANT: Continue from EXACTLY where the content was cut off. Do not restart the file.
+
+Continue generating the remaining content now:"""
+                            else:
+                                # Limit output size to prevent context overflow
+                                # Use SMART truncation: keep head + tail to preserve important info
+                                MAX_OUTPUT_CHARS = 15000  # ~4k tokens
+                                output_text = result.output
+                                output_truncated = False
+
+                                if len(output_text) > MAX_OUTPUT_CHARS:
+                                    output_truncated = True
+                                    # Smart truncation: keep first part AND last part
+                                    # This ensures we see both the start and end of output
+                                    # (e.g., for test results, we need the TOTAL line at the end)
+                                    HEAD_CHARS = int(MAX_OUTPUT_CHARS * 0.6)  # 60% for head
+                                    TAIL_CHARS = int(MAX_OUTPUT_CHARS * 0.35)  # 35% for tail
+                                    head = output_text[:HEAD_CHARS]
+                                    tail = output_text[-TAIL_CHARS:]
+                                    truncated_count = len(output_text) - HEAD_CHARS - TAIL_CHARS
+                                    output_text = f"{head}\n\n... [{truncated_count} characters omitted] ...\n\n{tail}"
+
+                                result_content = f"""Tool '{tool_name}' executed successfully.
+
+RESULT:
+{output_text}
+
+NEXT STEPS - You MUST do one of the following:
+1. If the task requires more exploration, call another tool using the correct format:
+   {{"tool": "ToolName", "parameters": {{"param": "value"}}}}
+
+2. If you have enough information, provide a complete answer to the user in natural language.
+
+DO NOT output partial JSON like {{"path": "..."}} - this is invalid.
+DO NOT stop without completing the user's request.
+
+What will you do next?"""
+                        else:
+                            # CRITICAL: For failed tools, include BOTH error and output
+                            # Many test runners put actual errors in stdout, not stderr
+                            full_error_info = result.error or "Unknown error"
+
+                            # Include stdout too - it often contains critical error details
+                            # But limit size to prevent context overflow
+                            MAX_ERROR_OUTPUT_CHARS = 10000  # ~2.5k tokens
+                            output_info = ""
+                            if result.output and result.output.strip():
+                                output_text = result.output
+                                if len(output_text) > MAX_ERROR_OUTPUT_CHARS:
+                                    output_text = output_text[:MAX_ERROR_OUTPUT_CHARS]
+                                    output_text += (
+                                        f"\n\n... [TRUNCATED - see full output in log file]"
+                                    )
+                                output_info = f"\n\nFULL OUTPUT (may contain additional error details):\n{output_text}"
+
+                            # Check for retry loop
+                            cmd_key = self._get_command_key(tool_name, arguments)
+                            retry_count = failed_commands.get(cmd_key, 0)
+                            retry_warning = ""
+                            if retry_count >= max_command_retries:
+                                retry_warning = f"""
+
+[!] STOP! This exact command has FAILED {retry_count} TIMES already.
+DO NOT run this command again. You MUST try a DIFFERENT approach:
+- Read the error message carefully
+- Use Read or Grep to investigate the root cause
+- Fix the underlying issue before running tests again
+- Or ask the user for help if you're stuck
+"""
+
+                            result_content = f"""Tool '{tool_name}' failed.
+
+ERROR: {full_error_info}
+{output_info}
+{retry_warning}
+IMPORTANT: Read the FULL error message above carefully. Do NOT retry the same command.
+Instead, analyze the error and:
+1. If it's a missing module error - check if the module exists or needs to be installed
+2. If it's a file not found error - verify the path is correct
+3. If it's a syntax error - read the specific error and fix it
+4. If you need more information - use Read or Grep tools to investigate
+
+What specific action will you take to address this error?"""
+
+                        self.context_manager.add_message(
+                            role="user",  # Tool results are added as user messages for the next turn
+                            content=result_content,
+                            importance=0.6,
+                            provider=self.current_provider,
+                        )
+
+                        # Display tool execution with tool-specific formatting
+                        self._display_tool_result(tool_name, result, arguments)
+
+                    continue  # Continue loop for next iteration
+                else:
+                    consecutive_no_tool_calls += 1
+
+                    # DETECT HALLUCINATION: If model claims to have results without calling tools
+                    # This captures cases where model says "Result of reading X:" but didn't call Read
+                    hallucination_indicators = [
+                        "Result of reading",
+                        "Output of command",
+                        "Result of running",
+                        # "File content:", # Too broad, often valid explanation
+                        # "found in the file", # Too broad, often valid explanation
+                        # "The file contains:", # Too broad, often valid explanation
+                        # "cat ", # Too broad, likely valid command explanation
+                        # "grep ", # Too broad, likely valid command explanation
+                    ]
+                    
+                    # Only check non-thinking part
+                    check_text_lower = (response_without_thinking if thinking_block else response_text).lower()
+                    
+                    # Check if any indicator exists AND it looks like a claim of action
+                    is_hallucinating = any(ind.lower() in check_text_lower for ind in hallucination_indicators)
+                    
+                    if is_hallucinating: # Hallucination check ENABLED
+                        consecutive_hallucinations += 1
+                        
+                        # Stop if too many hallucinations
+                        if consecutive_hallucinations >= max_consecutive_hallucinations:
+                            self.console.print(f"\n[bold red][!] Too many consecutive hallucinations ({consecutive_hallucinations}). Stopping loop.[/bold red]")
+                            break
+                        
+                        self.console.print(f"\n[bold red]⚠️ DETECTED SIMULATED TOOL OUTPUT (HALLUCINATION {consecutive_hallucinations}/{max_consecutive_hallucinations})[/bold red]")
+                        self.console.print("[dim]Model claimed to show output but didn't call tools. Forcing retry...[/dim]\n")
+                        
+                        self.context_manager.add_message(
+                            role="user",
+                            content="""CRITICAL ERROR: You are hallucinating tool outputs!
+                            
+You claimed to show the result of reading a file or running a command, BUT YOU DID NOT ACTUALLY CALL ANY TOOL.
+
+You MUST emit the JSON for the tool call. Do not invent the output.
+
+Call the tool now:""",
+                            importance=1.0,
+                            provider=self.current_provider
+                        )
+                        continue
+                    else:
+                        # Reset counter if not hallucinating
+                        consecutive_hallucinations = 0
+
+                # ═══════════════════════════════════════════════════════════════════════════════
+                # LLM-DRIVEN COMPLETION: Let the model decide when task is complete
+                # Simple rules:
+                #   1. If model made tool calls this iteration → continue (it's working)
+                #   2. If model stopped (finish_reason="stop") with no tool calls → it's done
+                #   3. Only override if response is truncated/incomplete
+                # ═══════════════════════════════════════════════════════════════════════════════
+
+                # Get todo state for reference only
+                todos_state = self._get_todos_completion_state()
+                all_todos_completed = (
+                    todos_state["total"] == 0 or todos_state["completed"] == todos_state["total"]
+                )
+
+                # Check for truncated/incomplete response (model was cut off)
+                response_stripped = response_text.strip()
+                is_truncated = self._is_response_truncated(response_text, finish_reason)
+
+                # LLM decides: If model stopped and didn't make tool calls, it's signaling completion
+                model_signaled_done = finish_reason == "stop" and not is_truncated
+
+                # Task is complete if:
+                # - Model signaled done (no more tool calls, finish_reason=stop)
+                # - AND response is not empty/truncated
+                # - AND response has content OUTSIDE of thinking block
+                check_text = response_without_thinking if thinking_block else response_text
                 
-        return "\n".join(all_response_parts)
+                # CRITICAL FIX: Detect thinking-only responses (no actual content, no tool calls)
+                # This prevents marking task as complete when model just thinks without acting
+                is_thinking_only = (
+                    thinking_block and 
+                    (not response_without_thinking or len(response_without_thinking.strip()) < 20) and
+                    not tool_calls
+                )
+                
+                # CRITICAL FIX 2: Detect incomplete responses that end mid-sentence
+                # This catches cases like "To fulfill the request I must:" which is clearly unfinished
+                check_text_stripped = check_text.strip() if check_text else ""
+                is_incomplete_response = (
+                    not tool_calls and
+                    not self._has_substantive_answer(check_text) and
+                    (
+                        check_text_stripped.endswith(':') or  # Ends with colon (incomplete list)
+                        check_text_stripped.endswith('...') or  # Ends with ellipsis
+                        check_text_stripped.endswith(',') or  # Ends with comma
+                        (len(check_text_stripped) > 0 and len(check_text_stripped) < 100 and ':' in check_text_stripped)  # Short with colon
+                    )
+                )
+                
+                # CRITICAL FIX 3: Detect when model outputs code blocks but doesn't call Write/Edit
+                # This is a hallucination pattern where the model shows code instead of actually editing files
+                import re
+                code_block_pattern = r'```(?:python|py|javascript|js|typescript|ts|json|yaml|yml|markdown|md|html|css|bash|shell|sh)?\s*\n'
+                has_code_blocks = bool(re.search(code_block_pattern, response_text, re.IGNORECASE))
+                has_write_or_edit_tool = any(
+                    tc.get('tool', '').lower() in ('write', 'writetool', 'edit', 'edittool', 'fuzzyedit')
+                    for tc in tool_calls
+                ) if tool_calls else False
 
+                # Check if response contains evidence that tools were ALREADY executed (summary after edits)
+                # Evidence: diff markers, tool result boxes, completion messages
+                has_tool_execution_evidence = bool(
+                    re.search(r'(\+\d+ -\d+ lines changed|╭───.*───╮|\[\[OK\]\]|✓ Edit|✗ Edit failed)', response_text, re.IGNORECASE | re.MULTILINE)
+                )
+
+                # Check if response is providing a summary or walkthrough (allow code blocks in this case)
+                is_walkthrough_context = (
+                    'walkthrough.md' in response_text.lower() or
+                    'summary' in response_text.lower() or
+                    'verification' in response_text.lower() or
+                    'task.md' in response_text.lower()
+                )
+
+                # If response has code blocks but no Write/Edit tool call AND no evidence of prior execution, it's hallucinating
+                # CAUTION: Allow code blocks in summaries/walkthroughs to prevent false positives
+                is_code_block_hallucination = (
+                    has_code_blocks
+                    and not has_write_or_edit_tool
+                    and not tool_calls
+                    and not has_tool_execution_evidence
+                    and not is_walkthrough_context
+                )
+                
+                # If response is ONLY thinking block, DO NOT consider task complete
+                if is_thinking_only and thinking_only_prompts < max_thinking_only_prompts:
+                    thinking_only_prompts += 1
+                    self.console.print(
+                        f"[dim yellow][!] Thinking-only response detected, prompting for action (prompt {thinking_only_prompts}/{max_thinking_only_prompts})[/dim yellow]"
+                    )
+                    self.context_manager.add_message(
+                        role="user",
+                        content="""🚨 CRITICAL ERROR: You outputted ONLY a <thinking> block but NO tool call!
+
+This is WRONG. After thinking, you MUST output a tool call JSON.
+
+OUTPUT ONE OF THESE RIGHT NOW (pick the most relevant):
+
+To find files:
+{"tool": "Glob", "parameters": {"pattern": "**/*.py"}}
+
+To read a file:
+{"tool": "Read", "parameters": {"file_path": "path/to/file.py"}}
+
+To list directory:
+{"tool": "LS", "parameters": {"path": "."}}
+
+To search content:
+{"tool": "Grep", "parameters": {"pattern": "search_term"}}
+
+To edit a file (after reading it):
+{"tool": "Edit", "parameters": {"file_path": "file.py", "old_string": "old code", "new_string": "new code"}}
+
+DO NOT output more thinking. Output the JSON tool call NOW:""",
+                        importance=1.0,
+                        provider=self.current_provider,
+                    )
+                    continue
+                
+                # If response is incomplete (ends mid-sentence), prompt to continue
+                if is_incomplete_response and thinking_only_prompts < max_thinking_only_prompts:
+                    thinking_only_prompts += 1
+                    self.console.print(
+                        f"[dim yellow][!] Incomplete response detected (ends mid-sentence), prompting to continue (prompt {thinking_only_prompts}/{max_thinking_only_prompts})[/dim yellow]"
+                    )
+                    self.context_manager.add_message(
+                        role="user",
+                        content="""🚨 Your response was cut off! You said you would do something but didn't.
+
+OUTPUT A TOOL CALL NOW. Examples:
+
+{"tool": "Glob", "parameters": {"pattern": "**/*.py"}}
+{"tool": "Read", "parameters": {"file_path": "path/to/file.py"}}
+{"tool": "LS", "parameters": {"path": "."}}
+
+Do not describe what you will do - OUTPUT THE JSON:""",
+                        importance=1.0,
+                        provider=self.current_provider,
+                    )
+                    continue
+                
+                # Hallucination detection: Code blocks shown without using tools
+                if is_code_block_hallucination:
+                    consecutive_hallucinations += 1
+                    
+                    # CRITICAL FIX: Add the hallucinated response to context logic
+                    # The model needs to see that it outputted code blocks to understand the error message.
+                    # Otherwise it sees "CRITICAL ERROR: You showed code" but doesn't see its own message.
+                    self.context_manager.add_message(
+                        role="assistant",
+                        content=response_text,
+                        importance=0.5, # Low importance but necessary for context
+                        provider=self.current_provider,
+                    )
+                    
+                    if consecutive_hallucinations >= max_consecutive_hallucinations:
+                        self.console.print(f"\n[bold red][!] Too many code block hallucinations ({consecutive_hallucinations}). Stopping loop.[/bold red]")
+                        break
+                    
+                    self.console.print(f"\n[bold red]⚠️ CODE BLOCK HALLUCINATION DETECTED ({consecutive_hallucinations}/{max_consecutive_hallucinations})[/bold red]")
+                    self.console.print("[dim]You showed code but didn't call Write/Edit tool. You MUST use tools to modify files![/dim]\n")
+                    
+                    self.context_manager.add_message(
+                        role="user",
+                        content="""CRITICAL ERROR: CODE BLOCK HALLUCINATION DETECTED!
+
+You showed code blocks in your response but DID NOT call Write or Edit tool.
+
+This is WRONG! You cannot just show code - you MUST use tools to create/modify files.
+
+RULES:
+1. To CREATE a new file: Use Write tool
+2. To MODIFY an existing file: First Read it, then use Edit tool
+3. NEVER just show code in chat - always use the tools
+
+Output the tool call JSON NOW:
+
+To create a file:
+{"tool": "Write", "parameters": {"file_path": "path/to/file.py", "content": "file content here"}}
+
+To edit a file:
+{"tool": "Edit", "parameters": {"file_path": "path/to/file.py", "old_string": "old code", "new_string": "new code"}}""",
+                        importance=1.0,
+                        provider=self.current_provider,
+                    )
+                    continue
+                else:
+                    # Reset counter if not hallucinating
+                    consecutive_hallucinations = 0
+                
+                # Check if there are incomplete todos that need attention
+                has_incomplete_todos = (
+                    todos_state["total"] > 0 and todos_state["completed"] < todos_state["total"]
+                )
+                incomplete_count = (
+                    todos_state["total"] - todos_state["completed"] if has_incomplete_todos else 0
+                )
+
+                # Task completion check (without considering todos yet)
+                task_completed_signal = (
+                    model_signaled_done
+                    and len(check_text.strip()) > 10
+                    and not is_thinking_only
+                    and not is_incomplete_response
+                    and not is_code_block_hallucination
+                )
+
+                # Debug logging (only in debug mode)
+                self._debug_print(
+                    f"[dim][?] Iteration {iteration}: model_signaled_done={model_signaled_done}, incomplete_todos={incomplete_count}, all_todos_completed={all_todos_completed}, truncated={is_truncated}, finish={finish_reason}[/dim]"
+                )
+
+                # ═══════════════════════════════════════════════════════════════════════════════
+                # CRITICAL: If model stops with INCOMPLETE TODOS, force continuation!
+                # ═══════════════════════════════════════════════════════════════════════════════
+
+                if task_completed_signal and has_incomplete_todos and todo_continuation_prompts < max_todo_continuation_prompts:
+                    # Model signaled done BUT todos remain - FORCE continuation
+                    todo_continuation_prompts += 1
+                    pending_todos_list = self._format_pending_todos()
+                    self._debug_print(
+                        f"[dim yellow][!] Model stopped with {incomplete_count} todo(s) remaining - FORCING continuation (prompt {todo_continuation_prompts}/{max_todo_continuation_prompts})[/dim yellow]"
+                    )
+
+                    accumulated = "\n".join(all_response_parts)
+                    self.context_manager.add_message(
+                        role="assistant",
+                        content=accumulated,
+                        importance=0.7,
+                        provider=self.current_provider,
+                    )
+
+                    context_message = f"""🚨 STOP! You have {incomplete_count} INCOMPLETE todo item(s):
+{pending_todos_list}
+
+YOU MUST CONTINUE! Do NOT stop now!
+
+**Next steps:**
+1. Look at the first pending/in_progress todo
+2. If it says "in_progress" → Continue working on it
+3. If it says "pending" → Start working on it now
+4. Call the required tools (ReadTool → EditTool)
+5. Mark it completed in TodoWriteTool
+6. Move to the next todo
+
+DO NOT:
+❌ Say "I'm done" (you're not - {incomplete_count} todos remain!)
+❌ Provide a summary (not finished yet!)
+❌ Stop working
+
+DO:
+✅ Continue with the next file
+✅ Actually call ReadTool and EditTool
+✅ Process ALL remaining todos"""
+
+                    self.context_manager.add_message(
+                        role="user",
+                        content=context_message,
+                        importance=1.0,
+                        provider=self.current_provider,
+                    )
+                    continue  # Continue to next iteration - DON'T stop!
+
+                # Now determine if task is truly completed
+                # If we have a todo system and all todos are completed, task is complete
+                # Otherwise, require explicit model signal AND no incomplete todos
+                if todos_state["total"] > 0 and not has_incomplete_todos:
+                    # TodoWriteTool is active and all todos are completed → Task complete!
+                    task_completed = True
+                else:
+                    # No todo system or todos still pending → Use model signal
+                    task_completed = task_completed_signal and not has_incomplete_todos
+
+                # ═══════════════════════════════════════════════════════════════════════════════
+                # LLM-DRIVEN COMPLETION: Let the model make informed decisions
+                # This block only runs if task is truly completed (no incomplete todos)
+                # ═══════════════════════════════════════════════════════════════════════════════
+
+                if task_completed:
+                    # FIRST: Check if model provided a substantive answer to the user
+                    has_substantive = self._has_substantive_answer(check_text)
+
+                    if not has_substantive and answer_prompts < max_answer_prompts:
+                        # Model stopped without providing actual answer - prompt for response
+                        answer_prompts += 1
+                        self._debug_print(
+                            f"[dim yellow][!] No substantive answer detected, prompting for response (prompt {answer_prompts}/{max_answer_prompts})[/dim yellow]"
+                        )
+
+                        accumulated = "\n".join(all_response_parts)
+                        self.context_manager.add_message(
+                            role="assistant",
+                            content=accumulated,
+                            importance=0.7,
+                            provider=self.current_provider,
+                        )
+
+                        self.context_manager.add_message(
+                            role="user",
+                            content="""IMPORTANT: You have not provided the actual answer yet!
+
+You've done the research and tool calls. Now you MUST output the actual response.
+
+DO NOT just think about what to do - actually DO IT now:
+- If the user asked for code: Output the complete code with comments
+- If the user asked for an explanation: Write out the full explanation
+- If the user asked for a file: Show the file contents
+
+Start your response with the actual content the user requested, not with more thinking or tool calls.""",
+                            importance=1.0,
+                            provider=self.current_provider,
+                        )
+                        continue
+
+                    # Either all checks passed, or we've reached max prompts - trust LLM decision
+                    # NOTE: Incomplete todos check is now handled earlier (lines 1633-1678)
+                    # to prevent premature task completion
+                    if not has_substantive and answer_prompts >= max_answer_prompts:
+                        self._debug_print(
+                            f"[dim yellow][!] Reached max answer prompts ({max_answer_prompts}), accepting response[/dim yellow]"
+                        )
+                    if (
+                        has_incomplete_todos
+                        and todo_continuation_prompts >= max_todo_continuation_prompts
+                    ):
+                        self._debug_print(
+                            f"[dim yellow][!] Reached max continuation prompts ({max_todo_continuation_prompts}), accepting LLM decision[/dim yellow]"
+                        )
+
+                    # Only show task completed message in debug mode (Claude Code doesn't show this)
+                    self._debug_print(
+                        f"[bold {self._palette.success}]{self._icons.SUCCESS} Task completed![/bold {self._palette.success}]"
+                    )
+                    summary = self._generate_task_summary(completed_actions, response_text)
+                    if summary and self._is_debug_mode():
+                        self.console.print(summary)
+                    break
+
+                # Only continue if response was truncated (model was cut off mid-response)
+                if is_truncated:
+                    self.console.print(f"[dim]-> Response truncated, continuing...[/dim]")
+                    accumulated = "\n".join(all_response_parts)
+                    self.context_manager.add_message(
+                        role="assistant",
+                        content=accumulated,
+                        importance=0.7,
+                        provider=self.current_provider,
+                    )
+                    self.context_manager.add_message(
+                        role="user",
+                        content="Please continue.",
+                        importance=0.9,
+                        provider=self.current_provider,
+                    )
+                    continue
+
+                # Empty response - prompt model to engage
+                if len(response_stripped) < 10 and iteration < 3:
+                    self.console.print(f"[dim yellow][!] Empty response, prompting...[/dim yellow]")
+                    self.context_manager.add_message(
+                        role="user",
+                        content="Please respond to the user's request.",
+                        importance=1.0,
+                        provider=self.current_provider,
+                    )
+                    continue
+
+                # Check for substantive answer before allowing completion
+                has_substantive = self._has_substantive_answer(check_text)
+
+                if not has_substantive and answer_prompts < max_answer_prompts:
+                    # Model stopped without providing actual answer - prompt for response
+                    answer_prompts += 1
+                    self.console.print(
+                        f"[dim yellow][!] No substantive answer detected, prompting for response (prompt {answer_prompts}/{max_answer_prompts})[/dim yellow]"
+                    )
+
+                    accumulated = "\n".join(all_response_parts)
+                    self.context_manager.add_message(
+                        role="assistant",
+                        content=accumulated,
+                        importance=0.7,
+                        provider=self.current_provider,
+                    )
+
+                    self.context_manager.add_message(
+                        role="user",
+                        content="""IMPORTANT: You have not provided the actual answer yet!
+
+You've done the research and tool calls. Now you MUST output the actual response.
+
+DO NOT just think about what to do - actually DO IT now:
+- If the user asked for code: Output the complete code with comments
+- If the user asked for an explanation: Write out the full explanation
+- If the user asked for a file: Show the file contents
+
+Start your response with the actual content the user requested, not with more thinking or tool calls.""",
+                        importance=1.0,
+                        provider=self.current_provider,
+                    )
+                    continue
+
+                # Model stopped without tool calls - inform about incomplete todos if any
+                if (
+                    has_incomplete_todos
+                    and todo_continuation_prompts < max_todo_continuation_prompts
+                ):
+                    todo_continuation_prompts += 1
+                    pending_todos_list = self._format_pending_todos()
+                    self.console.print(
+                        f"[dim yellow][!] {incomplete_count} todo(s) remaining, informing LLM (prompt {todo_continuation_prompts}/{max_todo_continuation_prompts})[/dim yellow]"
+                    )
+
+                    accumulated = "\n".join(all_response_parts)
+                    self.context_manager.add_message(
+                        role="assistant",
+                        content=accumulated,
+                        importance=0.7,
+                        provider=self.current_provider,
+                    )
+
+                    context_message = f"""[System Notice: Task Status Check]
+
+You have {incomplete_count} incomplete todo item(s):
+{pending_todos_list}
+
+Please review and decide:
+- Continue working on remaining tasks, OR
+- Provide your final summary if the task is complete."""
+
+                    self.context_manager.add_message(
+                        role="user",
+                        content=context_message,
+                        importance=1.0,
+                        provider=self.current_provider,
+                    )
+                    continue
+
+                # All done - model stopped, trust its decision
+                self._debug_print(
+                    f"[bold {self._palette.success}]{self._icons.SUCCESS} Task completed![/bold {self._palette.success}]"
+                )
+                summary = self._generate_task_summary(completed_actions, response_text)
+                if summary and self._is_debug_mode():
+                    self.console.print(summary)
+                break
+
+            except Exception as iteration_error:
+                # ROBUSTNESS: Catch any unexpected errors in the iteration
+                consecutive_errors += 1
+                error_msg = str(iteration_error)
+                self.console.print(
+                    f"[bold red][!] Iteration error ({consecutive_errors}/{max_consecutive_errors}): {error_msg[:150]}[/bold red]"
+                )
+
+                if consecutive_errors >= max_consecutive_errors:
+                    self.console.print(
+                        f"[bold red][X] Too many errors. Returning partial results.[/bold red]"
+                    )
+                    break
+
+                # Try to recover by continuing
+                await asyncio.sleep(1)
+                continue
+
+        # Check if we hit max iterations (safety limit)
+        if iteration >= max_iterations:
+            self._debug_print(
+                f"[bold yellow][!] Reached maximum iterations ({max_iterations}). Stopping.[/bold yellow]"
+            )
+            summary = self._generate_task_summary(completed_actions, response_text)
+            if summary and self._is_debug_mode():
+                self.console.print(summary)
+
+        # Return accumulated results - clean up and never return empty
+        result = "\n".join(all_response_parts)
+        result = self._clean_final_response(result)
+        if not result.strip():
+            if last_successful_response:
+                return self._clean_final_response(last_successful_response)
+            return "Task completed but no output was generated. Please try again."
+        return result
 
     def _has_pending_work(self, response_text: str) -> bool:
         """
@@ -2121,7 +3181,7 @@ When the user says things like "yes", "proceed", "continue", "do it", "ok", or s
             return False
 
     def _generate_task_summary(
-            self, completed_actions: List[Dict[str, Any]]
+        self, completed_actions: List[Dict[str, Any]], final_response: str
     ) -> str:
         """
         Generate a clean summary of the completed task.

@@ -23,10 +23,6 @@ from rich.progress import (
 from rich.text import Text
 
 from .theme import get_palette
-try:
-    from .icons import USE_UNICODE
-except ImportError:
-    USE_UNICODE = False
 
 # ═══════════════════════════════════════════════════════════════════════
 # CUSTOM SPINNERS
@@ -69,7 +65,7 @@ CYBER_SPINNERS = {
         "interval": 100,
     },
     "orbit": {
-        "frames": ["◐", "◓", "◑", "◒"] if USE_UNICODE else ["-", "\\", "|", "/"],
+        "frames": ["◐", "◓", "◑", "◒"],
         "interval": 100,
     },
     "dna": {
@@ -346,7 +342,7 @@ class ThinkingAnimation:
         "Synthesizing...",
     ]
 
-    THINKING_ICONS = ["◐", "◓", "◑", "◒"] if USE_UNICODE else ["-", "\\", "|", "/"]
+    THINKING_ICONS = ["◐", "◓", "◑", "◒"]
 
     def __init__(
         self,

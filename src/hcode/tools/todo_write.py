@@ -6,6 +6,7 @@ Handles batch todo updates with validation.
 
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+import os
 
 from hcode.agent.todo import TodoManager, TodoStatus
 from hcode.tools.base_tool import BaseTool, ToolParameter, ToolResult

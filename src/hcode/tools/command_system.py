@@ -5,8 +5,7 @@ Supports slash commands and skills similar to Hcode.
 
 import os
 from pathlib import Path
-from typing import Dict, Optional, List
-
+from typing import Dict, Optional, List, Callable
 import yaml
 
 from hcode.tools.base_tool import BaseTool, ToolResult, ToolParameter, ToolCategory

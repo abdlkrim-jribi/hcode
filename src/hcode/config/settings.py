@@ -68,15 +68,6 @@ class AgentSettings(BaseSettings):
     max_iterations: int = Field(
         default=50, ge=1, le=200, description="Maximum agent iterations per task"
     )
-    consecutive_error_threshold: int = Field(
-        default=3, ge=1, le=10, description="Max consecutive errors before stopping"
-    )
-    stuck_threshold: int = Field(
-        default=3, ge=1, le=10, description="Threshold iterations for detecting stuck loops"
-    )
-    max_thinking_only_iterations: int = Field(
-        default=5, ge=1, le=20, description="Max iterations with thinking but no action"
-    )
 
 
 class UISettings(BaseSettings):

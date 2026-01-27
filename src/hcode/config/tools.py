@@ -254,29 +254,6 @@ class ToolsConfig:
         policy = self._tools_data.get("policy", {})
         return policy.get("prefer_tools_over_bash", {})
 
-    def validate_health(self, registered_tool_names: List[str]) -> List[str]:
-        """
-        Validate tools.yaml against actual registered tools.
-        
-        Returns:
-           List of warning/error messages
-        """
-        errors = []
-        tools = self._tools_data.get("tools", {})
-        
-        # 1. Check for tools in YAML that aren't registered
-        for tool_name in tools:
-            if tool_name not in registered_tool_names:
-                errors.append(f"Tool '{tool_name}' is defined in tools.yaml but not registered in ToolManager.")
-        
-        # 2. Check for critical missing tools
-        critical_tools = ["Read", "Write", "Bash"]
-        for tool in critical_tools:
-            if tool not in tools:
-                errors.append(f"Critical tool '{tool}' is missing from tools.yaml configuration.")
-                
-        return errors
-
 
 # Convenience functions
 def get_tools_config() -> ToolsConfig:
