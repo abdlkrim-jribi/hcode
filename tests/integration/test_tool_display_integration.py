@@ -18,7 +18,7 @@ from src.hcode.cli.tool_display import (
     StatusLineDisplay,
     _output_handler,
 )
-from src.hcode.core.output_handler import OutputHandler, OutputType
+from src.hcode.core.response.output_handler import OutputHandler, OutputType
 
 
 def strip_ansi(text: str) -> str:

@@ -17,7 +17,7 @@ from pathlib import Path
 # Add src to path
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "src"))
 
-from hcode.tools.tool_callbacks import (
+from hcode.tools.core.tool_callbacks import (
     ToolCallbackManager,
     ToolEvent,
     ToolEventType,

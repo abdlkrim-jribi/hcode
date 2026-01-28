@@ -8,18 +8,20 @@ from pathlib import Path
 from typing import Dict, Any, List, Union
 
 from rich.console import Console
+from rich.markup import escape
 
-from .analytics import (
+from .observability import (
     get_analytics,
 )
-from rich.markup import escape
 from .context import ContextManager
 # Import optimization components
-from .optimizations import (
+from .optimization import (
     ToolResultCache,
+    get_token_counter,
+)
+from .execution import (
     ExecutionStateMachine,
     ExecutionState,
-    get_token_counter,
 )
 from .safety import SafetyGuard
 from ..agents import HcodeAgentOrchestrator, HcodeAgentType
@@ -47,12 +49,29 @@ except ImportError:
     MEMORY_AVAILABLE = False
 
 # Import interaction logger
-from hcode.core.interaction_logger import get_logger, InteractionLogger
+from hcode.core.observability import get_logger, InteractionLogger
 
 # Thinking block parser
 import re
 from typing import Tuple, Optional
-from hcode.agent.reasoning import ReasoningParser, StructuredReasoning
+from hcode.core.reasoning import ReasoningParser, StructuredReasoning
+
+# Import refactored components
+from .response import (
+    ThinkingBlockProcessor,
+    ResponseParser,
+    TaskCompletionDetector,
+    ResponseCleaner,
+)
+from .execution import (
+    LoopDetector,
+    CircuitBreaker,
+)
+from .prompt import (
+    ContextInjector,
+    UserTaskFormatter,
+)
+from hcode.core.todo import TodoManager
 
 
 def is_valid_thinking(block: Optional[StructuredReasoning]) -> bool:
@@ -283,7 +302,7 @@ class HcodeAgent:
         self.safety_guard = SafetyGuard(root_dir=str(self.root_dir))
 
         # Initialize continuation manager for long outputs
-        from .continuation import ContinuationManager, ContextWindowManager
+        from .response.continuation import ContinuationManager, ContextWindowManager
 
         self.continuation_manager = ContinuationManager(
             max_continuations=10, max_total_tokens=100000, console=self.console
@@ -315,6 +334,42 @@ class HcodeAgent:
         self.tool_cache = ToolResultCache(ttl_seconds=300)  # 5 min cache
         self.analytics = get_analytics()
         self.execution_state = ExecutionStateMachine()
+
+        # Initialize refactored components
+        debug_mode = self._is_debug_mode() if hasattr(self, '_is_debug_mode') else False
+
+        # Todo management
+        self._todo_manager = TodoManager(self.tool_manager)
+
+
+        # Response processing
+        self._response_parser = ResponseParser(
+            tool_registry=self.tool_manager.tool_registry,
+            console=self.console,
+            debug_mode=debug_mode,
+        )
+        self._response_cleaner = ResponseCleaner()
+        self._completion_detector = TaskCompletionDetector(
+            todo_manager=self._todo_manager,
+            console=self.console,
+            debug_mode=debug_mode,
+        )
+        self._thinking_processor = ThinkingBlockProcessor(
+            console=self.console,
+            debug_mode=debug_mode,
+        )
+
+        # Execution control
+        self._loop_detector = LoopDetector(max_recent=5, stuck_threshold=3)
+        self._circuit_breaker = CircuitBreaker(max_failures=3, reset_timeout=30.0)
+
+        # Prompt building
+        self._context_injector = ContextInjector(
+            root_dir=self.root_dir,
+            memory_manager=self.memory_manager,
+            autonomous_mode=self.autonomous_mode,
+        )
+        self._task_formatter = UserTaskFormatter()
 
         # Initialize resilient provider if multiple providers available
         self._init_resilient_provider(anthropic_key, openai_key, openai_base_url)
@@ -1202,7 +1257,7 @@ Then repeat your tool call.""",
                     
                 # VALIDATION LAYER: Validate tool calls before execution
                 if tool_calls:
-                    from hcode.tools.validator import ToolCallValidator
+                    from hcode.tools.core.validator import ToolCallValidator
                     validator = ToolCallValidator(self.tool_manager)
                     
                     validated_calls = []
@@ -4651,7 +4706,7 @@ Continue working or provide your final answer:"""
             List of (tool_name, result, arguments) tuples
         """
         import asyncio
-        from ..tools.base_tool import ToolResult
+        from hcode.tools.base.base_tool import ToolResult
 
         # Transient error patterns that warrant a retry
         TRANSIENT_ERRORS = ["timeout", "temporary", "retry", "busy", "unavailable", "connection"]

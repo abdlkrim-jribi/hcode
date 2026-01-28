@@ -81,7 +81,7 @@ class TestContinuationComponent:
 
     def test_continuation_import(self):
         """Test continuation module imports."""
-        from hcode.core.continuation import ContinuationManager
+        from hcode.core.response.continuation import ContinuationManager
 
         assert ContinuationManager is not None
 
@@ -91,13 +91,13 @@ class TestOutputHandlerComponent:
 
     def test_output_handler_import(self):
         """Test output_handler module imports."""
-        from hcode.core.output_handler import OutputHandler
+        from hcode.core.response.output_handler import OutputHandler
 
         assert OutputHandler is not None
 
     def test_output_handler_instantiation(self):
         """Test OutputHandler can be instantiated."""
-        from hcode.core.output_handler import OutputHandler
+        from hcode.core.response.output_handler import OutputHandler
 
         handler = OutputHandler()
         assert handler is not None
@@ -108,13 +108,13 @@ class TestInteractionLoggerComponent:
 
     def test_interaction_logger_import(self):
         """Test interaction_logger module imports."""
-        from hcode.core.interaction_logger import InteractionLogger
+        from hcode.core.observability.logger import InteractionLogger
 
         assert InteractionLogger is not None
 
     def test_interaction_logger_instantiation(self):
         """Test InteractionLogger can be instantiated."""
-        from hcode.core.interaction_logger import InteractionLogger
+        from hcode.core.observability.logger import InteractionLogger
 
         with tempfile.TemporaryDirectory() as tmpdir:
             logger = InteractionLogger(log_dir=Path(tmpdir))
@@ -126,7 +126,7 @@ class TestHCodeContextComponent:
 
     def test_hcode_context_import(self):
         """Test hcode_context module imports."""
-        from hcode.core.continuation import ContextWindowManager
+        from hcode.core.response.continuation import ContextWindowManager
 
         assert ContextWindowManager is not None
 

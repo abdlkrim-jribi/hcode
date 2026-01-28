@@ -29,7 +29,7 @@ _stdout_write_lock = threading.RLock()
 from hcode.ui.todo_display import (
     ClaudeCodeTodoDisplay,
 )
-from hcode.tools.tool_callbacks import (
+from hcode.tools.core.tool_callbacks import (
     ToolEvent,
     ToolEventType,
     get_callback_manager,

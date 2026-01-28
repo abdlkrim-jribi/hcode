@@ -22,7 +22,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "src"))
 
 from hcode.cli.tool_display import HcodeToolDisplay, HcodeStyle
-from hcode.tools.base_tool import ToolResult
+from hcode.tools.base.base_tool import ToolResult
 
 
 def strip_ansi(text: str) -> str:
