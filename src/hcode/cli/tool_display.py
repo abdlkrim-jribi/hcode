@@ -23,7 +23,7 @@ from rich.console import Console
 from rich.markup import escape
 
 # Import output handler for smart truncation
-from hcode.core.output_handler import (
+from hcode.core.response.output_handler import (
     OutputHandler,
     ErrorSeverity,
     OutputType,

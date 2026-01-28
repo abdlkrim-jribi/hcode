@@ -12,7 +12,7 @@ import os
 # Add src to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from hcode.tools.base_tool import ToolRegistry, BaseTool, ToolResult, ToolCategory  # noqa: E402
+from hcode.tools.base.base_tool import ToolRegistry, BaseTool, ToolResult, ToolCategory  # noqa: E402
 
 
 class DummyTool(BaseTool):
@@ -177,7 +177,7 @@ class TestToolRegistryWithRealTools:
 
     def test_file_tools_aliases(self):
         """File tools should be resolvable via aliases"""
-        from hcode.tools.file_tools import ReadTool, WriteTool, EditTool, GlobTool, GrepTool
+        from hcode.tools.files.file_tools import ReadTool, WriteTool, EditTool, GlobTool, GrepTool
 
         registry = ToolRegistry()
         registry.register(ReadTool())

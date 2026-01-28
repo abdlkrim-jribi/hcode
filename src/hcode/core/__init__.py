@@ -3,7 +3,7 @@ Core components for Hcode.
 """
 
 from hcode.core.agent import HcodeAgent
-from hcode.core.analytics import (
+from hcode.core.observability import (
     ExecutionAnalytics,
     ToolAnalytics,
     ReasoningAnalytics,
@@ -11,10 +11,6 @@ from hcode.core.analytics import (
     ToolExecutionEvent,
     ReasoningEvent,
     get_analytics,
-)
-from hcode.core.context import ContextManager, ContextEntry
-from hcode.core.filesystem import FileSystemManager, FileWatcher
-from hcode.core.interaction_logger import (
     InteractionLogger,
     get_logger,
     start_logging,
@@ -23,18 +19,22 @@ from hcode.core.interaction_logger import (
     log_error,
     end_logging,
 )
-from hcode.core.optimizations import (
+from hcode.core.context import ContextManager, ContextEntry
+from hcode.core.filesystem import FileSystemManager, FileWatcher
+from hcode.core.optimization import (
     CachedTokenCounter,
     BatchContextWriter,
     ParallelToolExecutor,
     ToolResultCache,
-    ExecutionStateMachine,
     SmartContextOptimizer,
-    ExecutionState,
     get_token_counter,
     get_context_writer,
 )
-from hcode.core.output_handler import (
+from hcode.core.execution import (
+    ExecutionStateMachine,
+    ExecutionState,
+)
+from hcode.core.response import (
     OutputHandler,
     TruncatedOutput,
     ExtractedError,
@@ -56,7 +56,7 @@ __all__ = [
     "DryRunContext",
     "ContextManager",
     "ContextEntry",
-    # Logging
+    # Logging & Analytics
     "InteractionLogger",
     "get_logger",
     "start_logging",
@@ -64,6 +64,13 @@ __all__ = [
     "log_tool_call",
     "log_error",
     "end_logging",
+    "ExecutionAnalytics",
+    "ToolAnalytics",
+    "ReasoningAnalytics",
+    "CostAnalytics",
+    "ToolExecutionEvent",
+    "ReasoningEvent",
+    "get_analytics",
     # Output handling
     "OutputHandler",
     "TruncatedOutput",
@@ -80,17 +87,10 @@ __all__ = [
     "BatchContextWriter",
     "ParallelToolExecutor",
     "ToolResultCache",
-    "ExecutionStateMachine",
     "SmartContextOptimizer",
-    "ExecutionState",
     "get_token_counter",
     "get_context_writer",
-    # Analytics
-    "ExecutionAnalytics",
-    "ToolAnalytics",
-    "ReasoningAnalytics",
-    "CostAnalytics",
-    "ToolExecutionEvent",
-    "ReasoningEvent",
-    "get_analytics",
+    # Execution
+    "ExecutionStateMachine",
+    "ExecutionState",
 ]

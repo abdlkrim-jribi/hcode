@@ -14,7 +14,7 @@ class TestBaseToolComponent:
 
     def test_base_tool_import(self):
         """Test base_tool module imports."""
-        from hcode.tools.base_tool import BaseTool
+        from hcode.tools.base.base_tool import BaseTool
 
         assert BaseTool is not None
 
@@ -24,20 +24,20 @@ class TestBashToolsComponent:
 
     def test_bash_tools_import(self):
         """Test bash_tools module imports."""
-        from hcode.tools.bash_tools import BashTool
+        from hcode.tools.terminal.bash_tools import BashTool
 
         assert BashTool is not None
 
     def test_bash_tool_instantiation(self):
         """Test BashTool can be instantiated."""
-        from hcode.tools.bash_tools import BashTool
+        from hcode.tools.terminal.bash_tools import BashTool
 
         tool = BashTool()
         assert tool is not None
 
     def test_bash_tool_has_execute(self):
         """Test BashTool has execute method."""
-        from hcode.tools.bash_tools import BashTool
+        from hcode.tools.terminal.bash_tools import BashTool
 
         tool = BashTool()
         assert hasattr(tool, "execute")
@@ -48,7 +48,7 @@ class TestFileToolsComponent:
 
     def test_file_tools_import(self):
         """Test file_tools module imports."""
-        from hcode.tools.file_tools import ReadTool, WriteTool, EditTool, GlobTool, GrepTool
+        from hcode.tools.files.file_tools import ReadTool, WriteTool, EditTool, GlobTool, GrepTool
 
         assert ReadTool is not None
         assert WriteTool is not None
@@ -58,21 +58,21 @@ class TestFileToolsComponent:
 
     def test_read_tool_instantiation(self):
         """Test ReadTool can be instantiated."""
-        from hcode.tools.file_tools import ReadTool
+        from hcode.tools.files.file_tools import ReadTool
 
         tool = ReadTool()
         assert tool is not None
 
     def test_write_tool_instantiation(self):
         """Test WriteTool can be instantiated."""
-        from hcode.tools.file_tools import WriteTool
+        from hcode.tools.files.file_tools import WriteTool
 
         tool = WriteTool()
         assert tool is not None
 
     def test_edit_tool_instantiation(self):
         """Test EditTool can be instantiated."""
-        from hcode.tools.file_tools import EditTool
+        from hcode.tools.files.file_tools import EditTool
 
         tool = EditTool()
         assert tool is not None

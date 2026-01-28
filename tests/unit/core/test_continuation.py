@@ -9,7 +9,7 @@ import os
 # Add src to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from hcode.core.continuation import (
+from hcode.core.response.continuation import (
     ContinuationManager,
     ContextWindowManager,
     ContinuationState,

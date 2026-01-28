@@ -5,7 +5,7 @@ Tests smart truncation, error extraction, search, and convenience functions.
 """
 
 import pytest
-from src.hcode.core.output_handler import (
+from src.hcode.core.response.output_handler import (
     OutputHandler,
     TruncatedOutput,
     ExtractedError,

@@ -9,7 +9,7 @@ from enum import Enum
 from typing import Dict, Any, Optional, List
 
 from hcode.providers import AIProvider, Message, ProviderSelector
-from hcode.tools.base_tool import ToolRegistry
+from hcode.tools.base.base_tool import ToolRegistry
 
 
 class HcodeAgentType(Enum):

@@ -18,8 +18,8 @@ from datetime import datetime, timedelta
 # Add src to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from hcode.tools.web_tools import WebFetchTool, WebSearchTool, WebScrapeTool
-from hcode.tools.base_tool import ToolResult, ToolCategory
+from hcode.tools.web.web_tools import WebFetchTool, WebSearchTool, WebScrapeTool
+from hcode.tools.base.base_tool import ToolResult, ToolCategory
 
 
 class TestWebFetchTool:
@@ -43,9 +43,21 @@ class TestWebFetchTool:
         assert "url" in param_names
         assert "prompt" in param_names
 
-        # Both required
-        for param in params:
-            assert param.required == True
+        # Url is required
+        url_param = next(p for p in params if p.name == "Url")
+        assert url_param.required == True
+
+        # url is optional alias
+        alias_param = next(p for p in params if p.name == "url")
+        assert alias_param.required == False
+
+        # Prompt is required
+        prompt_param = next(p for p in params if p.name == "Prompt")
+        assert prompt_param.required == True
+
+        # prompt is optional alias
+        alias_prompt = next(p for p in params if p.name == "prompt")
+        assert alias_prompt.required == False
 
     @pytest.mark.asyncio
     async def test_fetch_success(self):

@@ -9,13 +9,13 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Optional, Dict, Any, List, Callable
 
-from hcode.agent.enhanced_thinking_manager import (
+from hcode.core.execution import (
     EnhancedThinkingMode,
     ThinkingResult,
     create_enhanced_thinking_manager,
 )
-from hcode.agent.feedback_loop import FeedbackEntry
-from hcode.agent.todo import TodoManager, TodoItem
+from hcode.core.execution import FeedbackEntry
+from hcode.core.todo import TodoManager, TodoItem
 from hcode.ui.theme import get_palette, get_console
 from hcode.ui.todo_display import (
     PersistentTodoDisplay,

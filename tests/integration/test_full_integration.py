@@ -248,7 +248,7 @@ class TestFileTools:
     @pytest.mark.asyncio
     async def test_read_tool(self, temp_workspace, sample_files):
         """Test ReadTool reads files correctly"""
-        from hcode.tools.file_tools import ReadTool
+        from hcode.tools.files.file_tools import ReadTool
 
         tool = ReadTool(root_dir=str(temp_workspace))
         result = await tool.execute(file_path=str(sample_files["py_file"]))
@@ -260,7 +260,7 @@ class TestFileTools:
     @pytest.mark.asyncio
     async def test_read_tool_with_limit(self, temp_workspace, sample_files):
         """Test ReadTool with line limit"""
-        from hcode.tools.file_tools import ReadTool
+        from hcode.tools.files.file_tools import ReadTool
 
         tool = ReadTool(root_dir=str(temp_workspace))
         result = await tool.execute(file_path=str(sample_files["py_file"]), limit=3)
@@ -273,7 +273,7 @@ class TestFileTools:
     @pytest.mark.asyncio
     async def test_write_tool(self, temp_workspace):
         """Test WriteTool creates files"""
-        from hcode.tools.file_tools import WriteTool
+        from hcode.tools.files.file_tools import WriteTool
 
         tool = WriteTool(root_dir=str(temp_workspace))
         new_file = temp_workspace / "new_file.txt"
@@ -287,7 +287,7 @@ class TestFileTools:
     @pytest.mark.asyncio
     async def test_write_tool_creates_directories(self, temp_workspace):
         """Test WriteTool creates parent directories"""
-        from hcode.tools.file_tools import WriteTool
+        from hcode.tools.files.file_tools import WriteTool
 
         tool = WriteTool(root_dir=str(temp_workspace))
         new_file = temp_workspace / "deep" / "nested" / "file.txt"
@@ -300,7 +300,7 @@ class TestFileTools:
     @pytest.mark.asyncio
     async def test_edit_tool(self, temp_workspace, sample_files):
         """Test EditTool modifies files"""
-        from hcode.tools.file_tools import EditTool
+        from hcode.tools.files.file_tools import EditTool
 
         tool = EditTool(root_dir=str(temp_workspace))
 
@@ -334,7 +334,7 @@ class TestFileTools:
     @pytest.mark.asyncio
     async def test_glob_tool(self, temp_workspace, sample_files):
         """Test GlobTool finds files"""
-        from hcode.tools.file_tools import GlobTool
+        from hcode.tools.files.file_tools import GlobTool
 
         tool = GlobTool(root_dir=str(temp_workspace))
 
@@ -347,7 +347,7 @@ class TestFileTools:
     @pytest.mark.asyncio
     async def test_glob_tool_with_path(self, temp_workspace, sample_files):
         """Test GlobTool with specific path"""
-        from hcode.tools.file_tools import GlobTool
+        from hcode.tools.files.file_tools import GlobTool
 
         tool = GlobTool(root_dir=str(temp_workspace))
 
@@ -359,7 +359,7 @@ class TestFileTools:
     @pytest.mark.asyncio
     async def test_grep_tool(self, temp_workspace, sample_files):
         """Test GrepTool searches content"""
-        from hcode.tools.file_tools import GrepTool
+        from hcode.tools.files.file_tools import GrepTool
 
         tool = GrepTool(root_dir=str(temp_workspace))
 
@@ -371,7 +371,7 @@ class TestFileTools:
     @pytest.mark.asyncio
     async def test_grep_tool_with_glob_filter(self, temp_workspace, sample_files):
         """Test GrepTool with glob file pattern filter"""
-        from hcode.tools.file_tools import GrepTool
+        from hcode.tools.files.file_tools import GrepTool
 
         tool = GrepTool(root_dir=str(temp_workspace))
 
@@ -406,7 +406,7 @@ class TestBashTool:
     @pytest.mark.asyncio
     async def test_bash_simple_command(self, temp_workspace):
         """Test simple bash command execution"""
-        from hcode.tools.bash_tools import BashTool
+        from hcode.tools.terminal.bash_tools import BashTool
 
         tool = BashTool(root_dir=str(temp_workspace))
 
@@ -418,7 +418,7 @@ class TestBashTool:
     @pytest.mark.asyncio
     async def test_bash_with_working_directory(self, temp_workspace, sample_files):
         """Test bash command respects working directory"""
-        from hcode.tools.bash_tools import BashTool
+        from hcode.tools.terminal.bash_tools import BashTool
 
         tool = BashTool(root_dir=str(temp_workspace))
 
@@ -430,7 +430,7 @@ class TestBashTool:
     @pytest.mark.asyncio
     async def test_bash_banned_command(self, temp_workspace):
         """Test banned commands are rejected"""
-        from hcode.tools.bash_tools import BashTool
+        from hcode.tools.terminal.bash_tools import BashTool
 
         tool = BashTool(root_dir=str(temp_workspace))
 
@@ -444,7 +444,7 @@ class TestBashTool:
     @pytest.mark.asyncio
     async def test_bash_command_with_timeout(self, temp_workspace):
         """Test bash command with timeout"""
-        from hcode.tools.bash_tools import BashTool
+        from hcode.tools.terminal.bash_tools import BashTool
 
         tool = BashTool(root_dir=str(temp_workspace))
 
@@ -493,7 +493,7 @@ class TestTodoTool:
     @pytest.mark.asyncio
     async def test_todo_write_with_in_progress(self):
         """Test TodoWrite creates todo items with one in_progress"""
-        from hcode.tools.todo_write import TodoWriteTool
+        from hcode.tools.todo.todo_write import TodoWriteTool
 
         tool = TodoWriteTool()
 
@@ -510,7 +510,7 @@ class TestTodoTool:
     @pytest.mark.asyncio
     async def test_todo_status_transitions(self):
         """Test todo status can be updated"""
-        from hcode.tools.todo_write import TodoWriteTool
+        from hcode.tools.todo.todo_write import TodoWriteTool
 
         tool = TodoWriteTool()
 
@@ -525,7 +525,7 @@ class TestTodoTool:
     @pytest.mark.asyncio
     async def test_todo_completed_with_new_in_progress(self):
         """Test todos can be marked completed when another is in_progress"""
-        from hcode.tools.todo_write import TodoWriteTool
+        from hcode.tools.todo.todo_write import TodoWriteTool
 
         tool = TodoWriteTool()
 
@@ -551,7 +551,7 @@ class TestWebTools:
     @pytest.mark.asyncio
     async def test_web_fetch_tool(self):
         """Test WebFetch tool fetches content"""
-        from hcode.tools.web_tools import WebFetchTool
+        from hcode.tools.web.web_tools import WebFetchTool
 
         tool = WebFetchTool()
 
@@ -564,7 +564,7 @@ class TestWebTools:
     @pytest.mark.asyncio
     async def test_web_search_tool(self):
         """Test WebSearch tool searches"""
-        from hcode.tools.web_tools import WebSearchTool
+        from hcode.tools.web.web_tools import WebSearchTool
 
         tool = WebSearchTool()
 
@@ -713,7 +713,7 @@ class TestToolManager:
 
     def test_tool_manager_initialization(self, temp_workspace):
         """Test tool manager initializes"""
-        from hcode.tools import ToolManager
+        from hcode.tools.core.tool_manager import ToolManager
 
         manager = ToolManager(root_dir=str(temp_workspace))
 
@@ -721,7 +721,7 @@ class TestToolManager:
 
     def test_tool_manager_has_all_tools(self, temp_workspace):
         """Test tool manager has all required tools"""
-        from hcode.tools import ToolManager
+        from hcode.tools.core.tool_manager import ToolManager
 
         manager = ToolManager(root_dir=str(temp_workspace))
 
@@ -735,7 +735,7 @@ class TestToolManager:
     @pytest.mark.asyncio
     async def test_tool_execution(self, temp_workspace, sample_files):
         """Test tool execution through manager"""
-        from hcode.tools import ToolManager
+        from hcode.tools.core.tool_manager import ToolManager
 
         manager = ToolManager(root_dir=str(temp_workspace))
 

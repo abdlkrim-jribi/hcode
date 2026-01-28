@@ -59,8 +59,8 @@ from hcode.ui.live_todo_bar import (
 )
 
 # Import reasoning components for automatic todo extraction
-from hcode.core.agent import parse_thinking_block
-from hcode.agent.reasoning import ReasoningParser, ReasoningToTodoIntegrator
+from hcode.core.response.thinking_processor import ThinkingBlockProcessor, parse_thinking_block
+from hcode.core.reasoning import ReasoningParser, ReasoningToTodoIntegrator
 
 # Get themed console
 console = get_console()

@@ -164,11 +164,3 @@ class TestShortcutsComponent:
         assert shortcuts is not None
 
 
-class TestAutonomousCLIComponent:
-    """Test autonomous CLI component basic functionality."""
-
-    def test_autonomous_cli_import(self):
-        """Test autonomous_cli module imports."""
-        from hcode.cli import autonomous_cli
-
-        assert autonomous_cli is not None

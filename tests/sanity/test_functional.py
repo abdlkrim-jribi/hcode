@@ -17,7 +17,7 @@ class TestToolExecution:
     @pytest.mark.asyncio
     async def test_bash_tool_echo(self):
         """Test BashTool can execute echo command."""
-        from hcode.tools.bash_tools import BashTool
+        from hcode.tools.terminal.bash_tools import BashTool
 
         tool = BashTool()
 
@@ -30,7 +30,7 @@ class TestToolExecution:
     @pytest.mark.asyncio
     async def test_read_tool_read_file(self):
         """Test ReadTool can read a file."""
-        from hcode.tools.file_tools import ReadTool
+        from hcode.tools.files.file_tools import ReadTool
 
         with tempfile.TemporaryDirectory() as tmpdir:
             # Create test file
@@ -47,7 +47,7 @@ class TestToolExecution:
     @pytest.mark.asyncio
     async def test_write_tool_write_file(self):
         """Test WriteTool can write a file."""
-        from hcode.tools.file_tools import WriteTool
+        from hcode.tools.files.file_tools import WriteTool
 
         with tempfile.TemporaryDirectory() as tmpdir:
             test_file = Path(tmpdir) / "output.txt"
@@ -62,7 +62,7 @@ class TestToolExecution:
     @pytest.mark.asyncio
     async def test_glob_tool_find_files(self):
         """Test GlobTool can find files."""
-        from hcode.tools.file_tools import GlobTool
+        from hcode.tools.files.file_tools import GlobTool
 
         with tempfile.TemporaryDirectory() as tmpdir:
             # Create test files
@@ -80,7 +80,7 @@ class TestToolExecution:
     @pytest.mark.asyncio
     async def test_grep_tool_search(self):
         """Test GrepTool can search files."""
-        from hcode.tools.file_tools import GrepTool
+        from hcode.tools.files.file_tools import GrepTool
 
         with tempfile.TemporaryDirectory() as tmpdir:
             # Create test file with searchable content
@@ -149,7 +149,7 @@ class TestTodoFunctionality:
 
     def test_todo_manager_operations(self):
         """Test TodoManager basic operations."""
-        from hcode.agent.todo import TodoManager, TodoItem, TodoStatus
+        from hcode.core.todo import TodoManager, TodoItem, TodoStatus
 
         manager = TodoManager()
 
@@ -202,7 +202,7 @@ class TestToolManagerFunctionality:
 
     def test_tool_manager_list_tools(self):
         """Test ToolManager can list available tools."""
-        from hcode.tools.tool_manager import ToolManager
+        from hcode.tools.core.tool_manager import ToolManager
 
         manager = ToolManager()
         tools = manager.list_tools()
@@ -212,7 +212,7 @@ class TestToolManagerFunctionality:
 
     def test_tool_manager_get_tool(self):
         """Test ToolManager can get tools by name."""
-        from hcode.tools.tool_manager import ToolManager
+        from hcode.tools.core.tool_manager import ToolManager
 
         manager = ToolManager()
 

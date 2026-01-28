@@ -16,7 +16,7 @@ import platform
 # Add src to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from hcode.tools.bash_tools import (
+from hcode.tools.terminal.bash_tools import (
     BashTool,
     BashOutputTool,
     KillShellTool,
@@ -24,7 +24,7 @@ from hcode.tools.bash_tools import (
     BashShellManager,
     BackgroundShell,
 )
-from hcode.tools.base_tool import ToolResult, ToolCategory
+from hcode.tools.base.base_tool import ToolResult, ToolCategory
 
 
 # Skip tests that require bash on Windows if bash is not available
@@ -38,6 +38,19 @@ def temp_dir():
     temp = tempfile.mkdtemp()
     yield temp
     shutil.rmtree(temp, ignore_errors=True)
+
+
+@pytest.fixture(autouse=True)
+def mock_confirmation(mocker):
+    """Mock user confirmation to always return True"""
+    mock_display = mocker.Mock()
+    mock_display.show_command_confirmation.return_value = True
+    
+    mocker.patch(
+        "hcode.ui.confirmation_display.get_confirmation_display", 
+        return_value=mock_display
+    )
+
 
 
 @pytest.fixture
@@ -99,14 +112,18 @@ class TestBashTool:
         params = tool.get_parameters()
 
         param_names = [p.name for p in params]
-        assert "command" in param_names
+        assert "CommandLine" in param_names
         assert "timeout" in param_names
         assert "run_in_background" in param_names
         assert "description" in param_names
 
-        # command is required
-        command_param = next(p for p in params if p.name == "command")
-        assert command_param.required == True
+        # CommandLine is required
+        cmd_param = next(p for p in params if p.name == "CommandLine")
+        assert cmd_param.required == True
+
+        # command is optional alias
+        alias_param = next(p for p in params if p.name == "command")
+        assert alias_param.required == False
 
     @pytest.mark.asyncio
     async def test_execute_empty_command(self):
@@ -504,7 +521,7 @@ class TestToolSchemas:
         schema = tool.to_function_schema()
 
         assert schema["name"] == "ls"
-        assert "path" in schema["parameters"]["required"]
+        assert "DirectoryPath" in schema["parameters"]["required"]
 
 
 if __name__ == "__main__":

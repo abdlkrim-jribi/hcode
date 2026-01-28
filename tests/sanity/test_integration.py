@@ -253,7 +253,7 @@ class TestEndToEndFlow:
         The test writes multiple files, uses `GlobTool` to locate them, and
         `GrepTool` to search for content, verifying the tool chain works.
         """
-        from hcode.tools.file_tools import WriteTool, ReadTool, GlobTool, GrepTool
+        from hcode.tools.files.file_tools import WriteTool, ReadTool, GlobTool, GrepTool
 
         with tempfile.TemporaryDirectory() as tmpdir:
             # Create multiple files

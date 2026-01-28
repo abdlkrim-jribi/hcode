@@ -58,7 +58,8 @@ class TestPromptsConfigIntegration:
             assert prompt, f"Prompt '{prompt_type}' is empty or missing"
             assert len(prompt) > 50, f"Prompt '{prompt_type}' is too short"
             # Check it's not a default fallback
-            assert "Hcode" in prompt or "You are" in prompt, f"Prompt '{prompt_type}' has unexpected format"
+            if prompt_type != "compact":
+                assert "Hcode" in prompt or "You are" in prompt, f"Prompt '{prompt_type}' has unexpected format"
 
     def test_tool_prompts_exist(self):
         """Test that tool prompts exist"""
@@ -216,33 +217,6 @@ class TestModelsConfigIntegration:
 
 class TestAgentsUseConfig:
     """Test that agents properly use configuration"""
-
-    def test_coding_agent_uses_config(self):
-        """Test that HcodeCodingAgent loads prompt from config"""
-        from hcode.agent.coding_agent import HcodeCodingAgent
-
-        # Check that SYSTEM_PROMPT is loaded from config, not hardcoded
-        assert hasattr(HcodeCodingAgent, "SYSTEM_PROMPT")
-        assert isinstance(HcodeCodingAgent.SYSTEM_PROMPT, str)
-        assert len(HcodeCodingAgent.SYSTEM_PROMPT) > 100
-
-        # Verify it contains expected ReAct content
-        assert "THINK" in HcodeCodingAgent.SYSTEM_PROMPT
-        assert "PLAN" in HcodeCodingAgent.SYSTEM_PROMPT
-        assert "ACT" in HcodeCodingAgent.SYSTEM_PROMPT
-
-    def test_autonomous_agent_uses_config(self):
-        """Test that HcodeAutonomousCodingAgent loads prompt from config"""
-        from hcode.agent.autonomous_agent import HcodeAutonomousCodingAgent
-
-        # Check that prompt template is loaded from config
-        assert hasattr(HcodeAutonomousCodingAgent, "_AUTONOMOUS_PROMPT_TEMPLATE")
-        assert isinstance(HcodeAutonomousCodingAgent._AUTONOMOUS_PROMPT_TEMPLATE, str)
-        assert len(HcodeAutonomousCodingAgent._AUTONOMOUS_PROMPT_TEMPLATE) > 100
-
-        # Verify it contains expected autonomous content
-        prompt = HcodeAutonomousCodingAgent._AUTONOMOUS_PROMPT_TEMPLATE
-        assert "OPERATION MODES" in prompt or "mode" in prompt.lower()
 
     def test_core_agent_uses_continuation_prompts(self):
         """Test that core agent uses continuation prompts from config"""

@@ -21,12 +21,12 @@ class TestCoreModuleImports:
             "hcode.core",
             "hcode.core.agent",
             "hcode.core.context",
-            "hcode.core.continuation",
+            "hcode.core.response.continuation",
             "hcode.core.enhanced_agent",
             "hcode.core.filesystem",
             "hcode.core.hcode_context",
-            "hcode.core.interaction_logger",
-            "hcode.core.output_handler",
+            "hcode.core.observability.logger",
+            "hcode.core.response.output_handler",
             "hcode.core.safety",
         ],
     )
@@ -50,7 +50,6 @@ class TestCLIModuleImports:
             "hcode.cli.display",
             "hcode.cli.shortcuts",
             "hcode.cli.tool_display",
-            "hcode.cli.autonomous_cli",
         ],
     )
     def test_cli_module_import(self, module_name: str):
@@ -162,18 +161,18 @@ class TestToolsModuleImports:
         "module_name",
         [
             "hcode.tools",
-            "hcode.tools.agent_tools",
-            "hcode.tools.base_tool",
-            "hcode.tools.bash_tools",
-            "hcode.tools.command_system",
-            "hcode.tools.executor",
-            "hcode.tools.file_tools",
-            "hcode.tools.interactive_tools",
-            "hcode.tools.notebook_tools",
-            "hcode.tools.parallel_executor",
-            "hcode.tools.todo_write",
-            "hcode.tools.tool_manager",
-            "hcode.tools.web_tools",
+            "hcode.tools.system.agent_tools",
+            "hcode.tools.base.base_tool",
+            "hcode.tools.terminal.bash_tools",
+            "hcode.tools.system.command_system",
+            "hcode.tools.core.executor",
+            "hcode.tools.files.file_tools",
+            "hcode.tools.notebook.interactive_tools",
+            "hcode.tools.notebook.notebook_tools",
+            "hcode.tools.core.parallel_executor",
+            "hcode.tools.todo.todo_write",
+            "hcode.tools.core.tool_manager",
+            "hcode.tools.web.web_tools",
         ],
     )
     def test_tools_module_import(self, module_name: str):
@@ -185,30 +184,7 @@ class TestToolsModuleImports:
             pytest.fail(f"Failed to import {module_name}: {e}")
 
 
-class TestAgentModuleImports:
-    """Test imports of agent modules."""
 
-    @pytest.mark.parametrize(
-        "module_name",
-        [
-            "hcode.agent",
-            "hcode.agent.autonomous",
-            "hcode.agent.autonomous_agent",
-            "hcode.agent.autonomous_prompt",
-            "hcode.agent.coding_agent",
-            "hcode.agent.modes",
-            "hcode.agent.thinking",
-            "hcode.agent.thinking_manager",
-            "hcode.agent.todo",
-        ],
-    )
-    def test_agent_module_import(self, module_name: str):
-        """Test that agent modules import successfully."""
-        try:
-            module = importlib.import_module(module_name)
-            assert module is not None
-        except ImportError as e:
-            pytest.fail(f"Failed to import {module_name}: {e}")
 
 
 class TestAgentsModuleImports:
@@ -239,7 +215,6 @@ class TestUtilsModuleImports:
             "hcode.utils",
             "hcode.utils.config",
             "hcode.utils.formatting",
-            "hcode.utils.project_analyzer",
             "hcode.utils.validators",
         ],
     )
@@ -265,14 +240,3 @@ class TestExceptionsModuleImport:
             pytest.fail(f"Failed to import hcode.exceptions: {e}")
 
 
-class TestHcodeChatModuleImport:
-    """Test imports of hcode_chat module."""
-
-    def test_hcode_chat_import(self):
-        """Test that hcode_chat module imports successfully."""
-        try:
-            from hcode import hcode_chat
-
-            assert hcode_chat is not None
-        except ImportError as e:
-            pytest.fail(f"Failed to import hcode.hcode_chat: {e}")

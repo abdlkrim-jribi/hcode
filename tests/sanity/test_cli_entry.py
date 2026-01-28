@@ -38,13 +38,8 @@ class TestCLIImports:
         """Test cli.main can be imported."""
         from hcode import cli
 
-        assert hasattr(cli, "main") or hasattr(cli, "cli") or hasattr(cli, "app")
+        assert hasattr(cli, "AgentDisplay") or hasattr(cli, "ReasoningRunner")
 
-    def test_cli_enhanced_import(self):
-        """Test cli_enhanced can be imported."""
-        from hcode import cli_enhanced
-
-        assert cli_enhanced is not None
 
 
 class TestExamplesImport:
