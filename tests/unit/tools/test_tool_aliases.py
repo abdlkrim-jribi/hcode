@@ -12,7 +12,7 @@ import os
 # Add src to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from hcode.tools.base_tool import ToolRegistry, BaseTool, ToolParameter, ToolResult, ToolCategory
+from hcode.tools.base_tool import ToolRegistry, BaseTool, ToolResult, ToolCategory  # noqa: E402
 
 
 class DummyTool(BaseTool):

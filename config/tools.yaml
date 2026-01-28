@@ -1,6 +1,5 @@
 # Hcode Tool Definitions
-# Based on exact Claude Code tool specifications
-# These definitions control how tools are presented to the AI
+# Based on exact Hcode tool specifications
 
 tools:
   # ==========================================================================
@@ -235,35 +234,84 @@ tools:
         required: true
 
   # ==========================================================================
+  # HCODE WORKFLOW TOOLS
+  # ==========================================================================
+
+  TaskBoundary:
+    name: "TaskBoundary"
+    description: |
+      Indicate the start of a task or make an update to the current task. This tool is essential for tracking progress through complex workflows. Use it whenever you move between major phases (Planning, Implementation, Verification) or when starting a significant new component.
+    parameters:
+      TaskName:
+        type: string
+        description: "Name of the task boundary (standardized title)"
+        required: true
+      Mode:
+        type: string
+        description: "The agent focus (PLANNING, EXECUTION, VERIFICATION)"
+        required: true
+        enum: ["PLANNING", "EXECUTION", "VERIFICATION"]
+      TaskSummary:
+        type: string
+        description: "Brief summary of what has been accomplished in this task so far"
+        required: true
+      TaskStatus:
+        type: string
+        description: "Current activity the agent is about to start"
+        required: true
+      PredictedTaskSize:
+        type: integer
+        description: "Your best estimation on how many tool calls are needed to fulfill this task"
+        required: true
+
+  NotifyUser:
+    name: "NotifyUser"
+    description: |
+      Communicates with the user. Use this tool to request reviews of artifacts (like implementation plans or walkthroughs), ask for clarification when blocked, or provide important updates. This tool is the primary way to interact with the user during a task.
+    parameters:
+      Message:
+        type: string
+        description: "Message to notify the user with"
+        required: true
+      PathsToReview:
+        type: array
+        description: "List of absolute paths to files for user review"
+        required: false
+      BlockedOnUser:
+        type: boolean
+        description: "Set to true if you cannot proceed without user feedback"
+        required: false
+      ConfidenceScore:
+        type: number
+        description: "Your confidence level in the current solution (0.0 to 1.0)"
+        required: true
+      ConfidenceJustification:
+        type: string
+        description: "Brief justification for your confidence score"
+        required: true
+
+  # ==========================================================================
   # TASK MANAGEMENT
   # ==========================================================================
 
-
-
-  # ==========================================================================
-  # USER INTERACTION
-  # ==========================================================================
-
-  AskUser:
-    name: "AskUser"
+  TodoWrite:
+    name: "TodoWrite"
     description: |
-      Use this tool when you need to ask the user questions during execution. This allows you to:
-      1. Gather user preferences or requirements
-      2. Clarify ambiguous instructions
-      3. Get decisions on implementation choices as you work
-      4. Offer choices to the user about what direction to take
+      Updates the task list (todos). This tool is used to manage the checklist of steps required to complete the objective. It automatically synchronizes with the .hcode/task.md file. Use this at the start of every request to establish a plan.
     parameters:
-      question:
-        type: string
-        description: "The question to ask the user"
-        required: true
-      options:
+      todos:
         type: array
-        description: "Optional list of choices for the user"
-        required: false
+        description: "List of todo objects with 'content' (string) and 'status' (pending, in_progress, completed)"
+        required: true
+
+  TodoRead:
+    name: "TodoRead"
+    description: |
+      Reads the current task list (todos) from the .hcode/task.md file. Use this to maintain state awareness across long-running or complex tasks.
+    parameters: {}
 
   # ==========================================================================
-  # SUB-AGENTS
+  # SUB-AGENTS & SPECIAL TOOLS
   # ==========================================================================
 
   Task:
@@ -291,47 +339,48 @@ tools:
         description: "A short (3-5 word) description of the task"
         required: true
 
-  # ==========================================================================
-  # WEB OPERATIONS
-  # ==========================================================================
-
-  WebSearch:
-    name: "WebSearch"
+  Architect:
+    name: "Architect"
     description: |
-      - Allows searching the web and using the results to inform responses
-      - Provides up-to-date information for current events and recent data
-      - Use this tool for accessing information beyond knowledge cutoff
+      You are an expert software architect. Your role is to analyze technical requirements and produce clear, actionable implementation plans.
+      These plans will then be carried out by a junior software engineer so you need to be specific and detailed. However do not actually write the code, just explain the plan.
     parameters:
-      query:
+      requirements:
         type: string
-        description: "The search query to use"
+        description: "The technical requirements to analyze"
         required: true
 
-  WebFetch:
-    name: "WebFetch"
-    description: |
-      - Fetches content from a specified URL and processes it
-      - Takes a URL and a prompt as input
-      - Fetches the URL content, converts HTML to markdown
-      - Use this tool when you need to retrieve and analyze web content
+  PRReview:
+    name: "PRReview"
+    description: "Analyze changes in a PR and provide thorough code review."
     parameters:
-      url:
-        type: string
-        description: "The URL to fetch content from"
-        required: true
-      prompt:
-        type: string
-        description: "The prompt to run on the fetched content"
+      pr_number:
+        type: integer
+        description: "Optional PR number. If not provided, lists open PRs."
+        required: false
+
+  PRComments:
+    name: "PRComments"
+    description: "Fetch and display comments from a GitHub pull request."
+    parameters:
+      pr_number:
+        type: integer
+        description: "The PR number to fetch comments for."
         required: true
 
-  # ==========================================================================
-  # JUPYTER NOTEBOOKS
-  # ==========================================================================
+  InitCodebase:
+    name: "InitCodebase"
+    description: "Analyze codebase and create hcode.md with build/test/lint/style guidelines."
+    parameters: {}
+
+  SwagStickers:
+    name: "SwagStickers"
+    description: "Handle user request for Anthropic/Hcode stickers or swag."
+    parameters: {}
 
   NotebookRead:
     name: "NotebookRead"
-    description: |
-      Reads a Jupyter notebook (.ipynb file) and returns all of the cells with their outputs. Jupyter notebooks are interactive documents that combine code, text, and visualizations, commonly used for data analysis and scientific computing. The notebook_path parameter must be an absolute path, not a relative path.
+    description: "Reads a Jupyter notebook (.ipynb file) and returns all of the cells with their outputs."
     parameters:
       notebook_path:
         type: string
@@ -340,8 +389,7 @@ tools:
 
   NotebookEdit:
     name: "NotebookEdit"
-    description: |
-      Completely replaces the contents of a specific cell in a Jupyter notebook (.ipynb file) with new source. Jupyter notebooks are interactive documents that combine code, text, and visualizations, commonly used for data analysis and scientific computing. The notebook_path parameter must be an absolute path, not a relative path. The cell_number is 0-indexed. Use edit_mode=insert to add a new cell at the index specified by cell_number. Use edit_mode=delete to delete the cell at the index specified by cell_number.
+    description: "Completely replaces the contents of a specific cell in a Jupyter notebook (.ipynb file) with new source."
     parameters:
       notebook_path:
         type: string
@@ -361,14 +409,7 @@ tools:
         required: false
         enum: ["replace", "insert", "delete"]
 
-# ==========================================================================
-# TOOL USAGE POLICY
-# ==========================================================================
-
 policy:
-  # When doing file search, prefer to use the Task tool in order to reduce context usage.
-  # If you intend to call multiple tools and there are no dependencies between the calls, make all of the independent calls in the same function_calls block.
-
   banned_commands:
     - alias
     - curl
@@ -388,7 +429,6 @@ policy:
     - firefox
     - safari
 
-  # Commands that should use dedicated tools instead
   prefer_tools_over_bash:
     - find: "Use Glob tool instead"
     - grep: "Use Grep tool instead"

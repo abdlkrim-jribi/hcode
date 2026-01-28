@@ -5,13 +5,11 @@ Tests that all prompts and parameters are properly loaded from config files
 and not hardcoded in the source code.
 """
 
-import pytest
 from pathlib import Path
-from typing import Dict, Any
+
+import pytest
 
 from hcode.config.prompts import (
-    PromptsConfig,
-    ModelsConfig,
     get_prompts_config,
     get_models_config,
     get_system_prompt,

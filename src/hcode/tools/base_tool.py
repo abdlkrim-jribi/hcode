@@ -1,6 +1,45 @@
 """
-Base tool interface for Hcode tool system.
-Inspired by Hcode's sophisticated tool architecture.
+Base Tool Module – Core abstractions for the Hcode framework.
+
+This module defines the foundational building blocks used by the Hcode
+framework to implement *tools* – self‑contained units that perform a
+specific operation such as file manipulation, code execution, searching,
+or web interaction.  The abstractions provided here enable a uniform
+interface for discovery, validation, and invocation of concrete tool
+implementations.
+
+Public API
+----------
+- :class:`ToolCategory` – Enum of high‑level tool categories.
+- :class:`ToolParameter` – Dataclass describing a single tool argument.
+- :class:`ToolResult` – Dataclass representing the outcome of a tool call.
+- :class:`BaseTool` – Abstract base class that all concrete tools inherit
+  from.  Sub‑classes must implement ``execute`` and ``get_parameters``.
+  Helper methods include ``get_description``, ``validate_parameters``,
+  ``to_function_schema`` and ``to_anthropic_tool_schema``.
+- :class:`ToolRegistry` – Central registry for tool instances, providing
+  name resolution, category filtering, schema generation and asynchronous
+  execution.
+
+Typical usage
+-------------
+>>> from hcode.tools.base_tool import ToolRegistry, BaseTool, ToolParameter, ToolResult
+>>> class EchoTool(BaseTool):
+...     def __init__(self):
+...         super().__init__()
+...         self.category = ToolCategory.INTERACTIVE
+...     async def execute(self, **kwargs) -> ToolResult:
+...         return ToolResult(success=True, output=kwargs.get("message", ""))
+...     def get_parameters(self) -> list[ToolParameter]:
+...         return [ToolParameter(name="message", type="string", description="Message to echo", required=True)]
+>>> registry = ToolRegistry()
+>>> registry.register(EchoTool())
+>>> result = await registry.execute_tool("echotool", message="Hello")
+>>> print(result)  # Success: Hello
+
+The module has no external dependencies and can be safely imported in any
+environment.  All concrete tool implementations reside in
+``src/hcode/tools`` and are automatically discovered by the registry.
 """
 
 from abc import ABC, abstractmethod
@@ -10,7 +49,13 @@ from enum import Enum
 
 
 class ToolCategory(Enum):
-    """Categories of tools"""
+    """
+    Enumeration of the high‑level categories of tools supported by the Hcode framework.
+
+    Each enum member groups related tool functionality (e.g., file operations, code execution,
+    search, web interactions). These categories are used for filtering, documentation, and
+    alias resolution within the tool registry.
+    """
 
     FILE_OPERATION = "file_operation"
     FILE_OPERATIONS = "file_operations"  # Alias for compatibility
@@ -28,7 +73,23 @@ class ToolCategory(Enum):
 
 @dataclass
 class ToolParameter:
-    """Tool parameter specification"""
+    """
+    Dataclass representing a single parameter accepted by a tool.
+
+    Attributes
+    ----------
+    name: str
+        The identifier used when passing the parameter to the tool.
+    type: str
+        JSON‑schema compatible type (e.g., ``string``, ``integer``) used for
+        schema generation for OpenAI/Anthropic function calling.
+    description: str
+        Human‑readable description of the parameter's purpose.
+    required: bool, default ``False``
+        Indicates whether the parameter must be supplied by the caller.
+    default: Any, default ``None``
+        Optional default value used when the parameter is not provided.
+    """
 
     name: str
     type: str
@@ -39,7 +100,24 @@ class ToolParameter:
 
 @dataclass
 class ToolResult:
-    """Result from tool execution"""
+    """
+    Dataclass representing the result of a tool execution.
+
+    Attributes
+    ----------
+    success: bool
+        Indicates whether the tool completed successfully.
+    output: Any
+        The primary result produced by the tool when ``success`` is ``True``.
+    error: Optional[str], default ``None``
+        Human‑readable error message when ``success`` is ``False``.
+    metadata: Optional[Dict[str, Any]], default ``None``
+        Additional optional information that may be useful for downstream
+        processing (e.g., execution time, logs, or auxiliary data).
+
+    The ``__str__`` method provides a concise textual representation used by
+    logging and debugging facilities.
+    """
 
     success: bool
     output: Any
@@ -47,6 +125,12 @@ class ToolResult:
     metadata: Optional[Dict[str, Any]] = None
 
     def __str__(self) -> str:
+        """Return a human‑readable representation of the result.
+
+        Returns:
+            str: A string prefixed with ``Success:`` when ``self.success`` is ``True``
+                 or ``Error:`` when ``self.success`` is ``False``.
+        """
         if self.success:
             return f"Success: {self.output}"
         else:
@@ -54,9 +138,28 @@ class ToolResult:
 
 
 class BaseTool(ABC):
-    """Base class for all tools"""
+    """
+    Abstract base class for all Hcode tools.
+
+    Every concrete tool inherits from this class, gaining a standard interface
+    and common utilities. Sub‑classes must implement the asynchronous
+    ``execute`` method (which performs the tool's primary action) and the
+    ``get_parameters`` method (which describes the tool's expected inputs).
+
+    The base class also provides helper methods for retrieving a description
+    from the class docstring, validating parameters against the declared
+    ``ToolParameter`` specifications, and converting the tool definition into
+    OpenAI/Anthropic function schemas.
+    """
 
     def __init__(self):
+        """Initialize the base tool.
+
+        Sets the ``name`` attribute to the concrete class name and assigns the
+        default ``category`` of ``ToolCategory.CUSTOM``. Sub‑classes may override
+        ``self.category`` after calling ``super().__init__()`` to specify a more
+        appropriate category.
+        """
         self.name = self.__class__.__name__
         self.category = ToolCategory.CUSTOM
 
@@ -81,7 +184,12 @@ class BaseTool(ABC):
         pass
 
     def get_description(self) -> str:
-        """Get tool description"""
+        """
+        Get the tool's description.
+
+        Returns:
+            str: The tool's docstring if available, otherwise a default fallback message.
+        """
         return self.__doc__ or "No description available"
 
     def validate_parameters(self, **kwargs) -> tuple[bool, Optional[str]]:
@@ -150,7 +258,13 @@ class BaseTool(ABC):
 
 
 class ToolRegistry:
-    """Registry for managing available tools"""
+    """
+    Central registry for all available Hcode tools.
+
+    The registry stores instantiated tool objects, resolves tool names (including a large
+    alias map for model compatibility), lists tools by category, and provides utilities to
+    retrieve function schemas and execute tools asynchronously.
+    """
 
     # Tool name aliases for common variations
     # Maps alternate names -> canonical registered name (lowercase class name)
@@ -313,10 +427,22 @@ class ToolRegistry:
     }
 
     def __init__(self):
+        """Initialize the tool registry.
+
+        Creates an empty dictionary that will map lower‑cased tool names to their
+        instantiated ``BaseTool`` objects. This method prepares the registry for
+        subsequent ``register`` calls.
+        """
         self.tools: Dict[str, BaseTool] = {}
 
     def register(self, tool: BaseTool):
-        """Register a tool"""
+        """
+        Register a new tool instance with the registry.
+
+        Args:
+            tool (BaseTool): The instantiated tool object to register.
+                             The tool is stored using its lowercase name as the key.
+        """
         self.tools[tool.name.lower()] = tool
 
     def get_tool(self, name: str) -> Optional[BaseTool]:
@@ -400,21 +526,57 @@ class ToolRegistry:
         return None
 
     def list_tools(self, category: Optional[ToolCategory] = None) -> List[BaseTool]:
-        """List all tools, optionally filtered by category"""
+        """
+        List registered tools, optionally filtered by the given category.
+
+        Args:
+            category (Optional[ToolCategory]): If provided, only tools belonging to this
+                                               category will be returned.
+
+        Returns:
+            List[BaseTool]: A list of tool instances matching the criteria.
+        """
         if category:
             return [t for t in self.tools.values() if t.category == category]
         return list(self.tools.values())
 
     def get_function_schemas(self) -> List[Dict[str, Any]]:
-        """Get OpenAI function schemas for all tools"""
+        """
+        Get OpenAI function schemas for all registered tools.
+
+        Returns:
+            List[Dict[str, Any]]: A list of function schema dictionaries compatible
+                                  with OpenAI's function calling API.
+        """
         return [tool.to_function_schema() for tool in self.tools.values()]
 
     def get_anthropic_schemas(self) -> List[Dict[str, Any]]:
-        """Get Anthropic tool schemas for all tools"""
+        """
+        Get Anthropic tool schemas for all registered tools.
+
+        Returns:
+            List[Dict[str, Any]]: A list of tool schema dictionaries compatible
+                                  with Anthropic's tool use API.
+        """
         return [tool.to_anthropic_tool_schema() for tool in self.tools.values()]
 
     async def execute_tool(self, name: str, **kwargs) -> ToolResult:
-        """Execute a tool by name"""
+        """
+        Execute a registered tool by its name or alias.
+
+        This method performs the following steps:
+        1. Resolves the tool name to a concrete tool instance.
+        2. Validates the provided arguments against the tool's parameter schema.
+        3. Executes the tool asynchronously and captures the result/error.
+
+        Args:
+            name (str): The name or alias of the tool to execute.
+            **kwargs: Arbitrary keyword arguments passed to the tool's execute method.
+
+        Returns:
+            ToolResult: The outcome of the tool execution, containing success status,
+                        output data, and any error messages.
+        """
         tool = self.get_tool(name)
 
         if not tool:

@@ -436,11 +436,7 @@ class HcodeAgent:
         self.analytics.start_conversation(self.context_manager.session_id)
         self.execution_state.transition(ExecutionState.PLANNING)
 
-        # Start LiveTodoBar for real-time todo display
-        from hcode.ui.live_todo_bar import get_live_todo_bar
-        live_bar = get_live_todo_bar(self.console)
-        if not live_bar.is_active:
-            live_bar.start()
+
 
         # Initialize Hcode Display for task header
         from hcode.ui.hcode_display import get_hcode_display, TaskMode
@@ -622,22 +618,17 @@ class HcodeAgent:
                 )
                 raise
 
-        finally:
-            # Stop LiveTodoBar when task completes (success or failure)
-            from hcode.ui.live_todo_bar import get_live_todo_bar
-            live_bar = get_live_todo_bar(self.console)
-            if live_bar.is_active:
-                live_bar.stop()
+
             
             # End Hcode Task
             hcode_display.end_task()
 
     def _build_system_prompt(self, query: Optional[str] = None) -> str:
-        """Build system prompt with tool documentation and memory context (Claude Code style)"""
+        """Build system prompt with tool documentation and memory context """
         # Get base system prompt from external config
         base_prompt = self.current_provider.get_system_prompt_for_coding()
 
-        # Get tool documentation from external config (Claude Code style)
+        # Get tool documentation from external config
         from ..config.tools import get_tools_config
 
         tools_config = get_tools_config()
@@ -648,14 +639,13 @@ class HcodeAgent:
         
         # INJECT PROJECT ROOT CONTEXT so model knows correct paths
         base_prompt += f"""
+<user_information>
+The USER's OS version is Windows.
+The user has 1 active workspaces, each defined by a URI and a CorpusName. Multiple URIs potentially map to the same CorpusName. The mapping is shown as follows in the format [URI] -> [CorpusName]:
+{self.root_dir} -> main
 
-## WORKING ENVIRONMENT
-**Project Root**: {self.root_dir}
-**Current Working Directory**: {Path.cwd()}
-**OS**: Windows
-
-IMPORTANT: When using tools that require file paths, ALWAYS use paths relative to or within the project root above.
-DO NOT use generic paths like "/workspace" or "/home/user". Use the actual project root shown above."""
+Code relating to the user's requests should be written in the locations listed above. Avoid writing project code files to tmp, in the .gemini dir, or directly to the Desktop and similar folders unless explicitly asked.
+</user_information>"""
 
         # Add memory context if available
         if self.memory_manager:
@@ -724,54 +714,13 @@ To use tools, output JSON in a code fence. You can include explanations, but the
 
 ### Available Tools:
 
-**WriteTool** - Create NEW files only:
-```json
-{"tool": "WriteTool", "parameters": {"file_path": "filename.ext", "content": "full file content here"}}
-```
-
-**ReadTool** - Read existing files (REQUIRED before editing):
-```json
-{"tool": "ReadTool", "parameters": {"file_path": "path/to/file"}}
-```
-
-**EditTool** - Modify portions of EXISTING files:
-```json
-{"tool": "EditTool", "parameters": {"file_path": "path/to/file", "old_string": "text to replace", "new_string": "new text"}}
-```
-
-**GlobTool** - Find files by pattern:
-```json
-{"tool": "GlobTool", "parameters": {"pattern": "**/*.py"}}
-```
-
-**GrepTool** - Search file contents:
-```json
-{"tool": "GrepTool", "parameters": {"pattern": "search_term"}}
-```
-
-**BashTool** - Run shell commands:
-```json
-{"tool": "BashTool", "parameters": {"command": "ls -la"}}
-```
-
-**LSTool** - List directory:
-```json
-{"tool": "LSTool", "parameters": {"path": "."}}
-```
+{self.tool_manager.get_tool_documentation()}
 
 ### CRITICAL RULES:
-1. **WriteTool vs EditTool**:
-   - Use `WriteTool` for creating NEW files or OVERWRITING existing files (with cautious intent).
-   - Use `EditTool` for precise modifications to EXISTING files.
-
-2. **Editing Safety**:
-   - You MUST read the file (`ReadTool`) before using `EditTool` to ensure you have the exact `old_string`.
-   - `old_string` must match the file content EXACTLY (including whitespace/indentation).
-
-3. **Code Generation**:
-   - Providing a code block in your response DOES NOT create the file.
-   - You MUST call `WriteTool` or `EditTool` to apply changes.
-   - Do NOT ask the user to "do it" manually. YOU must check the tool output.
+1. **Tool Names**: Use the exact names shown above.
+2. **Parameters**: Use the exact parameter names.
+3. **Paths**: ALWAYS use absolute paths for file parameters.
+4. **Editing**: You MUST read the file (`view_file`) before using `replace_file_content` to ensure you have the exact `TargetContent`.
 
 ### IMPORTANT for multi-line content:
 Use \\n for newlines in JSON strings. The system will convert them to actual newlines.
@@ -789,7 +738,7 @@ When the user says things like "yes", "proceed", "continue", "do it", "ok", or s
         Execute task with tool calling support, automatic tool execution loop,
         and automatic continuation for long outputs.
 
-        Implements Claude Code-like seamless generation by:
+        Implements hCode seamless generation by:
         1. Detecting when output is truncated (finish_reason = "length")
         2. Automatically continuing generation
         3. Merging responses seamlessly
@@ -809,7 +758,7 @@ When the user says things like "yes", "proceed", "continue", "do it", "ok", or s
         - Model is stuck in a loop (same response repeated)
         """
 
-        # Get tool schemas from external config (Claude Code style)
+        # Get tool schemas from external config
         from ..config.tools import get_tools_config
 
         tools_config = get_tools_config()
@@ -912,7 +861,6 @@ When the user says things like "yes", "proceed", "continue", "do it", "ok", or s
 
                 messages = self.context_manager.get_messages(max_tokens=available_for_context)
 
-                # CLAUDE CODE STYLE: Show thinking indicator on first iteration
                 if iteration == 1:
                     if self._is_debug_mode():
                         self.console.print(f"[dim][*] Thinking...[/dim]", end="\r")
@@ -1452,7 +1400,8 @@ Then repeat your tool call.""",
 The file was written but the content appears incomplete. You MUST continue writing the remaining content.
 
 To continue the file, use WriteTool with mode='append':
-{{"tool": "WriteTool", "parameters": {{"file_path": "{file_path}", "content": "<remaining content>", "mode": "append"}}}}
+{{"tool": "Write", "parameters": {{"TargetFile": "{file_path}", "CodeContent": "<remaining content>", "mode": "append"}}}}
+
 
 IMPORTANT: Continue from EXACTLY where the content was cut off. Do not restart the file.
 
@@ -1651,8 +1600,42 @@ Call the tool now:""",
                 # CRITICAL FIX 3: Detect when model outputs code blocks but doesn't call Write/Edit
                 # This is a hallucination pattern where the model shows code instead of actually editing files
                 import re
-                code_block_pattern = r'```(?:python|py|javascript|js|typescript|ts|json|yaml|yml|markdown|md|html|css|bash|shell|sh)?\s*\n'
-                has_code_blocks = bool(re.search(code_block_pattern, response_text, re.IGNORECASE))
+                
+                # Check for code blocks, but be smart about it
+                # We want to catch:
+                # 1. Large blocks of code
+                # 2. Blocks that look like file content
+                # We want to ignore:
+                # 1. File paths showing where to look
+                # 2. Terminal commands (pip install, ls, etc)
+                # 3. Short snippets referencing code
+                
+                code_block_pattern = r'```(?:\w+)?\s*\n(.*?)```'
+                matches = re.findall(code_block_pattern, response_text, re.DOTALL)
+                
+                has_suspicious_code_blocks = False
+                for content in matches:
+                    content = content.strip()
+                    lines = content.split('\n')
+                    
+                    # Ignore short 1-line blocks (likely paths or commands)
+                    if len(lines) <= 1:
+                        continue
+                        
+                    # Ignore blocks that look like directory listings (contain timestamps/sizes)
+                    if any("bytes" in line or "dir" in line.lower() for line in lines[:3]):
+                        continue
+                        
+                    # Ignore blocks matching command outputs (common in bash tool)
+                    if any(line.startswith("STDOUT:") or line.startswith("STDERR:") for line in lines):
+                        continue
+
+                    # If we got here, it's a multi-line block that isn't obviously safe
+                    has_suspicious_code_blocks = True
+                    break
+
+                has_code_blocks = has_suspicious_code_blocks
+                
                 has_write_or_edit_tool = any(
                     tc.get('tool', '').lower() in ('write', 'writetool', 'edit', 'edittool', 'fuzzyedit')
                     for tc in tool_calls
@@ -1697,21 +1680,22 @@ This is WRONG. After thinking, you MUST output a tool call JSON.
 OUTPUT ONE OF THESE RIGHT NOW (pick the most relevant):
 
 To find files:
-{"tool": "Glob", "parameters": {"pattern": "**/*.py"}}
+{"tool": "Glob", "parameters": {"Pattern": "**/*.py"}}
 
 To read a file:
-{"tool": "Read", "parameters": {"file_path": "path/to/file.py"}}
+{"tool": "Read", "parameters": {"AbsolutePath": "path/to/file.py"}}
 
 To list directory:
-{"tool": "LS", "parameters": {"path": "."}}
+{"tool": "LS", "parameters": {"DirectoryPath": "."}}
 
 To search content:
-{"tool": "Grep", "parameters": {"pattern": "search_term"}}
+{"tool": "Grep", "parameters": {"Query": "search_term", "SearchPath": "."}}
 
 To edit a file (after reading it):
-{"tool": "Edit", "parameters": {"file_path": "file.py", "old_string": "old code", "new_string": "new code"}}
+{"tool": "Edit", "parameters": {"TargetFile": "file.py", "TargetContent": "old code", "ReplacementContent": "new code"}}
 
 DO NOT output more thinking. Output the JSON tool call NOW:""",
+
                         importance=1.0,
                         provider=self.current_provider,
                     )
@@ -1729,11 +1713,12 @@ DO NOT output more thinking. Output the JSON tool call NOW:""",
 
 OUTPUT A TOOL CALL NOW. Examples:
 
-{"tool": "Glob", "parameters": {"pattern": "**/*.py"}}
-{"tool": "Read", "parameters": {"file_path": "path/to/file.py"}}
-{"tool": "LS", "parameters": {"path": "."}}
+{"tool": "Glob", "parameters": {"Pattern": "**/*.py"}}
+{"tool": "Read", "parameters": {"AbsolutePath": "path/to/file.py"}}
+{"tool": "LS", "parameters": {"DirectoryPath": "."}}
 
 Do not describe what you will do - OUTPUT THE JSON:""",
+
                         importance=1.0,
                         provider=self.current_provider,
                     )
@@ -1776,10 +1761,11 @@ RULES:
 Output the tool call JSON NOW:
 
 To create a file:
-{"tool": "Write", "parameters": {"file_path": "path/to/file.py", "content": "file content here"}}
+{"tool": "Write", "parameters": {"TargetFile": "path/to/file.py", "CodeContent": "file content here"}}
 
 To edit a file:
-{"tool": "Edit", "parameters": {"file_path": "path/to/file.py", "old_string": "old code", "new_string": "new code"}}""",
+{"tool": "Edit", "parameters": {"TargetFile": "path/to/file.py", "TargetContent": "old code", "ReplacementContent": "new code"}}""",
+
                         importance=1.0,
                         provider=self.current_provider,
                     )
@@ -1927,7 +1913,6 @@ Start your response with the actual content the user requested, not with more th
                             f"[dim yellow][!] Reached max continuation prompts ({max_todo_continuation_prompts}), accepting LLM decision[/dim yellow]"
                         )
 
-                    # Only show task completed message in debug mode (Claude Code doesn't show this)
                     self._debug_print(
                         f"[bold {self._palette.success}]{self._icons.SUCCESS} Task completed![/bold {self._palette.success}]"
                     )
@@ -3548,7 +3533,7 @@ CRITICAL CONSTRAINTS:
 - Do NOT run tests (pytest, unittest, etc.)
 - Do NOT execute any code
 - Do NOT modify any files
-- ONLY use: LS, Glob, Grep, Read
+- ONLY use: LS, Glob, Grep, Read, codebase_search
 
 MANDATORY RESPONSE FORMAT:
 1. First, output a <thinking> block with your reasoning
@@ -3568,7 +3553,7 @@ Example:
 5. RISK CHECK: This is read-only, safe to proceed
 </thinking>
 
-{{"tool": "LS", "parameters": {{"path": "."}}}}
+{{"tool": "LS", "parameters": {{"DirectoryPath": "."}}}}
 
 START NOW - think first, then explore:"""
             else:
@@ -3578,22 +3563,27 @@ MANDATORY RESPONSE FORMAT:
 1. First, output a <thinking> block with your reasoning
 2. Then call the appropriate tool
 
+EFFICIENCY RULES:
+- **Multiple Edits**: Use `MultiReplaceFileContent` for multiple non-contiguous edits to the same file.
+- **Targeted Testing**: Run tests for the specific file/component first (e.g., `pytest path/to/file.py`). Do NOT run the full suite unless requested.
+- **Batching**: Group independent operations where possible.
+
 Example:
 <thinking>
 1. UNDERSTAND: User wants [what]
 2. CONTEXT: I know [context]
-3. OPTIONS: [list possible tools]
+3. OPTIONS: [list possible tools, prioritizing MultiReplaceFileContent for multi-edits]
 4. DECISION: Best choice is [tool] because [reason]
 5. RISK CHECK: [is this safe?]
+6. EFFICIENCY: I will use MultiReplace to batch edits.
 </thinking>
 
 {{"tool": "ToolName", "parameters": {{"key": "value"}}}}
 
-Available: Bash, Read, Write, Edit, Glob, Grep, LS
+Available: Bash, Read, Write, Edit, MultiReplaceFileContent, Glob, Grep, LS
 
 START NOW - think first, then act:"""
 
-        # For Claude/Anthropic, just return the task as-is
         return task
 
     def _maybe_clear_context_for_new_task(self, task: str) -> None:
@@ -3691,7 +3681,8 @@ You MUST respond with BOTH:
 Example correct response:
 "I'll explore the repository structure first.
 
-{"tool": "LS", "parameters": {"path": "."}}"
+{"tool": "LS", "parameters": {"DirectoryPath": "."}}"
+
 
 NOW respond with text explanation + tool call:"""
 
@@ -3704,7 +3695,7 @@ You MUST respond with BOTH:
 Example correct response:
 "I'll explore the codebase to understand the structure.
 
-{"tool": "LS", "parameters": {"path": "."}}"
+{"tool": "LS", "parameters": {"DirectoryPath": "."}}"
 
 NOW respond with text explanation + tool call:"""
 
@@ -3728,9 +3719,9 @@ NOW respond with text explanation + tool call:"""
 CORRECT FORMAT: {{"tool": "ToolName", "parameters": {{"key": "value"}}}}
 
 The "tool" key is REQUIRED. Examples:
-- {{"tool": "Bash", "parameters": {{"command": "python -m pytest"}}}}
-- {{"tool": "Read", "parameters": {{"file_path": "tests/test_file.py"}}}}
-- {{"tool": "LS", "parameters": {{"path": "."}}}}
+- {{"tool": "Bash", "parameters": {{"CommandLine": "python -m pytest"}}}}
+- {{"tool": "Read", "parameters": {{"AbsolutePath": "tests/test_file.py"}}}}
+- {{"tool": "LS", "parameters": {{"DirectoryPath": "."}}}}
 
 Fix your response and output a VALID tool call now:"""
 
@@ -3925,15 +3916,29 @@ Continue working or provide your final answer:"""
 
             # Validate based on tool type
             if tool_lower in ["ls", "list"]:
-                # LS needs path, and "/" on Windows is suspicious - fix it
-                path = args.get("path", "")
+                # LS needs DirectoryPath (or path as alias), and "/" on Windows is suspicious - fix it
+                # Check both DirectoryPath and path (path is an alias)
+                path = args.get("DirectoryPath") or args.get("path", "")
+                
                 if path == "/" or path == "\\":
                     self.console.print(
                         f"[dim yellow][!] Fixing LS root path '{path}' to '.' (current directory)[/dim yellow]"
                     )
-                    args["path"] = "."  # This modifies in place
+                    # Normalize to DirectoryPath
+                    args["DirectoryPath"] = "."
+                    if "path" in args:
+                        del args["path"]
                 elif not path:
-                    args["path"] = "."  # Default to current directory
+                    # Default to current directory - use primary parameter name
+                    args["DirectoryPath"] = "."
+                    if "path" in args:
+                        del args["path"]
+                else:
+                    # Normalize: if only path is provided, convert to DirectoryPath
+                    if "path" in args and "DirectoryPath" not in args:
+                        args["DirectoryPath"] = args["path"]
+                        del args["path"]
+                
                 return True
 
             if tool_lower in ["read"]:
@@ -4880,7 +4885,7 @@ Continue working or provide your final answer:"""
 
     def _display_pending_writes(self, write_operations: list):
         """
-        Display pending write operations for user review - Claude Code style.
+        Display pending write operations for user review.
 
         Shows actual file diffs with syntax highlighting:
         - For new files: shows full content with + prefix (green)
@@ -4994,7 +4999,7 @@ Continue working or provide your final answer:"""
 
     def _display_tool_result(self, tool_name: str, result, arguments: dict):
         """
-        Display tool execution result in Claude Code style.
+        Display tool execution result in style.
 
         Uses the HcodeToolDisplay class for consistent formatting:
         - WriteTool: Only show file path and byte count (no content)

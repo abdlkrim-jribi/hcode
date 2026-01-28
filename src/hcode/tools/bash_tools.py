@@ -90,7 +90,7 @@ class BashTool(BaseTool):
     def get_parameters(self) -> List[ToolParameter]:
         return [
             ToolParameter(
-                name="command",
+                name="CommandLine",
                 type="string",
                 description="The bash command to execute",
                 required=True,
@@ -113,7 +113,16 @@ class BashTool(BaseTool):
                 description="Set to true to run this command in the background. Allows you to continue working while command runs.",
                 required=False,
             ),
+            # Legacy
+            ToolParameter("command", "string", "Alias for CommandLine", default=None),
         ]
+
+    def validate_parameters(self, **kwargs) -> tuple[bool, Optional[str]]:
+        """Validate parameters allowing for strict aliases"""
+        # Check required: CommandLine (or command)
+        if "CommandLine" not in kwargs and "command" not in kwargs:
+             return False, "Missing required parameter: CommandLine (or command)"
+        return True, None
 
     def _translate_command(self, command: str) -> str:
         """Translate Unix commands to Windows equivalents if on Windows"""
@@ -169,15 +178,15 @@ class BashTool(BaseTool):
                 
         return command
 
-    async def execute(self, **kwargs) -> ToolResult:
+    async def execute(self, CommandLine: str = None, command: str = None, **kwargs) -> ToolResult:
         """Execute bash command"""
-        raw_command = kwargs.get("command")
+        raw_command = CommandLine or command
         timeout = kwargs.get("timeout", 120000) / 1000  # Convert ms to seconds
         run_in_background = kwargs.get("run_in_background", False)
         description = kwargs.get("description", raw_command[:50] if raw_command else "")
 
         if not raw_command:
-            return ToolResult(success=False, output="", error="Command is required")
+            return ToolResult(success=False, output="", error="CommandLine (or command) is required")
             
         # Translate command for Windows
         command = self._translate_command(raw_command)
@@ -602,7 +611,7 @@ class LSTool(BaseTool):
     def get_parameters(self) -> List[ToolParameter]:
         return [
             ToolParameter(
-                name="path",
+                name="DirectoryPath",
                 type="string",
                 description="Absolute directory path to list",
                 required=True,
@@ -613,17 +622,27 @@ class LSTool(BaseTool):
                 description="Optional glob patterns to exclude (comma-separated)",
                 required=False,
             ),
+            # Legacy
+            ToolParameter("path", "string", "Alias for DirectoryPath", default=None),
         ]
 
-    async def execute(self, **kwargs) -> ToolResult:
+    def validate_parameters(self, **kwargs) -> tuple[bool, Optional[str]]:
+        """Validate parameters allowing for strict aliases"""
+        # Check required: DirectoryPath (or path)
+        if "DirectoryPath" not in kwargs and "path" not in kwargs:
+             return False, "Missing required parameter: DirectoryPath"
+        return True, None
+
+
+    async def execute(self, DirectoryPath: str = None, path: str = None, **kwargs) -> ToolResult:
         """List directory contents"""
         import sys
 
-        path_str = kwargs.get("path")
+        path_str = DirectoryPath or path
         ignore_patterns = kwargs.get("ignore", "")
 
         if not path_str:
-            return ToolResult(success=False, output="", error="path is required")
+            return ToolResult(success=False, output="", error="DirectoryPath (or path) is required")
 
         # Handle "/" on Windows - convert to current working directory
         if sys.platform == "win32" and path_str == "/":

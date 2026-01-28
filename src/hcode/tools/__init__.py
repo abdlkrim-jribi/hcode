@@ -3,7 +3,7 @@ Comprehensive tool system for Hcode.
 Includes file operations, web tools, interactive features, and more.
 """
 
-from hcode.tools.agent_tools import TaskTool, ExitPlanModeTool, TodoReadTool
+from hcode.tools.agent_tools import TaskTool, ExitPlanModeTool
 from hcode.tools.base_tool import BaseTool, ToolResult, ToolParameter, ToolRegistry, ToolCategory
 from hcode.tools.bash_tools import BashTool, BashOutputTool, KillShellTool, LSTool, SearchOutputTool
 from hcode.tools.command_system import (
@@ -30,7 +30,6 @@ from hcode.tools.executor import ToolExecutor, ExecutionResult
 from hcode.tools.file_tools import ReadTool, WriteTool, EditTool, MultiEditTool, GlobTool, GrepTool
 from hcode.tools.interactive_tools import (
     AskUserQuestionTool,
-    TodoWriteTool,
     ConfirmTool,
     DisplayPanelTool,
     ProgressTool,
@@ -86,14 +85,12 @@ __all__ = [
     # Agent Tools
     "TaskTool",
     "ExitPlanModeTool",
-    "TodoReadTool",
     # Web Tools
     "WebFetchTool",
     "WebSearchTool",
     "WebScrapeTool",
     # Interactive Tools
     "AskUserQuestionTool",
-    "TodoWriteTool",
     "ConfirmTool",
     "DisplayPanelTool",
     "ProgressTool",

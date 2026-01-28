@@ -242,7 +242,8 @@ class TodoManager:
 
         if in_progress_count != 1:
             # This is a warning condition - Claude Code should have exactly one
-            print(f"Warning: {in_progress_count} todos in progress (should be 1)")
+            # print(f"Warning: {in_progress_count} todos in progress (should be 1)")
+            pass
 
         # Notify listeners
         self.notify_listeners()

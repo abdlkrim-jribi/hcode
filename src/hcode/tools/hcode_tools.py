@@ -75,8 +75,8 @@ class TaskBoundaryTool(BaseTool):
             self.console.print(panel)
             self.console.print("\n")
 
-            # SYNC PROGRESS TO FILE
-            self._sync_progress_to_file(TaskName, Mode, TaskStatus, TaskSummary)
+            # SYNC PROGRESS TO FILE - REMOVED for Antigravity alignment
+            # self._sync_progress_to_file(TaskName, Mode, TaskStatus, TaskSummary)
 
             return ToolResult(
                 success=True,
@@ -92,32 +92,8 @@ class TaskBoundaryTool(BaseTool):
         except Exception as e:
             return ToolResult(success=False, output="", error=str(e))
 
-    def _sync_progress_to_file(self, task_name: str, mode: str, status: str, summary: str) -> None:
-        """
-        Sync task boundary progress to .hcode/task.md file.
-        
-        Creates the file if it doesn't exist, appends progress updates.
-        """
-        try:
-            hcode_dir = self.root_dir / ".hcode"
-            hcode_dir.mkdir(parents=True, exist_ok=True)
-            task_file = hcode_dir / "task.md"
+            pass
 
-            self._progress_counter += 1
-
-            # If file doesn't exist, create with header
-            if not task_file.exists():
-                content = f"# Task: {task_name}\n\n"
-                content += f"**Mode**: {mode}\n\n"
-                content += "## Progress\n\n"
-                task_file.write_text(content, encoding="utf-8")
-
-            # Append progress update
-            with open(task_file, "a", encoding="utf-8") as f:
-                f.write(f"{self._progress_counter}. {status}\n")
-
-        except Exception:
-            pass  # Silently fail - file sync is best-effort
 
 
 class NotifyUserTool(BaseTool):

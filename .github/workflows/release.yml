@@ -41,7 +41,7 @@ jobs:
 
       - name: Run tests
         run: |
-          pytest tests/ -v --cov=src/hcode --cov-report=xml
+          pytest tests/ -v --cov=src/hcode --cov-report=xml --self-contained-html --html=report.html --css=custom_report.css
 
       - name: Upload coverage
         uses: codecov/codecov-action@v4

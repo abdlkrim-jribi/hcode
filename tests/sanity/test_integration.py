@@ -1,7 +1,8 @@
-"""
-Sanity Check: Integration Tests.
+"""Sanity Check: Integration Tests.
 
-Tests integration between multiple HCode components.
+This module contains integration tests that verify the interaction between multiple HCode components. It ensures that core agents, memory systems, tool chains, CLI components, providers, configuration, and end‑to‑end workflows work together as expected.
+
+The tests use temporary directories and asynchronous fixtures where appropriate.
 """
 
 import pytest
@@ -12,20 +13,35 @@ from pathlib import Path
 
 
 class TestCoreAgentIntegration:
-    """Test integration of core agent components."""
+    """Test integration of core agent components.
+
+    This class contains tests that verify the core agent module can be imported
+    and is functional.
+    """
 
     def test_agent_module_exists(self):
-        """Test agent module can be imported."""
+        """Test that the core agent module can be imported.
+
+        Ensures that the `hcode.core.agent` module is importable and not None.
+        """
         from hcode.core import agent
 
         assert agent is not None
 
 
 class TestMemorySystemIntegration:
-    """Test integration of memory system components."""
+    """Test integration of memory system components.
+
+    This class validates that the `MemoryManager` correctly integrates all memory layers
+    (file, session, semantic) and provides a unified context.
+    """
 
     def test_memory_manager_with_all_layers(self):
-        """Test MemoryManager integrates all memory layers."""
+        """Test that `MemoryManager` integrates all memory layers.
+
+        The test creates a temporary `MemoryManager` instance and checks that each
+        memory layer (file, session, semantic) returns the expected types.
+        """
         from hcode.memory.memory_manager import MemoryManager
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -48,7 +64,11 @@ class TestMemorySystemIntegration:
             assert context is not None
 
     def test_memory_manager_add_and_recall(self):
-        """Test MemoryManager can add and recall memories."""
+        """Test that `MemoryManager` can add and recall memories.
+
+        The test adds a message and a fact, then verifies that statistics are
+        generated and contain expected keys.
+        """
         from hcode.memory.memory_manager import MemoryManager
         from hcode.memory.semantic_memory import MemoryType
 
@@ -72,11 +92,19 @@ class TestMemorySystemIntegration:
 
 
 class TestToolChainIntegration:
-    """Test integration of tool chains."""
+    """Test integration of tool chains.
+
+    This class ensures that the file‑tool chain (WriteTool, ReadTool, EditTool)
+    works together correctly in an asynchronous context.
+    """
 
     @pytest.mark.asyncio
     async def test_file_tools_chain(self):
-        """Test file tools work together."""
+        """Test that file tools (write, read, edit) work together.
+
+        The test writes a file, reads it back, edits its content, and then
+        verifies the edit was successful.
+        """
         from hcode.tools.file_tools import WriteTool, ReadTool, EditTool
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -105,10 +133,18 @@ class TestToolChainIntegration:
 
 
 class TestCLIIntegration:
-    """Test CLI integration with other components."""
+    """Test CLI integration with other components.
+
+    This class validates that CLI display utilities interact correctly with
+    styling components such as colors and icons.
+    """
 
     def test_agent_display_with_colors(self):
-        """Test AgentDisplay integrates with Colors."""
+        """Test that `AgentDisplay` integrates with `Colors`.
+
+        Ensures that the display object can access color definitions without
+        errors.
+        """
         from hcode.cli.display import AgentDisplay
         from hcode.cli.styles.colors import Colors
 
@@ -118,7 +154,11 @@ class TestCLIIntegration:
         assert display is not None
 
     def test_hcode_style_with_icons(self):
-        """Test HcodeStyle has icons."""
+        """Test that `HcodeStyle` provides icons.
+
+        Verifies that the style class and the `Icons` utility are both
+        importable and contain expected attributes.
+        """
         from hcode.cli.tool_display import HcodeStyle
         from hcode.cli.styles.icons import Icons
 
@@ -130,10 +170,17 @@ class TestCLIIntegration:
 
 
 class TestProviderIntegration:
-    """Test provider integration."""
+    """Test provider integration.
+
+    This class checks that provider modules (Anthropic, OpenAI) are
+    importable and that the selector class exists.
+    """
 
     def test_provider_classes_exist(self):
-        """Test provider classes can be imported."""
+        """Test that provider classes can be imported.
+
+        Ensures that `AnthropicProvider` and `OpenAIProvider` are available.
+        """
         from hcode.providers.anthropic_provider import AnthropicProvider
         from hcode.providers.openai_provider import OpenAIProvider
 
@@ -142,17 +189,27 @@ class TestProviderIntegration:
         assert OpenAIProvider is not None
 
     def test_provider_selector_class_exists(self):
-        """Test ProviderSelector class exists."""
+        """Test that `ProviderSelector` class exists.
+
+        Confirms the selector utility is importable.
+        """
         from hcode.providers.provider_selector import ProviderSelector
 
         assert ProviderSelector is not None
 
 
 class TestConfigIntegration:
-    """Test config integration."""
+    """Test config integration.
+
+    This class validates that configuration modules (`settings`, `defaults`)
+    are importable and correctly initialized.
+    """
 
     def test_config_modules_exist(self):
-        """Test config modules exist."""
+        """Test that config modules exist.
+
+        Checks that `settings` and `defaults` can be imported without error.
+        """
         from hcode.config import settings
         from hcode.config import defaults
 
@@ -162,10 +219,18 @@ class TestConfigIntegration:
 
 
 class TestAgentThinkingIntegration:
-    """Test agent thinking integration."""
+    """Test agent thinking integration.
+
+    This class ensures that the `ThinkingManager` and related config are
+    importable and functional.
+    """
 
     def test_thinking_manager_import(self):
-        """Test ThinkingManager can be imported."""
+        """Test that `ThinkingManager` can be imported.
+
+        Verifies that the thinking manager class and its configuration are
+        available.
+        """
         from hcode.agent.thinking_manager import ThinkingManager
         from hcode.config import thinking
 
@@ -175,11 +240,19 @@ class TestAgentThinkingIntegration:
 
 
 class TestEndToEndFlow:
-    """Test end-to-end flows."""
+    """Test end-to-end flows.
+
+    This class contains integration tests that simulate full workflows,
+    including file creation, tool chain execution, and memory management.
+    """
 
     @pytest.mark.asyncio
     async def test_simple_file_workflow(self):
-        """Test a simple file creation and reading workflow."""
+        """Test a simple file creation and reading workflow.
+
+        The test writes multiple files, uses `GlobTool` to locate them, and
+        `GrepTool` to search for content, verifying the tool chain works.
+        """
         from hcode.tools.file_tools import WriteTool, ReadTool, GlobTool, GrepTool
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -204,7 +277,11 @@ class TestEndToEndFlow:
             assert result is not None
 
     def test_memory_workflow(self):
-        """Test a memory management workflow."""
+        """Test a memory management workflow.
+
+        This test creates a `MemoryManager`, adds messages, retrieves context,
+        and checks that statistics reflect the interactions.
+        """
         from hcode.memory.memory_manager import MemoryManager, get_memory_manager
 
         with tempfile.TemporaryDirectory() as tmpdir:
