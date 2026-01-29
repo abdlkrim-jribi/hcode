@@ -22,6 +22,7 @@ class ThemeMode(Enum):
     FROST = "frost"
     MINIMAL = "minimal"
     HACKER = "hacker"
+    NEON_GREEN = "neon_green"  # Signature HCODE theme
 
 
 @dataclass
@@ -248,6 +249,47 @@ THEMES: Dict[ThemeMode, ColorPalette] = {
         code_string="#7FFF00",
         code_function="#00FF7F",
         code_comment="#2E8B57",
+    ),
+    # Signature HCODE theme - Modern neon green aesthetic
+    ThemeMode.NEON_GREEN: ColorPalette(
+        primary="#39FF14",       # Neon green (signature color)
+        secondary="#00FF88",     # Mint green
+        accent="#00FFAA",        # Cyan-green
+        bg_dark="#0A0F0A",       # Dark green-tinted black
+        bg_medium="#0F1A0F",     # Subtle green dark
+        bg_light="#142114",      # Light green dark
+        bg_elevated="#1A2E1A",   # Elevated green surface
+        bg_hover="#214021",      # Hover with green tint
+        text_primary="#FFFFFF",  # Pure white for contrast
+        text_secondary="#B8FFB8", # Light green text
+        text_muted="#4A8F4A",    # Muted green
+        text_glow="#39FF14",     # Neon green glow
+        text_highlight="#00FFAA", # Cyan-green highlight
+        success="#39FF14",       # Neon green
+        error="#FF3355",         # Softer red
+        warning="#FFCC00",       # Golden yellow
+        info="#00DDFF",          # Cyan info
+        gradient_start="#39FF14", # Neon green
+        gradient_mid="#00FF88",   # Mint
+        gradient_end="#00FFAA",   # Cyan-green
+        glow_color="#39FF14",    # Neon green glow
+        border_glow="#00FF00",   # Green border glow
+        pulse_color="#00FF88",   # Mint pulse
+        code_keyword="#39FF14",   # Neon green keywords
+        code_string="#7FFF00",    # Yellow-green strings
+        code_function="#00FF7F",  # Mint functions
+        code_comment="#3D9140",   # Forest green comments
+        code_number="#00FFAA",    # Cyan-green numbers
+        code_operator="#39FF14",  # Neon green operators
+        code_class="#00FF88",     # Mint classes
+        code_variable="#B8FFB8",  # Light green vars
+        diff_added="#39FF14",     # Neon green added
+        diff_added_bg="#0A2010",  # Dark green bg
+        diff_removed="#FF3355",   # Red removed
+        diff_removed_bg="#200A10", # Dark red bg
+        border_default="#1A4A1A", # Dark green border
+        border_focus="#39FF14",   # Neon green focus
+        border_success="#00FF88", # Mint success
     ),
 }
 

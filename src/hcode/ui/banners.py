@@ -186,6 +186,35 @@ def get_cyberpunk_gradient() -> List[str]:
     ]
 
 
+def get_neon_green_gradient() -> List[str]:
+    """Get the neon green gradient for HCODE branding.
+    
+    This creates a stunning neon green effect specifically for the logo.
+    """
+    return [
+        "#00FF00",  # Pure green
+        "#0FFF0F",
+        "#1FFF1F",
+        "#2FFF2F",
+        "#39FF14",  # Neon green (signature color)
+        "#39FF14",
+        "#39FF14",
+        "#3FFF3F",
+        "#4FFF4F",
+        "#5FFF5F",
+        "#00FF88",  # Mint green
+        "#00FF99",
+        "#00FFAA",  # Cyan-green
+        "#00FFBB",
+        "#00FFCC",
+        "#00FFDD",
+        "#00FFEE",
+        "#00FFFF",  # Cyan accent
+        "#33FFFF",
+        "#66FFFF",  # Light cyan
+    ]
+
+
 def create_banner(
     style: str = "cyber",
     show_version: bool = True,
@@ -210,8 +239,8 @@ def create_banner(
 
     logo = logos.get(style, LOGO_CYBER)
 
-    # Create gradient logo
-    gradient_colors = get_cyberpunk_gradient()
+    # Use NEON GREEN gradient for the HCODE logo - signature branding
+    gradient_colors = get_neon_green_gradient()
     gradient_logo = create_gradient_text(logo, gradient_colors)
 
     elements = []
@@ -219,23 +248,24 @@ def create_banner(
     # Center the logo
     elements.append(Align.center(gradient_logo))
 
-    # Decorative line
-    deco_line = Text("━" * 60, style=f"bold {palette.border_default}")
+    # Enhanced decorative line with glow effect
+    deco_line = Text()
+    deco_line.append("━" * 60, style=f"bold #39FF14")  # Neon green separator
     elements.append(Align.center(deco_line))
 
     if show_version or show_tagline:
         version_text = Text()
 
         if show_version:
-            version_text.append(f"v{version}", style=f"bold {palette.primary}")
+            version_text.append(f"v{version}", style=f"bold #39FF14")  # Neon green version
             version_text.append(" │ ", style=palette.text_muted)
 
         if show_tagline:
             version_text.append("AI-Powered Coding Agent", style=f"italic {palette.secondary}")
             version_text.append(" │ ", style=palette.text_muted)
 
-        version_text.append("◉ ", style=f"bold {palette.success}")
-        version_text.append("ONLINE", style=f"bold {palette.success}")
+        version_text.append("◉ ", style=f"bold #39FF14")  # Neon green dot
+        version_text.append("ONLINE", style=f"bold #39FF14")  # Neon green status
 
         elements.append(Align.center(version_text))
 
@@ -426,8 +456,8 @@ def quick_banner() -> Text:
     palette = get_palette()
 
     text = Text()
-    text.append("◈ ", style=f"bold {palette.secondary}")
-    text.append("HCode", style=f"bold {palette.primary}")
+    text.append("◈ ", style="bold #00FF88")  # Mint green icon
+    text.append("HCode", style="bold #39FF14")  # Neon green brand
     text.append(" │ ", style=palette.text_muted)
     text.append("AI Agent", style=f"italic {palette.text_secondary}")
 
@@ -439,7 +469,7 @@ def status_banner(status: str = "ready") -> Text:
     palette = get_palette()
 
     status_configs = {
-        "ready": ("◉", palette.success, "Ready"),
+        "ready": ("◉", "#39FF14", "Ready"),  # Neon green
         "thinking": ("◐", palette.warning, "Thinking"),
         "executing": ("▶", palette.info, "Executing"),
         "error": ("✗", palette.error, "Error"),
@@ -449,8 +479,8 @@ def status_banner(status: str = "ready") -> Text:
     icon, color, label = status_configs.get(status, ("○", palette.text_muted, status.title()))
 
     text = Text()
-    text.append("◈ ", style=f"bold {palette.secondary}")
-    text.append("HCode", style=f"bold {palette.primary}")
+    text.append("◈ ", style="bold #00FF88")  # Mint green icon
+    text.append("HCode", style="bold #39FF14")  # Neon green brand
     text.append(" │ ", style=palette.text_muted)
     text.append(f"{icon} ", style=f"bold {color}")
     text.append(label, style=f"bold {color}")

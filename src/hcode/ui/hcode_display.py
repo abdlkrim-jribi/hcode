@@ -212,21 +212,22 @@ class HcodeDisplay:
         """
         Start the thinking timer.
         
-        Prints a simple 'Thinking...' message instead of animated timer
-        to avoid conflicts with streaming output.
+        Prints a modern styled 'Thinking...' message with neon green accents.
         """
         self.thinking_start_time = time.time()
         self._thinking_stop_event.clear()
         
-        # Simple print instead of Rich Live (avoids conflicts with streaming)
+        # Modern neon green styled thinking indicator
         text = Text()
-        text.append(" ◐ ", style=f"bold {self._palette.warning}")
-        text.append("Thinking...", style=self._palette.text_muted)
+        text.append("\n  ", style="")
+        text.append("◈ ", style="bold #00FF88")  # Mint green icon
+        text.append("Thinking", style="bold #39FF14")  # Neon green
+        text.append(" ◐", style="bold #00FFAA")  # Animated-style spinner
         self.console.print(text)
         
     def end_thinking(self) -> float:
         """
-        End thinking timer and show final duration.
+        End thinking timer and show final duration with modern styling.
         
         Returns:
             Duration in seconds
@@ -237,11 +238,12 @@ class HcodeDisplay:
         if self.thinking_start_time:
             duration = time.time() - self.thinking_start_time
             
-            # Show final "Thought for Xs" message
+            # Modern neon green "Thought for Xs" message
             final_text = Text()
-            final_text.append("💡 ", style=f"bold {self._palette.info}")
+            final_text.append("  ", style="")
+            final_text.append("◉ ", style="bold #39FF14")  # Neon green dot
             final_text.append("Thought for ", style=self._palette.text_muted)
-            final_text.append(f"{duration:.0f}s", style=f"bold {self._palette.info}")
+            final_text.append(f"{duration:.0f}s", style="bold #39FF14")  # Neon green duration
             self.console.print(final_text)
             
         self.thinking_start_time = None
@@ -393,9 +395,9 @@ class HcodeDisplay:
         collapsed: bool = False,
     ) -> None:
         """
-        Display a thinking block in Claude Code style.
+        Display a thinking block with modern neon green styling.
 
-        Shows thinking with a visible indicator and content summary.
+        Shows thinking with a visible indicator, phase badge, and content.
 
         Args:
             content: The thinking content
@@ -409,30 +411,59 @@ class HcodeDisplay:
         duration_str = ""
         if self.thinking_start_time:
             duration = time.time() - self.thinking_start_time
-            duration_str = f" ({duration:.0f}s)"
+            duration_str = f" • {duration:.0f}s"
 
-        # Build header with phase indicator
-        header_parts = ["💭"]
-        if phase:
-            header_parts.append(f"[{phase}]")
-        header_parts.append(f"Thinking{duration_str}")
-        header = " ".join(header_parts)
+        # Phase-specific colors
+        phase_colors = {
+            "PLANNING": "#00DDFF",      # Cyan for planning
+            "EXECUTION": "#39FF14",     # Neon green for execution
+            "VERIFICATION": "#FFCC00",  # Gold for verification
+        }
 
         self.console.print()
-        self.console.print(header, style=f"bold {self._palette.info}")
+        
+        # Build modern header
+        header = Text()
+        header.append("  ", style="")
+        header.append("◈ ", style="bold #00FF88")  # Mint green icon
+        header.append("Thinking", style="bold #39FF14")  # Neon green
+        
+        if phase:
+            phase_color = phase_colors.get(phase, "#39FF14")
+            header.append(" • ", style=self._palette.text_muted)
+            header.append(f"[{phase}]", style=f"bold {phase_color}")
+        
+        if duration_str:
+            header.append(duration_str, style=self._palette.text_muted)
+            
+        self.console.print(header)
+
+        # Draw separator line
+        sep = Text()
+        sep.append("  ", style="")
+        sep.append("─" * 40, style="#1A4A1A")  # Dark green separator
+        self.console.print(sep)
 
         if collapsed:
             # Show just first line as summary
             first_line = content.split('\n')[0].strip()
             if first_line:
-                text = Text(f"  └─ {first_line}", style=self._palette.text_muted)
+                text = Text()
+                text.append("  ", style="")
+                text.append("└─ ", style="#00FF88")  # Mint green
+                text.append(first_line, style=self._palette.text_muted)
                 self.console.print(text)
         else:
-            # Show FULL content without truncation (Hcode style)
+            # Show FULL content with modern tree-style formatting
             lines = content.strip().split('\n')
             for i, line in enumerate(lines):
-                prefix = "  │ " if i < len(lines) - 1 else "  └─ "
-                text = Text(f"{prefix}{line}", style=self._palette.text_muted)
+                text = Text()
+                text.append("  ", style="")
+                if i < len(lines) - 1:
+                    text.append("│ ", style="#00FF88")  # Mint green tree line
+                else:
+                    text.append("└─ ", style="#00FF88")  # Mint green end
+                text.append(line, style=self._palette.text_muted)
                 self.console.print(text)
 
         self.console.print()
