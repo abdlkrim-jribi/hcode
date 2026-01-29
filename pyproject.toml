@@ -45,6 +45,7 @@ dependencies = [
     "nbformat>=5.9.0",
     "numpy>=1.25.0",
     "nbconvert>=7.16.0",
+    "huggingface_hub>=0.25.0",
 ]
 
 [project.optional-dependencies]
@@ -143,6 +144,7 @@ python_functions = ["test_*"]
 addopts = "-v --tb=short --cov=src/hcode --cov-report=term-missing"
 filterwarnings = [
     "ignore::DeprecationWarning",
+    "ignore::FutureWarning",
 ]
 
 [tool.coverage.run]

@@ -213,9 +213,9 @@ class HcodeToolDisplay:
             lines = content.split("\n") if content else []
             line_count = len(lines)
 
-            # Claude Code style header: ⎯⎯ Read: file_path ⎯⎯
+            # Modern neon green styled header
             file_name = Path(file_path).name
-            self.console.print(f"\n  [bold cyan]{'─' * 3} Read: {escape(file_path)} {'─' * 3}[/bold cyan]")
+            self.console.print(f"\n  [bold #00FF88]◈[/bold #00FF88] [bold #39FF14]Read[/bold #39FF14] [dim]•[/dim] [{self.style.FILE_PATH}]{escape(file_path)}[/]")
             self.console.print(f"  [dim]{line_count} lines{f' • {lang}' if lang else ''}[/dim]")
 
             # Show preview for all files (not just large ones)
@@ -314,8 +314,8 @@ class HcodeToolDisplay:
             line_count = len(lines)
             byte_count = len(content.encode("utf-8"))
 
-            # Claude Code style header
-            self.console.print(f"\n  [bold green]{'─' * 3} Write: {escape(file_path)} {'─' * 3}[/bold green]")
+            # Modern neon green styled header
+            self.console.print(f"\n  [bold #00FF88]◈[/bold #00FF88] [bold #39FF14]Write[/bold #39FF14] [dim]•[/dim] [{self.style.FILE_PATH}]{escape(file_path)}[/]")
             self.console.print(
                 f"  [dim]Created {line_count} lines ({byte_count} bytes){f' • {lang}' if lang else ''}[/dim]"
             )
@@ -349,8 +349,8 @@ class HcodeToolDisplay:
             else:
                 diff_display = diff_summary
 
-            # Claude Code style header
-            self.console.print(f"\n  [bold cyan]{'─' * 3} MultiEdit: {escape(file_path)} {'─' * 3}[/bold cyan]")
+            # Modern neon green styled header
+            self.console.print(f"\n  [bold #00FF88]◈[/bold #00FF88] [bold #39FF14]MultiEdit[/bold #39FF14] [dim]•[/dim] [{self.style.FILE_PATH}]{escape(file_path)}[/]")
             self.console.print(
                 f"  [dim]Applied {total_edits} edits ({total_replacements} replacements)[/dim]"
             )
@@ -383,8 +383,8 @@ class HcodeToolDisplay:
             lines_removed = len(old_lines)
             lines_added = len(new_lines)
 
-            # Claude Code style header
-            self.console.print(f"\n  [bold cyan]{'─' * 3} Edit: {escape(file_path)} {'─' * 3}[/bold cyan]")
+            # Modern neon green styled header
+            self.console.print(f"\n  [bold #00FF88]◈[/bold #00FF88] [bold #39FF14]Edit[/bold #39FF14] [dim]•[/dim] [{self.style.FILE_PATH}]{escape(file_path)}[/]")
             self.console.print(
                 f"  [green]+{lines_added}[/green] [red]-{lines_removed}[/red] lines changed"
             )
@@ -470,10 +470,10 @@ class HcodeToolDisplay:
         # Truncate long commands for display
         display_cmd = command if len(command) <= 60 else command[:57] + "..."
 
-        # Show command
+        # Modern neon green styled header for bash command
         self.console.print(
-            f"  {self.style.ICON_BASH} [bold]Bash[/bold] "
-            f"[{self.style.TOOL_NAME}]{escape(display_cmd)}[/]"
+            f"  [bold #00FF88]◈[/bold #00FF88] [bold #39FF14]Bash[/bold #39FF14] "
+            f"[dim]•[/dim] [{self.style.TOOL_NAME}]{escape(display_cmd)}[/]"
         )
 
         if result.success:

@@ -46,24 +46,24 @@ class WelcomePanel:
 
         # System info line
         info_text = Text()
-        info_text.append("◈ ", style=f"bold {palette.secondary}")
+        info_text.append("◈ ", style="bold #00FF88")  # Mint green icon
         info_text.append("Model: ", style=palette.text_muted)
-        info_text.append(self.model, style=f"bold {palette.primary}")
+        info_text.append(self.model, style="bold #39FF14")  # Neon green model
         info_text.append("  │  ", style=palette.text_muted)
-        info_text.append("◈ ", style=f"bold {palette.secondary}")
+        info_text.append("◈ ", style="bold #00FF88")  # Mint green icon
         info_text.append("Provider: ", style=palette.text_muted)
         info_text.append(self.provider, style=f"bold {palette.accent}")
 
         # Commands hint
         commands_text = Text()
         commands_text.append("Commands: ", style=palette.text_muted)
-        commands_text.append("/help", style=f"bold {palette.primary}")
+        commands_text.append("/help", style="bold #39FF14")  # Neon green
         commands_text.append(" │ ", style=palette.text_muted)
         commands_text.append("/exit", style=f"bold {palette.error}")
         commands_text.append(" │ ", style=palette.text_muted)
         commands_text.append("/clear", style=f"bold {palette.warning}")
         commands_text.append(" │ ", style=palette.text_muted)
-        commands_text.append("/model", style=f"bold {palette.success}")
+        commands_text.append("/model", style="bold #00FF88")  # Mint green
 
         content = Group(
             Align.center(info_text),
@@ -71,18 +71,18 @@ class WelcomePanel:
             Align.center(commands_text),
         )
 
-        # Title with status
+        # Title with status - neon green branding
         title = Text()
-        title.append("◢", style=f"bold {palette.secondary}")
-        title.append(" HCode AI Agent ", style=f"bold {palette.primary}")
-        title.append("◣", style=f"bold {palette.secondary}")
-        title.append("  ◉ ", style=f"bold {palette.success}")
-        title.append("ONLINE", style=f"bold {palette.success}")
+        title.append("◢", style="bold #00FF88")  # Mint green corner
+        title.append(" HCode AI Agent ", style="bold #39FF14")  # Neon green brand
+        title.append("◣", style="bold #00FF88")  # Mint green corner
+        title.append("  ◉ ", style="bold #39FF14")  # Neon green dot
+        title.append("ONLINE", style="bold #39FF14")  # Neon green status
 
         return Panel(
             content,
             title=title,
-            border_style=f"bold {palette.primary}",
+            border_style="bold #39FF14",  # Neon green border
             padding=(1, 2),
         )
 
@@ -142,8 +142,8 @@ class AIMessagePanel:
 
         # Main response
         header = Text()
-        header.append("◈ ", style=f"bold {palette.secondary}")
-        header.append("HCode", style=f"bold {palette.accent}")
+        header.append("◈ ", style="bold #00FF88")  # Mint green icon
+        header.append("HCode", style="bold #39FF14")  # Neon green brand
         header.append(f"  {self.timestamp.strftime('%H:%M')}", style=palette.text_muted)
         elements.append(header)
 
