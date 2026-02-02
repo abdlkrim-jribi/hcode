@@ -52,14 +52,15 @@ class ReadTool(BaseTool):
             ),
             # Legacy parameters for backward compatibility
             ToolParameter("file_path", "string", "Alias for AbsolutePath", default=None),
+            ToolParameter("path", "string", "Alias for AbsolutePath", default=None),
             ToolParameter("offset", "integer", "Alias for StartLine", default=None),
             ToolParameter("limit", "integer", "Implies EndLine (StartLine + limit)", default=None),
         ]
     
     def validate_parameters(self, **kwargs) -> tuple[bool, Optional[str]]:
         """Validate parameters allowing for strict aliases"""
-        # Check required: AbsolutePath (or file_path)
-        if "AbsolutePath" not in kwargs and "file_path" not in kwargs:
+        # Check required: AbsolutePath (or file_path or path)
+        if "AbsolutePath" not in kwargs and "file_path" not in kwargs and "path" not in kwargs:
              return False, "Missing required parameter: AbsolutePath (or file_path)"
         return True, None
 
@@ -77,7 +78,7 @@ class ReadTool(BaseTool):
         
         # 1. Parameter Normalization
         # Support legacy params if new ones aren't provided
-        path_str = AbsolutePath or file_path
+        path_str = AbsolutePath or file_path or kwargs.get("path")
         if not path_str:
             return ToolResult(success=False, output=None, error="AbsolutePath (or file_path) is required")
             
@@ -228,6 +229,7 @@ class WriteTool(BaseTool):
             # Legacy parameters
             ToolParameter("file_path", "string", "Alias for TargetFile", default=None),
             ToolParameter("content", "string", "Alias for CodeContent", default=None),
+            ToolParameter("Content", "string", "Alias for CodeContent", default=None),
         ]
 
     def validate_parameters(self, **kwargs) -> tuple[bool, Optional[str]]:
@@ -237,7 +239,7 @@ class WriteTool(BaseTool):
              return False, "Missing required parameter: TargetFile (or file_path)"
         
         # Check required: CodeContent (or content)
-        if "CodeContent" not in kwargs and "content" not in kwargs:
+        if "CodeContent" not in kwargs and "content" not in kwargs and "Content" not in kwargs:
              return False, "Missing required parameter: CodeContent (or content)"
              
         return True, None
@@ -338,7 +340,7 @@ class WriteTool(BaseTool):
         """
         # Parameter Normalization
         file_path = TargetFile or file_path
-        content = CodeContent or content
+        content = CodeContent or content or kwargs.get("Content")
         
         if not file_path:
             return ToolResult(success=False, output="", error="TargetFile (or file_path) is required")

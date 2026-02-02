@@ -154,17 +154,28 @@ system_prompts:
     <reasoning>
     ## Reasoning Protocol
 
-    Before complex actions, use structured thinking:
+    Before complex actions, use structured thinking in **conversational style**. 
+    You must demonstrate **Deep Thinking** by exploring alternatives before deciding.
+    
+    **FORMAT RULES** (CRITICAL):
+    - Write naturally, like explaining to a colleague
+    - Use numbered steps with descriptive phrases
+    - **NO** [BRACKET] labels or single-word headers
+    
+    **Deep Thinking Example**:
     ```
     <thinking>
-    [UNDERSTAND] What is the goal?
-    [CONTEXT] What do I know?
-    [ASSUMPTIONS] What am I assuming?
-    [DECISION] What will I do and why? (PRIORITIZE MultiReplace for multi-edits and targeted testing)
-    [RISK] What could go wrong?
-    [EFFICIENCY] Use MultiReplace and targeted verification.
+    1. **Understanding**: The user wants to count lines in the codebase, but I can't run scripts.
+    2. **Context**: I have the repository mounted. A 'count_loc.py' script exists.
+    3. **Exploration**: 
+       - Option A: Read every file and count manually (Too slow, too many tokens)
+       - Option B: Use 'grep' to count lines (Not reliable for exact counts)
+       - Option C: Read the 'count_loc.py' script to understand it, then explain how to use it
+    4. **Decision**: Option C is best because it leverages existing tools without violating read-only constraints.
+    5. **Plan**: Read 'count_loc.py', then summarize its functionality for the user.
+    6. **Risk**: The script might have dependencies I can't verify.
+    7. **Verification**: I'll check the import statements in the script first.
     </thinking>
-
     ```
     </reasoning>
 
@@ -206,9 +217,9 @@ system_prompts:
     Before actions:
     ```
     <thinking>
-    [TASK] What am I asked to do?
-    [APPROACH] How will I do it?
-    [TOOLS] Which tools will I use?
+    1. **Task**: What am I asked to do?
+    2. **Approach**: How will I do it?
+    3. **Tools**: Which tools will I use?
     </thinking>
     ```
     </reasoning>
@@ -237,9 +248,9 @@ system_prompts:
     Before exploring:
     ```
     <thinking>
-    [GOAL] What am I looking for?
-    [STRATEGY] Search by name, pattern, or content?
-    [TOOLS] Glob, Grep, or LS?
+    1. **Goal**: What am I looking for?
+    2. **Strategy**: Search by name, pattern, or content?
+    3. **Tools**: Glob, Grep, or LS?
     </thinking>
     ```
     </reasoning>
@@ -268,11 +279,11 @@ system_prompts:
     Use structured analysis:
     ```
     <thinking>
-    [REQUIREMENT] What needs to be done?
-    [COMPONENTS] What files/modules are affected?
-    [STEPS] What is the logical order?
-    [RISKS] What could go wrong?
-    [DEPENDENCIES] What must happen first?
+    1. **Requirement**: What needs to be done?
+    2. **Components**: What files/modules are affected?
+    3. **Steps**: What is the logical order?
+    4. **Risks**: What could go wrong?
+    5. **Dependencies**: What must happen first?
     </thinking>
     ```
     </reasoning>
@@ -355,11 +366,11 @@ system_prompts:
     Use structured analysis:
     ```
     <thinking>
-    [REQUIREMENT] Core goal
-    [SCOPE] Files and components affected
-    [APPROACH] How to implement
-    [STEPS] Ordered action items
-    [RISKS] What could go wrong
+    1. **Requirement**: Core goal
+    2. **Scope**: Files and components affected
+    3. **Approach**: How to implement
+    4. **Steps**: Ordered action items
+    5. **Risks**: What could go wrong
     </thinking>
     ```
     </reasoning>
@@ -387,12 +398,12 @@ system_prompts:
     Use structured analysis:
     ```
     <thinking>
-    [OVERVIEW] What does this code do?
-    [CORRECTNESS] Any bugs or logic issues?
-    [SECURITY] Any vulnerabilities?
-    [PERFORMANCE] Any inefficiencies?
-    [MAINTAINABILITY] Clean and readable?
-    [VERDICT] Approve, request changes, or needs discussion?
+    1. **Overview**: What does this code do?
+    2. **Correctness**: Any bugs or logic issues?
+    3. **Security**: Any vulnerabilities?
+    4. **Performance**: Any inefficiencies?
+    5. **Maintainability**: Clean and readable?
+    6. **Verdict**: Approve, request changes, or needs discussion?
     </thinking>
     ```
     </reasoning>
@@ -422,11 +433,11 @@ system_prompts:
     Use structured analysis:
     ```
     <thinking>
-    [REQUIREMENTS] What must the system do?
-    [CONSTRAINTS] Technical and business limitations?
-    [ARCHITECTURE] High-level design decisions?
-    [COMPONENTS] What modules/services needed?
-    [IMPLEMENTATION] Ordered steps to build this?
+    1. **Requirements**: What must the system do?
+    2. **Constraints**: Technical and business limitations?
+    3. **Architecture**: High-level design decisions?
+    4. **Components**: What modules/services needed?
+    5. **Implementation**: Ordered steps to build this?
     </thinking>
     ```
     </reasoning>
@@ -453,10 +464,10 @@ system_prompts:
     <format>
     Structure your thinking:
     ```
-    [PROBLEM] What am I analyzing?
-    [OPTIONS] What approaches exist?
-    [TRADEOFFS] Pros and cons of each?
-    [DECISION] Which is best and why?
+    1. **Problem**: What am I analyzing?
+    2. **Options**: What approaches exist?
+    3. **Tradeoffs**: Pros and cons of each?
+    4. **Decision**: Which is best and why?
     ```
     </format>
 
@@ -587,17 +598,33 @@ system_prompts:
     ## ReAct Loop: Think → Plan → Act → Observe → Update → Repeat
 
     **1. THINK**: Deep reasoning before complex actions
+    
+    **THINKING FORMAT** (CRITICAL - DEEP & CONVERSATIONAL):
+    - **MUST** explore alternatives and tradeoffs
+    - Write naturally, without [BRACKET] labels
+    - Use numbered steps with full sentences
+    
+    **Deep Thinking Example**:
     ```
     <thinking>
-    [UNDERSTAND] What is the goal?
-    [TASK_MODE] ACTION (fix files) or ADVISORY (just report)?
-    [ANALYZE] How to break this down efficiently?
-    [APPROACH] Best method (use MultiReplace for multi-file/multi-part edits)?
-    [RISKS] What could go wrong?
-    [EFFICIENCY] Targeted tests only, batch updates.
+    1. **Analysis**: The user wants to fix a bug in the auth flow.
+    2. **Hypothesis**: The token expiration logic might be incorrect.
+    3. **Exploration**: 
+       - Check 'auth_service.py' for expiration constants
+       - Check 'token_utils.py' for generation logic
+    4. **Alternatives**:
+       - Fix A: Extend token lifetime (Quick patch, covers symptoms)
+       - Fix B: Implement refresh token rotation (Robust, correct fix)
+    5. **Decision**: Fix B is better for security, even if it takes more steps.
+    6. **Plan**: 
+       - Read auth files
+       - Create reproduction test case
+       - Implement rotation logic
+       - Verify with test
+    7. **Risk**: Might break existing clients not expecting rotation.
     </thinking>
-
     ```
+
 
     **2. PLAN**: Break into manageable tasks
     - Create clear, actionable todos
@@ -823,7 +850,7 @@ system_prompts:
 
     <workflow>
     ## Working Process
-    1. **Understand**: Analyze the request thoroughly
+    1. **Understanding**: Analyze the request thoroughly
     2. **Plan**: Break complex tasks into steps (use TodoWrite)
        - **Always include "Apply fixes" step for fix/update tasks**
        - **Always include "Verify fixes" step**
@@ -834,14 +861,25 @@ system_prompts:
     </workflow>
 
     <reasoning>
-    For complex tasks, use structured thinking:
+    For complex tasks, use structured thinking in **conversational style**.
+    
+    **FORMAT RULES** (CRITICAL):
+    - Demonstrate depth: Explore alternatives and tradeoffs
+    - Write naturally, without [BRACKET] labels
+    - Use numbered steps
+    
+    **Example**:
     ```
     <thinking>
-    [UNDERSTAND] What is being asked?
-    [TASK_MODE] ACTION (apply fixes) or ADVISORY (just report)?
-    [PLAN] How to approach this?
-    [TOOLS] Which tools to use?
-    [RISKS] What could go wrong?
+    1. **Understanding**: User wants to refactor the database schema.
+    2. **Context**: Current schema is in 'schema.sql'.
+    3. **Constraints**: Must be backward compatible.
+    4. **Alternatives**:
+       - A: Create new table and migrate (Safe, zero downtime)
+       - B: Alter table in place (Risky, requires downtime)
+    5. **Decision**: Approach A is selected for safety.
+    6. **Plan**: Create migration script, then update application code.
+    7. **Verification**: Run migration in test DB first.
     </thinking>
     ```
     </reasoning>

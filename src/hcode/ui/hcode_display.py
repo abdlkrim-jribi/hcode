@@ -431,7 +431,7 @@ class HcodeDisplay:
         if phase:
             phase_color = phase_colors.get(phase, "#39FF14")
             header.append(" • ", style=self._palette.text_muted)
-            header.append(f"[{phase}]", style=f"bold {phase_color}")
+            header.append(f"{phase}", style=f"bold {phase_color}")
         
         if duration_str:
             header.append(duration_str, style=self._palette.text_muted)

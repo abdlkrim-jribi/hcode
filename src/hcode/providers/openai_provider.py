@@ -178,6 +178,35 @@ class OpenAIProvider(AIProvider):
             # Default to cl100k_base for unknown models
             self.encoding = tiktoken.get_encoding("cl100k_base")
 
+    def _convert_message(self, message: Message) -> Dict[str, Any]:
+        """Convert a Message object to OpenAI API format."""
+        data = {"role": message.role, "content": message.content}
+        
+        # Handle tool calls conversion to OpenAI format
+        if message.tool_calls:
+            data["tool_calls"] = []
+            for tc in message.tool_calls:
+                # Arguments must be a JSON string for the API
+                if isinstance(tc.arguments, dict):
+                    import json
+                    args_str = json.dumps(tc.arguments)
+                else:
+                    args_str = str(tc.arguments)
+                    
+                data["tool_calls"].append({
+                    "id": tc.id,
+                    "type": "function",
+                    "function": {
+                        "name": tc.name,
+                        "arguments": args_str
+                    }
+                })
+                
+        if message.tool_call_id:
+            data["tool_call_id"] = message.tool_call_id
+            
+        return data
+
     @retry(
         stop=stop_after_attempt(5),
         wait=wait_exponential(multiplier=2, min=2, max=30),
@@ -208,7 +237,7 @@ class OpenAIProvider(AIProvider):
         """
         try:
             # Convert messages to OpenAI format
-            openai_messages = [msg.to_dict() for msg in messages]
+            openai_messages = [self._convert_message(msg) for msg in messages]
 
             request_params = {
                 "model": self.model,

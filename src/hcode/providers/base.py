@@ -21,11 +21,18 @@ class ModelType(Enum):
 class Message:
     """Represents a chat message"""
 
-    role: str  # "user", "assistant", "system"
+    role: str  # "user", "assistant", "system", "tool"
     content: str
+    tool_calls: Optional[List["ToolCall"]] = None
+    tool_call_id: Optional[str] = None
 
-    def to_dict(self) -> Dict[str, str]:
-        return {"role": self.role, "content": self.content}
+    def to_dict(self) -> Dict[str, Any]:
+        data = {"role": self.role, "content": self.content}
+        if self.tool_calls:
+            data["tool_calls"] = [tc.to_dict() for tc in self.tool_calls]
+        if self.tool_call_id:
+            data["tool_call_id"] = self.tool_call_id
+        return data
 
 
 @dataclass

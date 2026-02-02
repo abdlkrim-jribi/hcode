@@ -148,76 +148,46 @@ class ReasoningPromptBuilder:
         return "\n".join(prompt_parts)
 
     def _quick_thinking_template(self) -> str:
-        return """[PERCEPTION]
-Observation: <brief situation>
-
-[ANALYSIS]
-Key factors: <main points>
-Risk factor: <low/medium/high>
-
-[DECISION]
-Action: <immediate next step>
-Confidence: 0.0-1.0"""
+        return """1. **Understanding**: The user wants <summary> (Type: <type>)
+2. **Tool Selection**: I'll use <tool> because <reason>
+3. **Risk Check**: Am I showing code? <yes/no> (If yes, Read first!)
+4. **Action**: Execute <tool> to <outcome>"""
 
     def _standard_thinking_template(self) -> str:
-        return """[PERCEPTION]
-Observation: <what is the situation/request>
-Implicit needs: <what is implied but not stated>
-
-[ANALYSIS]
-Decomposition:
-1. <step 1>
-2. <step 2>
-Options:
-- <option A>
-- <option B>
-Risks: <potential issues>
-
-[DECISION]
-Decision: <what to do>
-Justification: <why>
-Confidence: 0.0-1.0
-Action items:
-- <specific tool call or action>"""
+        return """1. **Understanding**: The user wants <summary>. Implicitly, they also need <needs>.
+2. **Context**: I know <knowledge>. I need to find <gaps>.
+3. **Approach**:
+   - Step 1: <action>
+   - Step 2: <action>
+4. **Tool Choice**: <primary tool> is best because <reason>. Alternative: <backup>.
+5. **Risk Check**: 
+   - Code display? -> Read first
+   - Modification? -> Edit tool
+   - Risk Level: <level>
+6. **Execution**: Call <tool> to achieve <outcome>."""
 
     def _deep_thinking_template(self) -> str:
-        return """[PERCEPTION]
-Observation: <detailed observation>
-Key entities: <important components/files>
-
-[COMPREHENSION]
-Core understanding: <what is the root problem>
-Assumptions: <what are we assuming>
-Constraints: <what are the limits>
-
-[ANALYSIS]
-Decomposition: <breakdown of steps>
-Dependencies: <what depends on what>
-Options: <alternatives considered>
-
-[REASONING]
-Hypothesis: <proposed solution>
-Evidence for: <why it will work>
-Evidence against: <why it might fail>
-Confidence: 0.0-1.0
-
-[CHANGE IMPACT]
-Files affected: <list of files>
-Breaking changes: <any API breaks>
-Side effects: <potential unintended consequences>
-
-[DECISION]
-Decision: <final choice>
-Justification: <reasoning>
-Fallback: <plan B>
-
-[PRE-EXECUTION REVIEW]
-What will change: <summary of changes>
-What could go wrong: <immediate risks>
-
-[VERIFICATION]
-Safety check: <pre-flight checks>
-Validation steps: <how to verify success>"""
+        return """1. **Understanding**: The user wants <summary>. Success means <criteria>.
+2. **Context**: Current state is <state>. Key constraints are <constraints>.
+3. **Exploration**:
+   - I need to find information about <gaps>
+   - I will search for <patterns> in <files>
+4. **Hypothesis & Strategy**: I believe <hypothesis>. My strategy is to <strategy>.
+5. **Alternatives**:
+   - Approach A: <desc> (Pros: <pros>, Cons: <cons>)
+   - Approach B: <desc> (Pros: <pros>, Cons: <cons>)
+   - **Decision**: I selected <choice> because <reason>.
+6. **Plan**:
+   - Step 1: <action>
+   - Step 2: <action>
+   - Dependencies: <deps>
+7. **Tool Orchestration**: Sequence is <tool1> -> <tool2> -> <tool3>.
+8. **Risk Assessment**:
+   - Hallucination check: Am I showing code? -> READ FIRST
+   - Impact: This change affects <files>.
+   - Rollback: If it fails, I will <rollback>.
+9. **Execution**: Calling <tool> with <params>.
+10. **Verification**: I will check success by <method>."""
 
     def build_refinement_prompt(self, original_reasoning: str, feedback: str, outcome: str) -> str:
         """
@@ -245,17 +215,11 @@ Validation steps: <how to verify success>"""
 ## Refinement Task:
 Please analyze what went wrong and provide refined reasoning:
 
-<error_analysis>
-[ERROR] What happened vs expected
-[ROOT_CAUSE] Why the original reasoning was flawed
-[LESSON] What to learn from this
-</error_analysis>
-
 <refined_thinking>
-[REVISED_UNDERSTANDING] Updated understanding based on new information
-[REVISED_APPROACH] New approach accounting for what we learned
-[REVISED_CONFIDENCE] Updated confidence with justification
-[NEW_ACTION_ITEMS] Updated action items
+1. **Revised Understanding**: Updated understanding based on new information
+2. **Revised Approach**: New approach accounting for what we learned
+3. **Revised Confidence**: Updated confidence with justification
+4. **New Action Items**: Updated action items
 </refined_thinking>
 """
 

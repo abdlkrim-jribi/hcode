@@ -850,6 +850,9 @@ When the user says things like "yes", "proceed", "continue", "do it", "ok", or s
         
         # MODIFIED FILES TRACKING: Prevent re-processing same files
         modified_files = set()  # Track files that have been written this session
+        
+        # READ TOOL TRACKING: Allow code blocks when quoting file content
+        used_read_tool_this_session = False  # Set to True when Read tool is used
 
         # RETRY LOOP PREVENTION: Track failed commands to prevent infinite retries
         failed_commands: Dict[str, int] = {}  # command -> failure count
@@ -928,7 +931,11 @@ When the user says things like "yes", "proceed", "continue", "do it", "ok", or s
                 displayed_thinking = False
 
                 try:
-                    if stream and iteration == 1:
+                    # Disable streaming for OpenAI models when tools are available to ensure tool calls work
+                    # TODO: Implement full streaming tool support
+                    should_stream = stream and (iteration == 1) and (provider_name != "openai")
+                    
+                    if should_stream:
                         # Only stream the first iteration
                         response_parts = []
                         stream_result = await self.current_provider.generate_completion(
@@ -1072,8 +1079,9 @@ When the user says things like "yes", "proceed", "continue", "do it", "ok", or s
                     if response_text.strip():
                         last_successful_response = response_text
 
-                    # EMPTY RESPONSE HANDLING: If first response is empty, add explicit instruction
-                    if iteration == 1 and not response_text.strip():
+                    # EMPTY RESPONSE HANDLING: If first response is empty AND no tool calls, add explicit instruction
+                    has_tool_calls = hasattr(response, "tool_calls") and response.tool_calls
+                    if iteration == 1 and not response_text.strip() and not has_tool_calls:
                         self.console.print(
                             f"[dim yellow][!] Empty first response. Adding guidance...[/dim yellow]"
                         )
@@ -1132,7 +1140,7 @@ When the user says things like "yes", "proceed", "continue", "do it", "ok", or s
                     self.logger.log_interaction(
                         iteration=iteration,
                         request_messages=[],
-                        response_text=f"[THINKING] {get_thinking_summary(thinking_block)}",
+                        response_text=get_thinking_summary(thinking_block),
                         finish_reason="thinking",
                         tool_calls_detected=0,
                         continuation_needed=False,
@@ -1218,12 +1226,7 @@ When the user says things like "yes", "proceed", "continue", "do it", "ok", or s
                             role="user",
                             content="""STOP! Before using that tool, you MUST think first.
 
-Output a <thinking> block that explains:
-1. UNDERSTAND: What is the user asking?
-2. CONTEXT: What do I know?
-3. OPTIONS: What tools could I use?
-4. DECISION: Why this specific tool?
-5. RISK CHECK: Is this safe?
+Output a <thinking> block that explains your reasoning naturally. Consider what the user is asking, what you know, what tools you could use, why you're choosing this specific tool, and whether it's safe to proceed.
 
 Then repeat your tool call.""",
                             importance=1.0,
@@ -1232,10 +1235,14 @@ Then repeat your tool call.""",
                         # Don't execute the tool yet, continue to get thinking
                         continue
 
-                # Check for and execute tool calls
-                # 1. First checks native tool calls (from Anthropic/OpenAI providers)
-                # 2. Falls back to regex extraction if no native calls found
-                
+                # ═══════════════════════════════════════════════════════════════════════════════
+                # ACTION EXECUTION LAYER
+                # 1. Prioritize tool execution (Strict State Machine: PLAN -> ACT -> OBSERVE)
+                # 2. Handle both native and text-extracted tool calls
+                # 3. Add results with correct role="tool"
+                # ═══════════════════════════════════════════════════════════════════════════════
+
+                # Extract tool calls (Native + Text Fallback)
                 tool_calls = []
                 
                 # Check for native function calls
@@ -1254,74 +1261,23 @@ Then repeat your tool call.""",
                 # Fallback to text extraction if no native calls found
                 if not tool_calls:
                     tool_calls = self._extract_tool_calls(raw_response, response_text, provider_name)
-                    
-                # VALIDATION LAYER: Validate tool calls before execution
-                if tool_calls:
-                    from hcode.tools.core.validator import ToolCallValidator
-                    validator = ToolCallValidator(self.tool_manager)
-                    
-                    validated_calls = []
-                    for tc in tool_calls:
-                        tool_name = tc.get("name") or tc.get("tool", "")
-                        args = tc.get("arguments") or tc.get("parameters", {})
-                        
-                        validation = validator.validate(tool_name, args)
-                        if not validation.is_valid:
-                            self.console.print(f"[bold red]❌ Tool Validation Failed: {validation.error_message}[/bold red]")
-                            # Add error back to context so model can correct itself
-                            self.context_manager.add_message(
-                                role="user",
-                                content=f"Tool call validation failed: {validation.error_message}. Please correct your tool call.",
-                                importance=1.0,
-                                provider=self.current_provider
-                            )
-                            continue
-                            
-                        # Log any warnings
-                        for warn in validation.warnings:
-                            self.console.print(f"[yellow]⚠️  Tool Warning: {warn}[/yellow]")
-                            
-                        validated_calls.append(tc)
-                    
-                    tool_calls = validated_calls
 
-                # Track if TodoWrite has been used
-                has_used_todowrite = any(
-                    tc.get("name", "").lower() == "todowrite" for tc in (tool_calls or [])
-                ) or any(
-                    action.get("tool", "").lower() == "todowrite" for action in completed_actions
-                )
-
-                # ENFORCE TODOWRITE: On iteration 1, if no TodoWrite used, prompt for it
-                if iteration == 1 and not has_used_todowrite and tool_calls:
-                    self._debug_print(
-                        f"[dim yellow][!] Reminder: Use TodoWrite to track your tasks![/dim yellow]"
-                    )
-                    # Add reminder to context
-                    self.context_manager.add_message(
-                        role="user",
-                        content="CRITICAL: You MUST use TodoWrite tool now to create a task list. Call TodoWrite with todos array containing your planned steps (content, status='pending'|'in_progress'|'completed', activeForm). This is required for progress tracking.",
-                        importance=1.0,
-                        provider=self.current_provider,
-                    )
-
-                # Log this interaction (full response, not truncated)
-                self.logger.log_interaction(
-                    iteration=iteration,
-                    request_messages=(
-                        messages[-3:] if len(messages) > 3 else messages
-                    ),  # Last 3 for brevity
-                    response_text=response_text,  # FULL response
-                    finish_reason=finish_reason,
-                    tool_calls_detected=len(tool_calls) if tool_calls else 0,
-                    continuation_needed=False,  # Will update if needed
-                    pending_work_detected=False,  # Will update if needed
-                )
-
+                # EXECUTE TOOLS IF PRESENT
                 if tool_calls:
                     consecutive_no_tool_calls = 0
                     last_tool_call_iteration = iteration
+                    
+                    # 1. Add assistant message with tool calls to context
+                    # This MUST happen before tool results are added
+                    self.context_manager.add_message(
+                        role="assistant",
+                        content=response_text,
+                        importance=0.7,
+                        provider=self.current_provider,
+                        tool_calls=tool_calls # Pass the list of tool call dicts
+                    )
 
+                    # 2. Validate and Execute tools
                     # FILTER DUPLICATE FILE WRITES: Skip Write calls on already-modified files
                     filtered_tool_calls = []
                     skipped_files = []
@@ -1329,279 +1285,170 @@ Then repeat your tool call.""",
                         tc_tool = tc.get("tool", "").lower()
                         tc_path = tc.get("parameters", {}).get("file_path", "")
                         
-                        # Skip Write/Edit on already-modified files
-                        if tc_tool in ["write", "writetool", "edit", "edittool"] and tc_path in modified_files:
-                            skipped_files.append(tc_path)
-                            self.console.print(f"[dim yellow]⏭️ Skipping {escape(tc_path)} - already modified this session[/dim yellow]")
-                        else:
-                            filtered_tool_calls.append(tc)
+                        # Skip Write/Edit on already-modified files - DISABLED to allow iterative edits
+                        # The agent needs to be able to correct its work or update task status
+                        # Loop detection handles infinite loops elsewhere
+                        # if tc_tool in ["write", "writetool", "edit", "edittool"] and tc_path in modified_files:
+                        #     skipped_files.append(tc_path)
+                        #     self.console.print(f"[dim yellow]⏭️ Skipping {escape(tc_path)} - already modified this session[/dim yellow]")
+                        # else:
+                        filtered_tool_calls.append(tc)
                     
-                    # Inject warning about skipped files
-                    if skipped_files:
-                        skip_msg = f"[SYSTEM] Skipped re-processing {len(skipped_files)} already-modified files: {', '.join(skipped_files[:3])}{'...' if len(skipped_files) > 3 else ''}"
-                        self.context_manager.add_message(
-                            role="user",
-                            content=skip_msg,
-                            importance=0.5,
-                            provider=self.current_provider,
-                        )
-                    
-                    # Execute only the filtered tool calls
-                    tool_calls = filtered_tool_calls
-                    if not tool_calls:
-                        # All calls were skipped - continue to next iteration
-                        continue
-
-                    # Execute tool calls and add results to context
+                    # Tool Execution
                     try:
-                        tool_results = await self._execute_tool_calls(tool_calls)
-                        # Track completed actions for summary
+                        tool_results = await self._execute_tool_calls(filtered_tool_calls)
+                        
+                        # 3. Add Tool Results to Context with role="tool"
                         for tool_name, result, arguments in tool_results:
-                            action = {
-                                "tool": tool_name,
-                                "success": result.success,
-                                "args": arguments,
-                                "iteration": iteration,
-                            }
-                            completed_actions.append(action)
+                            # Log tool call with FULL output
+                            self.logger.log_tool_call(
+                                tool_name=tool_name,
+                                arguments=arguments,
+                                success=result.success,
+                                output=result.output,
+                                error=result.error,
+                                metadata=result.metadata if hasattr(result, "metadata") else {},
+                            )
 
-                            # AUTO-UPDATE TODOS: Mark matching todos as completed
-                            self._auto_update_todos(action)
+                            # Identify the tool call ID for the result
+                            # Only native calls usually have IDs, text calls might allow matching by name
+                            # For simplicity/safety, we try to match if possible, otherwise rely on sequence
+                            # (Provider support for 'tool' role often requires strict ID matching)
+                            tool_call_id = None
+                            for tc in tool_calls:
+                                if tc.get("name") == tool_name:
+                                    tool_call_id = tc.get("id")
+                                    break
                             
-                            # HCODE: Track file operations
+                            # Construct result content
                             if result.success:
+                                # Track completion
+                                action = {
+                                    "tool": tool_name,
+                                    "success": True,
+                                    "args": arguments,
+                                    "iteration": iteration,
+                                }
+                                completed_actions.append(action)
+                                self._auto_update_todos(action)
+                                
+                                # HCODE: Track file operations
                                 try:
                                     from hcode.ui.hcode_display import get_hcode_display, FileAction
                                     hcode_display = get_hcode_display(self.console)
-                                    
                                     t_lower = tool_name.lower()
                                     if "write" in t_lower or "edit" in t_lower or "replace" in t_lower:
                                         fpath = arguments.get("file_path") or arguments.get("target_file") or arguments.get("targetfile")
                                         if fpath:
+                                            modified_files.add(fpath)
                                             hcode_display.track_file(fpath, FileAction.EDITED)
                                     elif "read" in t_lower or "view" in t_lower:
                                         fpath = arguments.get("file_path") or arguments.get("absolute_path") or arguments.get("absolutepath")
                                         if fpath:
                                             hcode_display.track_file(fpath, FileAction.VIEWED)
+                                        # Track that Read tool was used (allows code blocks when quoting content)
+                                        used_read_tool_this_session = True
                                 except Exception:
-                                    pass  # Don't fail if tracking fails
-                    except Exception as tool_error:
-                        self.console.print(
-                            f"[bold red][!] Tool execution error: {escape(str(tool_error))}[/bold red]"
-                        )
-                        tool_results = []
-                        # Continue anyway - don't crash
+                                    pass
 
-                    # Add assistant message with tool calls to context
-                    self.context_manager.add_message(
-                        role="assistant",
-                        content=response_text,
-                        importance=0.7,
-                        provider=self.current_provider,
-                    )
+                                # Handle Truncation
+                                MAX_OUTPUT_CHARS = 15000
+                                output_text = result.output
+                                if len(output_text) > MAX_OUTPUT_CHARS:
+                                    HEAD_CHARS = int(MAX_OUTPUT_CHARS * 0.6)
+                                    TAIL_CHARS = int(MAX_OUTPUT_CHARS * 0.35)
+                                    output_text = f"{output_text[:HEAD_CHARS]}\n\n... [{len(output_text) - HEAD_CHARS - TAIL_CHARS} chars omitted] ...\n\n{output_text[-TAIL_CHARS:]}"
+                                
+                                result_content = output_text
+                            else:
+                                # Error Handling
+                                cmd_key = self._get_command_key(tool_name, arguments)
+                                failed_commands[cmd_key] = failed_commands.get(cmd_key, 0) + 1
+                                result_content = f"Error: {result.error or 'Unknown error'}\nOutput: {result.output}"
 
-                    # Add tool results to context with continuation guidance
-                    for tool_name, result, arguments in tool_results:
-                        # Log tool call with FULL output (not truncated)
-                        self.logger.log_tool_call(
-                            tool_name=tool_name,
-                            arguments=arguments,
-                            success=result.success,
-                            output=result.output,  # FULL output for debugging
-                            error=result.error,
-                            metadata=result.metadata if hasattr(result, "metadata") else {},
-                        )
-
-                        # RETRY LOOP PREVENTION: Track failed commands
-                        if not result.success:
-                            # Create a unique key for the command
-                            cmd_key = self._get_command_key(tool_name, arguments)
-                            failed_commands[cmd_key] = failed_commands.get(cmd_key, 0) + 1
-
-                            if failed_commands[cmd_key] > max_command_retries:
-                                self.console.print(
-                                    f"[bold red][!] Command has failed {failed_commands[cmd_key]} times. Stopping retry loop.[/bold red]"
-                                )
-                                self.logger.log_error(
-                                    f"Retry loop detected: {tool_name} failed {failed_commands[cmd_key]} times",
-                                    context={"command_key": cmd_key, "arguments": arguments},
-                                )
-
-                        if result.success:
-                            # TRACK MODIFIED FILES: Add to set when Write/Edit succeeds
-                            if tool_name.lower() in ["writetool", "write", "edittool", "edit", "fuzzyedit", "multiedit", "multiedittool"]:
-                                file_path = arguments.get("file_path", "")
-                                if file_path:
-                                    modified_files.add(file_path)
-                                    self._debug_print(f"[dim]📝 Tracked modified file: {file_path}[/dim]")
-                            
-                            # Check if this was a truncated file write that needs continuation
-                            is_truncated_write = (
-                                result.metadata
-                                and result.metadata.get("is_truncated", False)
-                                and tool_name.lower() in ["writetool", "write"]
+                            # ADD TO CONTEXT AS TOOL ROLE
+                            # Note: Some providers (OpenAI) require 'tool' role with 'tool_call_id'
+                            # Others (Anthropic) might use 'user' role for tool results in some client libs
+                            # We adhere to the standard: role='tool'
+                            self.context_manager.add_message(
+                                role="tool", 
+                                content=result_content,
+                                importance=0.8,
+                                provider=self.current_provider,
+                                tool_call_id=tool_call_id # Pass the specific tool call ID
                             )
 
-                            if is_truncated_write:
-                                # Special handling for truncated file writes
-                                file_path = arguments.get("file_path", "the file")
-                                truncation_reason = result.metadata.get(
-                                    "truncation_reason", "incomplete content"
-                                )
-                                result_content = f"""Tool '{tool_name}' wrote PARTIAL content to {file_path}.
+                            # Display result
+                            self._display_tool_result(tool_name, result, arguments)
 
-[!]️ FILE CONTENT IS TRUNCATED: {truncation_reason}
-
-The file was written but the content appears incomplete. You MUST continue writing the remaining content.
-
-To continue the file, use WriteTool with mode='append':
-{{"tool": "Write", "parameters": {{"TargetFile": "{file_path}", "CodeContent": "<remaining content>", "mode": "append"}}}}
-
-
-IMPORTANT: Continue from EXACTLY where the content was cut off. Do not restart the file.
-
-Continue generating the remaining content now:"""
-                            else:
-                                # Limit output size to prevent context overflow
-                                # Use SMART truncation: keep head + tail to preserve important info
-                                MAX_OUTPUT_CHARS = 15000  # ~4k tokens
-                                output_text = result.output
-                                output_truncated = False
-
-                                if len(output_text) > MAX_OUTPUT_CHARS:
-                                    output_truncated = True
-                                    # Smart truncation: keep first part AND last part
-                                    # This ensures we see both the start and end of output
-                                    # (e.g., for test results, we need the TOTAL line at the end)
-                                    HEAD_CHARS = int(MAX_OUTPUT_CHARS * 0.6)  # 60% for head
-                                    TAIL_CHARS = int(MAX_OUTPUT_CHARS * 0.35)  # 35% for tail
-                                    head = output_text[:HEAD_CHARS]
-                                    tail = output_text[-TAIL_CHARS:]
-                                    truncated_count = len(output_text) - HEAD_CHARS - TAIL_CHARS
-                                    output_text = f"{head}\n\n... [{truncated_count} characters omitted] ...\n\n{tail}"
-
-                                result_content = f"""Tool '{tool_name}' executed successfully.
-
-RESULT:
-{output_text}
-
-NEXT STEPS - You MUST do one of the following:
-1. If the task requires more exploration, call another tool using the correct format:
-   {{"tool": "ToolName", "parameters": {{"param": "value"}}}}
-
-2. If you have enough information, provide a complete answer to the user in natural language.
-
-DO NOT output partial JSON like {{"path": "..."}} - this is invalid.
-DO NOT stop without completing the user's request.
-
-What will you do next?"""
-                        else:
-                            # CRITICAL: For failed tools, include BOTH error and output
-                            # Many test runners put actual errors in stdout, not stderr
-                            full_error_info = result.error or "Unknown error"
-
-                            # Include stdout too - it often contains critical error details
-                            # But limit size to prevent context overflow
-                            MAX_ERROR_OUTPUT_CHARS = 10000  # ~2.5k tokens
-                            output_info = ""
-                            if result.output and result.output.strip():
-                                output_text = result.output
-                                if len(output_text) > MAX_ERROR_OUTPUT_CHARS:
-                                    output_text = output_text[:MAX_ERROR_OUTPUT_CHARS]
-                                    output_text += (
-                                        f"\n\n... [TRUNCATED - see full output in log file]"
-                                    )
-                                output_info = f"\n\nFULL OUTPUT (may contain additional error details):\n{output_text}"
-
-                            # Check for retry loop
-                            cmd_key = self._get_command_key(tool_name, arguments)
-                            retry_count = failed_commands.get(cmd_key, 0)
-                            retry_warning = ""
-                            if retry_count >= max_command_retries:
-                                retry_warning = f"""
-
-[!] STOP! This exact command has FAILED {retry_count} TIMES already.
-DO NOT run this command again. You MUST try a DIFFERENT approach:
-- Read the error message carefully
-- Use Read or Grep to investigate the root cause
-- Fix the underlying issue before running tests again
-- Or ask the user for help if you're stuck
-"""
-
-                            result_content = f"""Tool '{tool_name}' failed.
-
-ERROR: {full_error_info}
-{output_info}
-{retry_warning}
-IMPORTANT: Read the FULL error message above carefully. Do NOT retry the same command.
-Instead, analyze the error and:
-1. If it's a missing module error - check if the module exists or needs to be installed
-2. If it's a file not found error - verify the path is correct
-3. If it's a syntax error - read the specific error and fix it
-4. If you need more information - use Read or Grep tools to investigate
-
-What specific action will you take to address this error?"""
-
+                    except Exception as tool_error:
+                        self.console.print(f"[bold red][!] Tool execution error: {escape(str(tool_error))}[/bold red]")
+                        # Add error as user message if tool execution blocked completely
                         self.context_manager.add_message(
-                            role="user",  # Tool results are added as user messages for the next turn
-                            content=result_content,
-                            importance=0.6,
-                            provider=self.current_provider,
-                        )
-
-                        # Display tool execution with tool-specific formatting
-                        self._display_tool_result(tool_name, result, arguments)
-
-                    continue  # Continue loop for next iteration
-                else:
-                    consecutive_no_tool_calls += 1
-
-                    # DETECT HALLUCINATION: If model claims to have results without calling tools
-                    # This captures cases where model says "Result of reading X:" but didn't call Read
-                    hallucination_indicators = [
-                        "Result of reading",
-                        "Output of command",
-                        "Result of running",
-                        # "File content:", # Too broad, often valid explanation
-                        # "found in the file", # Too broad, often valid explanation
-                        # "The file contains:", # Too broad, often valid explanation
-                        # "cat ", # Too broad, likely valid command explanation
-                        # "grep ", # Too broad, likely valid command explanation
-                    ]
-                    
-                    # Only check non-thinking part
-                    check_text_lower = (response_without_thinking if thinking_block else response_text).lower()
-                    
-                    # Check if any indicator exists AND it looks like a claim of action
-                    is_hallucinating = any(ind.lower() in check_text_lower for ind in hallucination_indicators)
-                    
-                    if is_hallucinating: # Hallucination check ENABLED
-                        consecutive_hallucinations += 1
-                        
-                        # Stop if too many hallucinations
-                        if consecutive_hallucinations >= max_consecutive_hallucinations:
-                            self.console.print(f"\n[bold red][!] Too many consecutive hallucinations ({consecutive_hallucinations}). Stopping loop.[/bold red]")
-                            break
-                        
-                        self.console.print(f"\n[bold red]⚠️ DETECTED SIMULATED TOOL OUTPUT (HALLUCINATION {consecutive_hallucinations}/{max_consecutive_hallucinations})[/bold red]")
-                        self.console.print("[dim]Model claimed to show output but didn't call tools. Forcing retry...[/dim]\n")
-                        
-                        self.context_manager.add_message(
-                            role="user",
-                            content="""CRITICAL ERROR: You are hallucinating tool outputs!
-                            
-You claimed to show the result of reading a file or running a command, BUT YOU DID NOT ACTUALLY CALL ANY TOOL.
-
-You MUST emit the JSON for the tool call. Do not invent the output.
-
-Call the tool now:""",
+                            role="tool",
+                            content=f"Tool Execution Failed System Error: {str(tool_error)}",
                             importance=1.0,
                             provider=self.current_provider
                         )
-                        continue
-                    else:
-                        # Reset counter if not hallucinating
-                        consecutive_hallucinations = 0
+
+                    # FORCE CONTINUE after tool execution
+                    # The model must see the tool result and decide what to do next
+                    continue
+
+                else:
+                    # No tool calls detected
+                    consecutive_no_tool_calls += 1
+                    
+                    # 4. Hallucination Check - Simplified
+                    # If response contains code blocks (```) but no Write/Edit tools, and not a walkthrough/summary
+                    # This is the most common and dangerous hallucination
+                    # EXCEPTION: Allow code blocks when quoting file content (Read tool used) or explaining code
+                    import re
+                    has_code_blocks = bool(re.search(r"```", response_text))
+                    is_walkthrough = any(x in response_text.lower() for x in ["walkthrough", "summary", "verification", "task.md"])
+                    
+                    # Check if this is an explanatory response (allow code blocks)
+                    task_context = getattr(self, "current_task_name", "") or ""
+                    is_explanatory = (
+                        used_read_tool_this_session or  # Just read a file, likely quoting it
+                        'count' in task_context.lower() or
+                        'show' in task_context.lower() or
+                        'explain' in task_context.lower() or
+                        'how' in task_context.lower() or
+                        'what' in task_context.lower() or
+                        'example' in response_text.lower() or
+                        'the code' in response_text.lower() or
+                        'the file' in response_text.lower() or
+                        'lines' in response_text.lower()
+                    )
+                    
+                    if has_code_blocks and not is_walkthrough and not is_explanatory and iteration > 1:
+                        # We only flag if the code block looks substantive (not just a 1-line command)
+                        code_content = re.search(r"```(?:\w+)?\n(.*?)```", response_text, re.DOTALL)
+                        if code_content and len(code_content.group(1).split('\n')) > 3:
+                             # This looks like code generation without a tool call
+                             consecutive_hallucinations += 1
+                             if consecutive_hallucinations < max_consecutive_hallucinations:
+                                 self.console.print(f"[bold red]⚠️  CODE WITHOUT TOOL CALL DETECTED ({consecutive_hallucinations})[/bold red]")
+                                 
+                                 # Add response context first
+                                 self.context_manager.add_message(
+                                     role="assistant", 
+                                     content=response_text,
+                                     importance=0.5,
+                                     provider=self.current_provider
+                                 )
+                                 
+                                 # Add correction prompt
+                                 self.context_manager.add_message(
+                                     role="user",
+                                     content="""STOP! You showed code blocks but did not call the 'Write' or 'Edit' tool.
+You MUST use these tools to create or modify files. Do not just output code in chat.
+Call the tool now.""",
+                                     importance=1.0,
+                                     provider=self.current_provider
+                                 )
+                                 continue
 
                 # ═══════════════════════════════════════════════════════════════════════════════
                 # LLM-DRIVEN COMPLETION: Let the model decide when task is complete
@@ -1709,15 +1556,36 @@ Call the tool now:""",
                     'verification' in response_text.lower() or
                     'task.md' in response_text.lower()
                 )
+                
+                # Check if this is an explanatory/informational response
+                # Allow code blocks when:
+                # 1. Read tool was used (quoting file content)
+                # 2. Response is answering a question (common patterns)
+                # 3. Response contains references to read files
+                is_explanatory_context = (
+                    used_read_tool_this_session or  # Just read a file, likely quoting it
+                    'count' in task.lower() or  # Counting lines, showing examples
+                    'show' in task.lower() or  # Asked to show code
+                    'explain' in task.lower() or  # Explaining code
+                    'how' in task.lower() or  # How-to explanation
+                    'what' in task.lower() or  # What is this code
+                    'example' in response_text.lower() or  # Providing examples
+                    'here is' in response_text.lower() or  # Showing something
+                    'the code' in response_text.lower() or  # Referring to existing code
+                    'the file' in response_text.lower() or  # Referring to a file
+                    'contains' in response_text.lower() or  # Describing content
+                    'lines' in response_text.lower()  # Talking about line counts
+                )
 
                 # If response has code blocks but no Write/Edit tool call AND no evidence of prior execution, it's hallucinating
-                # CAUTION: Allow code blocks in summaries/walkthroughs to prevent false positives
+                # CAUTION: Allow code blocks in summaries/walkthroughs AND explanatory contexts to prevent false positives
                 is_code_block_hallucination = (
                     has_code_blocks
                     and not has_write_or_edit_tool
                     and not tool_calls
                     and not has_tool_execution_evidence
                     and not is_walkthrough_context
+                    and not is_explanatory_context  # NEW: Allow code in explanatory responses
                 )
                 
                 # If response is ONLY thinking block, DO NOT consider task complete
@@ -2089,6 +1957,8 @@ Please review and decide:
                 # ROBUSTNESS: Catch any unexpected errors in the iteration
                 consecutive_errors += 1
                 error_msg = str(iteration_error)
+                import traceback
+                self.console.print(f"[dim red]{traceback.format_exc()}[/dim red]")
                 self.console.print(
                     f"[bold red][!] Iteration error ({consecutive_errors}/{max_consecutive_errors}): {error_msg[:150]}[/bold red]"
                 )
@@ -2764,9 +2634,17 @@ Please review and decide:
     def _get_todos_completion_state(self) -> Dict[str, int]:
         """Get the current state of todos (completed count, total count)."""
         try:
-            todo_tool = self.tool_manager.get_tool("TodoWrite")
-            if todo_tool and hasattr(todo_tool, "todos") and todo_tool.todos:
+            # Use canonical name 'todowritetool' to ensure lookup succeeds
+            todo_tool = self.tool_manager.get_tool("todowritetool")
+            if not todo_tool:
+                # Fallback to 'TodoWrite' if alias missing
+                todo_tool = self.tool_manager.get_tool("TodoWrite")
+            
+            if todo_tool and hasattr(todo_tool, "todos"):
                 todos = todo_tool.todos
+                if not todos:
+                     return {"total": 0, "completed": 0}
+                     
                 total = len(todos)
                 completed = sum(
                     1
@@ -2775,7 +2653,10 @@ Please review and decide:
                     or (isinstance(t, dict) and t.get("status") == "completed")
                 )
                 return {"total": total, "completed": completed}
-        except Exception:
+            else:
+                self._debug_print("[dim yellow]Warning: TodoWriteTool not found or has no todos property[/dim yellow]")
+        except Exception as e:
+            self._debug_print(f"[dim red]Error getting todo state: {e}[/dim red]")
             pass
         return {"total": 0, "completed": 0}
 
@@ -3601,11 +3482,7 @@ WHEN TO STOP:
 
 Example:
 <thinking>
-1. UNDERSTAND: User wants to see [what]
-2. CONTEXT: I need to explore [what]
-3. OPTIONS: LS to list, Glob to find files, Read to see content
-4. DECISION: Best choice is [tool] because [reason]
-5. RISK CHECK: This is read-only, safe to proceed
+The user wants to see [what]. I need to explore [what] to understand it better. I could use LS to list directories, Glob to find specific files, or Read to see file content. The best choice is [tool] because [reason]. This is read-only, so it's safe to proceed.
 </thinking>
 
 {{"tool": "LS", "parameters": {{"DirectoryPath": "."}}}}
@@ -3625,12 +3502,7 @@ EFFICIENCY RULES:
 
 Example:
 <thinking>
-1. UNDERSTAND: User wants [what]
-2. CONTEXT: I know [context]
-3. OPTIONS: [list possible tools, prioritizing MultiReplaceFileContent for multi-edits]
-4. DECISION: Best choice is [tool] because [reason]
-5. RISK CHECK: [is this safe?]
-6. EFFICIENCY: I will use MultiReplace to batch edits.
+The user wants [what]. I know [context] about the current state. I could use [list possible tools], and for multiple edits to the same file, MultiReplaceFileContent would be the most efficient. The best choice is [tool] because [reason]. This is safe because [safety check]. I will batch the edits using MultiReplace for efficiency.
 </thinking>
 
 {{"tool": "ToolName", "parameters": {{"key": "value"}}}}

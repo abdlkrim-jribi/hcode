@@ -42,6 +42,53 @@ View file contents with optional line range selection.
 
 ---
 
+## CRITICAL: Anti-Hallucination Rules
+
+> [!CAUTION]
+> **YOU MUST NEVER SHOW CODE BLOCKS WITHOUT USING A TOOL**
+>
+> These rules are MANDATORY and violations will cause task failure.
+
+### Rule 1: ALWAYS Use Tools for Code
+
+When you want to show, create, or modify code:
+
+| Intent | CORRECT Action | WRONG Action |
+|--------|----------------|--------------|
+| Show existing code | Use `Read` tool first, then reference it | Pasting code in markdown |
+| Create new file | Use `Write` tool | Showing code in ``` block |
+| Modify file | Use `Edit` tool | Showing "before/after" code |
+| Explain code | Use `Read` first, then summarize | Reproducing file content |
+
+### Rule 2: Explanatory Responses
+
+When explaining or answering questions about code:
+
+✅ **CORRECT**: "The file contains 143 lines. It defines a `main()` function that..."
+❌ **WRONG**: "Here is the code: ```python def main(): ...```"
+
+If user asks "show me" or "count lines":
+1. First use `Read` tool to read the file
+2. Then summarize what you found in plain text
+3. Do NOT reproduce the file content in markdown code blocks
+
+### Rule 3: When Code Blocks ARE Allowed
+
+You MAY use code blocks ONLY for:
+- Terminal commands to run: `python script.py`
+- Configuration examples the user needs to copy
+- Error messages you are explaining
+- Short snippets (< 5 lines) as examples AFTER using Read tool
+
+### Rule 4: Self-Check Before Responding
+
+Before completing your response, verify:
+- [ ] Did I use a tool for every file operation?
+- [ ] Am I showing code that should be in a file? → Use Write/Edit
+- [ ] Am I quoting a file's content? → Did I use Read first?
+
+---
+
 ### Write
 
 Create or overwrite files with content validation.
