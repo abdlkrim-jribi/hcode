@@ -68,6 +68,16 @@ You can also configure API keys via environment variables (see `.env.example`).
 
 ## Development
 
+## Code Statistics
+
+You can quickly get a summary of the project's size with the provided script:
+
+```bash
+python count_code.py
+```
+
+The script respects the project's `.gitignore` and prints the total number of source files and lines of code.
+
 To run tests:
 ```bash
 # Windows

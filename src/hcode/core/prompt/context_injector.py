@@ -7,6 +7,7 @@ including tool documentation, workspace info, memory, and task context.
 
 from pathlib import Path
 from typing import Optional, Any
+from hcode.config.core_prompts.core import CorePromptLoader
 
 
 class ContextInjector:
@@ -87,18 +88,14 @@ class ContextInjector:
     def _inject_user_information(self, prompt: str) -> str:
         """Inject workspace and root directory context."""
         import platform
-        
-        os_name = platform.system()
-        user_info = f"""
-<user_information>
-The USER's OS version is {os_name}.
-The user has 1 active workspace defined by the following root directory:
-{self.root_dir} -> main
 
-Code relating to the user's requests should be written in the locations listed above.
-Avoid writing project code files to tmp, in the .gemini dir, or directly to the Desktop and similar folders unless explicitly asked.
-</user_information>"""
-        
+        os_name = platform.system()
+        loader = CorePromptLoader()
+        user_info = loader.build_user_context(
+            os_name=os_name,
+            root_dir=str(self.root_dir),
+        )
+
         return prompt + user_info
     
     def _inject_memory_context(self, prompt: str, query: str) -> str:
@@ -157,8 +154,5 @@ Avoid writing project code files to tmp, in the .gemini dir, or directly to the 
     
     def _get_default_system_prompt(self) -> str:
         """Get a default system prompt if provider doesn't provide one."""
-        return """You are Hcode, an AI coding assistant.
-You help users with coding tasks by reading, writing, and modifying files.
-When given a task, analyze it carefully and execute the necessary steps.
-Use the available tools to interact with the codebase.
-Always explain your reasoning and actions clearly."""
+        loader = CorePromptLoader()
+        return loader.get_system_prompt("default")

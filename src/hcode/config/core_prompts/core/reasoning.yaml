@@ -1,0 +1,118 @@
+# Reasoning and Thinking Templates
+# Structured templates for different levels of thinking depth
+
+thinking_templates:
+  # Quick thinking for simple tasks
+  quick: |
+    1. **Understanding**: The user wants <summary> (Type: <type>)
+    2. **Tool Selection**: I'll use <tool> because <reason>
+    3. **Risk Check**: Am I showing code? <yes/no> (If yes, Read first!)
+    4. **Action**: Execute <tool> to <outcome>
+
+  # Standard thinking for moderate tasks
+  standard: |
+    1. **Understanding**: The user wants <summary>. Implicitly, they also need <needs>.
+    2. **Context**: I know <knowledge>. I need to find <gaps>.
+    3. **Approach**:
+       - Step 1: <action>
+       - Step 2: <action>
+    4. **Tool Choice**: <primary tool> is best because <reason>. Alternative: <backup>.
+    5. **Risk Check**:
+       - Code display? -> Read first
+       - Modification? -> Edit tool
+       - Risk Level: <level>
+    6. **Execution**: Call <tool> to achieve <outcome>.
+
+  # Deep thinking for complex tasks
+  deep: |
+    1. **Understanding**: The user wants <summary>. Success means <criteria>.
+    2. **Context**: Current state is <state>. Key constraints are <constraints>.
+    3. **Exploration**:
+       - I need to find information about <gaps>
+       - I will search for <patterns> in <files>
+    4. **Hypothesis & Strategy**: I believe <hypothesis>. My strategy is to <strategy>.
+    5. **Alternatives**:
+       - Approach A: <desc> (Pros: <pros>, Cons: <cons>)
+       - Approach B: <desc> (Pros: <pros>, Cons: <cons>)
+       - **Decision**: I selected <choice> because <reason>.
+    6. **Plan**:
+       - Step 1: <action>
+       - Step 2: <action>
+       - Dependencies: <deps>
+    7. **Tool Orchestration**: Sequence is <tool1> -> <tool2> -> <tool3>.
+    8. **Risk Assessment**:
+       - Hallucination check: Am I showing code? -> READ FIRST
+       - Impact: This change affects <files>.
+       - Rollback: If it fails, I will <rollback>.
+    9. **Execution**: Calling <tool> with <params>.
+    10. **Verification**: I will check success by <method>.
+
+refinement:
+  # Prompt for refining reasoning after unexpected outcome
+  template: |
+    Your previous reasoning led to an unexpected outcome. Please refine your thinking.
+
+    ## Original Reasoning:
+    {original_reasoning}
+
+    ## Feedback Received:
+    {feedback}
+
+    ## Actual Outcome:
+    {outcome}
+
+    ## Refinement Task:
+    Please analyze what went wrong and provide refined reasoning:
+
+    <refined_thinking>
+    1. **Revised Understanding**: Updated understanding based on new information
+    2. **Revised Approach**: New approach accounting for what we learned
+    3. **Revised Confidence**: Updated confidence with justification
+    4. **New Action Items**: Updated action items
+    </refined_thinking>
+
+analysis:
+  # Code analysis thinking template
+  code_review: |
+    ## Code Analysis
+    1. **Purpose**: What does this code do?
+    2. **Structure**: How is it organized?
+    3. **Dependencies**: What does it depend on?
+    4. **Issues**: Any bugs, code smells, or improvements?
+    5. **Recommendations**: What changes would improve it?
+
+  # Error analysis template
+  error_analysis: |
+    ## Error Analysis
+    1. **Error Type**: What kind of error is this?
+    2. **Root Cause**: What caused this error?
+    3. **Impact**: What functionality is affected?
+    4. **Solution**: How can we fix it?
+    5. **Prevention**: How do we prevent this in the future?
+
+  # Task decomposition template
+  task_decomposition: |
+    ## Task Decomposition
+    1. **Main Goal**: What is the ultimate objective?
+    2. **Subtasks**: Break down into smaller tasks
+    3. **Dependencies**: Which tasks depend on others?
+    4. **Priority**: Which tasks are most critical?
+    5. **Estimation**: Rough complexity of each task
+
+decision:
+  # Decision-making template
+  template: |
+    ## Decision Point
+
+    **Context**: {context}
+
+    **Options**:
+    1. {option_1}: {description_1}
+       - Pros: {pros_1}
+       - Cons: {cons_1}
+    2. {option_2}: {description_2}
+       - Pros: {pros_2}
+       - Cons: {cons_2}
+
+    **Recommendation**: {recommendation}
+    **Rationale**: {rationale}

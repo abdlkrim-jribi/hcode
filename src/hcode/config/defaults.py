@@ -12,7 +12,6 @@ from typing import Final
 # Version information
 VERSION: Final[str] = "1.0.0"
 APP_NAME: Final[str] = "hcode"
-APP_DESCRIPTION: Final[str] = "HCode - An intelligent AI coding agent for your terminal"
 
 # Default model configurations
 DEFAULT_MODELS: Final[dict[str, dict[str, str]]] = {
@@ -65,65 +64,6 @@ CONTEXT_WINDOWS: Final[dict[str, int]] = {
     "gpt-4": 8192,
     "gpt-3.5-turbo": 16385,
 }
-
-# Default generation parameters
-DEFAULT_TEMPERATURE: Final[float] = 0.7
-DEFAULT_MAX_TOKENS: Final[int] = 4096
-DEFAULT_TOP_P: Final[float] = 1.0
-
-# Context management
-DEFAULT_MAX_CONTEXT_TOKENS: Final[int] = 100000
-CONTEXT_BUFFER_TOKENS: Final[int] = 2000  # Reserved for response
-
-# File operation defaults
-MAX_FILE_SIZE_BYTES: Final[int] = 10 * 1024 * 1024  # 10MB
-MAX_LINES_PER_READ: Final[int] = 2000
-DEFAULT_ENCODING: Final[str] = "utf-8"
-
-# UI defaults
-DEFAULT_THEME: Final[str] = "auto"
-TERMINAL_WIDTH_MIN: Final[int] = 40
-TERMINAL_WIDTH_MAX: Final[int] = 200
-
-# Logging defaults
-LOG_FORMAT: Final[str] = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-LOG_DATE_FORMAT: Final[str] = "%Y-%m-%d %H:%M:%S"
-LOG_FILE_MAX_BYTES: Final[int] = 10 * 1024 * 1024  # 10MB
-LOG_BACKUP_COUNT: Final[int] = 5
-
-# Memory defaults
-MEMORY_DB_NAME: Final[str] = "memory.db"
-MAX_HISTORY_ENTRIES: Final[int] = 100
-SESSION_EXPIRY_DAYS: Final[int] = 30
-
-# Safety defaults
-DANGEROUS_COMMANDS: Final[list[str]] = [
-    "rm -rf /",
-    "rm -rf ~",
-    "rm -rf /*",
-    ":(){:|:&};:",
-    "mkfs",
-    "dd if=/dev/zero",
-    "chmod -R 777 /",
-    "chown -R",
-    "> /dev/sda",
-    "mv /* /dev/null",
-    "wget -O- | sh",
-    "curl | sh",
-]
-
-CONFIRMATION_REQUIRED_PATTERNS: Final[list[str]] = [
-    "rm ",
-    "delete",
-    "drop ",
-    "truncate",
-    "git push --force",
-    "git push -f",
-    "git reset --hard",
-    "git clean -fd",
-    "npm publish",
-    "pip install --upgrade",
-]
 
 # Ignored file patterns (for search operations)
 IGNORED_PATTERNS: Final[list[str]] = [
@@ -204,9 +144,7 @@ BINARY_EXTENSIONS: Final[set[str]] = {
 }
 
 # Default system prompt for coding tasks
-DEFAULT_SYSTEM_PROMPT: Final[
-    str
-] = """You are HCode, an intelligent AI coding assistant.
+DEFAULT_SYSTEM_PROMPT: Final[str] = """You are HCode, an intelligent AI coding assistant.
 Your purpose is to help developers with software engineering tasks including:
 - Writing, reviewing, and debugging code
 - Explaining technical concepts
@@ -247,9 +185,7 @@ CHAT_COMMANDS: Final[dict[str, str]] = {
 }
 
 # Default config file template
-DEFAULT_CONFIG_YAML: Final[
-    str
-] = """# HCode Configuration
+DEFAULT_CONFIG_YAML: Final[str] = """# HCode Configuration
 # Documentation: https://github.com/hcode-dev/hcode
 
 # LLM Provider Settings
@@ -332,175 +268,3 @@ def should_ignore_path(path: str) -> bool:
 
     path_obj = Path(path)
     return any(ignored in path_obj.parts or path_obj.match(ignored) for ignored in IGNORED_PATTERNS)
-
-
-# ============================================================================
-# Configuration-aware helper functions
-# These functions load values from configuration files instead of hardcoded constants
-# ============================================================================
-
-def get_agent_temperature(agent_type: str = "default") -> float:
-    """
-    Get temperature setting for a specific agent type.
-    
-    Args:
-        agent_type: Agent type (default, exploration, focused, autonomous, coding)
-    
-    Returns:
-        Temperature value from configuration
-    """
-    try:
-        from hcode.config.loader import load_enhanced_settings
-        settings = load_enhanced_settings()
-        
-        temp_map = {
-            "default": settings.agent_behavior.temperature_default,
-            "exploration": settings.agent_behavior.temperature_exploration,
-            "focused": settings.agent_behavior.temperature_focused,
-            "autonomous": settings.agent_behavior.temperature_autonomous,
-            "coding": settings.agent_behavior.temperature_coding,
-        }
-        
-        return temp_map.get(agent_type, settings.agent_behavior.temperature_default)
-    except Exception:
-        # Fallback to hardcoded default if config loading fails
-        return DEFAULT_TEMPERATURE
-
-
-def get_agent_max_tokens(mode: str = "default") -> int:
-    """
-    Get max tokens setting for a specific mode.
-    
-    Args:
-        mode: Mode (default, quick, medium, deep, focused, comprehensive, provider_max)
-    
-    Returns:
-        Max tokens value from configuration
-    """
-    try:
-        from hcode.config.loader import load_enhanced_settings
-        settings = load_enhanced_settings()
-        
-        token_map = {
-            "default": settings.agent_behavior.max_tokens_default,
-            "quick": settings.agent_behavior.max_tokens_thinking_quick,
-            "medium": settings.agent_behavior.max_tokens_thinking_medium,
-            "deep": settings.agent_behavior.max_tokens_thinking_deep,
-            "focused": settings.agent_behavior.max_tokens_thinking_focused,
-            "comprehensive": settings.agent_behavior.max_tokens_thinking_comprehensive,
-            "provider_max": settings.agent_behavior.max_tokens_provider_max,
-        }
-        
-        return token_map.get(mode, settings.agent_behavior.max_tokens_default)
-    except Exception:
-        # Fallback to hardcoded default if config loading fails
-        return DEFAULT_MAX_TOKENS
-
-
-def get_dangerous_commands() -> list[str]:
-    """
-    Get list of dangerous commands from configuration.
-    
-    Returns:
-        List of dangerous command patterns
-    """
-    try:
-        from hcode.config.loader import load_enhanced_settings
-        settings = load_enhanced_settings()
-        return settings.safety.get_all_dangerous_commands()
-    except Exception:
-        # Fallback to hardcoded list if config loading fails
-        return DANGEROUS_COMMANDS
-
-
-def get_confirmation_patterns() -> list[str]:
-    """
-    Get list of confirmation required patterns from configuration.
-    
-    Returns:
-        List of command patterns requiring confirmation
-    """
-    try:
-        from hcode.config.loader import load_enhanced_settings
-        settings = load_enhanced_settings()
-        return settings.safety.get_all_confirmation_patterns()
-    except Exception:
-        # Fallback to hardcoded list if config loading fails
-        return CONFIRMATION_REQUIRED_PATTERNS
-
-
-def get_ignored_patterns() -> list[str]:
-    """
-    Get list of ignored file patterns from configuration.
-    
-    Returns:
-        List of file patterns to ignore
-    """
-    try:
-        from hcode.config.loader import load_enhanced_settings
-        settings = load_enhanced_settings()
-        return settings.file_operations.get_all_ignored_patterns()
-    except Exception:
-        # Fallback to hardcoded list if config loading fails
-        return IGNORED_PATTERNS
-
-
-def get_binary_extensions() -> list[str]:
-    """
-    Get list of binary file extensions from configuration.
-    
-    Returns:
-        List of binary file extensions
-    """
-    try:
-        from hcode.config.loader import load_enhanced_settings
-        settings = load_enhanced_settings()
-        return settings.file_operations.get_all_binary_extensions()
-    except Exception:
-        # Fallback to hardcoded set if config loading fails
-        return list(BINARY_EXTENSIONS)
-
-
-def get_max_file_size() -> int:
-    """
-    Get maximum file size from configuration.
-    
-    Returns:
-        Maximum file size in bytes
-    """
-    try:
-        from hcode.config.loader import load_enhanced_settings
-        settings = load_enhanced_settings()
-        return settings.file_operations.max_file_size_bytes
-    except Exception:
-        return MAX_FILE_SIZE_BYTES
-
-
-def get_max_lines_per_read() -> int:
-    """
-    Get maximum lines per read from configuration.
-    
-    Returns:
-        Maximum lines to read at once
-    """
-    try:
-        from hcode.config.loader import load_enhanced_settings
-        settings = load_enhanced_settings()
-        return settings.file_operations.max_lines_per_read
-    except Exception:
-        return MAX_LINES_PER_READ
-
-
-def get_context_buffer_tokens() -> int:
-    """
-    Get context buffer tokens from configuration.
-    
-    Returns:
-        Number of tokens to reserve for response buffer
-    """
-    try:
-        from hcode.config.loader import load_enhanced_settings
-        settings = load_enhanced_settings()
-        return settings.context.buffer_tokens
-    except Exception:
-        return CONTEXT_BUFFER_TOKENS

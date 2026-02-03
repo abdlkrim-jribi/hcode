@@ -13,6 +13,7 @@ from hcode.tools.terminal.bash_tools import BashTool, BashOutputTool, KillShellT
 from hcode.tools.system.command_system import SlashCommandTool, SkillTool, CommandRegistry
 from hcode.tools.files.diff_tools import DiffPreviewTool, ApplyChangeTool, RejectChangeTool
 from hcode.tools.files.file_tools import ReadTool, WriteTool, EditTool, MultiEditTool, GlobTool, GrepTool
+from hcode.tools.files.smart_glob_tool import SmartGlobTool
 from hcode.tools.analysis.outline_tool import ViewFileOutlineTool
 from hcode.tools.git.git_tools import (
     GitStatusTool,
@@ -72,7 +73,8 @@ class ToolManager:
         self.tool_registry.register(WriteTool(root_dir=str(self.root_dir)))
         self.tool_registry.register(EditTool(root_dir=str(self.root_dir)))
         self.tool_registry.register(MultiEditTool(root_dir=str(self.root_dir)))
-        self.tool_registry.register(GlobTool(root_dir=str(self.root_dir)))
+        # Use SmartGlobTool with context protection (Claude Code approach)
+        self.tool_registry.register(SmartGlobTool(root_dir=str(self.root_dir)))
         self.tool_registry.register(GrepTool(root_dir=str(self.root_dir)))
         self.tool_registry.register(LSTool(root_dir=str(self.root_dir)))
         self.tool_registry.register(FuzzyEditTool(root_dir=str(self.root_dir)))

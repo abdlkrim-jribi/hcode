@@ -656,13 +656,13 @@ class TestEnhancedAgent:
     @pytest.mark.asyncio
     async def test_agent_initialization(self, temp_workspace):
         """Test agent initializes correctly"""
-        from hcode.core.enhanced_agent import EnhancedHcodeAgent
+        from hcode.core.agent import HcodeAgent
 
         api_key = os.getenv("OPENAI_API_KEY")
         if not api_key:
             pytest.skip("No OPENAI_API_KEY set")
 
-        agent = EnhancedHcodeAgent(
+        agent = HcodeAgent(
             openai_key=api_key,
             openai_base_url=os.getenv("OPENAI_BASE_URL"),
             openai_model=os.getenv("OPENAI_MODEL", "gpt-4o"),
@@ -676,14 +676,14 @@ class TestEnhancedAgent:
     @pytest.mark.asyncio
     async def test_agent_builds_system_prompt(self, temp_workspace):
         """Test agent builds proper system prompt"""
-        from hcode.core.enhanced_agent import EnhancedHcodeAgent
+        from hcode.core.agent import HcodeAgent
         from hcode.providers import TaskComplexity, TaskType
 
         api_key = os.getenv("OPENAI_API_KEY")
         if not api_key:
             pytest.skip("No OPENAI_API_KEY set")
 
-        agent = EnhancedHcodeAgent(
+        agent = HcodeAgent(
             openai_key=api_key,
             openai_base_url=os.getenv("OPENAI_BASE_URL"),
             openai_model=os.getenv("OPENAI_MODEL", "gpt-4o"),
@@ -755,7 +755,7 @@ class TestContinuation:
 
     def test_continuation_manager_initialization(self):
         """Test continuation manager initializes"""
-        from hcode.core.continuation import ContinuationManager
+        from hcode.core.response.continuation import ContinuationManager
 
         manager = ContinuationManager()
 
@@ -764,7 +764,7 @@ class TestContinuation:
 
     def test_should_continue_on_length(self):
         """Test continuation detection on length finish reason"""
-        from hcode.core.continuation import ContinuationManager
+        from hcode.core.response.continuation import ContinuationManager
 
         manager = ContinuationManager()
 
@@ -774,7 +774,7 @@ class TestContinuation:
 
     def test_should_not_continue_on_stop(self):
         """Test no continuation on normal stop"""
-        from hcode.core.continuation import ContinuationManager
+        from hcode.core.response.continuation import ContinuationManager
 
         manager = ContinuationManager()
 
@@ -784,7 +784,7 @@ class TestContinuation:
 
     def test_continuation_prompts_loaded(self):
         """Test continuation prompts are loaded from config"""
-        from hcode.core.continuation import ContinuationManager
+        from hcode.core.response.continuation import ContinuationManager
 
         manager = ContinuationManager()
 
@@ -794,7 +794,7 @@ class TestContinuation:
 
     def test_merge_responses(self):
         """Test response merging"""
-        from hcode.core.continuation import ContinuationManager
+        from hcode.core.response.continuation import ContinuationManager
 
         manager = ContinuationManager()
 

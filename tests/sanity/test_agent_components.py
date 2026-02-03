@@ -1,7 +1,7 @@
 """
 Sanity Check: Agent Components Tests.
 
-Tests the basic functionality of agent components.
+Tests the basic functionality of agent core components.
 """
 
 import pytest
@@ -9,21 +9,14 @@ import tempfile
 from pathlib import Path
 
 
-class TestAgentModesComponent:
-    """Test agent modes component."""
+class TestAgentCoreComponent:
+    """Test core agent component."""
 
-    def test_modes_import(self):
-        """Test modes module imports."""
-        from hcode.agent.modes import AgentMode
+    def test_agent_import(self):
+        """Test core agent imports."""
+        from hcode.core.agent import HcodeAgent
 
-        assert AgentMode is not None
-
-    def test_agent_mode_enum(self):
-        """Test AgentMode enum has expected values."""
-        from hcode.agent.modes import AgentMode
-
-        # Check for common mode values
-        assert hasattr(AgentMode, "NORMAL")
+        assert HcodeAgent is not None
 
 
 class TestThinkingComponent:
@@ -31,9 +24,9 @@ class TestThinkingComponent:
 
     def test_thinking_import(self):
         """Test thinking module imports."""
-        from hcode.agent.thinking import ThinkingProcessor
+        from hcode.core.response.thinking_processor import ThinkingBlockProcessor
 
-        assert ThinkingProcessor is not None
+        assert ThinkingBlockProcessor is not None
 
 
 class TestThinkingManagerComponent:
@@ -41,15 +34,15 @@ class TestThinkingManagerComponent:
 
     def test_thinking_manager_import(self):
         """Test thinking_manager module imports."""
-        from hcode.agent.thinking_manager import ThinkingManager
+        from hcode.core.execution.thinking_manager import EnhancedThinkingManager
 
-        assert ThinkingManager is not None
+        assert EnhancedThinkingManager is not None
 
     def test_thinking_manager_instantiation(self):
-        """Test ThinkingManager can be instantiated."""
-        from hcode.agent.thinking_manager import ThinkingManager
+        """Test EnhancedThinkingManager can be instantiated."""
+        from hcode.core.execution.thinking_manager import EnhancedThinkingManager
 
-        manager = ThinkingManager()
+        manager = EnhancedThinkingManager()
         assert manager is not None
 
 
@@ -58,73 +51,70 @@ class TestTodoComponent:
 
     def test_todo_import(self):
         """Test todo module imports."""
-        from hcode.agent.todo import TodoManager, TodoItem
+        from hcode.core.todo import TodoManager, TodoItem
 
         assert TodoManager is not None
         assert TodoItem is not None
 
     def test_todo_manager_instantiation(self):
         """Test TodoManager can be instantiated."""
-        from hcode.agent.todo import TodoManager
+        from hcode.core.todo import TodoManager
 
         manager = TodoManager()
         assert manager is not None
 
     def test_todo_item_creation(self):
         """Test TodoItem can be created."""
-        from hcode.agent.todo import TodoItem
+        from hcode.core.todo import TodoItem
 
-        item = TodoItem(content="Test task", status="pending", activeForm="Testing")
+        item = TodoItem(content="Test task", status="pending", active_form="Testing")
         assert item is not None
         assert item.content == "Test task"
         assert item.status == "pending"
 
 
-class TestAutonomousComponent:
-    """Test autonomous component."""
+class TestToolCallParserComponent:
+    """Test tool call parser component."""
 
-    def test_autonomous_import(self):
-        """Test autonomous module imports."""
-        from hcode.agent import autonomous
+    def test_tool_call_parser_import(self):
+        """Test ToolCallParser imports."""
+        from hcode.core.tools import ToolCallParser
 
-        assert autonomous is not None
+        assert ToolCallParser is not None
 
+    def test_tool_call_parser_instantiation(self):
+        """Test ToolCallParser can be instantiated."""
+        from hcode.core.tools import ToolCallParser
 
-class TestAutonomousAgentComponent:
-    """Test autonomous agent component."""
-
-    def test_autonomous_agent_import(self):
-        """Test autonomous_agent module imports."""
-        from hcode.agent.autonomous_agent import AutonomousAgent
-
-        assert AutonomousAgent is not None
+        parser = ToolCallParser()
+        assert parser is not None
 
 
-class TestAutonomousPromptComponent:
-    """Test autonomous prompt component."""
+class TestTodoAutoUpdaterComponent:
+    """Test todo auto-updater component."""
 
-    def test_autonomous_prompt_import(self):
-        """Test autonomous_prompt module imports."""
-        from hcode.agent import autonomous_prompt
+    def test_todo_auto_updater_import(self):
+        """Test TodoAutoUpdater imports."""
+        from hcode.core.todo import TodoAutoUpdater
 
-        assert autonomous_prompt is not None
-
-
-class TestCodingAgentComponent:
-    """Test coding agent component."""
-
-    def test_coding_agent_import(self):
-        """Test coding_agent module imports."""
-        from hcode.agent.coding_agent import CodingAgent
-
-        assert CodingAgent is not None
+        assert TodoAutoUpdater is not None
 
 
-class TestSubAgentComponent:
-    """Test sub-agent component."""
+class TestAgentLoopControllerComponent:
+    """Test agent loop controller component."""
 
-    def test_sub_agent_import(self):
-        """Test sub_agent module imports."""
-        from hcode.agents.sub_agent import SubAgent
+    def test_loop_controller_import(self):
+        """Test AgentLoopController imports."""
+        from hcode.core.loop import AgentLoopController, Phase, StopReason
 
-        assert SubAgent is not None
+        assert AgentLoopController is not None
+        assert Phase is not None
+        assert StopReason is not None
+
+    def test_loop_controller_instantiation(self):
+        """Test AgentLoopController can be instantiated."""
+        from hcode.core.loop import AgentLoopController
+
+        controller = AgentLoopController()
+        assert controller is not None
+        assert controller.state.iteration == 0

@@ -20,6 +20,7 @@ from .feedback import (
     FeedbackProcessor,
     ReasoningReviser,
 )
+from .tool_executor import ToolExecutor
 
 __all__ = [
     "LoopDetector",
@@ -41,4 +42,6 @@ __all__ = [
     "HypothesisValidator",
     "FeedbackProcessor",
     "ReasoningReviser",
+    # Tool Executor
+    "ToolExecutor",
 ]

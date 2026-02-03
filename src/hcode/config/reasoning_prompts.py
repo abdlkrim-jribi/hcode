@@ -52,6 +52,7 @@ class ReasoningPromptConfig:
 
 
 from hcode.config.prompts import get_prompts_config
+from hcode.config.core_prompts.core import CorePromptLoader
 
 # =============================================================================
 # PROMPT BUILDER CLASS
@@ -148,46 +149,16 @@ class ReasoningPromptBuilder:
         return "\n".join(prompt_parts)
 
     def _quick_thinking_template(self) -> str:
-        return """1. **Understanding**: The user wants <summary> (Type: <type>)
-2. **Tool Selection**: I'll use <tool> because <reason>
-3. **Risk Check**: Am I showing code? <yes/no> (If yes, Read first!)
-4. **Action**: Execute <tool> to <outcome>"""
+        loader = CorePromptLoader()
+        return loader.get_thinking_template("quick")
 
     def _standard_thinking_template(self) -> str:
-        return """1. **Understanding**: The user wants <summary>. Implicitly, they also need <needs>.
-2. **Context**: I know <knowledge>. I need to find <gaps>.
-3. **Approach**:
-   - Step 1: <action>
-   - Step 2: <action>
-4. **Tool Choice**: <primary tool> is best because <reason>. Alternative: <backup>.
-5. **Risk Check**: 
-   - Code display? -> Read first
-   - Modification? -> Edit tool
-   - Risk Level: <level>
-6. **Execution**: Call <tool> to achieve <outcome>."""
+        loader = CorePromptLoader()
+        return loader.get_thinking_template("standard")
 
     def _deep_thinking_template(self) -> str:
-        return """1. **Understanding**: The user wants <summary>. Success means <criteria>.
-2. **Context**: Current state is <state>. Key constraints are <constraints>.
-3. **Exploration**:
-   - I need to find information about <gaps>
-   - I will search for <patterns> in <files>
-4. **Hypothesis & Strategy**: I believe <hypothesis>. My strategy is to <strategy>.
-5. **Alternatives**:
-   - Approach A: <desc> (Pros: <pros>, Cons: <cons>)
-   - Approach B: <desc> (Pros: <pros>, Cons: <cons>)
-   - **Decision**: I selected <choice> because <reason>.
-6. **Plan**:
-   - Step 1: <action>
-   - Step 2: <action>
-   - Dependencies: <deps>
-7. **Tool Orchestration**: Sequence is <tool1> -> <tool2> -> <tool3>.
-8. **Risk Assessment**:
-   - Hallucination check: Am I showing code? -> READ FIRST
-   - Impact: This change affects <files>.
-   - Rollback: If it fails, I will <rollback>.
-9. **Execution**: Calling <tool> with <params>.
-10. **Verification**: I will check success by <method>."""
+        loader = CorePromptLoader()
+        return loader.get_thinking_template("deep")
 
     def build_refinement_prompt(self, original_reasoning: str, feedback: str, outcome: str) -> str:
         """
@@ -201,27 +172,12 @@ class ReasoningPromptBuilder:
         Returns:
             Prompt for reasoning refinement
         """
-        return f"""Your previous reasoning led to an unexpected outcome. Please refine your thinking.
-
-## Original Reasoning:
-{original_reasoning}
-
-## Feedback Received:
-{feedback}
-
-## Actual Outcome:
-{outcome}
-
-## Refinement Task:
-Please analyze what went wrong and provide refined reasoning:
-
-<refined_thinking>
-1. **Revised Understanding**: Updated understanding based on new information
-2. **Revised Approach**: New approach accounting for what we learned
-3. **Revised Confidence**: Updated confidence with justification
-4. **New Action Items**: Updated action items
-</refined_thinking>
-"""
+        loader = CorePromptLoader()
+        return loader.build_refinement_prompt(
+            original_reasoning=original_reasoning,
+            feedback=feedback,
+            outcome=outcome,
+        )
 
     def get_task_type_from_message(self, message: str) -> Optional[str]:
         """
@@ -374,59 +330,6 @@ def determine_reasoning_depth(message: str, complexity: float = 0.5) -> Reasonin
 # CLAUDE-STYLE 3-PHASE WORKFLOW PROMPTS
 # =============================================================================
 
-CLAUDE_WORKFLOW_PROMPTS = {
-    "planning": """You are in PLANNING mode.
-
-Your goal is to deeply understand the requirements and create a detailed implementation plan.
-
-Steps:
-1. Apply PERCEPTION phase thinking - understand what's being asked
-2. Apply COMPREHENSION phase - understand the core problem and constraints
-3. Apply ANALYSIS phase - break down the solution approach
-4. Create implementation_plan.md with:
-   - Problem context
-   - Proposed changes (by component/file)
-   - Verification strategy
-   - Items requiring user review
-5. Create task.md with concrete checklist
-6. Request user approval before proceeding
-
-Remember: Quality planning prevents execution issues.
-""",
-    "execution": """You are in EXECUTION mode.
-
-Your goal is to implement the approved plan systematically and incrementally.
-
-Steps:
-1. Follow the approved implementation_plan.md
-2. Apply DECISION phase thinking for each change
-3. Make one logical change at a time
-4. Test after significant modifications
-5. Update task.md to track progress
-6. Apply PRE-EXECUTION REVIEW before risky operations
-
-Remember: Incremental progress with frequent testing.
-""",
-    "verification": """You are in VERIFICATION mode.
-
-Your goal is to validate that all requirements are met and document your work.
-
-Steps:
-1. Apply VERIFICATION phase thinking
-2. Run comprehensive tests (unit, integration, manual)
-3. Validate edge cases
-4. Check for regressions
-5. Create walkthrough.md documenting:
-   - What was modified
-   - What was tested
-   - Validation results
-   - Proof of work (test output, screenshots)
-
-Remember: Thorough verification builds confidence.
-""",
-}
-
-
 def get_claude_workflow_prompt(phase: str) -> str:
     """
     Get Claude-style workflow prompt for a specific phase.
@@ -437,7 +340,26 @@ def get_claude_workflow_prompt(phase: str) -> str:
     Returns:
         Workflow prompt for the specified phase
     """
-    return CLAUDE_WORKFLOW_PROMPTS.get(phase, "")
+    loader = CorePromptLoader()
+    try:
+        return loader.get_phase_prompt(phase, "workflow")
+    except KeyError:
+        return ""
+
+
+# Legacy constant for backwards compatibility
+# Dynamically loads from YAML when accessed
+class _WorkflowPromptsProxy:
+    """Proxy class to load prompts on demand for backwards compatibility."""
+
+    def get(self, phase: str, default: str = "") -> str:
+        return get_claude_workflow_prompt(phase) or default
+
+    def __getitem__(self, phase: str) -> str:
+        return get_claude_workflow_prompt(phase)
+
+
+CLAUDE_WORKFLOW_PROMPTS = _WorkflowPromptsProxy()
 
 
 # =============================================================================

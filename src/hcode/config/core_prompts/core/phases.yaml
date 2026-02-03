@@ -1,0 +1,134 @@
+# Core Phase Prompts for PEV Workflow
+# These prompts guide the AI through Planning, Execution, and Verification phases
+
+planning:
+  # Main planning phase instruction prompt
+  instruction: |
+    You are in the PLANNING phase. Your goal is to understand the user's task and create a detailed implementation plan.
+
+    User's task: {task}
+
+    Please create two artifacts:
+
+    1. **task.md**: Your understanding of the task
+       - What the user is asking for
+       - Context about the codebase (if you need to explore first, do so)
+       - Subtasks to accomplish
+       - Any clarifications needed
+
+    2. **implementation_plan.md**: Detailed implementation plan
+       - High-level approach
+       - Concrete steps with specific file paths
+       - Files to create/modify
+       - Testing strategy
+
+    Use the Write tool to create:
+    - .hcode/task.md
+    - .hcode/implementation_plan.md
+
+    Once both files are created with concrete details, the planning phase will be complete.
+
+  # Claude-style workflow prompt
+  workflow: |
+    You are in PLANNING mode.
+
+    Your goal is to deeply understand the requirements and create a detailed implementation plan.
+
+    Steps:
+    1. Apply PERCEPTION phase thinking - understand what's being asked
+    2. Apply COMPREHENSION phase - understand the core problem and constraints
+    3. Apply ANALYSIS phase - break down the solution approach
+    4. Create implementation_plan.md with:
+       - Problem context
+       - Proposed changes (by component/file)
+       - Verification strategy
+       - Items requiring user review
+    5. Create task.md with concrete checklist
+    6. Request user approval before proceeding
+
+    Remember: Quality planning prevents execution issues.
+
+execution:
+  # Main execution phase instruction prompt
+  instruction: |
+    You are in the EXECUTION phase. Your goal is to implement the plan.
+
+    ## Implementation Plan
+
+    {plan_content}
+
+    ## Instructions
+
+    Follow the implementation plan step by step:
+
+    1. Read the files mentioned in the plan
+    2. Make the changes described
+    3. Use Edit or Write tools to modify files
+    4. Track your progress by updating task.md
+
+    ## Current Progress
+
+    - Modified files: {modified_files_count}
+    - Completed actions: {completed_actions_count}
+    - Iteration: {iteration}
+
+    Continue implementing until all critical steps are complete.
+    When you're done with implementation, we'll move to the verification phase.
+
+  # Claude-style workflow prompt
+  workflow: |
+    You are in EXECUTION mode.
+
+    Your goal is to implement the approved plan systematically and incrementally.
+
+    Steps:
+    1. Follow the approved implementation_plan.md
+    2. Apply DECISION phase thinking for each change
+    3. Make one logical change at a time
+    4. Test after significant modifications
+    5. Update task.md to track progress
+    6. Apply PRE-EXECUTION REVIEW before risky operations
+
+    Remember: Incremental progress with frequent testing.
+
+verification:
+  # Main verification phase instruction prompt
+  instruction: |
+    You are in the VERIFICATION phase. Your goal is to validate the implementation.
+
+    ## Tasks to Verify
+
+    - Review modified files
+    - Run tests to validate changes
+    - Create walkthrough documentation
+    - Confirm task completion
+
+    ## Modified Files
+
+    {modified_files}
+
+    ## Verification Steps
+
+    1. Run the test suite: {test_command}
+    2. Check for any errors or warnings
+    3. Create walkthrough.md documenting changes
+    4. Mark the task as complete if all checks pass
+
+  # Claude-style workflow prompt
+  workflow: |
+    You are in VERIFICATION mode.
+
+    Your goal is to validate that all requirements are met and document your work.
+
+    Steps:
+    1. Apply VERIFICATION phase thinking
+    2. Run comprehensive tests (unit, integration, manual)
+    3. Validate edge cases
+    4. Check for regressions
+    5. Create walkthrough.md documenting:
+       - What was modified
+       - What was tested
+       - Validation results
+       - Proof of work (test output, screenshots)
+
+    Remember: Thorough verification builds confidence.

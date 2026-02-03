@@ -9,7 +9,26 @@ MANDATORY FIRST STEP: Check KI Summaries Before Any Research
 2. **Identify relevant KIs** by checking if any KI titles/summaries match your task
 3. **Read relevant KI artifacts** using the artifact paths listed in the summaries BEFORE doing independent research
 4. **Build upon KI** by using the information from the KIs to inform your own research
-   Example: What NOT to Do
+   Example: What NOT to Do[user_rules.md](user_rules.md)
+[web_application_development.md](web_application_development.md)
+[walkthrough.md](walkthrough.md)
+[workflows.md](workflows.md)
+[tool_calling.md](tool_calling.md)
+[task_boundary_tool.md](task_boundary_tool.md)
+[task.md](task.md)
+[planning-mode.txt](planning-mode.txt)
+[notify_user_tool.md](notify_user_tool.md)
+[modes.md](modes.md)
+[knowledge_ki_system.md](knowledge_ki_system.md)
+[knowledge_items.md](knowledge_items.md)
+[knowledge_cortex_agent.md](knowledge_cortex_agent.md)
+[knowledge_context_compaction.md](knowledge_context_compaction.md)
+[implementation_plan.md](implementation_plan.md)
+[identity.md](identity.md)
+[Fast Prompt.txt](Fast Prompt.txt)
+[artifact_formatting_guidelines.md](artifact_formatting_guidelines.md)
+[agentic_mode_overview.md](agentic_mode_overview.md)
+5. 
    DO NOT immediately start fresh research when a relevant KI might already exist:
    USER: Can you analyze the core engine module and document its architecture?
 
