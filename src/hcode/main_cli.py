@@ -59,7 +59,7 @@ from hcode.ui.live_todo_bar import (
 )
 
 # Import reasoning components for automatic todo extraction
-from hcode.core.response.thinking_processor import ThinkingBlockProcessor, parse_thinking_block
+from hcode.core.response.thinking_processor import parse_thinking_block
 from hcode.core.reasoning import ReasoningParser, ReasoningToTodoIntegrator
 
 # Get themed console
@@ -255,17 +255,24 @@ def run_task(task, provider, model, model_size, complexity, cost, session, strea
     )
     console.print(task_panel)
 
-    # Load config
     config = load_config()
-
-    # Get API keys
     anthropic_key = os.getenv("ANTHROPIC_API_KEY") or config.get("providers", {}).get(
         "anthropic", {}
     ).get("api_key")
     openai_key = os.getenv("OPENAI_API_KEY") or config.get("providers", {}).get("openai", {}).get(
         "api_key"
     )
-    openai_base_url = config.get("providers", {}).get("openai", {}).get("base_url")
+    openai_base_url = os.getenv("OPENAI_BASE_URL") or config.get("providers", {}).get(
+        "openai", {}
+    ).get("base_url")
+
+    # Get model configuration
+    anthropic_model = os.getenv("ANTHROPIC_MODEL") or config.get("providers", {}).get(
+        "anthropic", {}
+    ).get("default_model")
+    openai_model = os.getenv("OPENAI_MODEL") or config.get("providers", {}).get("openai", {}).get(
+        "default_model"
+    )
 
     if not anthropic_key and not openai_key:
         console.print(
@@ -281,31 +288,7 @@ def run_task(task, provider, model, model_size, complexity, cost, session, strea
         )
         sys.exit(1)
 
-    # Determine model selection
-    from hcode.utils import get_model_for_size
 
-    anthropic_model = None
-    openai_model = None
-
-    # Priority: CLI arg > env var (handled in config) > config default
-    if model:
-        # Specific model provided via CLI
-        if provider in ["anthropic", "claude"]:
-            anthropic_model = model
-        elif provider in ["openai", "gpt"]:
-            openai_model = model
-        else:
-            # Auto provider, use for both (will be selected by provider selector)
-            anthropic_model = model if "claude" in model.lower() else None
-            openai_model = model if "gpt" in model.lower() or "llama" in model.lower() else None
-    elif model_size:
-        # Model size provided via CLI
-        anthropic_model = get_model_for_size("anthropic", model_size)
-        openai_model = get_model_for_size("openai", model_size, openai_base_url)
-    else:
-        # Use from config (already loaded with env overrides)
-        anthropic_model = config.get("providers", {}).get("anthropic", {}).get("default_model")
-        openai_model = config.get("providers", {}).get("openai", {}).get("default_model")
 
     # Create agent
     preferences = ProviderPreferences(
@@ -1017,26 +1000,20 @@ def chat_mode(provider, session, show_todos, debug, autonomous):
             if len(user_input) > 50:
                 task_name = task_name[:47] + "..."
             
-            # Start task boundary display
-            hcode_display.start_task(task_name or "Processing Request", TaskMode.PLANNING)
+            # Wrapper for agent execution
+            # The agent handles task boundary display internally
             
             # Pause todo bar during streaming to prevent ANSI interference
             live_todo_bar.pause()
             
-            # Let agent manage thinking display during execution
-            # hcode_display.start_thinking()
-            
             try:
                 result = asyncio.run(agent.execute_task(task=user_input, stream=True))
             finally:
-                # End thinking timer
+                # End thinking timer if it was running (safety)
                 hcode_display.end_thinking()
                 
                 # Resume todo bar after streaming
                 live_todo_bar.resume()
-            
-            # Show task completion
-            hcode_display.end_task()
 
             # Stop live todo bar after task
             if live_todo_bar.is_active:

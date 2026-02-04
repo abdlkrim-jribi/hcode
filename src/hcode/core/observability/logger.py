@@ -69,6 +69,7 @@ class SessionLog:
     interactions: List[ModelInteractionLog] = field(default_factory=list)
     final_result: str = ""
     errors: List[str] = field(default_factory=list)
+    debug_messages: List[str] = field(default_factory=list)
     metadata: Dict[str, Any] = field(default_factory=dict)
 
 
@@ -247,6 +248,29 @@ class InteractionLogger:
 
         return log
 
+    def log_debug(self, message: str, context: Optional[Dict[str, Any]] = None):
+        """
+        Log a generic debug message.
+
+        Args:
+            message: The debug message
+            context: Optional dictionary with contextual data
+        """
+        if not self.current_session:
+            self.start_session(task="(no task)", provider="unknown")
+
+        # Append to in-memory session log
+        self.current_session.debug_messages.append(message)
+
+        # Write to file
+        self._write_log_entry(
+            {
+                "type": "debug",
+                "timestamp": datetime.now().isoformat(),
+                "message": message,
+                "context": context or {},
+            }
+        )
     def log_tool_call(
         self,
         tool_name: str,
@@ -622,6 +646,10 @@ def log_error(error: str, context: Optional[Dict[str, Any]] = None):
     """Log an error"""
     get_logger().log_error(error, context)
 
+
+def log_debug(message: str, context: Optional[Dict[str, Any]] = None):
+    """Log a debug message"""
+    get_logger().log_debug(message, context)
 
 def end_logging(**kwargs):
     """End the current logging session"""

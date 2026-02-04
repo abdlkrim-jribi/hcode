@@ -6,15 +6,15 @@ This allows gradual migration without breaking existing code.
 
 import os
 from typing import Any, Optional, Dict
-from ..protocols import AgentContext
+
 from ..classification import TaskClassifier
 from ..orchestration import PhaseManager, AgentOrchestrator
-from ..services import ArtifactManager
 from ..phases import (
     PlanningPhaseHandler,
     ExecutionPhaseHandler,
     VerificationPhaseHandler,
 )
+from ..services import ArtifactManager
 
 
 class AgentAdapter:
@@ -31,23 +31,26 @@ class AgentAdapter:
         tool_executor: Any,
         context_manager: Any,
         working_dir: Optional[str] = None,
+        console: Optional[Any] = None,
     ):
         """Initialize adapter with existing components."""
         self.provider = provider
         self.tool_executor = tool_executor
         self.context_manager = context_manager
         self.working_dir = working_dir or os.getcwd()
+        self.console = console
 
         # Create new components
         self.task_classifier = TaskClassifier()
         self.artifact_manager = ArtifactManager()
 
-        # Create phase handlers
+        # Create phase handlers with console for modern UI
         handler_deps = {
             "artifact_manager": self.artifact_manager,
             "provider": provider,
             "tool_executor": tool_executor,
             "context_manager": context_manager,
+            "console": console,  # Pass console for HcodeDisplay integration
         }
 
         self.handlers = {
@@ -64,6 +67,7 @@ class AgentAdapter:
             phase_manager=self.phase_manager,
             task_classifier=self.task_classifier,
             working_dir=self.working_dir,
+            console=self.console,
         )
 
     async def execute_task(
@@ -85,20 +89,21 @@ class AgentAdapter:
         """
         Determine if task should use PEV workflow.
 
-        Initially, only use for implementation tasks.
-        Gradually expand to all tasks.
+        ALWAYS returns True because PEV workflow is mandatory for all tasks.
+        This ensures consistent quality through:
+        - Planning: Create task.md and implementation_plan.md
+        - Execution: Implement the plan using tools
+        - Verification: Test and create walkthrough.md
+
+        Args:
+            task: User's task description (used for classification metadata only)
+
+        Returns:
+            Always True - PEV is enforced for all tasks
         """
-        task_type = self.task_classifier.classify(task)
-
-        # For testing, use PEV for implementation and refactoring tasks
-        pev_task_types = ["implementation", "refactoring", "debugging"]
-
-        # Check environment variable for override
-        force_pev = os.environ.get("HCODE_FORCE_PEV", "false").lower() == "true"
-        if force_pev:
-            return True
-
-        return task_type in pev_task_types
+        # PEV is ALWAYS required - no exceptions
+        # Task classification is for metadata/optimization only, not workflow control
+        return True
 
     def get_task_classification(self, task: str) -> Dict[str, Any]:
         """

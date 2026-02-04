@@ -70,13 +70,28 @@ You can also configure API keys via environment variables (see `.env.example`).
 
 ## Code Statistics
 
-You can quickly get a summary of the project's size with the provided script:
+The repository includes two small helper scripts for quick code‑size statistics:
 
-```bash
-python count_code.py
+* **`count_loc.py`** – the full implementation. It can be customized with command‑line options:
+  ```bash
+  python count_loc.py [--extensions py,js,java] [--ignore-file .gitignore] [--json]
+  ```
+  * `--extensions` – comma‑separated list of file extensions to include (default set covers common source files).
+  * `--ignore-file` – path to a gitignore‑style file (defaults to `.gitignore`).
+  * `--json` – output results as JSON.
+
+* **`count_code.py`** – a thin compatibility wrapper referenced in the original README. It simply runs the default behaviour of `count_loc.py`:
+  ```bash
+  python count_code.py
+  ```
+
+Both scripts respect the project's `.gitignore` and print something like:
 ```
+Files counted: 123
+Total lines of code: 45678
+```
+You can also request JSON output with `--json` on `count_loc.py`.
 
-The script respects the project's `.gitignore` and prints the total number of source files and lines of code.
 
 To run tests:
 ```bash

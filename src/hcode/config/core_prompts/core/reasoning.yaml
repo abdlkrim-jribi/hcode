@@ -1,118 +1,123 @@
-# Reasoning and Thinking Templates
-# Structured templates for different levels of thinking depth
 
 thinking_templates:
-  # Quick thinking for simple tasks
+  # Quick thinking for simple tasks - keeping all original logic but conversational.
   quick: |
-    1. **Understanding**: The user wants <summary> (Type: <type>)
-    2. **Tool Selection**: I'll use <tool> because <reason>
-    3. **Risk Check**: Am I showing code? <yes/no> (If yes, Read first!)
-    4. **Action**: Execute <tool> to <outcome>
+    Let me quickly understand what is needed here. The user wants <summary> which is a <type> task. I need to pick a tool, and I'll use <tool> the reason being <reason>. Before I do that, I should quickly check if I'm showing code, that's a <yes/no>, and if yes I need to read it first. Okay, the plan is set, I will execute <tool> to <outcome>.
 
-  # Standard thinking for moderate tasks
+  # Standard thinking for moderate tasks - weaving all original variables into a narrative.
   standard: |
-    1. **Understanding**: The user wants <summary>. Implicitly, they also need <needs>.
-    2. **Context**: I know <knowledge>. I need to find <gaps>.
-    3. **Approach**:
-       - Step 1: <action>
-       - Step 2: <action>
-    4. **Tool Choice**: <primary tool> is best because <reason>. Alternative: <backup>.
-    5. **Risk Check**:
-       - Code display? -> Read first
-       - Modification? -> Edit tool
-       - Risk Level: <level>
-    6. **Execution**: Call <tool> to achieve <outcome>.
+    Breaking this down, the user wants <summary>. But looking deeper, I can see they implicitly also need <needs>. Let's look at the context. I already know <knowledge>, but I realize I need to find <gaps> to be sure. My approach should be to first <action> and then move to <action>. For tools, <primary tool> is best because <reason>, although I could use <backup> if things go wrong. Let's check the risks: am I displaying code? I need to read first. Is it a modification? I should use the edit tool. The risk level is <level>. Alright, I'm calling <tool> to achieve <outcome>.
 
-  # Deep thinking for complex tasks
+  # Deep thinking for complex tasks - the "Boosted" narrative using all original variables.
   deep: |
-    1. **Understanding**: The user wants <summary>. Success means <criteria>.
-    2. **Context**: Current state is <state>. Key constraints are <constraints>.
-    3. **Exploration**:
-       - I need to find information about <gaps>
-       - I will search for <patterns> in <files>
-    4. **Hypothesis & Strategy**: I believe <hypothesis>. My strategy is to <strategy>.
-    5. **Alternatives**:
-       - Approach A: <desc> (Pros: <pros>, Cons: <cons>)
-       - Approach B: <desc> (Pros: <pros>, Cons: <cons>)
-       - **Decision**: I selected <choice> because <reason>.
-    6. **Plan**:
-       - Step 1: <action>
-       - Step 2: <action>
-       - Dependencies: <deps>
-    7. **Tool Orchestration**: Sequence is <tool1> -> <tool2> -> <tool3>.
-    8. **Risk Assessment**:
-       - Hallucination check: Am I showing code? -> READ FIRST
-       - Impact: This change affects <files>.
-       - Rollback: If it fails, I will <rollback>.
-    9. **Execution**: Calling <tool> with <params>.
-    10. **Verification**: I will check success by <method>.
+    Let's really analyze this. The user wants <summary> and for this to be a success, it means <criteria>. I need to consider the current context; the state is <state> and the key constraints are <constraints>. I need to do some exploration here. I need to find information about <gaps> and I will search for <patterns> in <files>.
+
+    Forming a hypothesis, I believe <hypothesis>. So my strategy is going to be <strategy>. I need to look at the alternatives. Approach A is <desc>. The pros are <pros> but the cons are <cons>. Approach B is <desc> with pros <pros> and cons <cons>. Thinking it over, I decided <choice> because <reason>.
+
+    Here is the plan: Step 1 is <action>, then Step 2 is <action>. I need to be aware of dependencies like <deps>. For tool orchestration, the sequence is <tool1> then <tool2> then <tool3>. I need to assess risks. I must do a hallucination check: am I showing code? If so, I need to READ FIRST. The impact of this change affects <files>. If it fails, I will <rollback>. Okay, executing <tool> with <params>. To verify, I will check success by <method>.
+
+  # Maximum performance thinking - comprehensive reasoning chain for optimal results.
+  maximum_performance: |
+    === PHASE 1: DEEP COMPREHENSION ===
+
+    Let me fully understand what's being asked. The explicit request is: <explicit_request>.
+    But reading between the lines, the implicit needs are: <implicit_needs>.
+    The success criteria for this task are: <success_criteria>.
+
+    Current context assessment:
+    - What I already know from context: <known_context>
+    - What I need to discover: <knowledge_gaps>
+    - Current phase (P/E/V): <current_phase>
+    - Files already modified in this session: <modified_files>
+    - Previous actions taken: <previous_actions>
+
+    === PHASE 2: STRATEGIC ANALYSIS ===
+
+    Let me form hypotheses about the best approach:
+
+    Hypothesis 1: <h1_description>
+    - Evidence for: <h1_evidence_for>
+    - Evidence against: <h1_evidence_against>
+    - Risk level: <h1_risk>
+
+    Hypothesis 2: <h2_description>
+    - Evidence for: <h2_evidence_for>
+    - Evidence against: <h2_evidence_against>
+    - Risk level: <h2_risk>
+
+    Selecting hypothesis <selected> because <selection_reason>.
+
+    === PHASE 3: TOOL SELECTION & ORCHESTRATION ===
+
+    Anti-hallucination check:
+    - Am I about to show code that I haven't read? <yes_no> -> If yes, READ FIRST
+    - Am I making assumptions about file contents? <yes_no> -> If yes, READ FIRST
+    - Am I guessing paths or function names? <yes_no> -> If yes, GLOB/GREP FIRST
+
+    Tool sequence planning:
+    1. First tool: <tool1> with purpose <purpose1>
+    2. Second tool: <tool2> with purpose <purpose2>
+    3. Third tool: <tool3> with purpose <purpose3>
+
+    Dependencies between tools: <dependencies>
+    Potential failure points: <failure_points>
+    Fallback strategy: <fallback>
+
+    === PHASE 4: EXECUTION DECISION ===
+
+    Final decision: I will execute <tool> with parameters <params>.
+    Expected outcome: <expected_outcome>
+    Verification method: <verification_method>
+
+    Proceeding with confidence level: <confidence_level>
+
+  # Execution-specific thinking for implementation tasks
+  execution_focused: |
+    === EXECUTION ANALYSIS ===
+
+    Current task from implementation plan: <current_task>
+    Files to modify: <target_files>
+
+    Pre-execution checklist:
+    □ Have I read the file(s) I'm about to modify? <yes_no>
+    □ Do I understand the existing code structure? <yes_no>
+    □ Do I know the exact location for changes? <yes_no>
+    □ Are there any imports or dependencies I need to add? <yes_no>
+    □ Will my changes break any existing functionality? <yes_no>
+
+    Change specification:
+    - What exactly will I add/modify/delete: <change_spec>
+    - Why this approach: <rationale>
+    - What could go wrong: <risks>
+    - How to verify success: <verification>
+
+    Tool selection:
+    - Using <tool> because <reason>
+    - The specific changes are: <specific_changes>
+
+    Executing now...
 
 refinement:
-  # Prompt for refining reasoning after unexpected outcome
+  # Prompt for refining reasoning after unexpected outcome.
   template: |
-    Your previous reasoning led to an unexpected outcome. Please refine your thinking.
+    My previous reasoning led to an unexpected outcome so I need to refine my thinking. The original reasoning was {original_reasoning}. But the feedback received was {feedback} and the actual outcome was {outcome}. So for the refinement task, I need to analyze what went wrong. 
 
-    ## Original Reasoning:
-    {original_reasoning}
-
-    ## Feedback Received:
-    {feedback}
-
-    ## Actual Outcome:
-    {outcome}
-
-    ## Refinement Task:
-    Please analyze what went wrong and provide refined reasoning:
-
-    <refined_thinking>
-    1. **Revised Understanding**: Updated understanding based on new information
-    2. **Revised Approach**: New approach accounting for what we learned
-    3. **Revised Confidence**: Updated confidence with justification
-    4. **New Action Items**: Updated action items
-    </refined_thinking>
+    My revised understanding is the updated understanding based on new information. My revised approach is the new approach accounting for what we learned. My revised confidence is the updated confidence with justification. And the new action items are the updated action items.
 
 analysis:
-  # Code analysis thinking template
+  # Code analysis thinking template - converted to narrative.
   code_review: |
-    ## Code Analysis
-    1. **Purpose**: What does this code do?
-    2. **Structure**: How is it organized?
-    3. **Dependencies**: What does it depend on?
-    4. **Issues**: Any bugs, code smells, or improvements?
-    5. **Recommendations**: What changes would improve it?
+    I'm starting my code analysis. First, I need to determine the purpose: what does this code do? Next, looking at the structure, how is it organized? I need to check dependencies: what does it depend on? Now for the issues: are there any bugs, code smells, or improvements? Finally, what are my recommendations: what changes would improve it?
 
-  # Error analysis template
+  # Error analysis template - converted to narrative.
   error_analysis: |
-    ## Error Analysis
-    1. **Error Type**: What kind of error is this?
-    2. **Root Cause**: What caused this error?
-    3. **Impact**: What functionality is affected?
-    4. **Solution**: How can we fix it?
-    5. **Prevention**: How do we prevent this in the future?
+    I'm performing error analysis. What kind of error is this? I need to identify the error type. What caused this error? I need to find the root cause. What functionality is affected? I need to determine the impact. How can we fix it? I need a solution. And how do we prevent this in the future? I need prevention measures.
 
-  # Task decomposition template
+  # Task decomposition template - converted to narrative.
   task_decomposition: |
-    ## Task Decomposition
-    1. **Main Goal**: What is the ultimate objective?
-    2. **Subtasks**: Break down into smaller tasks
-    3. **Dependencies**: Which tasks depend on others?
-    4. **Priority**: Which tasks are most critical?
-    5. **Estimation**: Rough complexity of each task
+    I'm breaking down this task. What is the ultimate objective? The main goal. I need to break this down into smaller tasks: the subtasks. Which tasks depend on others? The dependencies. Which tasks are most critical? The priority. And what is the rough complexity of each task? The estimation.
 
 decision:
-  # Decision-making template
+  # Decision-making template - converted to narrative.
   template: |
-    ## Decision Point
-
-    **Context**: {context}
-
-    **Options**:
-    1. {option_1}: {description_1}
-       - Pros: {pros_1}
-       - Cons: {cons_1}
-    2. {option_2}: {description_2}
-       - Pros: {pros_2}
-       - Cons: {cons_2}
-
-    **Recommendation**: {recommendation}
-    **Rationale**: {rationale}
+    I am at a decision point. The context is {context}. I have two options. Option 1 is {option_1}: {description_1}. The pros are {pros_1} and the cons are {cons_1}. Option 2 is {option_2}: {description_2}. The pros are {pros_2} and the cons are {cons_2}. My recommendation is {recommendation}. The rationale is {rationale}.

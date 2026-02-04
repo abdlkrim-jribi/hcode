@@ -1,4 +1,3 @@
-<walkthrough_artifact>
 User Facing: true
 Path: {{ArtifactDirectoryPath}}/walkthrough.md
 <description>
@@ -28,4 +27,3 @@ Embed screenshots and recordings directly in your walkthrough to visually demons
 - Use carousels of screenshots to demonstrate window resizing with the browser, since the window resizing looks awkward in the video recording.
   </description>
   CRITICAL REMINDER: above all else, ensure that any artifacts that you actually want the user to review are as concise as possible. If there are too many details, the user will be annoyed and not read the artifact at all. BE VERY CONCISE.
-</walkthrough_artifact>

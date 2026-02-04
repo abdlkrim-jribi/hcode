@@ -206,6 +206,7 @@ agent:
   verbose: false
   use_sub_agents: false
   max_iterations: 50
+  pev_workflow: false # Enable Planning-Execution-Verification flow
 
 # User Interface
 ui:

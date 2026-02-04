@@ -19,7 +19,8 @@ from .optimization import (
     get_token_counter,
 )
 from .safety import SafetyGuard
-from ..agents import HcodeAgentOrchestrator
+from ..agents import HcodeAgentOrchestrator  # Legacy orchestrator for sub-agents
+from .adapters import AgentAdapter  # New SOLID PEV adapter
 from ..providers import (
     ProviderSelector,
     ProviderPreferences,
@@ -255,6 +256,19 @@ class HcodeAgent:
         # Initialize resilient provider if multiple providers available
         self._init_resilient_provider(anthropic_key, openai_key, openai_base_url)
 
+        # Initialize PEV adapter (new SOLID architecture)
+        # This bridges the new phase handlers with the existing agent
+        self._pev_adapter: Optional[AgentAdapter] = None
+
+        # PEV workflow is ALWAYS ENABLED by default (SOLID architecture)
+        # This ensures consistent Planning → Execution → Verification flow
+        # for ALL tasks regardless of complexity or type
+        agent_config = self.config.get("agent", {})
+        self._pev_enabled = agent_config.get("pev_workflow") if isinstance(agent_config, dict) else None
+        if self._pev_enabled is None:
+            # DEFAULT TO TRUE: PEV is mandatory for all tasks
+            self._pev_enabled = self.config.get("pev_workflow", True)
+
     def _is_debug_mode(self) -> bool:
         """Check if debug mode is enabled."""
         return self.config.get("debug", False) or self.config.get("ui", {}).get("debug_mode", False)
@@ -263,6 +277,60 @@ class HcodeAgent:
         """Print message only if debug mode is enabled."""
         if self._is_debug_mode():
             self.console.print(message)
+
+    def _get_pev_adapter(self) -> Optional[AgentAdapter]:
+        """
+        Get or create the PEV adapter for SOLID workflow.
+
+        Lazy initialization to avoid circular dependencies and ensure
+        all components are ready before creating the adapter.
+        """
+        if self._pev_adapter is None and self.current_provider:
+            try:
+                self._pev_adapter = AgentAdapter(
+                    provider=self.current_provider,
+                    tool_executor=self._tool_executor,
+                    context_manager=self.context_manager,
+                    working_dir=str(self.root_dir),
+                    console=self.console,
+                )
+                self._debug_print("[dim]PEV adapter initialized[/dim]")
+            except Exception as e:
+                self.console.print(f"[dim yellow]PEV adapter initialization failed: {e}[/dim yellow]")
+        return self._pev_adapter
+
+    def _should_use_pev_workflow(self, task: str, use_sub_agents: bool) -> bool:
+        """
+        Determine if task should use the new PEV workflow.
+
+        IMPORTANT: PEV workflow is ALWAYS enforced for all tasks.
+        This ensures consistent quality through Planning → Execution → Verification.
+
+        Args:
+            task: User's task description
+            use_sub_agents: Whether sub-agents are being used
+
+        Returns:
+            True if PEV workflow should be used (almost always True)
+        """
+        # Don't use PEV with sub-agents (they have their own orchestration)
+        if use_sub_agents:
+            return False
+
+        # Check environment variable to DISABLE PEV (for testing/debugging only)
+        import os
+        disable_pev = os.environ.get("HCODE_DISABLE_PEV", "").lower() == "true"
+        if disable_pev:
+            self._debug_print("[dim yellow][!] PEV disabled via HCODE_DISABLE_PEV env var[/dim yellow]")
+            return False
+
+        # Check config setting to explicitly disable (not recommended)
+        if self._pev_enabled is False:
+            return False
+
+        # PEV is ALWAYS used for all tasks (default behavior)
+        # This ensures consistent Planning → Execution → Verification flow
+        return True
 
     def _init_resilient_provider(
         self,
@@ -403,6 +471,32 @@ class HcodeAgent:
             )
 
             self.console.print(f"[bold green]Using {self.current_provider}[/bold green]")
+
+            # Check if we should use the new PEV workflow
+            if self._should_use_pev_workflow(task, use_sub_agents):
+                self._debug_print("[dim]Using PEV workflow (SOLID architecture)[/dim]")
+                pev_adapter = self._get_pev_adapter()
+                if pev_adapter:
+                    # Execute via PEV workflow (Planning -> Execution -> Verification)
+                    pev_result = await pev_adapter.execute_task(
+                        task=task,
+                        session_id=self.context_manager.session_id,
+                    )
+
+                    self._loop_controller.stop(StopReason.TASK_COMPLETE if pev_result.get("success") else StopReason.ERROR)
+                    self.analytics.end_conversation(
+                        self.context_manager.session_id,
+                        success=pev_result.get("success", False),
+                        total_cost=self.current_provider.total_cost if self.current_provider else 0,
+                    )
+
+                    if pev_result.get("success"):
+                        self.safety_guard.commit_transaction()
+                    else:
+                        self.safety_guard.rollback_transaction()
+
+                    hcode_display.end_task()
+                    return pev_result.get("output", "Task completed")
 
             # Start logging session
             provider_name = (

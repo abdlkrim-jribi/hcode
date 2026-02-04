@@ -363,6 +363,22 @@ class StructuredReasoning:
             or len(self.change_impact.breaking_changes) > 0
         )
 
+    def is_valid(self) -> bool:
+        """
+        Check if the reasoning block is valid/meaningful.
+        
+        Returns:
+            True if at least one phase is complete or raw content is substantial.
+        """
+        return (
+            self.perception.is_complete()
+            or self.comprehension.is_complete()
+            or self.analysis.is_complete()
+            or self.reasoning.is_complete()
+            or self.decision.is_complete()
+            or len(self.raw_content) > 20
+        )
+
     def get_change_summary(self) -> str:
         """Get a summary of the proposed changes"""
         summary_parts = []

@@ -5,18 +5,22 @@ Responsible for:
 - Running tests to verify implementation
 - Creating walkthrough.md documentation
 - Validating implementation correctness
-- Marking task as complete
+- Marking task as complete in task.md
 """
 
 import re
 import logging
 import asyncio
-import subprocess
 from pathlib import Path
 from typing import List, Any, Dict, Optional
 from .base_handler import BasePhaseHandler
 from ..protocols import AgentContext, PhaseResult
-from hcode.config.core_prompts.core import CorePromptLoader
+
+# FileAction enum for HcodeDisplay tracking
+try:
+    from hcode.ui.hcode_display import FileAction
+except ImportError:
+    FileAction = None
 
 logger = logging.getLogger(__name__)
 
@@ -71,6 +75,12 @@ class VerificationPhaseHandler(BasePhaseHandler):
             PhaseResult with verification outcome
         """
         try:
+            self._display("Verifying implementation...", style="info")
+
+            # Start verification thinking display
+            if self._hcode_display:
+                self._hcode_display.start_thinking()
+
             # Load implementation plan to find test strategy
             plan_content = self.artifact_manager.load_artifact(
                 "implementation_plan.md", context
@@ -78,6 +88,21 @@ class VerificationPhaseHandler(BasePhaseHandler):
 
             # Run tests (if specified)
             test_results = await self._run_tests(context, plan_content)
+
+            # End thinking display
+            if self._hcode_display:
+                self._hcode_display.end_thinking()
+
+            # Display test results with modern UI
+            if test_results.get("tests_run"):
+                passed = test_results.get("tests_passed", 0)
+                failed = test_results.get("tests_failed", 0)
+                if failed == 0:
+                    self._display(f"Tests: {passed} passed, {failed} failed", style="success")
+                else:
+                    self._display(f"Tests: {passed} passed, {failed} failed", style="error")
+            else:
+                self._display("No tests were run", style="thinking")
 
             # Create walkthrough
             walkthrough_content = self._create_walkthrough(
@@ -90,6 +115,19 @@ class VerificationPhaseHandler(BasePhaseHandler):
                 walkthrough_content,
                 context
             )
+            self._display("Created walkthrough.md", style="success")
+            if self._hcode_display and FileAction:
+                self._hcode_display.track_file(".hcode/walkthrough.md", FileAction.CREATED)
+
+            # Show summary with modern UI
+            self._display("Implementation Summary:", style="info")
+            self._display(f"  - Files modified: {len(context.modified_files)}", style="default")
+            self._display(f"  - Actions completed: {len(context.completed_actions)}", style="default")
+
+            # Display modified files list if HcodeDisplay available
+            if self._hcode_display and context.modified_files and FileAction:
+                for file_path in context.modified_files:
+                    self._hcode_display.track_file(file_path, FileAction.EDITED)
 
             # Validate artifact
             valid, error = self.validate_artifacts(context)
@@ -408,14 +446,73 @@ class VerificationPhaseHandler(BasePhaseHandler):
 
         test_section = self._format_test_results(test_results)
         changes_details = self._format_changes_details(context)
+        verification_thinking = self._generate_verification_thinking(context, test_results)
 
-        loader = CorePromptLoader()
-        return loader.build_walkthrough_md(
+        # Build walkthrough using perfect prompts template or fallback
+        return self._build_walkthrough_content(
             task=context.task,
             modified_files_section=modified_files_section,
             changes_details=changes_details,
             test_section=test_section,
+            verification_thinking=verification_thinking,
         )
+
+    def _generate_verification_thinking(
+        self,
+        context: AgentContext,
+        test_results: dict
+    ) -> str:
+        """
+        Generate verification thinking summary.
+
+        Args:
+            context: Current agent context
+            test_results: Test execution results
+
+        Returns:
+            Verification thinking summary
+        """
+        thinking_parts = []
+
+        # Summarize what was done
+        thinking_parts.append("### Implementation Summary")
+        thinking_parts.append(f"- Task: {context.task[:100]}...")
+        thinking_parts.append(f"- Files modified: {len(context.modified_files)}")
+        thinking_parts.append(f"- Actions completed: {len(context.completed_actions)}")
+        thinking_parts.append(f"- Total iterations: {context.iteration}")
+
+        # Analyze test results
+        thinking_parts.append("\n### Verification Analysis")
+        if test_results.get("tests_run"):
+            passed = test_results.get("tests_passed", 0)
+            failed = test_results.get("tests_failed", 0)
+            if failed == 0:
+                thinking_parts.append(f"- All {passed} tests passed [OK]")
+                thinking_parts.append("- No regressions detected")
+            else:
+                thinking_parts.append(f"- {passed} tests passed, {failed} tests failed [NEEDS ATTENTION]")
+                thinking_parts.append("- Review failed tests for potential issues")
+        else:
+            thinking_parts.append("- Tests were not run")
+            thinking_parts.append("- Consider running tests manually to verify changes")
+
+        # Success assessment
+        thinking_parts.append("\n### Success Assessment")
+        has_changes = len(context.modified_files) > 0 or len(context.completed_actions) > 0
+        tests_ok = not test_results.get("tests_run") or test_results.get("tests_failed", 0) == 0
+
+        if has_changes and tests_ok:
+            thinking_parts.append("- Implementation appears successful")
+            thinking_parts.append("- Changes were made as planned")
+            thinking_parts.append("- No test failures detected")
+        elif has_changes and not tests_ok:
+            thinking_parts.append("- Changes were made but tests failed")
+            thinking_parts.append("- May require follow-up fixes")
+        else:
+            thinking_parts.append("- Limited changes were made")
+            thinking_parts.append("- Review if all requirements were addressed")
+
+        return "\n".join(thinking_parts)
 
     def _format_changes_details(self, context: AgentContext) -> str:
         """
@@ -471,6 +568,83 @@ class VerificationPhaseHandler(BasePhaseHandler):
 {output}
 ```
 """
+
+    def _build_walkthrough_content(
+        self,
+        task: str,
+        modified_files_section: str,
+        changes_details: str,
+        test_section: str,
+        verification_thinking: str = "",
+    ) -> str:
+        """
+        Build walkthrough.md content using perfect_prompts/walkthrough.md template.
+
+        The walkthrough.md template from perfect_prompts provides guidelines for:
+        - Summarizing what was accomplished
+        - Documenting verification results
+        - Being concise yet comprehensive
+
+        Args:
+            task: The user's original task
+            modified_files_section: Formatted list of modified files
+            changes_details: Details of changes made
+            test_section: Test results section
+            verification_thinking: Verification analysis summary
+
+        Returns:
+            Formatted walkthrough content following the template guidelines
+        """
+        # Build walkthrough following perfect_prompts/walkthrough.md guidelines:
+        # - Be concise yet comprehensive
+        # - Document what was tested and validation results
+        # - Use file basenames for link text
+
+        # Format file links with basenames (per walkthrough.md Critical Rules)
+        formatted_files = []
+        for file_path in self._extract_file_paths(modified_files_section):
+            basename = Path(file_path).name
+            formatted_files.append(f"- [{basename}](file:///{file_path})")
+
+        files_with_links = "\n".join(formatted_files) if formatted_files else modified_files_section
+
+        return f"""# Implementation Walkthrough
+
+## Task
+
+{task}
+
+## Changes Made
+
+{changes_details}
+
+## Files Modified
+
+{files_with_links}
+
+## Verification Summary
+
+{test_section}
+
+## Analysis
+
+{verification_thinking}
+
+---
+*Generated following walkthrough.md guidelines: concise, comprehensive, with verification proof.*
+"""
+
+    def _extract_file_paths(self, modified_files_section: str) -> List[str]:
+        """Extract file paths from modified files section."""
+        paths = []
+        for line in modified_files_section.split('\n'):
+            # Match patterns like "- `file.py`" or "- file.py"
+            line = line.strip()
+            if line.startswith('- '):
+                path = line[2:].strip('`').strip()
+                if path and path != "No files were modified":
+                    paths.append(path)
+        return paths
 
     def can_transition_to_next(self, context: AgentContext) -> bool:
         """

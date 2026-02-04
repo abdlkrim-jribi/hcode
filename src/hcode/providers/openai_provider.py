@@ -217,6 +217,7 @@ class OpenAIProvider(AIProvider):
         messages: List[Message],
         stream: bool = False,
         functions: Optional[List[Dict[str, Any]]] = None,
+        system_prompt: Optional[str] = None,
         **kwargs,
     ) -> CompletionResponse | AsyncIterator[str]:
         """
@@ -226,6 +227,7 @@ class OpenAIProvider(AIProvider):
             messages: Conversation messages
             stream: Enable streaming
             functions: Function definitions for function calling
+            system_prompt: Optional system prompt to prepend
             **kwargs: Additional parameters
 
         Returns:
@@ -238,6 +240,10 @@ class OpenAIProvider(AIProvider):
         try:
             # Convert messages to OpenAI format
             openai_messages = [self._convert_message(msg) for msg in messages]
+
+            # Prepend system prompt if provided
+            if system_prompt:
+                openai_messages.insert(0, {"role": "system", "content": system_prompt})
 
             request_params = {
                 "model": self.model,
@@ -407,11 +413,26 @@ class OpenAIProvider(AIProvider):
         try:
             response = await self.client.chat.completions.create(**params)
 
-            usage = Usage(
-                input_tokens=response.usage.prompt_tokens,
-                output_tokens=response.usage.completion_tokens,
-                total_tokens=response.usage.total_tokens,
-            )
+            if response.usage:
+                usage = Usage(
+                    input_tokens=response.usage.prompt_tokens,
+                    output_tokens=response.usage.completion_tokens,
+                    total_tokens=response.usage.total_tokens,
+                )
+            else:
+                # Fallback calculation if usage is missing (e.g. some OSS providers)
+                content = response.choices[0].message.content or ""
+                output_tokens = self.count_tokens(content)
+                
+                # Estimate input tokens from messages
+                input_text = " ".join([str(msg.get("content", "")) for msg in params.get("messages", [])])
+                input_tokens = self.count_tokens(input_text)
+                
+                usage = Usage(
+                    input_tokens=input_tokens,
+                    output_tokens=output_tokens,
+                    total_tokens=input_tokens + output_tokens,
+                )
 
             self._update_usage(usage)
 

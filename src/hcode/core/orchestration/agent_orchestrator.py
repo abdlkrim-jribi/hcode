@@ -80,6 +80,12 @@ class AgentOrchestrator(AgentOrchestratorProtocol):
         """
         Execute a user task through the PEV workflow.
 
+        IMPORTANT: PEV workflow is ALWAYS enforced regardless of task complexity.
+        Every task goes through:
+        1. PLANNING: Create task.md and implementation_plan.md
+        2. EXECUTION: Implement the plan using tools
+        3. VERIFICATION: Test and create walkthrough.md
+
         Uses AgentLoopController for state management and phase transitions.
 
         Args:
@@ -93,12 +99,19 @@ class AgentOrchestrator(AgentOrchestratorProtocol):
         # Reset loop controller for new task
         self.loop_controller.reset()
 
+        # Reset phase manager to ensure we ALWAYS start with planning
+        # PEV is enforced for ALL tasks regardless of complexity
+        self.phase_manager.reset(initial_phase="planning")
+
         # Initialize context
         context = self.initialize_context(task, session_id)
 
-        # Classify task
+        # Classify task (for metadata only - does NOT affect PEV enforcement)
         task_type = self.task_classifier.classify(task)
         complexity = self.task_classifier.get_complexity(task)
+
+        # Log that PEV is being enforced
+        logger.info(f"Executing task with PEV workflow (type={task_type}, complexity={complexity})")
 
         context.metadata["task_type"] = task_type
         context.metadata["complexity"] = complexity
@@ -119,14 +132,18 @@ class AgentOrchestrator(AgentOrchestratorProtocol):
             while self.loop_controller.should_continue():
                 # Tick iteration
                 if not self.loop_controller.tick():
-                    # Loop stopped due to limits or stuck detection
                     break
 
                 # Sync loop state with context
                 context.iteration = self.loop_controller.state.iteration
 
                 # Execute current phase
+                phase_name = self.phase_manager.get_current_phase()
+                if self.console:
+                    self.console.print(f"[bold cyan]▸ Phase: {phase_name.capitalize()}[/bold cyan]")
+
                 phase_result = await self.execute_phase_iteration(context)
+                logger.debug(f"Phase result: success={phase_result.success}, can_transition={phase_result.can_transition}")
                 results["phase_results"].append(phase_result)
 
                 # Record response in loop controller
@@ -142,13 +159,28 @@ class AgentOrchestrator(AgentOrchestratorProtocol):
                         results["error"] = phase_result.error
                         break
 
-                    results["output"] = phase_result.output
+                    # Preserve any existing output if it's more than just a status message
+                    if phase_result.output and "phase complete" not in phase_result.output.lower():
+                        results["output"] = phase_result.output
+                    
                     results["error"] = phase_result.error
                     continue
 
                 # Stream callback if provided
                 if stream_callback and phase_result.output:
                     await self._safe_callback(stream_callback, phase_result.output)
+                
+                # If the phase result has a meaningful output (e.g. from exploration), store it
+                # We prioritize output that DOES NOT look like a generic status message
+                # Or if metadata contains the full response, use that as the source of truth
+                is_generic = any(s in phase_result.output.lower() for s in ["phase complete", "iteration complete", "task is done", "already exist"])
+                
+                phase_response = phase_result.metadata.get("response") if phase_result.metadata else None
+                
+                if phase_response:
+                    results["output"] = phase_response
+                elif phase_result.output and (not is_generic or not results["output"]):
+                    results["output"] = phase_result.output
 
                 # Attempt phase transition
                 if phase_result.can_transition:
@@ -162,9 +194,14 @@ class AgentOrchestrator(AgentOrchestratorProtocol):
                         logger.info(f"Transitioned from {current_phase} to {new_phase}")
                     elif current_phase == "verification":
                         # Verification complete means task is done
+                        if self.console:
+                            self.console.print("\n[bold green]✓ Task completed successfully![/bold green]")
+                        else:
+                            print("\n[Hcode] Task completed successfully!")
                         self.loop_controller.stop(StopReason.TASK_COMPLETE)
                         results["success"] = True
-                        results["output"] = "Task completed successfully"
+                        if not results["output"] or results["output"] == "Task completed successfully":
+                            results["output"] = "Task completed successfully"
                         break
 
                 # Sync modified files from context to loop controller

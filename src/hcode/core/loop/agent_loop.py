@@ -25,6 +25,7 @@ class StopReason(Enum):
     CIRCUIT_BREAKER = "circuit_breaker"
     STUCK_LOOP = "stuck_loop"
     USER_CANCELLED = "user_cancelled"
+    ERROR = "error"
 
 
 @dataclass

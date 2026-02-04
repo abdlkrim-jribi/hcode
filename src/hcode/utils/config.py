@@ -17,20 +17,38 @@ def find_config_file(start_path: str = ".") -> Optional[Path]:
     """
     
     current = Path(start_path).resolve()
-    for parent in [current] + list(current.parents):
-        candidate = parent / "hcode_config.json"
-        if candidate.is_file():
-            return candidate
+    # Check up to root or some reasonable limit
+    for _ in range(10):  # Limit traversal
+        # Check for local .hcode/config.yaml
+        candidate_yaml = current / ".hcode" / "config.yaml"
+        if candidate_yaml.is_file():
+            return candidate_yaml
+            
+        # Legacy check
+        candidate_json = current / "hcode_config.json"
+        if candidate_json.is_file():
+            return candidate_json
+            
+        parent = current.parent
+        if parent == current:
+            break
+        current = parent
+        
+    # Check global config as fallback
+    global_config = Path.home() / ".hcode" / "config.yaml"
+    if global_config.is_file():
+        return global_config
+        
     return None
 
 
 def load_config(path: Optional[Path] = None) -> Dict[str, Any]:
 
-    """Load configuration from a JSON file.
+    """Load configuration from a JSON or YAML file.
 
     Args:
         path (Optional[Path]): Path to the config file. If None, the function searches for
-            ``hcode_config.json`` starting from the current directory.
+            config files starting from the current directory.
 
     Returns:
         Dict[str, Any]: Parsed configuration dictionary, or an empty dict if no file is found.
@@ -41,8 +59,16 @@ def load_config(path: Optional[Path] = None) -> Dict[str, Any]:
         if path is None:
             return {}
 
-    with path.open("r", encoding="utf-8") as f:
-        return json.load(f)
+    try:
+        with path.open("r", encoding="utf-8") as f:
+            if path.suffix.lower() in (".yaml", ".yml"):
+                import yaml
+                return yaml.safe_load(f) or {}
+            else:
+                return json.load(f)
+    except Exception:
+        # Return empty config on error to allow defaults to work
+        return {}
 
 
 def deep_merge(base: Dict[str, Any], overrides: Dict[str, Any]) -> Dict[str, Any]:

@@ -16,6 +16,11 @@ class TaskClassifier(TaskClassifierProtocol):
     """
     Classify tasks using configurable patterns from YAML.
 
+    IMPORTANT: Task classification is for metadata and optimization only.
+    It does NOT affect PEV workflow enforcement. All tasks, regardless
+    of classification or complexity, go through the full PEV workflow:
+    Planning → Execution → Verification
+
     Replaces hardcoded logic like:
     - Lines 1124-1182: is_read_only() word lists
     - Lines 1258-1279: exploration task detection
@@ -233,3 +238,80 @@ class TaskClassifier(TaskClassifierProtocol):
             "confidence": self.last_confidence,
             "all_types": list(self.config.get("task_types", {}).keys()),
         }
+
+    def requires_pev_workflow(self, task: str) -> bool:
+        """
+        Check if task requires PEV workflow.
+
+        ALWAYS returns True because PEV workflow is mandatory for all tasks,
+        regardless of type or complexity. This method exists for documentation
+        and to make the design intent explicit.
+
+        Args:
+            task: User's task description
+
+        Returns:
+            Always True - PEV is enforced for all tasks
+        """
+        # PEV workflow is ALWAYS required - no exceptions
+        # This ensures consistent quality and traceability
+        return True
+
+    def get_workflow_recommendation(self, task: str) -> Dict[str, Any]:
+        """
+        Get workflow recommendation for a task.
+
+        While PEV is always enforced, this provides guidance on how
+        the phases might differ based on task type.
+
+        Args:
+            task: User's task description
+
+        Returns:
+            Dict with workflow recommendations
+        """
+        task_type = self.classify(task)
+        complexity = self.get_complexity(task)
+
+        return {
+            "workflow": "PEV",  # Always PEV
+            "pev_enforced": True,  # Always True
+            "task_type": task_type,
+            "complexity": complexity,
+            "planning_focus": self._get_planning_focus(task_type),
+            "execution_focus": self._get_execution_focus(task_type),
+            "verification_focus": self._get_verification_focus(task_type),
+        }
+
+    def _get_planning_focus(self, task_type: str) -> str:
+        """Get planning phase focus based on task type."""
+        focuses = {
+            "exploration": "Deep codebase research and documentation",
+            "implementation": "Detailed implementation steps and file changes",
+            "debugging": "Root cause analysis and fix strategy",
+            "refactoring": "Impact analysis and safe transformation plan",
+            "testing": "Test strategy and coverage plan",
+        }
+        return focuses.get(task_type, "Task breakdown and implementation approach")
+
+    def _get_execution_focus(self, task_type: str) -> str:
+        """Get execution phase focus based on task type."""
+        focuses = {
+            "exploration": "Systematic codebase exploration using tools",
+            "implementation": "Code writing and file modifications",
+            "debugging": "Applying fixes and validating behavior",
+            "refactoring": "Safe code transformations",
+            "testing": "Writing and running tests",
+        }
+        return focuses.get(task_type, "Implementing the plan step by step")
+
+    def _get_verification_focus(self, task_type: str) -> str:
+        """Get verification phase focus based on task type."""
+        focuses = {
+            "exploration": "Documenting findings in walkthrough",
+            "implementation": "Testing changes and creating walkthrough",
+            "debugging": "Confirming fix and regression testing",
+            "refactoring": "Ensuring behavior unchanged",
+            "testing": "Validating test results",
+        }
+        return focuses.get(task_type, "Testing and documenting results")

@@ -19,7 +19,7 @@ class CorePromptLoader:
     """
     Centralized loader for all core prompts.
 
-    Loads prompts from YAML files in the config/prompts/core directory
+    Loads prompts from YAML files in the config/core_prompts/core directory
     and provides easy access with template substitution support.
 
     Usage:
@@ -56,7 +56,8 @@ class CorePromptLoader:
         self._initialized = True
 
     def _load_all_prompts(self) -> None:
-        """Load all prompt YAML files."""
+        """Load all prompt YAML and markdown files."""
+        # Load YAML files
         yaml_files = [
             "phases.yaml",
             "templates.yaml",
@@ -77,6 +78,28 @@ class CorePromptLoader:
                             logger.debug(f"Loaded prompts from {yaml_file}")
                 except Exception as e:
                     logger.error(f"Failed to load prompts from {yaml_file}: {e}")
+
+        # Load markdown files as raw text
+        md_files = [
+            "identity.md",
+            "tool_format.md",
+            "planning_mode.md",
+            "execution_mode.md",
+        ]
+
+        for md_file in md_files:
+            file_path = self._prompts_dir / md_file
+            if file_path.exists():
+                try:
+                    with open(file_path, "r", encoding="utf-8") as f:
+                        content = f.read()
+                        if content:
+                            # Use filename without extension as key
+                            key = md_file.replace(".md", "")
+                            self._prompts[key] = content
+                            logger.debug(f"Loaded markdown prompt: {md_file}")
+                except Exception as e:
+                    logger.error(f"Failed to load prompt {md_file}: {e}")
 
     def reload(self) -> None:
         """Reload all prompts from files."""
@@ -228,6 +251,26 @@ class CorePromptLoader:
             _collect_paths(self._prompts)
 
         return sorted(paths)
+
+    # =========================================================================
+    # Markdown Prompt Access
+    # =========================================================================
+
+    def get_identity(self) -> str:
+        """Get the Hcode identity prompt."""
+        return self._prompts.get("identity", "You are Hcode, an AI coding assistant.")
+
+    def get_tool_format(self) -> str:
+        """Get the tool format documentation."""
+        return self._prompts.get("tool_format", "")
+
+    def get_planning_mode(self) -> str:
+        """Get the planning mode prompt."""
+        return self._prompts.get("planning_mode", "")
+
+    def get_execution_mode(self) -> str:
+        """Get the execution mode prompt."""
+        return self._prompts.get("execution_mode", "")
 
     # =========================================================================
     # Convenience Methods for Common Prompts

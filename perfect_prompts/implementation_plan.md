@@ -1,4 +1,3 @@
-<implementation_plan_artifact>
 Path: {{ArtifactDirectoryPath}}/implementation_plan.md
 <description>
 
@@ -100,4 +99,3 @@ more components...
   Iterate on the plan based on comments and findings until the user approves. If you uncover new details during implementation that require plan changes, modify the existing plan and iterate with the user again.
   When you want to update the implementation plan because the user gave you some feedback or told you to modify the implementation plan, you MUST first create a task in PLANNING mode before you do more research and update implementation_plan.md.
   </description>
-</implementation_plan_artifact>

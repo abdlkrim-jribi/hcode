@@ -121,6 +121,28 @@ class ToolExecutor:
         
         return False, "", f"❌ Tool '{tool_name}' doesn't exist. Available tools: {', '.join(available_tools[:10])}"
     
+    async def execute_tool(
+        self,
+        tool_name: str,
+        max_retries: int = 2,
+        **arguments,
+    ) -> ToolResult:
+        """
+        Execute a single tool call.
+
+        This is a convenience method for executing a single tool.
+        For batch execution, use execute_tool_calls instead.
+
+        Args:
+            tool_name: Name of the tool to execute
+            max_retries: Maximum number of retries for transient failures
+            **arguments: Tool arguments as keyword arguments
+
+        Returns:
+            ToolResult with success status and output
+        """
+        return await self._execute_with_retry(tool_name, arguments, max_retries)
+
     async def _execute_with_retry(
         self,
         tool_name: str,
