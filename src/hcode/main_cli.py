@@ -992,7 +992,7 @@ def chat_mode(provider, session, show_todos, debug, autonomous):
                     
                     try:
                         from pathlib import Path as PathlibPath
-                        from hcode.core.init_handler import InitHandler
+                        from hcode.core.phases.init_handler import InitHandler
                         from hcode.core.protocols import AgentContext
                         
                         # Create InitHandler with agent's components

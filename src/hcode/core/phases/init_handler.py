@@ -12,7 +12,7 @@ import logging
 from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Dict, Any, Optional
-from .protocols import AgentContext
+from hcode.core.protocols import AgentContext
 
 logger = logging.getLogger(__name__)
 
