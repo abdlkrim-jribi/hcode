@@ -116,6 +116,14 @@ Note: Automatically excludes .git, .venv, node_modules, __pycache__, etc.
                 help_msg = self._generate_no_match_help(Pattern, search_dir)
                 output = help_msg
 
+            # Display with Hcode UI
+            try:
+                from hcode.ui.hcode_display import get_hcode_display
+                display = get_hcode_display()
+                display.display_tool_result("SmartGlob", output, "success")
+            except ImportError:
+                pass
+
             return ToolResult(
                 success=True,
                 output=output,

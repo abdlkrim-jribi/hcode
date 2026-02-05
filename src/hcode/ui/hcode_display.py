@@ -14,6 +14,7 @@ import time
 import threading
 from datetime import datetime
 from typing import Optional, List, Dict, Any, Set
+from collections import deque
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from enum import Enum
@@ -26,6 +27,7 @@ from rich.text import Text
 from rich.padding import Padding
 from rich.rule import Rule
 from rich.markdown import Markdown
+from rich import box
 
 # Import theme system
 try:
@@ -220,9 +222,9 @@ class HcodeDisplay:
         # Modern neon green styled thinking indicator
         text = Text()
         text.append("\n  ", style="")
-        text.append("◈ ", style="bold #00FF88")  # Mint green icon
+        text.append(f"{self._icons.LOGO} ", style="bold #00FF88")  # Mint green icon
         text.append("Thinking", style="bold #39FF14")  # Neon green
-        text.append(" ◐", style="bold #00FFAA")  # Animated-style spinner
+        text.append(f" {self._icons.LOADING}", style="bold #00FFAA")  # Animated-styled spinner
         self.console.print(text)
         
     def end_thinking(self) -> float:
@@ -241,7 +243,7 @@ class HcodeDisplay:
             # Modern neon green "Thought for Xs" message
             final_text = Text()
             final_text.append("  ", style="")
-            final_text.append("◉ ", style="bold #39FF14")  # Neon green dot
+            final_text.append(f"{self._icons.CYBER_DOT} ", style="bold #39FF14")  # Neon green dot
             final_text.append("Thought for ", style=self._palette.text_muted)
             final_text.append(f"{duration:.0f}s", style="bold #39FF14")  # Neon green duration
             self.console.print(final_text)
@@ -411,63 +413,141 @@ class HcodeDisplay:
         duration_str = ""
         if self.thinking_start_time:
             duration = time.time() - self.thinking_start_time
-            duration_str = f" • {duration:.0f}s"
+            duration_str = f" • {duration:.1f}s"
 
-        # Phase-specific colors
-        phase_colors = {
-            "PLANNING": "#00DDFF",      # Cyan for planning
-            "EXECUTION": "#39FF14",     # Neon green for execution
-            "VERIFICATION": "#FFCC00",  # Gold for verification
-        }
-
-        self.console.print()
-        
-        # Build modern header
-        header = Text()
-        header.append("  ", style="")
-        header.append("◈ ", style="bold #00FF88")  # Mint green icon
-        header.append("Thinking", style="bold #39FF14")  # Neon green
-        
-        if phase:
-            phase_color = phase_colors.get(phase, "#39FF14")
-            header.append(" • ", style=self._palette.text_muted)
-            header.append(f"{phase}", style=f"bold {phase_color}")
-        
-        if duration_str:
-            header.append(duration_str, style=self._palette.text_muted)
-            
-        self.console.print(header)
-
-        # Draw separator line
-        sep = Text()
-        sep.append("  ", style="")
-        sep.append("─" * 40, style="#1A4A1A")  # Dark green separator
-        self.console.print(sep)
-
+        # Content processing
         if collapsed:
             # Show just first line as summary
-            first_line = content.split('\n')[0].strip()
-            if first_line:
-                text = Text()
-                text.append("  ", style="")
-                text.append("└─ ", style="#00FF88")  # Mint green
-                text.append(first_line, style=self._palette.text_muted)
-                self.console.print(text)
-        else:
-            # Show FULL content with modern tree-style formatting
             lines = content.strip().split('\n')
-            for i, line in enumerate(lines):
-                text = Text()
-                text.append("  ", style="")
-                if i < len(lines) - 1:
-                    text.append("│ ", style="#00FF88")  # Mint green tree line
-                else:
-                    text.append("└─ ", style="#00FF88")  # Mint green end
-                text.append(line, style=self._palette.text_muted)
-                self.console.print(text)
+            display_content = lines[0] + ("..." if len(lines) > 1 else "")
+        else:
+            display_content = content.strip()
 
+        # Build Title
+        title = Text()
+        title.append(f"{self._icons.LOGO} Thinking", style="bold #39FF14")
+        
+        if phase:
+            phase_colors = {
+                "PLANNING": "#00DDFF",      # Cyan
+                "EXECUTION": "#39FF14",     # Neon green
+                "VERIFICATION": "#FFCC00",  # Gold
+                "DECISION": "#FF00FF",      # Magenta
+                "ANALYSIS": "#00DDFF",      # Cyan match
+                "COMPREHENSION": "#00DDFF", # Cyan match
+                "REASONING": "#39FF14",     # Green match
+            }
+            p_color = phase_colors.get(phase, "#39FF14")
+            title.append(f" ({phase})", style=f"bold {p_color}")
+        
+        if duration_str:
+            title.append(duration_str, style=self._palette.text_muted)
+
+        # Create Panel
+        # Using rounded box for modern look and neon green border
+        panel_content = Markdown(display_content) if not collapsed else Text(display_content, style=self._palette.text_muted)
+        
+        panel = Panel(
+            panel_content,
+            title=title,
+            title_align="left",
+            border_style="#39FF14",
+            box=box.ROUNDED,
+            padding=(1, 2),
+            expand=True
+        )
+        
+        self.console.print()
+        self.console.print(panel)
         self.console.print()
 
+
+    # =========================================================================
+    # LIVE COMMAND DISPLAY
+    # =========================================================================
+    
+    @contextmanager
+    def live_command_context(self, command: str):
+        """
+        Context manager for live command output streaming.
+        """
+        buffer = deque(maxlen=5)
+        
+        def generate_panel(content_lines, is_done=False):
+            content = "".join(content_lines)
+            title = Text()
+            title.append(f"{self._icons.LOGO} ", style="bold #00FF88")
+            title.append("Executing ", style="bold #39FF14")
+            
+            # Truncate command if too long
+            cmd_display = command
+            if len(cmd_display) > 40:
+                cmd_display = cmd_display[:37] + "..."
+            title.append(cmd_display, style="dim white")
+            
+            if not is_done:
+                title.append(f" {self._icons.LOADING}", style="bold #00FFAA")
+            
+            return Panel(
+                Text(content, style="dim white"),
+                title=title,
+                border_style="#39FF14",
+                box=box.ROUNDED,
+                padding=(1, 2),
+                height=10,
+                expand=True
+            )
+
+        # Initial render
+        with Live(generate_panel([]), console=self.console, refresh_per_second=10) as live:
+            
+            # Create a simple interface to update the buffer
+            class UpdateInterface:
+                def update(self, text: str):
+                    # Handle newlines properly
+                    buffer.append(text)
+                    live.update(generate_panel(buffer))
+                    
+            yield UpdateInterface()
+            
+            # Final update
+            live.update(generate_panel(buffer, is_done=True))
+
+    def display_tool_result(self, tool_name: str, content: str, status: str = "success") -> None:
+        """
+        Display static tool result in a styled panel.
+        
+        Args:
+            tool_name: Name of the tool (LS, GLOB, etc)
+            content: The content/output data
+            status: Status for coloring (success, error, warning)
+        """
+        status_colors = {
+            "success": "#39FF14",  # Neon Green
+            "error": "#FF0055",    # Neon Red
+            "warning": "#FFCC00",  # Gold
+        }
+        color = status_colors.get(status, "#39FF14")
+        
+        # Build Title
+        title = Text()
+        title.append(f"{self._icons.LOGO} ", style=f"bold #00FF88")
+        title.append(f"{tool_name} Result", style=f"bold {color}")
+        
+        # Create Panel
+        panel = Panel(
+            Text(content, style=self._palette.text_muted if status == "success" else color),
+            title=title,
+            title_align="left",
+            border_style=color,
+            box=box.ROUNDED,
+            padding=(1, 2),
+            expand=True
+        )
+        
+        self.console.print()
+        self.console.print(panel)
+        self.console.print()
 
 # Singleton instance for global access
 _display_instance: Optional[HcodeDisplay] = None

@@ -1,18 +1,24 @@
 """
-Planning phase handler.
+Planning Phase Handler
+=======================
 
-Responsible for:
-- Deep analysis of user requirements
-- Research and understanding of codebase
-- Creating task.md with task breakdown (checkbox format with IDs)
-- Creating implementation_plan.md with concrete steps
-- Determining when planning is complete
+This module implements the *Planning* phase of the PEV (Planning → Execution → Verification) workflow used by the Hcode engine.
+
+The handler is responsible for:
+
+- **Deep analysis of user requirements** – parsing the initial prompt, extracting goals, and identifying constraints.
+- **Research and understanding of the codebase** – locating relevant modules, classes, and functions, and building a mental model of the project structure.
+- **Generating `task.md`** – a checklist of concrete tasks (with unique IDs) that guides subsequent phases.
+- **Creating `implementation_plan.md`** – a step‑by‑step plan that outlines how each task will be tackled, including any required resources.
+- **Determining completion** – the handler decides when the planning stage is sufficient to move on to execution.
+
+The module currently provides only utility imports; the actual handler class/function will be added in future iterations. The enhanced docstring ensures that developers immediately understand the intended responsibilities and integration points.
 """
 
-import re
 import logging
-from typing import List, Any, Dict, Optional
+import re
 from pathlib import Path
+from typing import List, Any, Dict
 
 from .base_handler import BasePhaseHandler
 from ..protocols import AgentContext, PhaseResult
@@ -649,253 +655,6 @@ SCOPE RULES  (hard boundaries)
 BEGIN.  Start by exploring, then write task.md, then implementation_plan.md.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"""
 
-    def _build_analysis_prompt(self, context: AgentContext, exploration_context: str = "") -> str:
-        """
-        Build prompt for deep analysis phase.
-
-        This prompt instructs the AI to:
-        1. Understand the user's requirements in depth
-        2. Research the codebase to identify relevant files
-        3. Identify dependencies and affected components
-        4. Note any ambiguities or questions
-
-        Args:
-            context: Current agent context
-            exploration_context: Pre-discovered codebase facts
-
-        Returns:
-            Analysis prompt
-        """
-        return f"""## DEEP ANALYSIS PHASE
-
-You are in PLANNING mode. Before creating any artifacts, you must deeply analyze the user's request.
-
-### THINKING PROTOCOL
-
-Before taking ANY action, you MUST think through:
-
-<thinking>
-=== COMPREHENSION ===
-What is the user explicitly asking for?
-What are the implicit requirements I should infer?
-What would success look like for this task?
-
-=== KNOWLEDGE ASSESSMENT ===
-What do I already know about this codebase?
-What information gaps do I need to fill?
-What assumptions am I making that I should verify?
-
-=== EXPLORATION STRATEGY ===
-What tools should I use to gather information?
-In what order should I explore?
-What patterns or keywords should I search for?
-
-=== RISK ASSESSMENT ===
-What could go wrong with my approach?
-What edge cases should I consider?
-Are there any dependencies I might miss?
-</thinking>
-
-### USER REQUEST:
-{context.task}
-
-### PRE-DISCOVERED CODEBASE FACTS:
-{exploration_context or "(no exploration data available)"}
-
-Use the Read tool to examine any files listed above that are relevant to the task.
-Use SmartGlob or Grep to search for specific patterns if needed.
-
-### ANALYSIS INSTRUCTIONS:
-
-**Step 1: Requirement Understanding (THINK DEEPLY)**
-Think step-by-step:
-- What is the user asking for specifically? List all explicit requirements.
-- What is the expected outcome? Define success criteria.
-- What implicit requirements can you infer? Consider usability, maintainability, performance.
-- What constraints exist? Time, compatibility, dependencies.
-
-**Step 2: Codebase Research (USE TOOLS SYSTEMATICALLY)**
-Before reading files, think about what you're looking for:
-- Use `Glob` to find files matching patterns (e.g., "**/*.py" for Python files)
-- Use `Grep` to search for specific code patterns, imports, class names
-- Use `Read` to examine files you've identified as relevant
-- Use `LS` to understand directory structure
-
-IMPORTANT: Do NOT assume file contents. Always READ before making claims.
-
-**Step 3: Identify Components (MAP DEPENDENCIES)**
-Create a mental map:
-- Which files will need to be modified? (List with reasons)
-- Which files will need to be created? (Describe purpose)
-- Are there any files that should be deleted?
-- What are the dependencies between components?
-- What is the order of changes (what depends on what)?
-
-**Step 4: Hypothesis Formation**
-Form and test hypotheses:
-- "I believe the change should be made in X because Y"
-- "I expect to find Z in file W"
-- Test each hypothesis by reading/searching
-
-**Step 5: Note Ambiguities (BE EXPLICIT)**
-- What questions would you ask the user if you could?
-- What alternative approaches exist?
-- What tradeoffs are involved?
-
-### OUTPUT FORMAT:
-
-After your research, provide a comprehensive summary:
-
-<analysis>
-## Understanding
-
-### Explicit Requirements
-[Bullet points of what user explicitly asked for]
-
-### Implicit Requirements
-[What the user probably also needs/expects]
-
-### Success Criteria
-[How we'll know the task is complete]
-
-## Relevant Files
-
-### Files to Modify
-- `file1.py`: [detailed reason why it's relevant, what changes needed]
-- `file2.py`: [detailed reason why it's relevant, what changes needed]
-
-### Files to Create (if any)
-- `newfile.py`: [purpose and contents overview]
-
-### Files to Reference (read-only)
-- `file3.py`: [why we need to understand this file]
-
-## Components Affected
-
-### Component 1: [Name]
-- Current behavior: [description]
-- Required changes: [what needs to change]
-- Impact: [what else this affects]
-
-### Component 2: [Name]
-- Current behavior: [description]
-- Required changes: [what needs to change]
-- Impact: [what else this affects]
-
-## Dependencies
-
-### Internal Dependencies
-- [module A depends on module B]
-
-### External Dependencies
-- [any external packages needed]
-
-### Change Order
-1. First change X (because Y depends on it)
-2. Then change Y
-3. Finally update Z
-
-## Questions/Ambiguities
-
-- [Question 1]: [Why it matters]
-- [Question 2]: [Why it matters]
-
-## Recommended Approach
-
-### Strategy
-[High-level approach description]
-
-### Rationale
-[Why this approach over alternatives]
-
-### Risks & Mitigations
-- Risk 1: [description] -> Mitigation: [how to handle]
-- Risk 2: [description] -> Mitigation: [how to handle]
-</analysis>
-
-⚠️  DO NOT create any files during analysis. This phase is READ-ONLY research.
-Files are created in the artifact generation step that follows.
-
-NOW BEGIN YOUR ANALYSIS. Use tools to research the codebase. THINK before each tool use."""
-
-    def _build_planning_prompt(
-        self,
-        context: AgentContext,
-        analysis_insights: Dict[str, Any]
-    ) -> str:
-        """
-        Build prompt for planning phase with analysis insights.
-
-        Args:
-            context: Current agent context
-            analysis_insights: Insights from deep analysis phase
-
-        Returns:
-            Planning prompt
-        """
-        # Get template formats
-        task_template_guide = self._get_task_template_guide()
-        plan_template_guide = self._get_plan_template_guide()
-
-        # Build insights summary
-        insights_summary = ""
-        if analysis_insights:
-            if analysis_insights.get("understanding"):
-                insights_summary += f"\n### Understanding:\n{analysis_insights['understanding']}\n"
-            if analysis_insights.get("relevant_files"):
-                files_list = "\n".join(f"- {f}" for f in analysis_insights["relevant_files"])
-                insights_summary += f"\n### Relevant Files:\n{files_list}\n"
-            if analysis_insights.get("approach"):
-                insights_summary += f"\n### Recommended Approach:\n{analysis_insights['approach']}\n"
-
-        return f"""## PLANNING ARTIFACT GENERATION
-
-Based on your analysis, now create the planning artifacts.
-
-### USER REQUEST:
-{context.task}
-
-### ANALYSIS INSIGHTS:
-{insights_summary or "(No analysis insights available - use your best judgment)"}
-
-### ARTIFACT 1: task.md
-
-Create a task.md file following this format:
-
-{task_template_guide}
-
-**CRITICAL RULES for task.md:**
-1. Use checkbox format: `- [ ]`, `- [/]`, `- [x]`
-2. Add unique IDs: `<!-- id: 0 -->`, `<!-- id: 1 -->`, etc.
-3. Break down complex tasks into subtasks (indented)
-4. Start with high-level tasks, then add details
-
-### ARTIFACT 2: implementation_plan.md
-
-Create an implementation_plan.md following this format:
-
-{plan_template_guide}
-
-**CRITICAL RULES for implementation_plan.md:**
-1. Group changes by component
-2. Include file paths with [MODIFY], [NEW], [DELETE] markers
-3. Be specific about what will change in each file
-4. Include a concrete verification plan with exact commands
-
-### OUTPUT INSTRUCTIONS:
-
-⚠️  **PLANNING PHASE SCOPE — DO NOT VIOLATE:**
-- The ONLY files you may create are `.hcode/task.md` and `.hcode/implementation_plan.md`.
-- DO NOT create any implementation files (e.g. scripts, modules, configs) during planning.
-- Implementation files are created during the EXECUTION phase — that is not your job here.
-- If you write anything other than the two artifacts above, it will be ignored.
-
-1. First, use the Write tool to create `.hcode/task.md` with the FULL path: `{context.working_dir}/.hcode/task.md`
-2. Then, use the Write tool to create `.hcode/implementation_plan.md` with the FULL path: `{context.working_dir}/.hcode/implementation_plan.md`
-3. After creating both files, confirm they are ready for review.
-4. Do NOT create any other files.
-
-NOW CREATE THE TWO ARTIFACTS using the Write tool."""
 
     def _get_task_template_guide(self) -> str:
         """Get task.md template guide."""
@@ -1041,101 +800,6 @@ Summary of changes to this component
             insights["questions"] = [q.strip() for q in question_lines if q.strip()]
 
         return insights
-
-    def _extract_task_content(self, response: str) -> Optional[str]:
-        """
-        Extract task.md content from AI response.
-
-        Looks for markdown content with checkbox format.
-
-        Args:
-            response: AI response text
-
-        Returns:
-            Extracted task content or None
-        """
-        if not response:
-            return None
-
-        # Look for task.md content markers
-        task_pattern = r'(?:```(?:markdown)?[^\n]*\n)?(#\s*Task[^`]*(?:- \[[ x/]\][^\n]+\n)+)'
-        match = re.search(task_pattern, response, re.IGNORECASE | re.DOTALL)
-        if match:
-            return match.group(1).strip()
-
-        # Look for checklist items with IDs
-        if "- [ ]" in response and "<!-- id:" in response:
-            lines = response.split("\n")
-            task_lines = []
-            capture = False
-            for line in lines:
-                if "# Task" in line or "## Task" in line:
-                    capture = True
-                    task_lines.append(line)
-                elif capture and (line.startswith("- [") or line.startswith("  - [")):
-                    task_lines.append(line)
-                elif capture and line.startswith("#"):
-                    if "Implementation" not in line:
-                        task_lines.append(line)
-                    else:
-                        break
-            if task_lines:
-                return "\n".join(task_lines)
-
-        # Standard checkbox format without IDs
-        if "- [ ]" in response or "- [x]" in response:
-            lines = response.split("\n")
-            task_lines = []
-            capture = False
-            for line in lines:
-                if "# Task" in line or "## Task" in line:
-                    capture = True
-                    task_lines.append(line)
-                elif capture and (line.startswith("- [") or line.startswith("  - [")):
-                    task_lines.append(line)
-                elif capture and line.startswith("#"):
-                    break
-            if task_lines:
-                return "\n".join(task_lines)
-
-        return None
-
-    def _extract_plan_content(self, response: str) -> Optional[str]:
-        """
-        Extract implementation_plan.md content from AI response.
-
-        Looks for markdown content with implementation plan structure.
-
-        Args:
-            response: AI response text
-
-        Returns:
-            Extracted plan content or None
-        """
-        if not response:
-            return None
-
-        # Look for implementation plan content markers
-        plan_pattern = r'(?:```(?:markdown)?[^\n]*\n)?(#\s*(?:Implementation Plan|Goal)[^`]*(?:##[^`]*)+)'
-        match = re.search(plan_pattern, response, re.IGNORECASE | re.DOTALL)
-        if match:
-            return match.group(1).strip()
-
-        # Look for plan structure
-        if "## Proposed Changes" in response or "## Verification Plan" in response:
-            lines = response.split("\n")
-            plan_lines = []
-            capture = False
-            for line in lines:
-                if "# Implementation" in line or "# Goal" in line:
-                    capture = True
-                    plan_lines.append(line)
-                elif capture:
-                    plan_lines.append(line)
-            if plan_lines:
-                return "\n".join(plan_lines)
-
-        return None
 
     def _create_fallback_task_md(self, context: AgentContext, analysis_insights: Dict[str, Any]) -> str:
         """

@@ -168,33 +168,100 @@ class ThinkingBlockProcessor:
             return "THINKING"
 
     def _build_display_content(self, block: StructuredReasoning) -> str:
-        """Build clean thinking content for display."""
-        thinking_lines = []
+        """Build structured markdown content for display."""
+        sections = []
+        
+        # Safe icon getter
+        try:
+             from hcode.ui.icons import Icons
+             search_icon = Icons.SEARCH
+             brain_icon = Icons.BRAIN
+             flash_icon = Icons.LIGHTNING
+             gear_icon = Icons.GEAR
+             idea_icon = Icons.STAR
+             shield_icon = Icons.CHECK
+        except ImportError:
+             search_icon = "SEARCH"
+             brain_icon = "BRAIN"
+             flash_icon = "ANALYSIS"
+             gear_icon = "REASONING"
+             idea_icon = "DECISION"
+             shield_icon = "VERIFY"
 
-        # Show raw content directly if available (preferred - cleanest output)
-        if block.raw_content.strip():
-            thinking_lines.append(block.raw_content.strip())
-        else:
-            # Fallback: combine phase content without labels
+        # 1. Perception
+        if block.perception.is_complete():
+            sections.append(f"### {search_icon} Perception")
             if block.perception.observation:
-                thinking_lines.append(block.perception.observation)
+                sections.append(f"**Observation:** {block.perception.observation}")
+            if block.perception.implicit_needs:
+                sections.append("**Implicit Needs:**")
+                for need in block.perception.implicit_needs:
+                    sections.append(f"- {need}")
 
+        # 2. Comprehension
+        if block.comprehension.is_complete():
+            sections.append(f"### {brain_icon} Comprehension")
             if block.comprehension.core_understanding:
-                thinking_lines.append(block.comprehension.core_understanding)
+                sections.append(block.comprehension.core_understanding)
+            if block.comprehension.assumptions:
+                sections.append("**Assumptions:**")
+                for assumption in block.comprehension.assumptions:
+                    sections.append(f"- {assumption}")
 
+        # 3. Analysis
+        if block.analysis.is_complete():
+            sections.append(f"### {flash_icon} Analysis")
+            if block.analysis.decomposition:
+                sections.append("**Decomposition:**")
+                for step in block.analysis.decomposition:
+                    sections.append(f"- {step}")
+            if block.analysis.options:
+                sections.append("**Options:**")
+                for opt in block.analysis.options:
+                    desc = opt.get('description', str(opt))
+                    sections.append(f"- {desc}")
+
+        # 4. Reasoning
+        if block.reasoning.is_complete():
+            sections.append(f"### {gear_icon} Reasoning")
             if block.reasoning.hypothesis:
-                thinking_lines.append(block.reasoning.hypothesis)
+                sections.append(f"**Hypothesis:** {block.reasoning.hypothesis}")
+            if block.reasoning.logical_chain:
+                 pass
+            if block.reasoning.evidence_for:
+                 sections.append("**Supporting Evidence:**")
+                 for ev in block.reasoning.evidence_for:
+                     sections.append(f"- {ev}")
 
-            if block.decision.decision:
-                thinking_lines.append(block.decision.decision)
+        # 5. Decision
+        if block.decision.is_complete():
+            sections.append(f"### {idea_icon} Decision")
+            sections.append(f"**{block.decision.decision}**")
+            if block.decision.justification:
+                sections.append(f"_{block.decision.justification}_")
+            if block.decision.action_items:
+                sections.append("**Action Items:**")
+                for item in block.decision.action_items:
+                    sections.append(f"- {item}")
 
-        # If nothing parsed, show raw content (first 500 chars)
-        if not thinking_lines and block.raw_content:
-            raw_preview = block.raw_content[:500].strip()
-            thinking_lines.append(raw_preview)
+        # 6. Verification
+        if block.verification.is_complete():
+            sections.append(f"### {shield_icon} Verification")
+            if block.verification.safety_check:
+                sections.append(f"**Safety:** {block.verification.safety_check}")
+            if block.verification.potential_issues:
+                sections.append("**Risks:**")
+                for risk in block.verification.potential_issues:
+                    sections.append(f"- {risk}")
+
+        # Fallback
+        if not sections and block.raw_content:
+            sections.append(block.raw_content.strip())
+        elif len(sections) == 0:
+             sections.append("_Processing..._")
 
         primary_phase = self._determine_primary_phase(block)
-        return "\n".join(thinking_lines) if thinking_lines else f"Phase: {primary_phase}"
+        return "\n\n".join(sections)
 
     def _update_task_mode(self, hcode_display, primary_phase: str) -> None:
         """Update task mode based on reasoning phase."""

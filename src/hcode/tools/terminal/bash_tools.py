@@ -287,11 +287,14 @@ class BashTool(BaseTool):
                 shell=True,
             )
 
-            # Get a Rich console for real-time streaming output
+            # Get output managers
             stream_console = None
+            hcode_display = None
             try:
                 from hcode.ui import get_console
+                from hcode.ui.hcode_display import get_hcode_display
                 stream_console = get_console()
+                hcode_display = get_hcode_display()
             except ImportError:
                 pass
 
@@ -299,29 +302,43 @@ class BashTool(BaseTool):
             stdout_lines: list = []
             stderr_lines: list = []
 
-            async def _stream_stdout():
+            async def _stream_stdout(live_update=None):
                 while True:
                     line = await process.stdout.readline()
                     if not line:
                         break
                     decoded = self._decode_output(line)
                     stdout_lines.append(decoded)
-                    if stream_console:
+                    if live_update:
+                        live_update.update(decoded)
+                    elif stream_console:
                         stream_console.print(f"    {decoded.rstrip()}", style="dim")
 
-            async def _stream_stderr():
+            async def _stream_stderr(live_update=None):
                 while True:
                     line = await process.stderr.readline()
                     if not line:
                         break
                     decoded = self._decode_output(line)
                     stderr_lines.append(decoded)
+                    if live_update:
+                        live_update.update(decoded)
 
-            # Run both stream readers with timeout
-            await asyncio.wait_for(
-                asyncio.gather(_stream_stdout(), _stream_stderr()),
-                timeout=timeout,
-            )
+            # Run with live display if available
+            if hcode_display:
+                # We need to run the async loop inside the sync context manager
+                # But context manager is sync. 
+                with hcode_display.live_command_context(command) as live:
+                    await asyncio.wait_for(
+                        asyncio.gather(_stream_stdout(live), _stream_stderr(live)),
+                        timeout=timeout,
+                    )
+            else:
+                # Run without live display
+                await asyncio.wait_for(
+                    asyncio.gather(_stream_stdout(), _stream_stderr()),
+                    timeout=timeout,
+                )
             await process.wait()
 
             stdout = "".join(stdout_lines)
@@ -725,9 +742,19 @@ class LSTool(BaseTool):
             output_lines.append("")
             output_lines.append(f"Total: {len(entries)} items")
 
+            output_text = "\n".join(output_lines)
+
+            # Display with Hcode UI
+            try:
+                from hcode.ui.hcode_display import get_hcode_display
+                display = get_hcode_display()
+                display.display_tool_result("LS", output_text, "success")
+            except ImportError:
+                pass
+
             return ToolResult(
                 success=True,
-                output="\n".join(output_lines),
+                output=output_text,
                 metadata={"path": str(path), "count": len(entries), "entries": entries},
             )
 
