@@ -795,6 +795,7 @@ def chat_mode(provider, session, show_todos, debug, autonomous):
                     settings_help.add_column("Command", style=f"{palette.info}", min_width=15)
                     settings_help.add_column("Description", style=f"{palette.text_secondary}")
                     settings_help.add_column("Aliases", style=f"{palette.text_muted}")
+                    settings_help.add_row("/init", "Analyze codebase and generate hcode.md", "")
                     settings_help.add_row("/debug", "Toggle debug mode (verbose output)", "")
                     settings_help.add_row("/theme <name>", "Change color theme", "")
                     settings_help.add_row("/clear", "Clear conversation history", "")
@@ -971,6 +972,98 @@ def chat_mode(provider, session, show_todos, debug, autonomous):
                     filename = f"session_{agent.context_manager.session_id}.json"
                     agent.export_session(filename)
                     console.print(f"[green]{EMOJI['success']} Exported to {filename}[/green]")
+                    continue
+
+                elif command == "init":
+                    # Codebase initialization - agent-driven analysis
+                    console.print(
+                        Panel(
+                            f"[bold {palette.primary}]🚀 Initializing codebase analysis...[/bold {palette.primary}]\n\n"
+                            f"The agent will now comprehensively analyze your codebase using its tools:\n"
+                            f"  • Glob to discover structure\n"
+                            f"  • Read to understand code\n"
+                            f"  • Grep to find patterns\n\n"
+                            f"This will generate detailed documentation in [cyan].hcode/hcode.md[/cyan]\n"
+                            f"that will guide all future implementations.",
+                            title=f"[bold {palette.primary}]/init Command[/bold {palette.primary}]",
+                            border_style=palette.primary,
+                        )
+                    )
+                    
+                    try:
+                        from pathlib import Path as PathlibPath
+                        from hcode.core.init_handler import InitHandler
+                        from hcode.core.protocols import AgentContext
+                        
+                        # Create InitHandler with agent's components
+                        # Note: agent.current_provider may be None if not yet selected
+                        # We need to select a provider first
+                        if not agent.current_provider:
+                            from hcode.providers import TaskComplexity, TaskType
+                            agent.current_provider = agent.provider_selector.select_provider(
+                                complexity=TaskComplexity.MODERATE,
+                                task_type=TaskType.CODE_GENERATION
+                            )
+                        
+                        init_handler = InitHandler(
+                            provider=agent.current_provider,
+                            tool_executor=agent._tool_executor,
+                            context_manager=agent.context_manager,
+                            console=console,
+                        )
+                        
+                        # Create AgentContext
+                        context = AgentContext(
+                            task="/init codebase analysis",
+                            session_id=agent.context_manager.session_id,
+                            working_dir=str(PathlibPath.cwd()),
+                            iteration=1,
+                        )
+                        
+                        # Execute analysis
+                        result = asyncio.run(init_handler.analyze(context))
+                        
+                        # Display results
+                        if result.success:
+                            console.print(
+                                Panel(
+                                    f"[bold {palette.success}]✅ Codebase initialization complete![/bold {palette.success}]\n\n"
+                                    f"📁 Documentation created: [cyan]{result.hcode_path}[/cyan]\n\n"
+                                    f"[{palette.text_muted}]The agent has analyzed your codebase and generated\n"
+                                    f"comprehensive documentation that will guide all future\n"
+                                    f"implementations. Use this as a reference for understanding\n"
+                                    f"the project structure, patterns, and conventions.[/]\n\n"
+                                    f"🎯 Ready for implementation tasks!",
+                                    title=f"[bold {palette.success}]Analysis Complete[/bold {palette.success}]",
+                                    border_style=palette.success,
+                                )
+                            )
+                        else:
+                            console.print(
+                                Panel(
+                                    f"[bold {palette.warning}]⚠️ Analysis completed with issues[/bold {palette.warning}]\n\n"
+                                    f"Error: {result.error}\n\n"
+                                    f"The agent completed its analysis but did not generate hcode.md.\n"
+                                    f"Try running /init again or check the error above.",
+                                    title=f"[bold {palette.warning}]Incomplete Analysis[/bold {palette.warning}]",
+                                    border_style=palette.warning,
+                                )
+                            )
+                        
+                    except Exception as e:
+                        from rich.markup import escape
+                        error_panel = ErrorPanel(
+                            message=f"An error occurred during codebase analysis:",
+                            details=(
+                                f"{escape(str(e))}\n\n"
+                                f"Make sure you're in a valid project directory."
+                            ),
+                            error_type="Initialization Failed"
+                        )
+                        console.print(error_panel.render())
+                        if debug:
+                            console.print_exception()
+                    
                     continue
 
             # Execute task with modern assistant indicator

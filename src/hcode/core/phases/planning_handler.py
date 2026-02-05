@@ -138,16 +138,18 @@ class PlanningPhaseHandler(BasePhaseHandler):
         context: Any = None,
     ) -> str:
         """
-        Planning-phase continuation: inspect what was just written and
-        steer the AI toward the next required action.
+        Planning-phase continuation: track progress and steer toward
+        the next required action.
 
-        - If neither artifact exists yet  → push to keep exploring OR write task.md
-        - If task.md was just written      → explicitly demand implementation_plan.md next
-        - If both exist                    → tell it to stop
+        Enforcement rules applied at every round:
+        - At least 2 successful Read calls before any artifact write
+        - After task.md is written, demand implementation_plan.md with
+          full granularity (targets, pseudocode, imports, dependencies)
+        - After both are written, stop
         """
         working_dir = context.working_dir if context else "."
 
-        # Scan all results for successful writes to our artifacts
+        # ── Audit what has happened across ALL rounds ──
         wrote_task = any(
             r.get("success") and "task.md" in str(r.get("file_path", ""))
             for r in all_results
@@ -156,45 +158,61 @@ class PlanningPhaseHandler(BasePhaseHandler):
             r.get("success") and "implementation_plan.md" in str(r.get("file_path", ""))
             for r in all_results
         )
+        read_count = sum(
+            1 for r in all_results
+            if r.get("success") and r.get("tool", "").lower() in ("read",)
+        )
 
+        # ── Both artifacts done ──
         if wrote_task and wrote_plan:
             return (
                 "Both .hcode/task.md and .hcode/implementation_plan.md have been written. "
                 "Planning is complete. Stop here — do not create any more files."
             )
 
+        # ── task.md written but plan missing — demand granular detail ──
         if wrote_task and not wrote_plan:
             return (
                 "✓ task.md has been written.\n\n"
-                "⚠️  implementation_plan.md is STILL MISSING. You MUST write it now.\n"
-                f"Use the Write tool with TargetFile = `{working_dir}/.hcode/implementation_plan.md`.\n"
-                "The plan MUST include:\n"
-                "  - A `# heading` describing the goal\n"
-                "  - `## Approach` — high-level strategy\n"
-                "  - `## Steps` — numbered concrete steps\n"
-                "  - File paths with [NEW] or [MODIFY] markers\n"
-                "  - `## Verification Plan` — exact commands to test\n\n"
+                "⚠️  implementation_plan.md is STILL MISSING. You MUST write it NOW.\n"
+                f"Use the Write tool with TargetFile = `{working_dir}/.hcode/implementation_plan.md`.\n\n"
+                "The plan MUST be granular — not high-level headings. Every detail matters:\n"
+                "  - Every [MODIFY] block must name the exact target: function/class name AND line number\n"
+                "  - Include current behavior (what the code does RIGHT NOW — from what you Read)\n"
+                "  - Include before/after pseudocode or code snippets for each change\n"
+                "  - List every import that needs to be added\n"
+                "  - Every [NEW] block must show the file structure (classes, functions, purpose)\n"
+                "  - State dependencies between changes — what must happen first\n"
+                "  - Add an Execution Context section: conventions, interfaces, error patterns, test infra\n"
+                "  - Verification Plan must have exact shell commands (language-appropriate)\n\n"
+                "Base everything on the files you already Read. Do NOT speculate.\n"
                 "Do NOT stop. Write implementation_plan.md NOW."
             )
 
-        # Neither artifact written yet — check if this is early exploration
-        has_exploration = any(
-            r.get("tool", "").lower() in ("read", "smartglob", "ls", "grep", "bash", "smartglobtool")
-            for r in round_results
-        )
-        if has_exploration and round_num < 3:
+        # ── Neither artifact yet — enforce minimum reads before writing ──
+        if read_count < 2:
             return (
-                "Good — you've gathered some information. Continue exploring if you need more context, "
-                "but remember you must eventually create BOTH artifacts:\n"
+                f"[Round {round_num}] You have completed {read_count} Read call(s) so far.\n"
+                "⚠️  You MUST read at least 2 relevant files before writing any artifact.\n"
+                "Continue reading files directly relevant to the user's request.\n"
+                "After each Read, explain concretely what you learned and how it affects the plan.\n\n"
+                "Both artifacts are still required:\n"
                 f"  1. {working_dir}/.hcode/task.md\n"
-                f"  2. {working_dir}/.hcode/implementation_plan.md\n"
-                "When you have enough understanding, start writing them. Do not stop until both are written."
+                f"  2. {working_dir}/.hcode/implementation_plan.md"
             )
 
+        # ── Enough reads done — nudge toward synthesis and writing ──
         return (
-            "Continue exploring or start creating the planning artifacts. "
-            f"You MUST produce both {working_dir}/.hcode/task.md and {working_dir}/.hcode/implementation_plan.md. "
-            "Do not stop until both are written."
+            f"[Round {round_num}] You have read {read_count} file(s).\n"
+            "If you now understand the code well enough, proceed to SYNTHESIZE and write task.md.\n"
+            "If you still need information, read one more file — but do not over-explore.\n\n"
+            "Reminder — your artifacts must be granular:\n"
+            "  - task.md: each subtask names a specific file + function/class + acceptance criteria\n"
+            "  - implementation_plan.md: each change has target, current behavior, before/after, imports\n"
+            "  - implementation_plan.md needs Execution Context: conventions, interfaces, test infra\n\n"
+            "You MUST produce both:\n"
+            f"  1. {working_dir}/.hcode/task.md\n"
+            f"  2. {working_dir}/.hcode/implementation_plan.md"
         )
 
     async def handle(
@@ -259,8 +277,8 @@ class PlanningPhaseHandler(BasePhaseHandler):
                     unified_prompt,
                     context,
                     system_prompt=self._get_planning_system_prompt(context),
-                    max_rounds=12,   # generous — exploration + 2 writes + confirmation
-                    max_tokens=8192, # deep thinking needs room
+                    max_rounds=20,   # deep reads + synthesis + 2 writes + confirmation
+                    max_tokens=16384, # gpt-oss-120b — deep reasoning + code snippets
                 )
 
                 if self._hcode_display:
@@ -391,8 +409,29 @@ Follow these templates EXACTLY when creating task.md and implementation_plan.md:
 
 {artifact_templates}"""
 
+            # ── Load project knowledge from /init ──────────────────
+            project_knowledge = ""
+            try:
+                _hcode_md = Path(context.working_dir) / ".hcode" / "hcode.md"
+                if _hcode_md.exists():
+                    project_knowledge = _hcode_md.read_text(encoding='utf-8')
+            except Exception:
+                pass
+
+            pk_section = (
+                project_knowledge
+                if project_knowledge
+                else "(Run /init first to generate project knowledge.)"
+            )
+
             # Add context information
             context_info = f"""
+## PROJECT KNOWLEDGE  (generated by /init — read this before anything else)
+
+{pk_section}
+
+---
+
 ## Hcode Context
 
 Working Directory: {context.working_dir}
@@ -401,74 +440,83 @@ Current Iteration: {context.iteration}
 
 ### PEV Workflow (ALWAYS ENFORCED)
 
-The PEV (Planning → Execution → Verification) workflow is ALWAYS executed.
-Every task goes through:
+1. **PLANNING** ← you are here: create task.md and implementation_plan.md
+2. **EXECUTION**: implement the plan
+3. **VERIFICATION**: test and create walkthrough.md
 
-1. **PLANNING**: Create task.md and implementation_plan.md
-2. **EXECUTION**: Implement the plan using tools
-3. **VERIFICATION**: Test and create walkthrough.md
+### Communication Rules
 
-### CRITICAL: Communication Rules
-
-**YOU MUST**:
-1. Provide TEXT explanations of what you're doing
+1. Provide TEXT explanations of your reasoning at every step
 2. Use JSON tool calls in code blocks for file operations
-3. Summarize your findings and progress in plain text
+3. After each Read, state what you learned and why it matters
 
-### TOOL CALL FORMAT (CRITICAL!)
-
-When you need to use a tool, output JSON in this EXACT format inside a code block:
+### TOOL CALL FORMAT
 
 ```json
 {{"tool": "ToolName", "arguments": {{"param": "value"}}}}
 ```
 
-**Available tools:**
-- LS: `{{"tool": "LS", "arguments": {{"DirectoryPath": "."}}}}`
-- Read: `{{"tool": "Read", "arguments": {{"AbsolutePath": "/full/path"}}}}`
-- Write: `{{"tool": "Write", "arguments": {{"TargetFile": "/full/path", "CodeContent": "content"}}}}`
-- Edit: `{{"tool": "Edit", "arguments": {{"TargetFile": "/path", "TargetContent": "old", "ReplacementContent": "new"}}}}`
-- SmartGlob: `{{"tool": "SmartGlob", "arguments": {{"Pattern": "**/*.py"}}}}`
-- Grep: `{{"tool": "Grep", "arguments": {{"Query": "pattern", "SearchPath": "."}}}}`
-- Bash: `{{"tool": "Bash", "arguments": {{"CommandLine": "command", "description": "what it does"}}}}`
+**Tools you should use in planning:**
+- Read: `{{"tool": "Read", "arguments": {{"AbsolutePath": "/full/path"}}}}`  ← primary tool
+- Grep: `{{"tool": "Grep", "arguments": {{"Query": "pattern", "SearchPath": "."}}}}`  ← find symbols
+- Write: `{{"tool": "Write", "arguments": {{"TargetFile": "/full/path", "CodeContent": "content"}}}}`  ← artifacts only
 
-### Example Good Response:
+**Tools you should NOT need in planning:**
+- LS / SmartGlob: project structure is already in PROJECT KNOWLEDGE above.
+  Use them only if you genuinely need to discover something not covered there.
 
-I'll help you create a script to count markdown files.  Let me first explore
-the project to understand its structure and conventions.
+### Artifact Detail Requirements
+
+Each artifact must be granular — the execution phase reads these to know
+exactly what to do.  Generic placeholders are not acceptable.
+
+**task.md** must contain:
+  • A `## Goal` section (1-2 sentences)
+  • 4-8 subtasks, each naming a specific file + function/class
+  • Acceptance criteria after every subtask
+  • A `## Risks / Edge Cases` section
+
+**implementation_plan.md** must contain:
+  • Each `[MODIFY]` block: exact target (function/line), current behavior,
+    before/after pseudocode, imports to add, and a one-line "Why"
+  • Each `[NEW]` block: purpose, file-structure outline, what imports it
+  • A `## Execution Context` section: conventions, interfaces, error patterns, test infra
+  • A `## Dependencies Between Changes` section
+  • Exact verification commands — language-appropriate (syntax check, tests, smoke test)
+
+### Example — think first, then read, then plan:
+
+I need to add error logging to CLI startup.  From the project knowledge
+I can see the CLI entry is `src/hcode/main_cli.py` and observability lives
+in `src/hcode/core/observability/`.  Let me read the actual files before
+deciding anything.
 
 ```json
-{{"tool": "LS", "arguments": {{"DirectoryPath": "."}}}}
+{{"tool": "Read", "arguments": {{"AbsolutePath": "{context.working_dir}/src/hcode/main_cli.py"}}}}
 ```
 
-(… receives directory listing …)
+(… receives file contents …)
 
-Let me check if there are any existing utility scripts to follow the same style:
+The startup sequence is at line 42 — a bare try block with no logging.
+Now let me check how the logger factory works:
 
 ```json
-{{"tool": "SmartGlob", "arguments": {{"Pattern": "*.py"}}}}
+{{"tool": "Read", "arguments": {{"AbsolutePath": "{context.working_dir}/src/hcode/core/observability/logger.py"}}}}
 ```
 
-(… receives list of .py files …)
+(… receives file contents …)
 
-Let me read an existing script to understand import style and conventions:
+`get_logger(name)` returns a stdlib Logger.  I now know the exact import,
+the call site, and what the current code does.  Writing task.md:
 
 ```json
-{{"tool": "Read", "arguments": {{"AbsolutePath": "{context.working_dir}/some_existing_script.py"}}}}
+{{"tool": "Write", "arguments": {{"TargetFile": "{context.working_dir}/.hcode/task.md", "CodeContent": "# Task\\n\\nAdd error logging to CLI startup\\n\\n## Goal\\n\\nErrors during CLI initialisation are captured by the observability logger.\\n\\n## Subtasks\\n\\n- [ ] Add `from hcode.core.observability.logger import get_logger` to main_cli.py <!-- id: 0 -->\\n  - Acceptance: `python -m py_compile src/hcode/main_cli.py` exits 0\\n- [ ] Insert `logger.error(exc)` in the except block at startup (line 42) <!-- id: 1 -->\\n  - Acceptance: error path produces a log entry in output\\n- [ ] Run `pytest tests/unit/test_cli.py -v` <!-- id: 2 -->\\n  - Acceptance: all tests pass\\n\\n## Risks\\n\\n- Logger must be initialised before the call site at line 42"}}}}
 ```
 
-(… receives file contents, analyses conventions …)
-
-Good.  Now I understand the codebase.  Creating task.md:
+task.md written.  Now writing implementation_plan.md with full detail:
 
 ```json
-{{"tool": "Write", "arguments": {{"TargetFile": "{context.working_dir}/.hcode/task.md", "CodeContent": "# Task\\n\\nCreate a script to count .md files in the repo.\\n\\n## Subtasks\\n\\n- [ ] Explore repo structure <!-- id: 0 -->\\n- [ ] Implement counter script <!-- id: 1 -->\\n- [ ] Test the script <!-- id: 2 -->"}}}}
-```
-
-task.md written.  Now creating implementation_plan.md:
-
-```json
-{{"tool": "Write", "arguments": {{"TargetFile": "{context.working_dir}/.hcode/implementation_plan.md", "CodeContent": "# Count markdown files in repo\\n\\nCreate a utility script that recursively counts .md files and their total lines.\\n\\n## Approach\\n\\nUse pathlib.Path.rglob to discover .md files, excluding .git and .venv directories. This mirrors the pattern used in existing scripts in this repo.\\n\\n## Steps\\n\\n1. **Create script** [NEW] `{context.working_dir}/count_md.py` — main counting logic\\n2. **Test** — run the script and verify output\\n\\n## Verification Plan\\n\\n- Syntax: `python -m py_compile count_md.py`\\n- Run: `python count_md.py`"}}}}
+{{"tool": "Write", "arguments": {{"TargetFile": "{context.working_dir}/.hcode/implementation_plan.md", "CodeContent": "# Add error logging to CLI startup\\n\\nThe CLI startup at line 42 does not log errors — they propagate uncaught.\\nThis change adds a logger call so failures are captured.\\n\\n## Approach\\n\\n`get_logger` in the observability layer is the project convention.\\nReuse it — no new abstractions needed.\\n\\n## Execution Context\\n\\n- **Import convention:** absolute imports, one per line\\n- **Error handling:** try/except + logger.error()\\n- **Test framework:** pytest\\n- **Key interfaces:** none affected by this change\\n\\n## Proposed Changes\\n\\n### CLI Entry Point\\n\\n#### [MODIFY] `src/hcode/main_cli.py`\\n\\n**Target:** startup block, line 42\\n**Current behavior:** exceptions during init propagate uncaught (bare except)\\n**Required change:**\\n- Add import: `from hcode.core.observability.logger import get_logger`\\n- Add `logger = get_logger(__name__)` after existing imports\\n- In the except block at line 42: add `logger.error(\\\"Startup failed\\\", exc_info=True)`\\n**Why:** observability layer is the project convention for error capture\\n\\n## Dependencies Between Changes\\n\\nSingle file changed — no ordering constraints.\\n\\n## Verification Plan\\n\\n- `python -m py_compile src/hcode/main_cli.py`\\n- `pytest tests/unit/test_cli.py -v`\\n- `python -m hcode --help` — confirm no crash"}}}}
 ```
 
 Both artifacts written.  Planning complete.
@@ -500,54 +548,59 @@ DO NOT just output JSON silently.
 
     def _explore_codebase(self, context: AgentContext) -> str:
         """
-        Programmatic exploration of the working directory.
+        Language-agnostic file-path index for the planning prompt.
 
-        Gathers directory listing, Python/MD/config file counts and paths
-        so the AI analysis prompt is grounded even if the AI calls no tools.
-
-        Args:
-            context: Current agent context
-
-        Returns:
-            Formatted exploration summary string
+        Single rglob pass: discovers source, config, web, and doc files
+        across all supported languages/frameworks.  Groups output by
+        extension with source files first so the AI can target Read
+        calls with precise paths.  Project knowledge (architecture,
+        conventions) lives in the system prompt via hcode.md — this
+        method only provides the file inventory.
         """
+        from collections import defaultdict
+
         working_dir = Path(context.working_dir)
         lines = [f"Working directory: {context.working_dir}\n"]
 
-        # Root-level listing (skip deep hidden dirs)
-        lines.append("Root contents:")
-        try:
-            for item in sorted(working_dir.iterdir()):
-                if item.name.startswith('.') and item.name not in ('.hcode', '.claude', '.git'):
-                    continue
-                marker = "📁" if item.is_dir() else "📄"
-                lines.append(f"  {marker} {item.name}")
-        except OSError:
-            lines.append("  (could not list directory)")
+        _EXCLUDE = {'.git', '.venv', 'node_modules', '__pycache__', '.idea',
+                    'dist', 'build', '.mypy_cache', '.next', '.cache'}
 
-        # File-type inventories
-        _EXCLUDE = {'.git', '.venv', 'node_modules', '__pycache__', '.idea'}
+        # ── Extension sets (language-agnostic) ──
+        _SOURCE = {
+            '.py', '.js', '.ts', '.tsx', '.jsx', '.mjs', '.cjs',
+            '.go', '.rs', '.java', '.rb', '.cs', '.swift', '.kt', '.kts',
+            '.scala', '.c', '.cpp', '.h', '.hpp', '.cc', '.cxx',
+            '.vue', '.svelte', '.php', '.lua', '.sh', '.bash',
+        }
+        _CONFIG = {'.yaml', '.yml', '.json', '.toml', '.cfg', '.ini', '.env'}
+        _WEB    = {'.html', '.css', '.scss', '.sass', '.less'}
+        _DOC    = {'.md', '.rst', '.txt'}
+        _ALL    = _SOURCE | _CONFIG | _WEB | _DOC
 
-        def _rglob_filtered(pattern):
-            return [
-                p for p in working_dir.rglob(pattern)
-                if not any(ex in p.parts for ex in _EXCLUDE)
-            ]
+        by_ext: Dict[str, List[Path]] = defaultdict(list)
+        for p in sorted(working_dir.rglob("*")):
+            if not p.is_file():
+                continue
+            if any(ex in p.parts for ex in _EXCLUDE):
+                continue
+            ext = p.suffix.lower()
+            if ext in _ALL:
+                by_ext[ext].append(p)
 
-        py_files = sorted(_rglob_filtered("*.py"))
-        md_files = sorted(_rglob_filtered("*.md"))
+        # Priority: source → config → web → docs; within tier sort by count desc
+        def _priority(ext):
+            if ext in _SOURCE: return 0
+            if ext in _CONFIG: return 1
+            if ext in _WEB:    return 2
+            return 3
 
-        lines.append(f"\nPython files ({len(py_files)}):")
-        for f in py_files[:30]:
-            lines.append(f"  - {f.relative_to(working_dir)}")
-        if len(py_files) > 30:
-            lines.append(f"  ... and {len(py_files) - 30} more")
-
-        lines.append(f"\nMarkdown files ({len(md_files)}):")
-        for f in md_files[:15]:
-            lines.append(f"  - {f.relative_to(working_dir)}")
-        if len(md_files) > 15:
-            lines.append(f"  ... and {len(md_files) - 15} more")
+        for ext, files in sorted(by_ext.items(), key=lambda kv: (_priority(kv[0]), -len(kv[1]))):
+            lines.append(f"{ext} files ({len(files)}):")
+            for f in files[:35]:
+                lines.append(f"  {f.relative_to(working_dir)}")
+            if len(files) > 35:
+                lines.append(f"  ... and {len(files) - 35} more")
+            lines.append("")
 
         return "\n".join(lines)
 
@@ -555,21 +608,19 @@ DO NOT just output JSON silently.
         """
         Build the single unified prompt that drives the entire planning phase.
 
-        The AI is expected to:
-          1. Read and understand the codebase (multiple tool calls)
-          2. Write .hcode/task.md
-          3. Write .hcode/implementation_plan.md
-
-        The continuation steering in _build_continuation_prompt handles
-        nudging the AI between these stages.  This prompt sets up the
-        expectations and provides all context the AI needs.
+        The system prompt already contains the full project knowledge
+        (hcode.md).  This prompt drives a think → read → synthesize →
+        write flow.  No repo-discovery rounds — the AI already knows the
+        project; it must only read the *specific* files relevant to this
+        task before writing artifacts.
         """
         task_template = self._get_task_template_guide()
         plan_template = self._get_plan_template_guide()
 
-        return f"""You are an expert AI developer in PLANNING mode.  Your job is to thoroughly
-understand the user's request, explore the codebase, and produce two planning
-artifacts — and NOTHING else.
+        return f"""You are an expert AI developer in PLANNING mode.  You already know the
+project structure and conventions from the PROJECT KNOWLEDGE in your system
+prompt.  Your job: understand this specific request deeply, read the files
+that matter, then produce two planning artifacts — and NOTHING else.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 USER REQUEST
@@ -577,64 +628,93 @@ USER REQUEST
 {context.task}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-CODEBASE SNAPSHOT  (pre-scanned — use this as your starting map)
+FILE INDEX  (use these paths in Read calls — do NOT run LS or Glob)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 {exploration_context}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-PHASE 1 — UNDERSTAND & EXPLORE  (do this FIRST, before any writes)
+STEP 1 — THINK  (write this out before calling any tool)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Think carefully about what the user needs.  Then use tools to verify
-your understanding against reality — do NOT assume.
+Before touching any tool, reason through:
 
-Required exploration steps:
-  a) Use Read to open any files that are directly relevant to the task.
-     Read their ACTUAL contents before making decisions.
-  b) Use SmartGlob or Grep to find files matching patterns relevant to the task.
-  c) If there are existing similar scripts or modules, Read them to understand
-     conventions, imports, and style used in this repo.
-  d) Identify exactly which files will need to be created or modified, and why.
+  • What exactly does the user want to happen?
+  • Which existing files are directly involved?  (use your project knowledge)
+  • Is this an addition, a modification, or a removal?
+  • What are the likely risks or edge cases?
+  • Which files do I need to READ to make confident decisions?
 
-Think out loud as you explore.  Explain what you found and what it means
-for the implementation plan.  This reasoning is critical — be thorough.
+Write this reasoning out loud.  Every line of reasoning here saves a wasted
+round later.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-PHASE 2 — WRITE task.md
+STEP 2 — READ  (tools: Read and Grep only)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-After you have explored enough to understand the task, write task.md.
+Open every file your Step 1 identified as relevant.  Use Read with
+absolute paths.  Use Grep only if you need to locate a specific symbol
+or pattern inside a file.
 
+⚠️  Do NOT use LS or SmartGlob — the file index above and the
+    PROJECT KNOWLEDGE in the system prompt already cover the layout.
+⚠️  Do NOT assume file contents.  Read first, decide second.
+⚠️  After each Read, state concretely what you learned and how it
+    affects the plan.  This reasoning feeds directly into the artifacts.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 3 — SYNTHESIZE  (text only, no tools)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Now that you have read the real code, pin down:
+
+  • Exactly which functions / classes / lines need changing?
+  • What new files or code blocks are needed?
+  • What imports, signatures, or interfaces must be respected?
+  • What tests should verify correctness?  (exact commands)
+  • What conventions / patterns must execution follow? (imports, error handling, naming, tests)
+  • Any dependencies between changes — ordering matters.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 4 — WRITE task.md
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Path: {context.working_dir}/.hcode/task.md
 
-Format:
 {task_template}
 
 Rules:
   • Every subtask gets a unique `<!-- id: N -->` comment.
   • Use `- [ ]` for pending, `- [/]` for in-progress, `- [x]` for done.
-  • Break complex work into 3-7 concrete subtasks.
-  • The subtasks must reflect what you actually discovered during exploration —
-    not generic boilerplate.
+  • Break work into 4-8 concrete subtasks grounded in what you Read.
+  • Every subtask MUST name the specific file + function/class it touches.
+  • Include acceptance criteria after each subtask (what proves it is done).
+  • Add a ## Goal section (1-2 sentences: what success looks like).
+  • Add a ## Risks / Edge Cases section with findings from your reads.
+  • No generic boilerplate — if you cannot tie a subtask to real code, omit it.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-PHASE 3 — WRITE implementation_plan.md  (IMMEDIATELY after task.md)
+STEP 5 — WRITE implementation_plan.md  (immediately after task.md)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-After task.md is confirmed written, write implementation_plan.md.
-
 Path: {context.working_dir}/.hcode/implementation_plan.md
 
-Format:
 {plan_template}
 
 Rules:
-  • The Approach section must describe WHY you chose this approach
-    (not just what you will do).
-  • Every file that will be created or modified must appear with a
-    [NEW] or [MODIFY] marker and an absolute path.
-  • Steps must be in execution order — what depends on what.
-  • The Verification Plan must contain the exact shell commands that
-    will be run to test the implementation.
-  • Base your plan on what you actually READ during exploration —
-    not on assumptions.
+  • Approach: WHY this approach — reference real code / patterns you Read.
+  • Every file that will be created or modified must have a [NEW] or
+    [MODIFY] marker with an absolute path.
+  • Each [MODIFY] block MUST contain:
+      – Exact target: function/class name and line number
+      – Current behavior: what the code does RIGHT NOW (from your Reads)
+      – Required change: before/after pseudocode or code snippets
+      – Imports to add (if any)
+      – Why: one sentence linking this change to the goal
+  • Each [NEW] block MUST contain:
+      – Purpose: why this file is needed
+      – Structure: outline of classes/functions it will contain
+      – What other files will import from it
+  • Include a ## Execution Context section: conventions, interfaces, error patterns,
+      test framework details the execution phase must follow — no re-reading required.
+  • Include a ## Dependencies Between Changes section: ordering constraints.
+  • Verification Plan: exact shell commands for syntax, unit, and integration tests.
+  • Nothing in this plan may be speculation — every claim must trace
+    back to something you actually Read.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 SCOPE RULES  (hard boundaries)
@@ -652,64 +732,145 @@ SCOPE RULES  (hard boundaries)
     is still missing.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-BEGIN.  Start by exploring, then write task.md, then implementation_plan.md.
+BEGIN.  Start with Step 1 — think out loud before calling any tool.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"""
 
 
     def _get_task_template_guide(self) -> str:
-        """Get task.md template guide."""
+        """Get task.md template guide — atomic subtasks with acceptance criteria."""
         return """```markdown
 # Task
 
-[User's original request]
+[Restate the user's request in your own words]
+
+## Goal
+
+[1-2 sentences: what success looks like after this task is complete]
 
 ## Subtasks
 
-- [ ] Task 1 <!-- id: 0 -->
-- [ ] Task 2 <!-- id: 1 -->
-  - [ ] Subtask 2.1 <!-- id: 2 -->
-  - [ ] Subtask 2.2 <!-- id: 3 -->
-- [ ] Task 3 <!-- id: 4 -->
+- [ ] Read and understand `path/to/file.py` — `ClassName.method` (lines N-M) <!-- id: 0 -->
+  - Acceptance: can describe what the code does and where changes are needed
+- [ ] Add import / require / include for `ModuleName` in `path/to/source_file` <!-- id: 1 -->
+  - Acceptance: syntax check passes for the modified file
+- [ ] Modify `ClassName.method` in `path/to/source_file` to [specific change] <!-- id: 2 -->
+  - Acceptance: [exact observable condition that proves correctness]
+- [ ] Create `path/to/new_file` with [purpose] <!-- id: 3 -->
+  - Acceptance: [exact condition — e.g., relevant test passes]
+- [ ] Run verification: `<test-runner command for the changed component>` <!-- id: 4 -->
+  - Acceptance: exits 0, expected output observed
+
+## Risks / Edge Cases
+
+- [risk or edge case identified while reading the code]
+- [dependency ordering issue, if any]
 
 ## Notes
 
-[Any notes or findings]
+- [key findings from code reading that the execution phase needs]
 ```"""
 
     def _get_plan_template_guide(self) -> str:
-        """Get implementation_plan.md template guide."""
-        return """```markdown
-# [Goal Description]
+        """Get implementation_plan.md template guide — full granularity per change."""
+        return '''```markdown
+# [Goal: one-line summary of the change]
 
-Brief description of the problem and what the change accomplishes.
+[2-3 sentences: problem statement and what the change accomplishes]
 
 ## User Review Required
 
 > [!IMPORTANT]
-> Critical items needing user approval
+> [Any decisions that need sign-off before execution.
+>  If none, write "No decisions pending — proceed to execution."]
+
+## Approach
+
+[2-4 sentences: WHY this approach. Reference patterns or conventions
+observed in the code you Read. Note any trade-offs considered.]
+
+## Execution Context
+
+The execution phase reads this section to follow project conventions
+without re-reading source files.  Fill in from what you observed:
+
+- **Import / module system:** [e.g., absolute imports / CommonJS require / ES modules]
+- **Error handling pattern:** [e.g., try/except + logger.error() / throw custom errors]
+- **Naming conventions:** [e.g., snake_case / camelCase / PascalCase rules observed]
+- **Test framework & fixtures:** [e.g., pytest + conftest.py / Jest + setupTests / Go testing]
+- **Key interfaces / base classes:** [e.g., all handlers extend BaseHandler; must implement handle()]
+- **Config / env access:** [e.g., Settings() singleton / process.env / config package]
 
 ## Proposed Changes
 
-### [Component Name]
+### [Component / Module Name]
 
-Summary of changes to this component
+[1 sentence: what this group of changes achieves]
 
-#### [MODIFY] [filename.py](file:///absolute/path/to/file.py)
+#### [MODIFY] `absolute/path/to/file`
 
-- What will change in this file
+**Target:** `ClassName.method_name` at line N  (or top-level `func_name` at line N)
 
-#### [NEW] [newfile.py](file:///absolute/path/to/newfile.py)
+**Current behavior:** [What the code does right now — from what you Read, 1-2 sentences]
 
-- What this new file will contain
+**Required change:**
+```
+# BEFORE (current code at line N):
+    existing_code_line_1()
+    existing_code_line_2()
+
+# AFTER:
+    existing_code_line_1()
+    new_logic(param)          # added
+    existing_code_line_2()
+```
+
+**Imports to add:** `[import statement — use the project's language convention]`
+
+**Why:** [1 sentence linking this change to the goal]
+
+---
+
+#### [NEW] `absolute/path/to/new_file`
+
+**Purpose:** [What this file does and why it is needed]
+
+**Structure:**
+```
+# Outline — execution phase fills in the bodies:
+ClassName / struct / interface (use project convention):
+    constructor(deps) -> instance
+    method_1(args) -> ReturnType  # [what this does]
+    method_2(args) -> ReturnType  # [what this does]
+```
+
+**Imported by:**
+- `path/to/other_file` will need: `[import statement in the project's language]`
+
+---
+
+### [Another Component — repeat the pattern above]
+
+## Dependencies Between Changes
+
+1. [Change A] must complete before [Change B] because [reason]
+2. [Change C] is independent — can proceed in any order
 
 ## Verification Plan
 
-### Automated Tests
-- Exact command: `pytest tests/specific_test.py -v`
+### Syntax Check
+- `<syntax check command for each modified / new file>`
+  (Python: `python -m py_compile` | JS/TS: `npx tsc --noEmit` | Go: `go build ./...` | Rust: `cargo check`)
+
+### Unit Tests
+- `<test-runner command targeting the changed component>`
+  (Python: `pytest tests/X.py -v` | JS: `npx jest X.test.js` | Go: `go test -run TestX` | Rust: `cargo test`)
+
+### Integration / Smoke Test
+- `[exact command]` → expect `[exact output]`
 
 ### Manual Verification
-- Steps to verify manually
-```"""
+- [step-by-step what to verify manually, if needed]
+```'''
 
     def _extract_analysis_insights(self, response: str) -> Dict[str, Any]:
         """
@@ -887,15 +1048,28 @@ Summary of changes to this component
         # Testing strategy – keep it proportional
         testing = (
             "\n## Testing Strategy\n\n"
-            "- Syntax check: `python -m py_compile <file>`\n"
-            "- Run script to verify output"
+            "- Syntax check: `<language-appropriate syntax check for each file>`\n"
+            "- Run / test the changed component to verify output"
         )
+
+        # Execution Context – placeholder; execution phase should fill from codebase
+        components = analysis_insights.get("components", [])
+        exec_ctx_items = [
+            "- **Import / module system:** [identify from codebase before implementing]",
+            "- **Error handling pattern:** [identify from codebase before implementing]",
+            "- **Test framework & fixtures:** [identify from codebase before implementing]",
+            "- **Key interfaces / base classes:** " + (
+                ", ".join(f"`{c}`" for c in components[:5]) if components else "[identify from codebase]"
+            ),
+        ]
+        exec_context = "\n## Execution Context\n\n" + "\n".join(exec_ctx_items)
 
         return (
             f"# {goal_line}\n\n"
             f"{context.task}\n\n"
             f"## Approach\n\n"
-            f"{approach}\n\n"
+            f"{approach}\n"
+            f"{exec_context}\n\n"
             f"## Steps\n\n"
             f"{steps_text}\n"
             f"{files_section}\n"
@@ -978,58 +1152,78 @@ Summary of changes to this component
         except Exception as e:
             logger.warning(f"Failed to load artifact templates: {e}")
 
-        # Fallback: inline templates matching templates.yaml structure
+        # Fallback: inline templates matching the granular style
         return """### task.md Template
 
 ```markdown
 # Task
 
-[User's original request]
+[Restate request in your own words]
+
+## Goal
+
+[1-2 sentences: what success looks like]
 
 ## Subtasks
 
-- [ ] Subtask 1 <!-- id: 0 -->
-- [ ] Subtask 2 <!-- id: 1 -->
-  - [ ] Subtask 2.1 <!-- id: 2 -->
-- [ ] Subtask 3 <!-- id: 3 -->
+- [ ] [Action] in `path/to/file` — `ClassName.method` (line N) <!-- id: 0 -->
+  - Acceptance: [exact condition]
+- [ ] [Next action] <!-- id: 1 -->
+  - Acceptance: [exact condition]
+
+## Risks / Edge Cases
+
+- [identified risk]
 
 ## Notes
 
-[Any findings or notes]
+- [key finding for execution phase]
 ```
 
 ### implementation_plan.md Template
 
 ```markdown
-# [Goal Description]
+# [Goal: one-line summary]
 
-Brief description of the problem and what the change accomplishes.
+[2-3 sentences: problem + what changes]
 
 ## Approach
 
-[High-level approach and strategy]
+[WHY this approach — reference code patterns you Read]
 
-## Steps
+## Execution Context
 
-1. **Step 1**: [Description]
-   - File: `path/to/file.py`
-   - Action: [What to do]
+- **Import / module system:** [project convention]
+- **Error handling:** [project convention]
+- **Test framework:** [framework + fixtures]
+- **Key interfaces:** [base classes / protocols]
 
-2. **Step 2**: [Description]
-   - File: `path/to/file.py`
-   - Action: [What to do]
+## Proposed Changes
 
-## Files to Modify
+### [Component]
 
-- `file1.py`: [What changes to make]
+#### [MODIFY] `absolute/path/to/file`
 
-## Files to Create
+**Target:** `ClassName.method` at line N
+**Current behavior:** [what it does now]
+**Required change:**
+- [specific change with pseudocode]
+**Imports to add:** `[import statement in the project's language]`
+**Why:** [link to goal]
 
-- `new_file.py`: [What it should contain]
+#### [NEW] `absolute/path/to/new_file`
 
-## Testing Strategy
+**Purpose:** [why needed]
+**Structure:** classes/functions outline
+**Imported by:** `[import statement]` in `[which files]`
 
-- Run tests: `pytest tests/`
-- Manual verification: [Steps]
+## Dependencies Between Changes
+
+1. [ordering constraint]
+
+## Verification Plan
+
+- `<syntax check for each file>` (Python: py_compile | JS/TS: tsc | Go: go build)
+- `<test-runner for changed component>` (Python: pytest | JS: jest | Go: go test)
 ```
 """

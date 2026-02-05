@@ -79,8 +79,27 @@ Note: Automatically excludes .git, .venv, node_modules, __pycache__, etc.
                     error=f"Directory not found: {search_dir}"
                 )
 
-            # Find matching files
-            matches = list(search_dir.glob(Pattern))
+            # Expand brace patterns like {file1,file2} since Python glob doesn't support them
+            expanded_patterns = self._expand_brace_pattern(Pattern)
+            
+            # Find matching files for all expanded patterns
+            matches = []
+            for pattern in expanded_patterns:
+                try:
+                    pattern_matches = list(search_dir.glob(pattern))
+                    matches.extend(pattern_matches)
+                except Exception as e:
+                    # If a pattern fails, log it but continue with others
+                    pass
+            
+            # Remove duplicates while preserving order
+            seen = set()
+            unique_matches = []
+            for match in matches:
+                if match not in seen:
+                    seen.add(match)
+                    unique_matches.append(match)
+            matches = unique_matches
 
             # Sort by modification time (most recent first)
             matches.sort(key=lambda p: p.stat().st_mtime, reverse=True)
@@ -142,6 +161,44 @@ Note: Automatically excludes .git, .venv, node_modules, __pycache__, etc.
                 output=None,
                 error=f"Glob failed: {str(e)}"
             )
+
+    def _expand_brace_pattern(self, pattern: str) -> List[str]:
+        """
+        Expand brace patterns like {a,b,c} into multiple patterns.
+        
+        Examples:
+            **/{file1,file2}.txt -> [**/file1.txt, **/file2.txt]
+            src/{a,b}/**/*.py -> [src/a/**/*.py, src/b/**/*.py]
+        
+        Args:
+            pattern: Pattern potentially containing braces
+            
+        Returns:
+            List of expanded patterns
+        """
+        import re
+        
+        # Find all brace groups in the pattern
+        brace_pattern = r'\{([^}]+)\}'
+        match = re.search(brace_pattern, pattern)
+        
+        if not match:
+            # No braces, return as-is
+            return [pattern]
+        
+        # Extract the options inside braces
+        options = match.group(1).split(',')
+        options = [opt.strip() for opt in options]
+        
+        # Generate patterns by substituting each option
+        patterns = []
+        for option in options:
+            # Replace first brace group with this option
+            expanded = pattern[:match.start()] + option + pattern[match.end():]
+            # Recursively expand remaining braces
+            patterns.extend(self._expand_brace_pattern(expanded))
+        
+        return patterns
 
     def _generate_no_match_help(self, pattern: str, search_dir: Path) -> str:
         """
