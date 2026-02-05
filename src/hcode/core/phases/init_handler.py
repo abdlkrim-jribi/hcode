@@ -154,31 +154,43 @@ class InitHandler:
 
         parts: List[str] = []
 
-        # ── 1. Directory tree (2 levels) ─────────────────────────
+        # ── 1. Directory tree (Recursive up to depth 4) ──────────
         tree_lines: List[str] = []
+        
+        def _list_tree(path: Path, prefix: str = "", current_depth: int = 0, max_depth: int = 4):
+            if current_depth >= max_depth:
+                return
+                
+            try:
+                # Sort: Directories first, then files
+                items = sorted(path.iterdir(), key=lambda x: (not x.is_dir(), x.name.lower()))
+                
+                for i, item in enumerate(items):
+                    name = item.name
+                    
+                    # Skip excluded items
+                    if name in _EXCLUDE or (name.startswith('.') and name not in ('.env.example', '.hcode', '.hcoderc')):
+                        continue
+                        
+                    is_last = (i == len(items) - 1)
+                    # Visual branch characters could be used, but simple indentation is token-efficient
+                    # using 2 spaces per level
+                    indent = "  " * current_depth
+                    
+                    if item.is_dir():
+                        tree_lines.append(f"{indent}{name}/")
+                        _list_tree(item, prefix, current_depth + 1, max_depth)
+                    else:
+                        tree_lines.append(f"{indent}{name}")
+                        
+            except OSError:
+                tree_lines.append(f"{prefix}  (access denied)")
+
         try:
-            for item in sorted(working_dir.iterdir()):
-                name = item.name
-                if name in _EXCLUDE or (
-                    name.startswith('.')
-                    and name not in ('.env.example', '.hcode', '.hcoderc')
-                ):
-                    continue
-                if item.is_dir():
-                    tree_lines.append(f"  {name}/")
-                    try:
-                        for sub in sorted(item.iterdir()):
-                            if sub.name.startswith('.') or sub.name in _EXCLUDE:
-                                continue
-                            tree_lines.append(
-                                f"    {sub.name}{'/' if sub.is_dir() else ''}"
-                            )
-                    except OSError:
-                        pass
-                else:
-                    tree_lines.append(f"  {name}")
-        except OSError:
-            tree_lines.append("  (could not list root)")
+            _list_tree(working_dir)
+        except Exception as e:
+            tree_lines.append(f"(Error listing tree: {e})")
+            
         parts.append("### Directory Structure\n" + "\n".join(tree_lines))
 
         # ── 2. Package definition (first one found) ─────────────
@@ -390,7 +402,7 @@ class InitHandler:
                 prompt=prompt,
                 context=context,
                 system_prompt=system_prompt,
-                max_rounds=18,  # 8 deep reading + 5 synthesis + 5 write/buffer
+                max_rounds=24,  # 12 deep reading + 8 synthesis + 4 write/buffer
             )
             
             # End thinking display
@@ -433,11 +445,20 @@ class InitHandler:
         """
         # Try to load from core_prompts
         try:
-            prompt_path = Path(__file__).parent.parent / "config" / "core_prompts" / "core" / "init_analysis_prompt.md"
+            # init_handler.py is in src/hcode/core/phases/
+            # We need to go up 3 levels to get to src/hcode/, then into config/
+            prompt_path = Path(__file__).parent.parent.parent / "config" / "core_prompts" / "core" / "init_analysis_prompt.md"
+            
+            logger.info(f"[init] Loading prompt from: {prompt_path}")
+            logger.info(f"[init] Prompt exists: {prompt_path.exists()}")
             
             if prompt_path.exists():
                 with open(prompt_path, 'r', encoding='utf-8') as f:
-                    return f.read()
+                    content = f.read()
+                    logger.info(f"[init] Successfully loaded prompt ({len(content)} chars)")
+                    return content
+            else:
+                logger.warning(f"[init] Prompt file not found at: {prompt_path}")
         except Exception as e:
             logger.warning(f"Failed to load init_analysis_prompt.md: {e}")
         
@@ -498,32 +519,79 @@ Be thorough, use tools effectively, and provide specific paths and examples."""
             logger.warning(f"Failed to load core prompts: {e}")
             system_base = "You are Hcode, an AI coding assistant."
         
-        # Add init-specific instructions (concise for OSS models)
+    
+        # Add init-specific instructions (forceful for OSS models)
         init_instructions = f"""
 
-## INIT MODE: Generate .hcode/hcode.md
+## 🚨 INIT MODE: Multi-Round Codebase Analysis
 
 Working directory: {context.working_dir}
 
-**Process:**
-1. Phase 1 (rounds 1-8): Deep Code Reading
-2. Phase 2 (rounds 9-13): Synthesis & Architecture
-3. Phase 3 (round 14+): Write .hcode/hcode.md
+**CRITICAL PROTOCOL - YOU MUST FOLLOW THIS EXACTLY:**
 
-**CRITICAL:** At round 14+, output Write tool JSON:
-```json
-{{"tool": "Write", "arguments": {{"TargetFile": ".hcode/hcode.md", "CodeContent": "[content]"}}}}
+### Phase Structure (24 rounds total)
+- **Rounds 1-12**: DEEP READING ONLY - Use Read, Glob, Grep tools to explore
+- **Rounds 13-20**: SYNTHESIS ONLY - Think about architecture, no new reads
+- **Round 21+**: GENERATION - Use Write tool to create .hcode/hcode.md
+
+### Rules for Each Phase
+
+**Phase 1 (Rounds 1-12): Deep Reading**
+- ❌ DO NOT write hcode.md yet
+- ✅ DO use Read, Glob, Grep to explore the codebase
+- ✅ DO summarize what you learned after each read
+- ✅ DO focus on understanding the system architecture
+
+**Phase 2 (Rounds 13-20): Synthesis**
+- ❌ DO NOT write hcode.md yet
+- ❌ DO NOT read new files
+- ✅ DO synthesize patterns, architecture, and conventions
+- ✅ DO prepare your mental model for documentation
+
+**Phase 3 (Round 21+): Generation**
+- ✅ NOW you can write hcode.md
+- ⚠️ YOU MUST use the Write tool in JSON format
+- ❌ DO NOT output markdown text directly
+
+### CRITICAL: How to Output hcode.md
+
+**WRONG** (will fail):
+```markdown
+# Project Name
+...
 ```
 
-Begin Phase 1 now."""
-        
+**CORRECT** (required):
+```json
+{{"tool": "Write", "arguments": {{"TargetFile": ".hcode/hcode.md", "CodeContent": "# Project Name\\n..."}}}}
+```
+
+### 🚨 CRITICAL: File Path Verification Protocol
+
+**BEFORE reading any file, you MUST verify it exists using Glob or LS.**
+
+**NEVER assume file paths based on:**
+- Naming conventions (e.g., "there must be a safety.py")
+- Directory structure assumptions (e.g., "it should be in core/")
+- Common patterns (e.g., "probably in tools/")
+
+**ALWAYS:**
+1. Use Glob to discover files: {{"tool": "Glob", "arguments": {{"Pattern": "**/*keyword*.py"}}}}
+2. Review the actual paths returned
+3. Only then Read the discovered files
+
+**If a Read fails with "File not found", you violated this protocol.**
+
+**YOU ARE CURRENTLY IN ROUND 1 - BEGIN PHASE 1 (DEEP READING)**
+"""
+    
         return system_base + init_instructions
     
     def _get_current_phase(self, round_num: int) -> str:
         """Determine current phase based on round number."""
-        if round_num < 8:
+        if round_num < 12:
             return "DEEP_READING"
-        elif round_num < 13:
+        elif round_num < 20:
             return "SYNTHESIS"
         else:
             return "GENERATION"
@@ -533,11 +601,11 @@ Begin Phase 1 now."""
         phase = self._get_current_phase(round_num)
 
         if phase == "DEEP_READING":
-            remaining = 8 - round_num
-            return f"📍 **Phase 1: Deep Reading** (Round {round_num + 1}/8) - {remaining} rounds left to read key source files"
+            remaining = 12 - round_num
+            return f"📍 **Phase 1: Deep Reading** (Round {round_num + 1}/12) - {remaining} rounds left to read key source files"
         elif phase == "SYNTHESIS":
-            remaining = 13 - round_num
-            return f"📍 **Phase 2: Synthesis** (Round {round_num + 1}/13) - {remaining} rounds left to synthesize architecture"
+            remaining = 20 - round_num
+            return f"📍 **Phase 2: Synthesis** (Round {round_num + 1}/20) - {remaining} rounds left to synthesize architecture"
         else:
             return f"📍 **Phase 3: GENERATION** (Round {round_num + 1}) - 🚨 OUTPUT WRITE TOOL JSON NOW"
     
@@ -568,6 +636,7 @@ Begin Phase 1 now."""
         import json
         
         all_tool_results = []
+        synthesis_buffer = []
         last_response = ""
         
         # Start analysis loop
@@ -584,7 +653,7 @@ Begin Phase 1 now."""
                     messages=messages,
                     system_prompt=system_prompt,
                     temperature=0.7,
-                    max_tokens=14000,
+                    max_tokens=16384,
                 )
 
                 # Extract content
@@ -610,13 +679,12 @@ Begin Phase 1 now."""
             logger.info(f"[init] Extracted {len(tool_calls)} tool calls")
 
             if not tool_calls:
-                # No tool calls.  In the generation phase the response
-                # itself might BE the hcode.md content (OSS models that
-                # ignore the Write-tool instruction).  Try extraction
-                # only AFTER confirming no valid tool call was found.
+                # No tool calls.
                 hcode_path = Path(context.working_dir) / ".hcode" / "hcode.md"
-                if round_num >= 13 and self._looks_like_markdown_content(last_response):
-                    logger.info("[init] Round 13+ no tool calls but markdown detected — fallback extraction")
+                
+                # Check for direct markdown generation in generation phase (Round 20+)
+                if round_num >= 20 and self._looks_like_markdown_content(last_response):
+                    logger.info("[init] Round 20+ no tool calls but markdown detected — fallback extraction")
                     extracted = self._extract_hcode_from_text(last_response)
                     if extracted:
                         try:
@@ -627,7 +695,67 @@ Begin Phase 1 now."""
                             break
                         except Exception as write_err:
                             logger.error(f"Failed to save extracted hcode.md: {write_err}")
-                # No tool calls and no successful extraction — agent is done
+                
+                # Valid text output handling
+                phase = self._get_current_phase(round_num)
+                
+                # PHASE 1: Text output is a distraction (should be reading) -> WARNING
+                if round_num < 20 and phase == "DEEP_READING":
+                    logger.warning(f"[init] Round {round_num + 1}: Agent output text instead of exploring (Protocol Violation)")
+                    reminder_msg = f"""
+🚨 **PROTOCOL VIOLATION DETECTED**
+
+You are in **Phase 1: Deep Reading** (Round {round_num + 1}/12).
+
+**You MUST use tools to explore the codebase:**
+- Use `Glob` to find files
+- Use `Read` to understand code
+
+**DO NOT write documentation yet.**
+Continue with tool calls in JSON format.
+"""
+                    messages.append(Message(role="assistant", content=last_response))
+                    messages.append(Message(role="user", content=reminder_msg))
+                    continue
+
+                # PHASE 2: Text output is valid synthesis -> BUFFER & CONTINUE
+                elif round_num < 20 and phase == "SYNTHESIS":
+                    logger.info(f"[init] Round {round_num + 1}: Synthesis step recorded")
+                    
+                    # Capture synthesis content
+                    synthesis_buffer.append(f"## Synthesis (Round {round_num+1})\n\n{last_response}")
+                    
+                    remaining = 20 - round_num
+                    reminder_msg = f"""
+✅ **Synthesis Recorded** (Round {round_num + 1}/20)
+
+Excellent. I have captured your synthesis.
+You have {remaining} rounds left in Phase 2.
+
+**Continue synthesizing architecture and patterns.** 
+Do not write the final file yet.
+"""
+                    messages.append(Message(role="assistant", content=last_response))
+                    messages.append(Message(role="user", content=reminder_msg))
+                    continue
+                
+                # PHASE 3 (Round 20+): Text output without Write tool -> ERROR & RETRY (Do not break!)
+                elif round_num >= 20:
+                    logger.warning(f"[init] Round {round_num + 1}: Text output in generation phase (Missing Write Tool)")
+                    reminder_msg = """
+🚨 **GENERATION ERROR**
+
+You output text but failed to use the `Write` tool.
+You are in **Phase 3: Generation**.
+
+**You MUST use the `Write` tool to create `.hcode/hcode.md`.**
+Output the JSON tool call now.
+"""
+                    messages.append(Message(role="assistant", content=last_response))
+                    messages.append(Message(role="user", content=reminder_msg))
+                    continue
+                
+                # Should not reach here if logic is correct, but safe break
                 break
 
             # Execute tools
@@ -645,18 +773,18 @@ Begin Phase 1 now."""
 
             # ── Feed results back with phase-aware reminder ────
             phase_msg = self._get_phase_message(round_num)
-            results_feedback = self._format_tool_results(tool_results)
+            results_feedback = self._format_tool_results_enhanced(tool_results, context)
 
             # Check if Write tool was called
             write_tool_called = any(tc.get("tool", "").lower() in ["write", "writetool"] for tc in tool_calls)
 
             # Build reminder based on phase
             reminder = ""
-            if round_num == 7:
+            if round_num == 12:
                 reminder = "\n\n➡️ **Next: Phase 2 - Synthesis.** Synthesize architecture, module interactions, and conventions from what you have read."
-            elif round_num == 12:
+            elif round_num == 20:
                 reminder = "\n\n➡️ **Next: Phase 3 - WRITE .hcode/hcode.md.** Output Write tool JSON in your next response."
-            elif round_num >= 13 and not write_tool_called:
+            elif round_num >= 20 and not write_tool_called:
                 reminder = """
 
 🚨 **URGENT: PHASE 3 (FINAL PHASE)**
@@ -680,11 +808,18 @@ Example:
 
         # FALLBACK: If file doesn't exist, try to extract it from the agent's text output
         if not hcode_path.exists():
-             logger.info("[init] hcode.md not found via tool. Attempting to extract from response text...")
+             logger.info("[init] hcode.md not found via tool. Attempting fallback...")
+             
+             # 1. Try extracting from last response
              extracted_content = self._extract_hcode_from_text(last_response)
-
+             
+             # 2. If that failed, check if we have a synthesis buffer
+             if not extracted_content and synthesis_buffer:
+                 logger.info(f"[init] Using {len(synthesis_buffer)} buffered synthesis blocks as fallback")
+                 extracted_content = "# Hcode Analysis (Synthesized)\n\n" + "\n\n".join(synthesis_buffer)
+                 
              if not extracted_content and len(messages) > 1:
-                 # Check the last assistant message in history if current response is empty/short
+                 # 3. Check the last assistant message in history
                  last_assistant_msg = next((m.content for m in reversed(messages) if m.role == "assistant"), "")
                  extracted_content = self._extract_hcode_from_text(last_assistant_msg)
 
@@ -1005,5 +1140,81 @@ DO IT NOW!"""
                 parts.append(f"[{tool}] Success:\n{output}")
             else:
                 parts.append(f"[{tool}] Failed: {error}")
+        
+        return "\n\n".join(parts) if parts else "No tool results."
+    
+    def _format_tool_results_enhanced(self, results: List[Dict[str, Any]], context: AgentContext) -> str:
+        """
+        Format tool results with enhanced feedback and validation.
+        
+        Provides clearer success/failure messages and warns about common mistakes.
+        """
+        from pathlib import Path
+        
+        parts = []
+        for r in results:
+            tool = r.get('tool', 'unknown')
+            success = r.get('success', False)
+            output = str(r.get('output', ''))[:2000]
+            error = r.get('error', '')
+            
+            # Format based on tool type
+            if tool.lower() in ['glob', 'globtool', 'smartglob']:
+                if success:
+                    # Check if output indicates no files found
+                    if 'No files' in output or 'no matches' in output.lower():
+                        parts.append(f"[{tool}] ⚠️ No files matched pattern\n{output}")
+                    else:
+                        parts.append(f"[{tool}] ✓ Success:\n{output}")
+                else:
+                    parts.append(f"[{tool}] ✗ Failed: {error}")
+                    
+            elif tool.lower() in ['read', 'readtool']:
+                if success:
+                    parts.append(f"[{tool}] ✓ File read successfully:\n{output}")
+                else:
+                    # Provide helpful guidance for file not found errors
+                    if 'not found' in error.lower() or 'does not exist' in error.lower():
+                        # Extract the attempted path from the error
+                        attempted_path = error.split(':')[-1].strip() if ':' in error else "unknown"
+                        
+                        parts.append(f"""[{tool}] ✗ File not found: {error}
+
+🚨 **CRITICAL ERROR: File Path Hallucination Detected**
+
+You attempted to read a file that doesn't exist. This violates the tool usage protocol.
+
+**What you did wrong:**
+- Assumed a file path without verification
+- Did not use Glob or LS to discover the actual file structure
+
+**Correct workflow:**
+1. Use Glob to discover files: {{"tool": "Glob", "arguments": {{"Pattern": "**/*safety*.py"}}}}
+2. Review the results to find the actual path
+3. Then Read the discovered file with its absolute path
+
+**DO NOT assume file paths based on conventions. ALWAYS verify first with Glob or LS.**
+""")
+                    else:
+                        parts.append(f"[{tool}] ✗ Failed: {error}")
+                        
+            elif tool.lower() in ['ls', 'lstool']:
+                if success:
+                    parts.append(f"[{tool}] ✓ Directory listed:\n{output}")
+                else:
+                    parts.append(f"[{tool}] ✗ Failed: {error}")
+                    
+            elif tool.lower() in ['write', 'writetool']:
+                if success:
+                    parts.append(f"[{tool}] ✓ File written successfully:\n{output}")
+                else:
+                    parts.append(f"[{tool}] ✗ Failed: {error}")
+                    
+            else:
+                # Generic formatting for other tools
+                if success:
+                    parts.append(f"[{tool}] Success:\n{output}")
+                else:
+                    parts.append(f"[{tool}] Failed: {error}")
         
         return "\n\n".join(parts) if parts else "No tool results."

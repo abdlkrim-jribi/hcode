@@ -155,7 +155,9 @@ Use a more specific pattern to see all results.
             Formatted output string
         """
         if not paths:
-            return "No files found"
+            # This means all files were filtered out or no files matched
+            # The caller should handle this distinction
+            return "No files to display (all filtered or no matches)"
 
         # Convert to relative paths
         relative_paths = []

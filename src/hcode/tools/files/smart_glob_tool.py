@@ -130,10 +130,15 @@ Note: Automatically excludes .git, .venv, node_modules, __pycache__, etc.
             if warning:
                 output = warning + "\n" + output
 
-            # Provide helpful message if no matches
-            if not filtered:
+            # Provide helpful message if no matches at all
+            # Check original matches, not filtered (filtered might be empty due to exclusions)
+            if not matches:
                 help_msg = self._generate_no_match_help(Pattern, search_dir)
                 output = help_msg
+            elif not filtered:
+                # Files exist but all were filtered out
+                output = f"Found {len(matches)} file(s) matching '{Pattern}', but all were excluded by filters (e.g., __pycache__, .venv, etc.)\\n\\n"
+                output += "Try a more specific pattern or search in a different directory."
 
             # Display with Hcode UI
             try:
