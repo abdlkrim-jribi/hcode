@@ -106,7 +106,7 @@ The module should follow best practices:
             "approach": "Create module with three functions, tests, and README"
         }
 
-        task_content = handler._create_task_md_template(complex_context, analysis_insights)
+        task_content = handler._create_fallback_task_md(complex_context, analysis_insights)
 
         # Verify checkbox format with IDs
         assert "- [" in task_content
@@ -115,8 +115,8 @@ The module should follow best practices:
         # Verify task breakdown
         assert "# Task" in task_content
         assert "## Subtasks" in task_content
-        assert "Analyze requirements" in task_content
-        assert "Research codebase" in task_content
+        assert "Implement required changes" in task_content
+        assert "Verify implementation works" in task_content
 
     def test_execution_handler_enhanced_prompt(self, artifact_manager, complex_context):
         """Test that execution handler builds enhanced prompts with thinking."""
@@ -249,10 +249,10 @@ Test notes
             "approach": "Create module with functions and tests",
         }
 
-        task_content = handler._create_task_md_template(complex_context, analysis_insights)
+        task_content = handler._create_fallback_task_md(complex_context, analysis_insights)
         artifact_manager.create_artifact("task.md", task_content, complex_context)
 
-        plan_content = handler._create_plan_md_template(complex_context, analysis_insights)
+        plan_content = handler._create_fallback_implementation_plan(complex_context, analysis_insights)
         artifact_manager.create_artifact("implementation_plan.md", plan_content, complex_context)
 
         # Verify both exist

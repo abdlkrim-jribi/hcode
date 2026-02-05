@@ -77,32 +77,32 @@ class VerificationPhaseHandler(BasePhaseHandler):
         try:
             self._display("Verifying implementation...", style="info")
 
-            # Start verification thinking display
-            if self._hcode_display:
-                self._hcode_display.start_thinking()
+            # Show which files will be verified
+            non_artifact_files = self._get_non_artifact_files(context)
+            if non_artifact_files:
+                self._display(f"  Files to verify ({len(non_artifact_files)}):", style="thinking")
+                for f in non_artifact_files:
+                    self._display(f"    - {f}", style="thinking")
 
             # Load implementation plan to find test strategy
             plan_content = self.artifact_manager.load_artifact(
                 "implementation_plan.md", context
             )
 
-            # Run tests (if specified)
+            # Run tests / compile checks (each command is displayed as it runs)
             test_results = await self._run_tests(context, plan_content)
 
-            # End thinking display
-            if self._hcode_display:
-                self._hcode_display.end_thinking()
-
-            # Display test results with modern UI
+            # Display final test results summary
             if test_results.get("tests_run"):
                 passed = test_results.get("tests_passed", 0)
                 failed = test_results.get("tests_failed", 0)
+                commands_run = len(test_results.get("commands_executed", []))
                 if failed == 0:
-                    self._display(f"Tests: {passed} passed, {failed} failed", style="success")
+                    self._display(f"Verification: {commands_run} check(s) passed", style="success")
                 else:
-                    self._display(f"Tests: {passed} passed, {failed} failed", style="error")
+                    self._display(f"Verification: {passed} passed, {failed} failed", style="error")
             else:
-                self._display("No tests were run", style="thinking")
+                self._display("No verification checks were run", style="thinking")
 
             # Create walkthrough
             walkthrough_content = self._create_walkthrough(
@@ -119,15 +119,18 @@ class VerificationPhaseHandler(BasePhaseHandler):
             if self._hcode_display and FileAction:
                 self._hcode_display.track_file(".hcode/walkthrough.md", FileAction.CREATED)
 
-            # Show summary with modern UI
+            # Show summary
             self._display("Implementation Summary:", style="info")
             self._display(f"  - Files modified: {len(context.modified_files)}", style="default")
             self._display(f"  - Actions completed: {len(context.completed_actions)}", style="default")
 
-            # Display modified files list if HcodeDisplay available
-            if self._hcode_display and context.modified_files and FileAction:
-                for file_path in context.modified_files:
-                    self._hcode_display.track_file(file_path, FileAction.EDITED)
+            # Display modified files list
+            if context.modified_files:
+                for file_path in non_artifact_files:
+                    self._display(f"  - {file_path}", style="default")
+                if self._hcode_display and FileAction:
+                    for file_path in context.modified_files:
+                        self._hcode_display.track_file(file_path, FileAction.EDITED)
 
             # Validate artifact
             valid, error = self.validate_artifacts(context)
@@ -164,27 +167,46 @@ class VerificationPhaseHandler(BasePhaseHandler):
                 error=str(e),
             )
 
+    def _get_non_artifact_files(self, context: AgentContext) -> List[str]:
+        """
+        Get modified files excluding .hcode artifacts.
+
+        Args:
+            context: Current agent context
+
+        Returns:
+            List of non-artifact modified file paths
+        """
+        return [
+            f for f in context.modified_files
+            if ".hcode" not in f
+            and not f.endswith("task.md")
+            and not f.endswith("implementation_plan.md")
+            and not f.endswith("walkthrough.md")
+        ]
+
     async def _run_tests(
         self,
         context: AgentContext,
         plan_content: Optional[str]
     ) -> Dict[str, Any]:
         """
-        Run tests specified in implementation plan.
+        Run verification commands with scope-aware strategy.
 
-        Parses the plan for test commands and executes them.
+        Strategy:
+        - 1-2 modified files:  compile-check each .py file, then run it directly.
+          Full test suite is skipped (it's unrelated to the change).
+        - 3+ modified files:   run the full test suite (pytest / npm test etc.)
+          as specified in the plan or auto-detected.
+
+        This prevents a single new script from triggering 700+ unrelated tests.
 
         Args:
             context: Current agent context
             plan_content: Implementation plan content
 
         Returns:
-            Dict with test results including:
-            - tests_run: bool
-            - tests_passed: int
-            - tests_failed: int
-            - output: str
-            - commands_executed: List[str]
+            Dict with test results
         """
         results = {
             "tests_run": False,
@@ -194,46 +216,77 @@ class VerificationPhaseHandler(BasePhaseHandler):
             "commands_executed": [],
         }
 
-        # Extract test commands from plan
-        test_commands = self._extract_test_commands(plan_content)
+        non_artifact_files = self._get_non_artifact_files(context)
+        python_files = [f for f in non_artifact_files if f.endswith(".py")]
 
-        if not test_commands:
-            # Try to auto-detect test commands based on project structure
-            test_commands = self._detect_test_commands(context)
+        # ── Narrow scope: 1-2 files → compile + run only ──
+        if len(non_artifact_files) <= 2:
+            test_commands = []
 
-        if not test_commands:
-            results["output"] = "No test commands found in plan or project."
-            return results
+            for py_file in python_files:
+                # Syntax check first
+                test_commands.append(f'python -m py_compile "{py_file}"')
+                # Then run it (short timeout – just verify it doesn't crash)
+                test_commands.append(f'python "{py_file}"')
 
-        # Execute each test command
+            if not test_commands and non_artifact_files:
+                # Non-Python files – just note them, no automated verification
+                results["output"] = (
+                    "Verification: non-Python files modified, no automated check.\n"
+                    "Files: " + ", ".join(non_artifact_files)
+                )
+                return results
+
+            if not test_commands:
+                results["output"] = "No files to verify."
+                return results
+
+        # ── Wide scope: 3+ files → full test suite ──
+        else:
+            # Honor explicit test commands from the plan first
+            test_commands = self._extract_test_commands(plan_content)
+            if not test_commands:
+                test_commands = self._detect_test_commands(context)
+
+            if not test_commands:
+                # Fallback: still compile-check all Python files
+                test_commands = [f'python -m py_compile "{f}"' for f in python_files]
+
+        # Execute each command
         all_output = []
         total_passed = 0
         total_failed = 0
 
         for command in test_commands:
-            logger.info(f"Running test command: {command}")
+            logger.info(f"Running verification command: {command}")
             results["commands_executed"].append(command)
+            self._display(f"  $ {command}", style="thinking")
 
             try:
-                # Execute test command
                 cmd_result = await self._execute_command(command, context.working_dir)
                 all_output.append(f"$ {command}")
                 all_output.append(cmd_result["output"])
                 all_output.append("")
 
-                # Parse test results from output
                 passed, failed = self._parse_test_output(cmd_result["output"], command)
                 total_passed += passed
                 total_failed += failed
 
-                if not cmd_result["success"]:
+                if cmd_result["success"]:
+                    self._display(f"      [OK]", style="success")
+                else:
+                    self._display(f"      [FAIL] exit code {cmd_result['exit_code']}", style="error")
                     all_output.append(f"[Command exited with code {cmd_result['exit_code']}]")
+                    # For compile checks, a failure is a real error
+                    if "py_compile" in command:
+                        total_failed += 1
 
             except Exception as e:
-                logger.error(f"Failed to run test command '{command}': {e}")
+                logger.error(f"Failed to run command '{command}': {e}")
                 all_output.append(f"$ {command}")
                 all_output.append(f"[Error: {e}]")
                 all_output.append("")
+                self._display(f"      [ERROR] {e}", style="error")
 
         results["tests_run"] = len(results["commands_executed"]) > 0
         results["tests_passed"] = total_passed

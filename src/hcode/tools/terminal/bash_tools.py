@@ -279,33 +279,53 @@ class BashTool(BaseTool):
             )
 
         try:
-            if is_windows:
-                # On Windows, use cmd.exe explicitly for better compatibility
-                process = await asyncio.create_subprocess_shell(
-                    command,
-                    stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.PIPE,
-                    cwd=str(self.root_dir),
-                    shell=True,
-                )
-            else:
-                # On Unix, use bash
-                process = await asyncio.create_subprocess_shell(
-                    command,
-                    stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.PIPE,
-                    cwd=str(self.root_dir),
-                    shell=True,
-                )
-
-            # Wait for completion with timeout
-            stdout_data, stderr_data = await asyncio.wait_for(
-                process.communicate(), timeout=timeout
+            process = await asyncio.create_subprocess_shell(
+                command,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+                cwd=str(self.root_dir),
+                shell=True,
             )
 
-            # Decode output with fallback encodings
-            stdout = self._decode_output(stdout_data)
-            stderr = self._decode_output(stderr_data)
+            # Get a Rich console for real-time streaming output
+            stream_console = None
+            try:
+                from hcode.ui import get_console
+                stream_console = get_console()
+            except ImportError:
+                pass
+
+            # Stream stdout line-by-line in real-time
+            stdout_lines: list = []
+            stderr_lines: list = []
+
+            async def _stream_stdout():
+                while True:
+                    line = await process.stdout.readline()
+                    if not line:
+                        break
+                    decoded = self._decode_output(line)
+                    stdout_lines.append(decoded)
+                    if stream_console:
+                        stream_console.print(f"    {decoded.rstrip()}", style="dim")
+
+            async def _stream_stderr():
+                while True:
+                    line = await process.stderr.readline()
+                    if not line:
+                        break
+                    decoded = self._decode_output(line)
+                    stderr_lines.append(decoded)
+
+            # Run both stream readers with timeout
+            await asyncio.wait_for(
+                asyncio.gather(_stream_stdout(), _stream_stderr()),
+                timeout=timeout,
+            )
+            await process.wait()
+
+            stdout = "".join(stdout_lines)
+            stderr = "".join(stderr_lines)
             exit_code = process.returncode
             duration = time.time() - start_time
 

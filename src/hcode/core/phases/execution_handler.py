@@ -127,30 +127,15 @@ class ExecutionPhaseHandler(BasePhaseHandler):
                 if self._hcode_display:
                     self._hcode_display.end_thinking()
 
-                # DISPLAY: Show the AI's execution response to user
-                if response_text and len(response_text) > 50:
-                    # Extract and show text portions
-                    text_response = self._extract_text_response(response_text)
-                    if text_response:
-                        self._display(text_response, style="default")
-                    # Show in thinking block for context
-                    if self._hcode_display:
-                        self._hcode_display.display_thinking_block(response_text, phase="EXECUTION")
-
-                # Show tool execution summary with modern UI
-                if tool_results:
+                # Track modified files with HcodeDisplay
+                if tool_results and self._hcode_display and FileAction:
                     for result in tool_results:
-                        tool_name = result.get('tool', 'unknown')
                         if result.get("success"):
-                            self._display(f"  [OK] {tool_name}", style="success")
-                            # Track modified files using FileAction enum
-                            if tool_name.lower() in ['write', 'edit', 'writetool', 'edittool']:
-                                file_path = result.get('file_path', '')
-                                if file_path and self._hcode_display and FileAction:
-                                    action = FileAction.CREATED if tool_name.lower() in ['write', 'writetool'] else FileAction.EDITED
-                                    self._hcode_display.track_file(file_path, action)
-                        else:
-                            self._display(f"  [FAIL] {tool_name}", style="error")
+                            tool_name = result.get('tool', '').lower()
+                            file_path = result.get('file_path', '')
+                            if file_path and tool_name in ['write', 'edit', 'writetool', 'edittool']:
+                                action = FileAction.CREATED if tool_name in ['write', 'writetool'] else FileAction.EDITED
+                                self._hcode_display.track_file(file_path, action)
 
             # Update task.md with progress after tool execution
             if tool_results:
@@ -256,9 +241,12 @@ When you need to use a tool, output JSON in this EXACT format inside a code bloc
 ```
 
 **Available tools:**
+- LS: `{{"tool": "LS", "arguments": {{"DirectoryPath": "."}}}}`
 - Read: `{{"tool": "Read", "arguments": {{"AbsolutePath": "/full/path"}}}}`
 - Write: `{{"tool": "Write", "arguments": {{"TargetFile": "/full/path", "CodeContent": "content"}}}}`
 - Edit: `{{"tool": "Edit", "arguments": {{"TargetFile": "/path", "TargetContent": "old text", "ReplacementContent": "new text"}}}}`
+- SmartGlob: `{{"tool": "SmartGlob", "arguments": {{"Pattern": "**/*.py"}}}}`
+- Grep: `{{"tool": "Grep", "arguments": {{"Query": "pattern", "SearchPath": "."}}}}`
 - Bash: `{{"tool": "Bash", "arguments": {{"CommandLine": "command", "description": "what it does"}}}}`
 
 ### Example Good Response:

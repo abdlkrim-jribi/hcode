@@ -273,35 +273,38 @@ CRITICAL RULES:
         """
         Extract text portions from response (excluding JSON tool calls).
 
-        This helps display the conversational parts of the AI response
-        while tool calls are processed separately.
+        Removes code blocks (which contain tool calls) and thinking/analysis
+        tags, keeping only the conversational text.
 
         Args:
             response: Full AI response text
 
         Returns:
-            Text portions without JSON code blocks
+            Text portions without JSON code blocks or thinking blocks
         """
         if not response:
             return ""
 
-        # Remove JSON code blocks
-        text = re.sub(r'```(?:json)?\s*\{[^`]*\}\s*```', '', response, flags=re.DOTALL)
+        # Remove all ```...``` code blocks (tool calls live in these)
+        text = re.sub(r'```[^\n]*\n?.*?```', '', response, flags=re.DOTALL)
 
-        # Remove inline JSON objects
-        text = re.sub(r'\{[^{}]*"tool"\s*:[^{}]*\}', '', text, flags=re.DOTALL)
+        # Remove <thinking>...</thinking> blocks
+        text = re.sub(r'<thinking>.*?</thinking>', '', text, flags=re.DOTALL)
+
+        # Remove <analysis>...</analysis> blocks
+        text = re.sub(r'<analysis>.*?</analysis>', '', text, flags=re.DOTALL)
 
         # Clean up multiple newlines
         text = re.sub(r'\n{3,}', '\n\n', text)
 
-        # Strip and return
         return text.strip()
 
     def _extract_tool_calls(self, response: str) -> List[Dict[str, Any]]:
         """
         Extract tool calls from response.
 
-        Parses both native tool calls and JSON-formatted tool calls from text.
+        Primary path: parses JSON from ```json code blocks (handles nested objects).
+        Fallback: brace-balanced extraction for inline JSON tool calls.
 
         Args:
             response: AI response text
@@ -311,14 +314,17 @@ CRITICAL RULES:
         """
         tool_calls = []
 
-        # Pattern 1: JSON code blocks with tool calls
-        json_block_pattern = r'```(?:json)?\s*(\{[^`]*?"tool"[^`]*?\})\s*```'
-        json_blocks = re.findall(json_block_pattern, response, re.DOTALL | re.IGNORECASE)
+        # Primary: Extract content from all code blocks, parse as JSON
+        code_block_pattern = r'```(?:json)?\s*\n?(.*?)\n?\s*```'
+        code_blocks = re.findall(code_block_pattern, response, re.DOTALL)
 
-        for block in json_blocks:
+        for block in code_blocks:
+            block = block.strip()
+            if not block or not block.startswith('{'):
+                continue
             try:
                 parsed = json.loads(block)
-                if "tool" in parsed:
+                if isinstance(parsed, dict) and "tool" in parsed:
                     tool_calls.append({
                         "tool": parsed.get("tool"),
                         "arguments": parsed.get("arguments", parsed.get("parameters", {}))
@@ -326,30 +332,69 @@ CRITICAL RULES:
             except json.JSONDecodeError:
                 continue
 
-        # Pattern 2: Inline JSON objects (not in code blocks)
+        # Fallback: brace-balanced extraction for inline JSON (no code blocks)
         if not tool_calls:
-            inline_pattern = r'\{[^{}]*"tool"\s*:\s*"[^"]+"\s*,\s*"(?:arguments|parameters)"\s*:\s*\{[^{}]*\}[^{}]*\}'
-            inline_matches = re.findall(inline_pattern, response, re.DOTALL)
+            tool_calls = self._extract_inline_json_tools(response)
 
-            for match in inline_matches:
-                try:
-                    parsed = json.loads(match)
-                    if "tool" in parsed:
-                        tool_calls.append({
-                            "tool": parsed.get("tool"),
-                            "arguments": parsed.get("arguments", parsed.get("parameters", {}))
-                        })
-                except json.JSONDecodeError:
-                    continue
-
-        # Pattern 3: Look for Write/Edit/Read tool patterns
-        write_pattern = r'(?:Write|Edit|Read)(?:Tool)?\s*\(\s*["\']?([^"\')\s]+)["\']?\s*(?:,|\))'
-        file_matches = re.findall(write_pattern, response)
-
-        # Log extracted tool calls
         if tool_calls:
             logger.debug(f"Extracted {len(tool_calls)} tool calls from response")
 
+        return tool_calls
+
+    def _extract_inline_json_tools(self, text: str) -> List[Dict[str, Any]]:
+        """
+        Extract tool call JSON from inline text using brace-balanced matching.
+
+        Handles nested objects correctly by tracking brace depth and
+        respecting string boundaries.
+
+        Args:
+            text: Response text to search
+
+        Returns:
+            List of parsed tool call dicts
+        """
+        tool_calls = []
+        i = 0
+        while i < len(text):
+            if text[i] == '{':
+                depth = 0
+                in_str = False
+                escaped = False
+                j = i
+                while j < len(text):
+                    c = text[j]
+                    if escaped:
+                        escaped = False
+                        j += 1
+                        continue
+                    if c == '\\' and in_str:
+                        escaped = True
+                        j += 1
+                        continue
+                    if c == '"':
+                        in_str = not in_str
+                    elif not in_str:
+                        if c == '{':
+                            depth += 1
+                        elif c == '}':
+                            depth -= 1
+                            if depth == 0:
+                                candidate = text[i:j + 1]
+                                if '"tool"' in candidate:
+                                    try:
+                                        parsed = json.loads(candidate)
+                                        if isinstance(parsed, dict) and "tool" in parsed:
+                                            tool_calls.append({
+                                                "tool": parsed.get("tool"),
+                                                "arguments": parsed.get("arguments", parsed.get("parameters", {}))
+                                            })
+                                    except json.JSONDecodeError:
+                                        pass
+                                i = j
+                                break
+                    j += 1
+            i += 1
         return tool_calls
 
     async def _execute_tools(
@@ -414,6 +459,20 @@ CRITICAL RULES:
                     if self._hcode_display and file_path and FileAction:
                         action_type = FileAction.CREATED if tool_name.lower() in ['write', 'writetool'] else FileAction.EDITED
                         self._hcode_display.track_file(file_path, action_type)
+
+                    # Detect task.md checkbox completions and display them
+                    if tool_name.lower() in ['edit', 'edittool'] and 'task.md' in str(file_path):
+                        old_text = arguments.get('TargetContent', arguments.get('old_string', ''))
+                        new_text = arguments.get('ReplacementContent', arguments.get('new_string', ''))
+                        if '- [ ]' in old_text and ('- [x]' in new_text or '- [/]' in new_text):
+                            # Extract the task description from the new checkbox line
+                            import re as _re
+                            completed_tasks = _re.findall(r'-\s*\[x\]\s*(.+?)(?:\s*<!--.*?-->)?$', new_text, _re.MULTILINE)
+                            in_progress_tasks = _re.findall(r'-\s*\[/\]\s*(.+?)(?:\s*<!--.*?-->)?$', new_text, _re.MULTILINE)
+                            for task_text in completed_tasks:
+                                self._display(f"      ✓ {task_text.strip()}", style="success")
+                            for task_text in in_progress_tasks:
+                                self._display(f"      ⟳ {task_text.strip()}", style="info")
                 else:
                     error_msg = result.error if hasattr(result, 'error') else "Unknown error"
                     self._display(f"      [FAIL] {error_msg}", style="error")
@@ -458,39 +517,141 @@ CRITICAL RULES:
         prompt: str,
         context: AgentContext,
         system_prompt: Optional[str] = None,
+        max_rounds: int = 8,
+        max_tokens: int = 8192,
     ) -> Tuple[str, List[Dict[str, Any]]]:
         """
-        Generate response and execute any tool calls.
+        Generate response and execute tool calls in a multi-turn loop.
 
-        Combines generation, extraction, and execution in one method.
+        Feeds tool execution results back to the AI so it can use the
+        output (e.g. file contents from Read) in subsequent responses.
+        Loops until the AI produces no more tool calls or max_rounds hit.
 
         Args:
             prompt: User prompt
             context: Current agent context
             system_prompt: Optional system prompt override
+            max_rounds: Maximum generation rounds before stopping
+            max_tokens: Maximum tokens per generation call
 
         Returns:
-            Tuple of (response_text, tool_results)
+            Tuple of (last_response_text, all_tool_results)
         """
-        # Generate response
-        logger.info(f"Generating response for {self.phase_name} phase...")
-        response = await self._generate_response(prompt, context, system_prompt)
-        logger.info(f"Generated response length: {len(response) if response else 0}")
+        all_tool_results = []
+        last_response = ""
 
-        # Extract tool calls
-        tool_calls = self._extract_tool_calls(response)
-        logger.info(f"Extracted {len(tool_calls)} tool calls from response")
-        if tool_calls:
+        # Build initial messages with thinking instructions
+        thinking_instructions = self._get_thinking_instructions()
+        messages = [Message(role="user", content=thinking_instructions + prompt)]
+
+        for round_num in range(max_rounds):
+            logger.info(f"[{self.phase_name}] Generation round {round_num + 1}/{max_rounds}...")
+
+            # Call provider
+            try:
+                response = await self.provider.generate_completion(
+                    messages=messages,
+                    system_prompt=system_prompt,
+                    temperature=0.7,
+                    max_tokens=max_tokens,
+                )
+
+                # Extract content from response object
+                if hasattr(response, 'content'):
+                    last_response = response.content
+                elif isinstance(response, dict):
+                    last_response = response.get('content', '')
+                elif isinstance(response, str):
+                    last_response = response
+                else:
+                    last_response = str(response)
+
+            except Exception as e:
+                logger.error(f"Provider call failed on round {round_num + 1}: {e}")
+                self._display(f"Generation error: {e}", style="error")
+                break
+
+            logger.info(f"[{self.phase_name}] Response length: {len(last_response) if last_response else 0}")
+
+            # Display text portions of this response immediately (Claude Code-style)
+            text_portion = self._extract_text_response(last_response)
+            if text_portion and len(text_portion.strip()) > 20:
+                self._display(text_portion, style="default")
+
+            # Extract tool calls from this response
+            tool_calls = self._extract_tool_calls(last_response)
+            logger.info(f"[{self.phase_name}] Extracted {len(tool_calls)} tool calls")
+
+            if not tool_calls:
+                # No tool calls — AI is done, exit loop
+                break
+
+            # Log tool calls for debugging
             for tc in tool_calls:
-                logger.debug(f"  Tool call: {tc.get('tool')} with args: {list(tc.get('arguments', {}).keys())}")
+                logger.debug(f"  Tool: {tc.get('tool')} args: {list(tc.get('arguments', {}).keys())}")
 
-        # Execute tools
-        tool_results = []
-        if tool_calls:
-            logger.info(f"Executing {len(tool_calls)} tool calls...")
+            # Execute extracted tool calls
             tool_results = await self._execute_tools(tool_calls, context)
-            logger.info(f"Tool execution complete, {len(tool_results)} results")
-        else:
-            logger.info("No tool calls to execute")
+            all_tool_results.extend(tool_results)
 
-        return response, tool_results
+            # Add assistant response to message history
+            messages.append(Message(role="assistant", content=last_response))
+
+            # Build context-aware continuation prompt
+            continuation = self._build_continuation_prompt(tool_results, all_tool_results, round_num, context)
+
+            # Format results and feed back to AI as user message
+            results_feedback = self._format_tool_results(tool_results)
+            messages.append(Message(
+                role="user",
+                content=(
+                    f"Tool execution results:\n\n{results_feedback}\n\n"
+                    f"{continuation}"
+                )
+            ))
+
+        return last_response, all_tool_results
+
+    def _build_continuation_prompt(
+        self,
+        round_results: List[Dict[str, Any]],
+        all_results: List[Dict[str, Any]],
+        round_num: int,
+        context: Any = None,
+    ) -> str:
+        """
+        Build a phase-aware continuation message after each tool round.
+
+        Subclasses override for phase-specific steering (e.g. planning
+        pushes the AI to write missing artifacts).
+
+        Default: generic "continue or summarise".
+        """
+        return (
+            "Continue with your task. Output more tool calls if needed, "
+            "or provide a summary if you're done."
+        )
+
+    def _format_tool_results(self, results: List[Dict[str, Any]]) -> str:
+        """
+        Format tool execution results for feeding back to the AI.
+
+        Args:
+            results: List of tool result dicts
+
+        Returns:
+            Formatted string describing each tool's output
+        """
+        parts = []
+        for r in results:
+            tool = r.get('tool', 'unknown')
+            success = r.get('success', False)
+            output = str(r.get('output', ''))[:2000]  # Truncate long outputs
+            error = r.get('error', '')
+
+            if success:
+                parts.append(f"[{tool}] Success:\n{output}")
+            else:
+                parts.append(f"[{tool}] Failed: {error}")
+
+        return "\n\n".join(parts) if parts else "No tool results."

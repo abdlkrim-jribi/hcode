@@ -52,9 +52,144 @@ class PlanningPhaseHandler(BasePhaseHandler):
 
     phase_name = "planning"
 
+    # ──────────────────────────────────────────────────────────
+    # Allowed write targets during the planning phase.
+    # Any Write/Edit to a path outside this set is rejected and
+    # reported back to the AI so it can self-correct.
+    # ──────────────────────────────────────────────────────────
+    _PLANNING_WRITE_ALLOWED = (".hcode/task.md", ".hcode/implementation_plan.md")
+
     def get_required_artifacts(self) -> List[str]:
         """Get artifacts this phase should produce."""
         return ["task.md", "implementation_plan.md"]
+
+    async def _execute_tools(
+        self,
+        tool_calls: List[Dict[str, Any]],
+        context: AgentContext,
+    ) -> List[Dict[str, Any]]:
+        """
+        Planning-phase gate: reject Write/Edit calls that target files
+        outside `.hcode/`.  Read-only tools (Read, LS, SmartGlob, Grep, Bash)
+        pass through unchanged.
+
+        Blocked writes are returned as failed results with a clear message
+        so the multi-turn loop feeds the error back to the AI.
+        """
+        gated_calls = []
+        results = []
+
+        for tc in tool_calls:
+            tool_name = (tc.get("tool") or "").lower()
+            arguments = tc.get("arguments", {})
+
+            # Only gate write-like tools
+            if tool_name in ("write", "writetool"):
+                target = (
+                    arguments.get("TargetFile")
+                    or arguments.get("file_path")
+                    or arguments.get("path")
+                    or ""
+                )
+                # Normalise path separators and check if target ends with an allowed artifact
+                norm_target = target.replace("\\", "/").rstrip("/")
+                allowed = any(norm_target.endswith(a) for a in self._PLANNING_WRITE_ALLOWED)
+                if not allowed:
+                    # Block and record
+                    self._display(
+                        f"  [>] {tc.get('tool')}: {target}  ← BLOCKED (planning scope)",
+                        style="error",
+                    )
+                    results.append({
+                        "tool": tc.get("tool"),
+                        "success": False,
+                        "output": None,
+                        "error": (
+                            f"PLANNING SCOPE VIOLATION: Write to '{target}' is not allowed "
+                            f"during the planning phase. Only .hcode/task.md and "
+                            f".hcode/implementation_plan.md may be written. "
+                            f"Implementation files must be created in the Execution phase."
+                        ),
+                        "file_path": target,
+                    })
+                    logger.warning(f"Blocked planning-phase write to: {target}")
+                    continue  # skip — don't add to gated_calls
+
+            gated_calls.append(tc)
+
+        # Execute the allowed calls via the parent implementation
+        if gated_calls:
+            parent_results = await super()._execute_tools(gated_calls, context)
+            results.extend(parent_results)
+
+        return results
+
+    def _build_continuation_prompt(
+        self,
+        round_results: List[Dict[str, Any]],
+        all_results: List[Dict[str, Any]],
+        round_num: int,
+        context: Any = None,
+    ) -> str:
+        """
+        Planning-phase continuation: inspect what was just written and
+        steer the AI toward the next required action.
+
+        - If neither artifact exists yet  → push to keep exploring OR write task.md
+        - If task.md was just written      → explicitly demand implementation_plan.md next
+        - If both exist                    → tell it to stop
+        """
+        working_dir = context.working_dir if context else "."
+
+        # Scan all results for successful writes to our artifacts
+        wrote_task = any(
+            r.get("success") and "task.md" in str(r.get("file_path", ""))
+            for r in all_results
+        )
+        wrote_plan = any(
+            r.get("success") and "implementation_plan.md" in str(r.get("file_path", ""))
+            for r in all_results
+        )
+
+        if wrote_task and wrote_plan:
+            return (
+                "Both .hcode/task.md and .hcode/implementation_plan.md have been written. "
+                "Planning is complete. Stop here — do not create any more files."
+            )
+
+        if wrote_task and not wrote_plan:
+            return (
+                "✓ task.md has been written.\n\n"
+                "⚠️  implementation_plan.md is STILL MISSING. You MUST write it now.\n"
+                f"Use the Write tool with TargetFile = `{working_dir}/.hcode/implementation_plan.md`.\n"
+                "The plan MUST include:\n"
+                "  - A `# heading` describing the goal\n"
+                "  - `## Approach` — high-level strategy\n"
+                "  - `## Steps` — numbered concrete steps\n"
+                "  - File paths with [NEW] or [MODIFY] markers\n"
+                "  - `## Verification Plan` — exact commands to test\n\n"
+                "Do NOT stop. Write implementation_plan.md NOW."
+            )
+
+        # Neither artifact written yet — check if this is early exploration
+        has_exploration = any(
+            r.get("tool", "").lower() in ("read", "smartglob", "ls", "grep", "bash", "smartglobtool")
+            for r in round_results
+        )
+        if has_exploration and round_num < 3:
+            return (
+                "Good — you've gathered some information. Continue exploring if you need more context, "
+                "but remember you must eventually create BOTH artifacts:\n"
+                f"  1. {working_dir}/.hcode/task.md\n"
+                f"  2. {working_dir}/.hcode/implementation_plan.md\n"
+                "When you have enough understanding, start writing them. Do not stop until both are written."
+            )
+
+        return (
+            "Continue exploring or start creating the planning artifacts. "
+            f"You MUST produce both {working_dir}/.hcode/task.md and {working_dir}/.hcode/implementation_plan.md. "
+            "Do not stop until both are written."
+        )
 
     async def handle(
         self,
@@ -62,19 +197,15 @@ class PlanningPhaseHandler(BasePhaseHandler):
         loop_controller: Any,
     ) -> PhaseResult:
         """
-        Execute planning phase.
+        Execute planning phase — single unified multi-turn exchange.
 
-        Steps:
-        1. Check if artifacts already exist
-        2. If not, perform deep analysis:
-           a. Analyze user requirements
-           b. Research codebase for relevant files
-           c. Identify dependencies and affected components
-        3. Generate task.md with structured breakdown
-        4. Generate implementation_plan.md with concrete steps
-        5. Execute any tool calls from AI response
-        6. Validate artifacts
-        7. Determine if ready to transition
+        The AI does everything in one conversation:
+          Round 1-N  : Explore the codebase (Read, Glob, Grep, LS …)
+          Round N+1  : Write .hcode/task.md
+          Round N+2+ : Write .hcode/implementation_plan.md
+        The continuation prompt steers the AI after each round so it doesn't
+        stop prematurely.  Fallbacks fire only if the AI exhausts max_rounds
+        without producing an artifact.
 
         Args:
             context: Current agent context
@@ -85,141 +216,95 @@ class PlanningPhaseHandler(BasePhaseHandler):
         """
         try:
             artifacts_created = []
-            tool_results = []
-            response = ""
+            analysis_insights: Dict[str, Any] = {}
 
             logger.info(f"Planning phase iteration {context.iteration} for task: {context.task[:50]}...")
 
-            # ALWAYS regenerate artifacts for new tasks - never skip planning
-            # This ensures fresh analysis for each user request
+            # =====================================================================
+            # CLEAN SLATE – delete stale artifacts from previous tasks
+            # =====================================================================
+            for _art in ("task.md", "implementation_plan.md", "walkthrough.md"):
+                _path = self.artifact_manager._get_artifact_path(_art, context)
+                if _path.exists():
+                    _path.unlink()
+                    logger.info(f"Removed stale artifact: {_art}")
 
             # =====================================================================
-            # DEEP ANALYSIS PHASE
-            # Before creating artifacts, deeply understand:
-            # 1. What the user is asking for
-            # 2. What files/components are involved
-            # 3. What the implementation approach should be
+            # PROGRAMMATIC EXPLORATION – ground the prompt with real data
             # =====================================================================
+            exploration_context = self._explore_codebase(context)
+            self._display("Exploring codebase...", style="info")
 
-            # Build deep analysis prompt
-            analysis_prompt = self._build_analysis_prompt(context)
+            # =====================================================================
+            # SINGLE UNIFIED PROMPT – explore then create artifacts
+            # =====================================================================
+            unified_prompt = self._build_unified_planning_prompt(context, exploration_context)
 
-            # Generate AI response for deep analysis
-            analysis_response = ""
-            analysis_insights = {}
+            response = ""
+            tool_results: List[Dict[str, Any]] = []
 
             if self.provider is not None:
-                logger.info("Generating AI response for deep analysis...")
+                self._display("Planning…", style="info")
 
-                # DISPLAY: Show what we're doing using modern UI
-                self._display("Analyzing task requirements...", style="info")
-
-                # Start thinking display if HcodeDisplay available
                 if self._hcode_display:
                     self._hcode_display.start_thinking()
 
-                analysis_response, analysis_tool_results = await self._generate_and_execute(
-                    analysis_prompt,
+                response, tool_results = await self._generate_and_execute(
+                    unified_prompt,
                     context,
-                    system_prompt=self._get_planning_system_prompt(context)
+                    system_prompt=self._get_planning_system_prompt(context),
+                    max_rounds=12,   # generous — exploration + 2 writes + confirmation
+                    max_tokens=8192, # deep thinking needs room
                 )
-                tool_results.extend(analysis_tool_results)
 
-                # End thinking display
                 if self._hcode_display:
                     self._hcode_display.end_thinking()
 
-                # DISPLAY: Show the AI's analysis response to user
-                if analysis_response and len(analysis_response) > 50:
-                    # Display the response - show text portions normally
-                    # Extract text (non-JSON) portions for display
-                    text_response = self._extract_text_response(analysis_response)
-                    if text_response:
-                        self._display(text_response, style="default")
-                    # Also show in thinking block for full context
-                    if self._hcode_display:
-                        self._hcode_display.display_thinking_block(analysis_response, phase="PLANNING")
+                # Track which artifacts the AI actually wrote
+                for result in tool_results:
+                    if not result.get("success"):
+                        continue
+                    fp = str(result.get("file_path", ""))
+                    if "task.md" in fp and "task.md" not in artifacts_created:
+                        artifacts_created.append("task.md")
+                        if self._hcode_display and FileAction:
+                            self._hcode_display.track_file(".hcode/task.md", FileAction.CREATED)
+                    if "implementation_plan.md" in fp and "implementation_plan.md" not in artifacts_created:
+                        artifacts_created.append("implementation_plan.md")
+                        if self._hcode_display and FileAction:
+                            self._hcode_display.track_file(".hcode/implementation_plan.md", FileAction.CREATED)
 
-                logger.info(f"Analysis response length: {len(analysis_response)}, tool_results: {len(analysis_tool_results)}")
+                # Extract insights from the response (used by fallback if needed)
+                analysis_insights = self._extract_analysis_insights(response)
 
-                # Extract analysis insights
-                analysis_insights = self._extract_analysis_insights(analysis_response)
-                logger.debug(f"Extracted insights: {list(analysis_insights.keys())}")
             else:
                 logger.warning("No AI provider configured for planning phase")
                 self._display("No AI provider configured for planning!", style="error")
 
             # =====================================================================
-            # ARTIFACT GENERATION PHASE
-            # Generate planning artifacts with the analysis insights
+            # FALLBACK SAFETY NET – only fires if AI failed to write an artifact
+            # after all rounds.  Should be rare with the continuation steering.
             # =====================================================================
+            if not self.artifact_manager.artifact_exists("task.md", context):
+                self._display("  [!] task.md missing — generating fallback", style="info")
+                fallback = self._create_fallback_task_md(context, analysis_insights)
+                if fallback:
+                    self.artifact_manager.create_artifact("task.md", fallback, context)
+                    self._display("  Created task.md (fallback)", style="success")
+                    artifacts_created.append("task.md")
 
-            # Build planning prompt with analysis insights
-            planning_prompt = self._build_planning_prompt(context, analysis_insights)
+            if not self.artifact_manager.artifact_exists("implementation_plan.md", context):
+                self._display("  [!] implementation_plan.md missing — generating fallback", style="info")
+                fallback = self._create_fallback_implementation_plan(context, analysis_insights)
+                if fallback:
+                    self.artifact_manager.create_artifact("implementation_plan.md", fallback, context)
+                    self._display("  Created implementation_plan.md (fallback)", style="success")
+                    artifacts_created.append("implementation_plan.md")
 
-            # Generate AI response for planning - AI should use Write tool to create artifacts
-            if self.provider is not None:
-                self._display("Creating implementation plan...", style="info")
-
-                # Start thinking for planning
-                if self._hcode_display:
-                    self._hcode_display.start_thinking()
-
-                response, planning_tool_results = await self._generate_and_execute(
-                    planning_prompt,
-                    context,
-                    system_prompt=self._get_planning_system_prompt(context)
-                )
-                tool_results.extend(planning_tool_results)
-
-                # End thinking display
-                if self._hcode_display:
-                    self._hcode_display.end_thinking()
-
-                # DISPLAY: Show the AI's planning response to user
-                if response and len(response) > 50:
-                    # Extract and show text portions
-                    text_response = self._extract_text_response(response)
-                    if text_response:
-                        self._display(text_response, style="default")
-                    # Show in thinking block for context
-                    if self._hcode_display:
-                        self._hcode_display.display_thinking_block(response, phase="PLANNING")
-
-                # Check if AI created artifacts via Write tool
-                for result in planning_tool_results:
-                    if result.get("success") and "task.md" in str(result.get("output", "")):
-                        artifacts_created.append("task.md")
-                        # Track file with HcodeDisplay using FileAction enum
-                        if self._hcode_display and FileAction:
-                            self._hcode_display.track_file(".hcode/task.md", FileAction.CREATED)
-                    if result.get("success") and "implementation_plan.md" in str(result.get("output", "")):
-                        artifacts_created.append("implementation_plan.md")
-                        if self._hcode_display and FileAction:
-                            self._hcode_display.track_file(".hcode/implementation_plan.md", FileAction.CREATED)
-
-                # If AI didn't use Write tool, extract content and create manually
-                if not self.artifact_manager.artifact_exists("task.md", context):
-                    ai_task_content = self._extract_task_content(response)
-                    if ai_task_content:
-                        artifact_path = self.artifact_manager.create_artifact("task.md", ai_task_content, context)
-                        self._display("Created task.md", style="success")
-                        artifacts_created.append("task.md")
-                        if self._hcode_display and FileAction:
-                            self._hcode_display.track_file(".hcode/task.md", FileAction.CREATED)
-
-                if not self.artifact_manager.artifact_exists("implementation_plan.md", context):
-                    ai_plan_content = self._extract_plan_content(response)
-                    if ai_plan_content:
-                        artifact_path = self.artifact_manager.create_artifact("implementation_plan.md", ai_plan_content, context)
-                        self._display("Created implementation_plan.md", style="success")
-                        artifacts_created.append("implementation_plan.md")
-                        if self._hcode_display and FileAction:
-                            self._hcode_display.track_file(".hcode/implementation_plan.md", FileAction.CREATED)
-
-            # Validate artifacts
+            # =====================================================================
+            # VALIDATE & TRANSITION
+            # =====================================================================
             valid, error = self.validate_artifacts(context)
-
             if not valid:
                 return PhaseResult(
                     phase_name=self.phase_name,
@@ -228,21 +313,15 @@ class PlanningPhaseHandler(BasePhaseHandler):
                     artifacts_created=artifacts_created,
                     can_transition=False,
                     error=error,
-                    metadata={
-                        "tool_results": tool_results,
-                        "analysis_insights": analysis_insights
-                    },
+                    metadata={"tool_results": tool_results, "analysis_insights": analysis_insights},
                 )
 
-            # Check if can transition
             can_transition = self.can_transition_to_next(context)
 
-            # If this is an exploration task, return the AI's response
             is_exploration = context.metadata.get("task_type") == "exploration"
-            if is_exploration and response:
-                output = response
-            else:
-                output = f"Planning phase complete. Created: {', '.join(artifacts_created) or 'no new artifacts'}"
+            output = response if (is_exploration and response) else (
+                f"Planning phase complete. Created: {', '.join(artifacts_created) or 'no new artifacts'}"
+            )
 
             return PhaseResult(
                 phase_name=self.phase_name,
@@ -250,11 +329,7 @@ class PlanningPhaseHandler(BasePhaseHandler):
                 output=output,
                 artifacts_created=artifacts_created,
                 can_transition=can_transition,
-                metadata={
-                    "tool_results": tool_results,
-                    "analysis_insights": analysis_insights,
-                    "response": response
-                },
+                metadata={"tool_results": tool_results, "analysis_insights": analysis_insights, "response": response},
             )
 
         except Exception as e:
@@ -347,26 +422,53 @@ When you need to use a tool, output JSON in this EXACT format inside a code bloc
 - Read: `{{"tool": "Read", "arguments": {{"AbsolutePath": "/full/path"}}}}`
 - Write: `{{"tool": "Write", "arguments": {{"TargetFile": "/full/path", "CodeContent": "content"}}}}`
 - Edit: `{{"tool": "Edit", "arguments": {{"TargetFile": "/path", "TargetContent": "old", "ReplacementContent": "new"}}}}`
-- Glob: `{{"tool": "Glob", "arguments": {{"Pattern": "**/*.py"}}}}`
+- SmartGlob: `{{"tool": "SmartGlob", "arguments": {{"Pattern": "**/*.py"}}}}`
 - Grep: `{{"tool": "Grep", "arguments": {{"Query": "pattern", "SearchPath": "."}}}}`
+- Bash: `{{"tool": "Bash", "arguments": {{"CommandLine": "command", "description": "what it does"}}}}`
 
 ### Example Good Response:
 
-I'll help you create a script to count markdown files.
-
-First, let me explore the project structure:
+I'll help you create a script to count markdown files.  Let me first explore
+the project to understand its structure and conventions.
 
 ```json
 {{"tool": "LS", "arguments": {{"DirectoryPath": "."}}}}
 ```
 
-I found several directories. Now I'll create the planning artifacts:
+(… receives directory listing …)
+
+Let me check if there are any existing utility scripts to follow the same style:
 
 ```json
-{{"tool": "Write", "arguments": {{"TargetFile": "{context.working_dir}/.hcode/task.md", "CodeContent": "# Task\\n\\nCreate a script to count .md files.\\n\\n## Subtasks\\n\\n- [ ] Create script <!-- id: 0 -->\\n- [ ] Test script <!-- id: 1 -->"}}}}
+{{"tool": "SmartGlob", "arguments": {{"Pattern": "*.py"}}}}
 ```
 
-Planning complete! I've created task.md with the task breakdown.
+(… receives list of .py files …)
+
+Let me read an existing script to understand import style and conventions:
+
+```json
+{{"tool": "Read", "arguments": {{"AbsolutePath": "{context.working_dir}/some_existing_script.py"}}}}
+```
+
+(… receives file contents, analyses conventions …)
+
+Good.  Now I understand the codebase.  Creating task.md:
+
+```json
+{{"tool": "Write", "arguments": {{"TargetFile": "{context.working_dir}/.hcode/task.md", "CodeContent": "# Task\\n\\nCreate a script to count .md files in the repo.\\n\\n## Subtasks\\n\\n- [ ] Explore repo structure <!-- id: 0 -->\\n- [ ] Implement counter script <!-- id: 1 -->\\n- [ ] Test the script <!-- id: 2 -->"}}}}
+```
+
+task.md written.  Now creating implementation_plan.md:
+
+```json
+{{"tool": "Write", "arguments": {{"TargetFile": "{context.working_dir}/.hcode/implementation_plan.md", "CodeContent": "# Count markdown files in repo\\n\\nCreate a utility script that recursively counts .md files and their total lines.\\n\\n## Approach\\n\\nUse pathlib.Path.rglob to discover .md files, excluding .git and .venv directories. This mirrors the pattern used in existing scripts in this repo.\\n\\n## Steps\\n\\n1. **Create script** [NEW] `{context.working_dir}/count_md.py` — main counting logic\\n2. **Test** — run the script and verify output\\n\\n## Verification Plan\\n\\n- Syntax: `python -m py_compile count_md.py`\\n- Run: `python count_md.py`"}}}}
+```
+
+Both artifacts written.  Planning complete.
+
+⚠️  SCOPE BOUNDARY: In planning mode you ONLY create `.hcode/task.md` and `.hcode/implementation_plan.md`.
+Do NOT create any implementation / source files. Those are created during EXECUTION.
 """
             return system_base + context_info
 
@@ -390,7 +492,164 @@ IMPORTANT: Always provide text explanations along with tool usage.
 DO NOT just output JSON silently.
 """
 
-    def _build_analysis_prompt(self, context: AgentContext) -> str:
+    def _explore_codebase(self, context: AgentContext) -> str:
+        """
+        Programmatic exploration of the working directory.
+
+        Gathers directory listing, Python/MD/config file counts and paths
+        so the AI analysis prompt is grounded even if the AI calls no tools.
+
+        Args:
+            context: Current agent context
+
+        Returns:
+            Formatted exploration summary string
+        """
+        working_dir = Path(context.working_dir)
+        lines = [f"Working directory: {context.working_dir}\n"]
+
+        # Root-level listing (skip deep hidden dirs)
+        lines.append("Root contents:")
+        try:
+            for item in sorted(working_dir.iterdir()):
+                if item.name.startswith('.') and item.name not in ('.hcode', '.claude', '.git'):
+                    continue
+                marker = "📁" if item.is_dir() else "📄"
+                lines.append(f"  {marker} {item.name}")
+        except OSError:
+            lines.append("  (could not list directory)")
+
+        # File-type inventories
+        _EXCLUDE = {'.git', '.venv', 'node_modules', '__pycache__', '.idea'}
+
+        def _rglob_filtered(pattern):
+            return [
+                p for p in working_dir.rglob(pattern)
+                if not any(ex in p.parts for ex in _EXCLUDE)
+            ]
+
+        py_files = sorted(_rglob_filtered("*.py"))
+        md_files = sorted(_rglob_filtered("*.md"))
+
+        lines.append(f"\nPython files ({len(py_files)}):")
+        for f in py_files[:30]:
+            lines.append(f"  - {f.relative_to(working_dir)}")
+        if len(py_files) > 30:
+            lines.append(f"  ... and {len(py_files) - 30} more")
+
+        lines.append(f"\nMarkdown files ({len(md_files)}):")
+        for f in md_files[:15]:
+            lines.append(f"  - {f.relative_to(working_dir)}")
+        if len(md_files) > 15:
+            lines.append(f"  ... and {len(md_files) - 15} more")
+
+        return "\n".join(lines)
+
+    def _build_unified_planning_prompt(self, context: AgentContext, exploration_context: str) -> str:
+        """
+        Build the single unified prompt that drives the entire planning phase.
+
+        The AI is expected to:
+          1. Read and understand the codebase (multiple tool calls)
+          2. Write .hcode/task.md
+          3. Write .hcode/implementation_plan.md
+
+        The continuation steering in _build_continuation_prompt handles
+        nudging the AI between these stages.  This prompt sets up the
+        expectations and provides all context the AI needs.
+        """
+        task_template = self._get_task_template_guide()
+        plan_template = self._get_plan_template_guide()
+
+        return f"""You are an expert AI developer in PLANNING mode.  Your job is to thoroughly
+understand the user's request, explore the codebase, and produce two planning
+artifacts — and NOTHING else.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+USER REQUEST
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+{context.task}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CODEBASE SNAPSHOT  (pre-scanned — use this as your starting map)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+{exploration_context}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PHASE 1 — UNDERSTAND & EXPLORE  (do this FIRST, before any writes)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Think carefully about what the user needs.  Then use tools to verify
+your understanding against reality — do NOT assume.
+
+Required exploration steps:
+  a) Use Read to open any files that are directly relevant to the task.
+     Read their ACTUAL contents before making decisions.
+  b) Use SmartGlob or Grep to find files matching patterns relevant to the task.
+  c) If there are existing similar scripts or modules, Read them to understand
+     conventions, imports, and style used in this repo.
+  d) Identify exactly which files will need to be created or modified, and why.
+
+Think out loud as you explore.  Explain what you found and what it means
+for the implementation plan.  This reasoning is critical — be thorough.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PHASE 2 — WRITE task.md
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+After you have explored enough to understand the task, write task.md.
+
+Path: {context.working_dir}/.hcode/task.md
+
+Format:
+{task_template}
+
+Rules:
+  • Every subtask gets a unique `<!-- id: N -->` comment.
+  • Use `- [ ]` for pending, `- [/]` for in-progress, `- [x]` for done.
+  • Break complex work into 3-7 concrete subtasks.
+  • The subtasks must reflect what you actually discovered during exploration —
+    not generic boilerplate.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PHASE 3 — WRITE implementation_plan.md  (IMMEDIATELY after task.md)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+After task.md is confirmed written, write implementation_plan.md.
+
+Path: {context.working_dir}/.hcode/implementation_plan.md
+
+Format:
+{plan_template}
+
+Rules:
+  • The Approach section must describe WHY you chose this approach
+    (not just what you will do).
+  • Every file that will be created or modified must appear with a
+    [NEW] or [MODIFY] marker and an absolute path.
+  • Steps must be in execution order — what depends on what.
+  • The Verification Plan must contain the exact shell commands that
+    will be run to test the implementation.
+  • Base your plan on what you actually READ during exploration —
+    not on assumptions.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SCOPE RULES  (hard boundaries)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚠️  You may ONLY write two files:
+      {context.working_dir}/.hcode/task.md
+      {context.working_dir}/.hcode/implementation_plan.md
+    Any write to any other path will be BLOCKED by the system.
+
+⚠️  Do NOT create implementation files (scripts, modules, configs).
+    Those are created during the Execution phase.
+
+⚠️  Do NOT stop until BOTH artifacts have been written.
+    The system will tell you after each tool round whether an artifact
+    is still missing.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+BEGIN.  Start by exploring, then write task.md, then implementation_plan.md.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"""
+
+    def _build_analysis_prompt(self, context: AgentContext, exploration_context: str = "") -> str:
         """
         Build prompt for deep analysis phase.
 
@@ -402,6 +661,7 @@ DO NOT just output JSON silently.
 
         Args:
             context: Current agent context
+            exploration_context: Pre-discovered codebase facts
 
         Returns:
             Analysis prompt
@@ -438,6 +698,12 @@ Are there any dependencies I might miss?
 
 ### USER REQUEST:
 {context.task}
+
+### PRE-DISCOVERED CODEBASE FACTS:
+{exploration_context or "(no exploration data available)"}
+
+Use the Read tool to examine any files listed above that are relevant to the task.
+Use SmartGlob or Grep to search for specific patterns if needed.
 
 ### ANALYSIS INSTRUCTIONS:
 
@@ -547,6 +813,9 @@ After your research, provide a comprehensive summary:
 - Risk 2: [description] -> Mitigation: [how to handle]
 </analysis>
 
+⚠️  DO NOT create any files during analysis. This phase is READ-ONLY research.
+Files are created in the artifact generation step that follows.
+
 NOW BEGIN YOUR ANALYSIS. Use tools to research the codebase. THINK before each tool use."""
 
     def _build_planning_prompt(
@@ -615,11 +884,18 @@ Create an implementation_plan.md following this format:
 
 ### OUTPUT INSTRUCTIONS:
 
-1. First, use the Write tool to create `.hcode/task.md`
-2. Then, use the Write tool to create `.hcode/implementation_plan.md`
-3. After creating both files, confirm they are ready for review
+⚠️  **PLANNING PHASE SCOPE — DO NOT VIOLATE:**
+- The ONLY files you may create are `.hcode/task.md` and `.hcode/implementation_plan.md`.
+- DO NOT create any implementation files (e.g. scripts, modules, configs) during planning.
+- Implementation files are created during the EXECUTION phase — that is not your job here.
+- If you write anything other than the two artifacts above, it will be ignored.
 
-NOW CREATE THE ARTIFACTS using the Write tool."""
+1. First, use the Write tool to create `.hcode/task.md` with the FULL path: `{context.working_dir}/.hcode/task.md`
+2. Then, use the Write tool to create `.hcode/implementation_plan.md` with the FULL path: `{context.working_dir}/.hcode/implementation_plan.md`
+3. After creating both files, confirm they are ready for review.
+4. Do NOT create any other files.
+
+NOW CREATE THE TWO ARTIFACTS using the Write tool."""
 
     def _get_task_template_guide(self) -> str:
         """Get task.md template guide."""
@@ -861,7 +1137,106 @@ Summary of changes to this component
 
         return None
 
-    # NOTE: Template methods removed - AI must generate all content directly
+    def _create_fallback_task_md(self, context: AgentContext, analysis_insights: Dict[str, Any]) -> str:
+        """
+        Build task.md programmatically when AI fails to produce it.
+
+        Uses the task description and any analysis insights gathered
+        during the deep-analysis round.
+        """
+        subtasks = []
+        idx = 0
+
+        # If we have relevant files from analysis, create subtasks from them
+        relevant_files = analysis_insights.get("relevant_files", [])
+        if relevant_files:
+            subtasks.append(f"- [ ] Explore relevant files <!-- id: {idx} -->")
+            idx += 1
+
+        # Default subtasks based on task type
+        subtasks.append(f"- [ ] Implement required changes <!-- id: {idx} -->")
+        idx += 1
+        subtasks.append(f"- [ ] Verify implementation works <!-- id: {idx} -->")
+        idx += 1
+
+        notes = ""
+        if analysis_insights.get("questions"):
+            notes = "\n## Notes\n\n" + "\n".join(f"- {q}" for q in analysis_insights["questions"])
+
+        return (
+            f"# Task\n\n"
+            f"{context.task}\n\n"
+            f"## Subtasks\n\n"
+            + "\n".join(subtasks)
+            + notes
+        )
+
+    def _create_fallback_implementation_plan(self, context: AgentContext, analysis_insights: Dict[str, Any]) -> str:
+        """
+        Build implementation_plan.md programmatically when AI fails to produce it.
+
+        Constructs a concrete plan from the analysis insights that were
+        gathered in the deep-analysis round.  This ensures execution always
+        has a real plan to work from, even if the AI hallucinated a Write
+        call it never actually made.
+        """
+        # Heading / goal – derive from the task
+        goal_line = context.task[:120]
+
+        # Approach section
+        approach = analysis_insights.get("approach", "Implement the requested changes step by step.")
+
+        # Build steps from relevant files
+        relevant_files = analysis_insights.get("relevant_files", [])
+        steps = []
+        step_num = 1
+
+        if relevant_files:
+            files_list = "\n".join(f"   - `{f.strip()}`" for f in relevant_files[:10])
+            steps.append(
+                f"{step_num}. **Explore relevant files**\n{files_list}"
+            )
+            step_num += 1
+
+        steps.append(
+            f"{step_num}. **Implement changes**\n"
+            f"   - Apply changes according to the approach above\n"
+            f"   - Create or modify files as needed"
+        )
+        step_num += 1
+
+        steps.append(
+            f"{step_num}. **Verify**\n"
+            f"   - Check that new/modified files are syntactically correct\n"
+            f"   - Run the result to confirm it works"
+        )
+
+        steps_text = "\n\n".join(steps)
+
+        # Files to modify/create
+        files_section = ""
+        if relevant_files:
+            files_section = "\n## Files to Modify\n\n" + "\n".join(
+                f"- `{f.strip()}`: review and apply changes" for f in relevant_files[:10]
+            )
+
+        # Testing strategy – keep it proportional
+        testing = (
+            "\n## Testing Strategy\n\n"
+            "- Syntax check: `python -m py_compile <file>`\n"
+            "- Run script to verify output"
+        )
+
+        return (
+            f"# {goal_line}\n\n"
+            f"{context.task}\n\n"
+            f"## Approach\n\n"
+            f"{approach}\n\n"
+            f"## Steps\n\n"
+            f"{steps_text}\n"
+            f"{files_section}\n"
+            f"{testing}\n"
+        )
 
     def can_transition_to_next(self, context: AgentContext) -> bool:
         """
@@ -890,15 +1265,21 @@ Summary of changes to this component
         if not valid:
             return False
 
-        # Check plan has concrete steps
+        # Check plan has concrete steps (accept multiple plan formats)
         plan_content = self.artifact_manager.load_artifact("implementation_plan.md", context)
         if plan_content:
-            # Should have at least one file path or concrete change
             has_concrete_steps = (
                 "file://" in plan_content or
                 "[MODIFY]" in plan_content or
                 "[NEW]" in plan_content or
-                "####" in plan_content
+                "####" in plan_content or
+                "## Steps" in plan_content or
+                "## Proposed Changes" in plan_content or
+                "## Files to Modify" in plan_content or
+                "## Approach" in plan_content or
+                ".py" in plan_content or
+                ".js" in plan_content or
+                ".ts" in plan_content
             )
             if not has_concrete_steps:
                 return False
@@ -907,7 +1288,7 @@ Summary of changes to this component
 
     def _get_artifact_templates(self) -> str:
         """
-        Get artifact templates from perfect_prompts directory.
+        Get artifact templates from CorePromptLoader (templates.yaml).
 
         These templates provide guidelines for creating high-quality
         task.md and implementation_plan.md files.
@@ -916,11 +1297,11 @@ Summary of changes to this component
             Combined templates as a string
         """
         try:
-            from hcode.config.perfect_prompts import get_perfect_prompt_loader
-            loader = get_perfect_prompt_loader()
+            from hcode.config.core_prompts.core.loader import get_prompt_loader
+            loader = get_prompt_loader()
 
-            task_template = loader.get_raw("task") or ""
-            plan_template = loader.get_raw("implementation_plan") or ""
+            task_template = loader.get_template("task_md") or ""
+            plan_template = loader.get_template("implementation_plan_md") or ""
 
             if task_template or plan_template:
                 templates = []
@@ -933,31 +1314,20 @@ Summary of changes to this component
         except Exception as e:
             logger.warning(f"Failed to load artifact templates: {e}")
 
-        # Fallback to embedded templates
+        # Fallback: inline templates matching templates.yaml structure
         return """### task.md Template
 
-Use this format for task.md:
-- [ ] for uncompleted tasks
-- [/] for in progress tasks
-- [x] for completed tasks
-- Add unique IDs: <!-- id: 0 -->, <!-- id: 1 -->, etc.
-- Add subtasks by indenting under parent tasks
-- Update CONSTANTLY as you work
-- Mark tasks as completed immediately when done
-
-Example:
 ```markdown
 # Task
 
-[User's request here]
+[User's original request]
 
 ## Subtasks
 
-- [/] Research the codebase <!-- id: 0 -->
-- [ ] Implement the feature <!-- id: 1 -->
-  - [ ] Create main file <!-- id: 2 -->
-  - [ ] Add tests <!-- id: 3 -->
-- [ ] Verify implementation <!-- id: 4 -->
+- [ ] Subtask 1 <!-- id: 0 -->
+- [ ] Subtask 2 <!-- id: 1 -->
+  - [ ] Subtask 2.1 <!-- id: 2 -->
+- [ ] Subtask 3 <!-- id: 3 -->
 
 ## Notes
 
@@ -966,42 +1336,36 @@ Example:
 
 ### implementation_plan.md Template
 
-Use this format for implementation_plan.md:
-
 ```markdown
 # [Goal Description]
 
-Provide a brief description of the problem and what the change accomplishes.
+Brief description of the problem and what the change accomplishes.
 
-## User Review Required
+## Approach
 
-> [!IMPORTANT]
-> Any critical items needing user approval
+[High-level approach and strategy]
 
-## Proposed Changes
+## Steps
 
-### [Component Name]
+1. **Step 1**: [Description]
+   - File: `path/to/file.py`
+   - Action: [What to do]
 
-Summary of what will change
+2. **Step 2**: [Description]
+   - File: `path/to/file.py`
+   - Action: [What to do]
 
-#### [NEW] [filename](file:///absolute/path)
-- What this new file will contain
+## Files to Modify
 
-#### [MODIFY] [filename](file:///absolute/path)
-- What will change in this file
+- `file1.py`: [What changes to make]
 
-## Verification Plan
+## Files to Create
 
-### Automated Tests
-- Exact commands to run: `pytest tests/test_file.py`
+- `new_file.py`: [What it should contain]
 
-### Manual Verification
-- Steps to verify manually
+## Testing Strategy
+
+- Run tests: `pytest tests/`
+- Manual verification: [Steps]
 ```
-
-Critical Rules:
-- Use file basenames as link text, not full paths
-- Group changes by component
-- Be specific about what changes in each file
-- Include concrete test commands
 """

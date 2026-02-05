@@ -8,8 +8,6 @@ Supports template substitution with context variables.
 import logging
 from pathlib import Path
 from typing import Dict, Any, Optional
-from functools import lru_cache
-
 import yaml
 
 logger = logging.getLogger(__name__)
@@ -105,10 +103,7 @@ class CorePromptLoader:
         """Reload all prompts from files."""
         self._prompts.clear()
         self._load_all_prompts()
-        # Clear cached results
-        self.get.cache_clear()
 
-    @lru_cache(maxsize=256)
     def get(self, path: str, **kwargs) -> str:
         """
         Get a prompt by dot-notation path with optional variable substitution.
@@ -143,10 +138,7 @@ class CorePromptLoader:
         if not isinstance(current, str):
             raise KeyError(f"Path does not point to a prompt string: {path}")
 
-        # Clear cache and return with substitution if kwargs provided
         if kwargs:
-            # Can't cache with kwargs, so we return directly
-            self.get.cache_clear()
             return self._substitute(current, kwargs)
 
         return current
