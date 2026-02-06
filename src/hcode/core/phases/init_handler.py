@@ -574,7 +574,6 @@ Working directory: {context.working_dir}
 - Naming conventions (e.g., "there must be a safety.py")
 - Directory structure assumptions (e.g., "it should be in core/")
 - Common patterns (e.g., "probably in tools/")
-- **Import Statements** (e.g., `from hcode.core import agent` does NOT guarantee `hcode/core/agent.py` exists. It could be `hcode/core/__init__.py` or `hcode/core.py`).
 
 **ALWAYS:**
 1. Use Glob to discover files: {{"tool": "Glob", "arguments": {{"Pattern": "**/*keyword*.py"}}}}
@@ -743,37 +742,6 @@ Do not write the final file yet.
                 # PHASE 3 (Round 20+): Text output without Write tool -> ERROR & RETRY (Do not break!)
                 elif round_num >= 20:
                     logger.warning(f"[init] Round {round_num + 1}: Text output in generation phase (Missing Write Tool)")
-                    
-                    # ATTEMPT AUTO-RECOVERY: Check if the text actually contains the JSON
-                    import json
-                    import re
-                    json_match = re.search(r'```json\s*({.*?})\s*```', last_response, re.DOTALL)
-                    if not json_match:
-                         # Try simpler match without codefence
-                         json_match = re.search(r'^\s*({.*"tool":\s*"Write".*})\s*$', last_response, re.DOTALL | re.MULTILINE)
-
-                    if json_match:
-                        try:
-                            json_str = json_match.group(1)
-                            # Cleanup common json errors
-                            json_str = json_str.strip()
-                            tool_payload = json.loads(json_str)
-                            
-                            if tool_payload.get("tool") in ["Write", "writetool"]:
-                                logger.info("[init] Auto-recovered JSON tool call from text response")
-                                # Execute it manually
-                                tool_results = await self._execute_tools([tool_payload], context)
-                                all_tool_results.extend(tool_results)
-                                
-                                # Verify success
-                                hcode_path = Path(context.working_dir) / ".hcode" / "hcode.md"
-                                if hcode_path.exists():
-                                    self._display("📝 Auto-executed Write tool found in text", style="success")
-                                    break # SUCCESS!
-                        except Exception as json_err:
-                            logger.error(f"[init] Auto-recovery failed: {json_err}")
-
-                    # If valid recovery failed, continue with warning
                     reminder_msg = """
 🚨 **GENERATION ERROR**
 

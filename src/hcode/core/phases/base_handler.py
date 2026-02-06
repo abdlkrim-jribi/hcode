@@ -546,8 +546,6 @@ CRITICAL RULES:
 
         for round_num in range(max_rounds):
             logger.info(f"[{self.phase_name}] Generation round {round_num + 1}/{max_rounds}...")
-            if context:
-                logger.debug(f"Context actions: {len(context.completed_actions)}, Modified files: {len(context.modified_files)}")
 
             # Call provider
             try:
@@ -662,8 +660,7 @@ CRITICAL RULES:
                 if preserve_signatures and tool.lower() == 'read':
                     output = self._extract_signatures_and_truncate(output, max_chars=3000)
                 else:
-                    output = output[:50000]  # Increased from 2000 to allow larger file reads in feedback
-                    logger.debug(f"Formatted output length: {len(output)}")
+                    output = output[:2000]  # Standard truncation
 
                 parts.append(f"[{tool}] Success:\n{output}")
             else:

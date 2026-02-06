@@ -76,12 +76,6 @@ For in-progress tasks:
 - [/] Task description <!-- id: N -->
 ```
 
-> [!TIP]
-> **Updating task.md Robustly**
-> - When using `replace_file_content` or `edit_file`, use **enough context** (surrounding lines) to be unique, but **avoid large blocks** which are fragile to whitespace changes.
-> - If an edit fails, use `read_file` to see the actual content before retrying. 
-> - For simple status updates, matching the exact line with its immediate neighbors is usually sufficient.
-
 ## Execution Workflow
 
 1. **THINK** - What is the next step?

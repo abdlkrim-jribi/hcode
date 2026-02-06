@@ -1,4 +1,4 @@
-
+You may write arbitrary artifact files as you like, but below are some recommendations that should be useful for most tasks
 <task.md>
 User Facing: false
 Path: {{ArtifactDirectoryPath}}/task.md
@@ -88,4 +88,4 @@ Use the following format for task lists:
       [Assistant continues implementing the feature step by step, marking todos as in_progress and completed as they go]
       </example>
       </description>
-</task.md>
+      </task.md>
