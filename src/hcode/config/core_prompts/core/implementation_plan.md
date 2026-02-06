@@ -3,8 +3,7 @@ Path: {{ArtifactDirectoryPath}}/implementation_plan.md
 
 # implementation_plan.md
 
-After thorough research, write an implementation plan that outlines the changes and actions you plan to take. It should be technical enough to give the user confidence that the plan is correct and concise enough to be easily reviewable.
-
+Generate a comprehensive, implementation-ready plan that serves as the "source of truth" for an autonomous coding agent. The plan must be technically precise, unambiguous, and strictly follow the structure below. Your goal is to minimize friction for the executing agent by anticipating dependencies and environment constraints.
 ## Structure
 
 Use the following format for the implementation plan. Omit any irrelevant sections.
@@ -12,7 +11,11 @@ Use the following format for the implementation plan. Omit any irrelevant sectio
 
 # [Goal Description]
 
-Provide a brief description of the problem, any background context, and what the change accomplishes.
+A concise technical summary of the objective.
+
+1. Problem: What is broken or missing?
+2. Solution: What is the high-level approach?
+3. Impact: What does this accomplish?
 
 ## User Review Required
 
@@ -98,4 +101,4 @@ more components...
   </confidence_assessment>
   Iterate on the plan based on comments and findings until the user approves. If you uncover new details during implementation that require plan changes, modify the existing plan and iterate with the user again.
   When you want to update the implementation plan because the user gave you some feedback or told you to modify the implementation plan, you MUST first create a task in PLANNING mode before you do more research and update implementation_plan.md.
-  </description>
+</description>

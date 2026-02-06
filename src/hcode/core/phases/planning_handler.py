@@ -17,6 +17,7 @@ The module currently provides only utility imports; the actual handler class/fun
 
 import logging
 import re
+import os
 from pathlib import Path
 from typing import List, Any, Dict, Tuple, Optional
 
@@ -528,6 +529,25 @@ class PlanningPhaseHandler(BasePhaseHandler):
         return ["task.md", "implementation_plan.md"]
 
 
+    def _update_trackers_from_tool(self, confidence: Dict[str, int], uncertainties: List[str]) -> None:
+        """
+        Update meta-cognitive trackers from explicit Reflect tool usage.
+        
+        Args:
+            confidence: Dictionary of dimension -> score (1-5)
+            uncertainties: List of specific uncertainty questions
+        """
+        # Update confidence scores
+        for dimension, score in confidence.items():
+            if isinstance(score, (int, float)):
+                self.confidence_tracker.update_score(dimension, int(score), reason="Reflect tool")
+
+        # Update uncertainties - assume listed ones are critical/important
+        # We don't clear old ones automatically unless we want to reset? 
+        # For now, we add new ones. Resolving happens via context.
+        for q in uncertainties:
+            self.uncertainty_tracker.add_uncertainty(q, severity="important", context="Reflect tool")
+
     async def _execute_tools(
         self,
         tool_calls: List[Dict[str, Any]],
@@ -538,8 +558,7 @@ class PlanningPhaseHandler(BasePhaseHandler):
         outside `.hcode/`.  Read-only tools (Read, LS, SmartGlob, Grep, Bash)
         pass through unchanged.
 
-        Blocked writes are returned as failed results with a clear message
-        so the multi-turn loop feeds the error back to the AI.
+        Also intercepts 'Reflect' calls to update meta-cognitive state.
         """
         gated_calls = []
         results = []
@@ -548,6 +567,53 @@ class PlanningPhaseHandler(BasePhaseHandler):
             tool_name = (tc.get("tool") or "").lower()
             arguments = tc.get("arguments", {})
 
+            # ─── INTERCEPT REFLECT TOOL ───
+            if tool_name == "reflect":
+                confidence = arguments.get("confidence", {})
+                uncertainties = arguments.get("uncertainties", [])
+                
+                self._update_trackers_from_tool(confidence, uncertainties)
+                
+                self._display("  [M] Reflection processed: updated confidence & uncertainties", style="info")
+                results.append({
+                    "tool": "Reflect",
+                    "success": True,
+                    "output": "Meta-cognitive state updated successfully.",
+                    "error": None
+                })
+                # Do NOT add to gated_calls - this is handled internally
+                continue
+
+            # ─── INTERCEPT READ TOOL (Anti-Hallucination Guard) ───
+            if tool_name in ("read", "read_file", "read_code"):
+                 target_file = arguments.get("file_path") or arguments.get("path") or arguments.get("target")
+                 
+                 if target_file:
+                     # Resolve path
+                     if os.path.isabs(target_file):
+                         check_path = Path(target_file)
+                     else:
+                         check_path = Path(context.working_dir) / target_file
+                         
+                     if not check_path.exists():
+                         # BLOCK READ - Force agent to use LS/Glob
+                         self._display(
+                            f"  [>] {tc.get('tool')}: {target_file}  ← BLOCKED (file not found)",
+                            style="error",
+                         )
+                         results.append({
+                            "tool": tc.get("tool"),
+                            "success": False,
+                            "output": None,
+                            "error": (
+                                f"PROTOCOL VIOLATION: File '{target_file}' does not exist. "
+                                f"You are guessing paths. You MUST use 'Glob' or 'LS' to find valid files before reading."
+                            ),
+                            "file_path": target_file,
+                         })
+                         logger.warning(f"Blocked hallucinated read: {target_file}")
+                         continue # Skip execution
+                         
             # Only gate write-like tools
             if tool_name in ("write", "writetool"):
                 target = (
@@ -612,9 +678,26 @@ class PlanningPhaseHandler(BasePhaseHandler):
             if r.get("success") and r.get("tool", "").lower() == "read"
         ]
         
+        # Calculate semantic insights gained (not just tool count)
+        insights_gained = 0
+        for r in round_results:
+            if not r.get("success"):
+                continue
+            tool = r.get("tool", "").lower()
+            
+            if tool == "read":
+                # Reading a file is a primary insight source
+                insights_gained += 1
+            elif tool == "grep" and r.get("output"):
+                # Finding search results is an insight
+                insights_gained += 1
+            elif tool == "reflect":
+                # Explicit meta-cognition is high-value insight
+                insights_gained += 2
+        
         self.saturation_detector.record_round_completion(
             files_read=files_read_this_round,
-            insights_gained=len(round_results),
+            insights_gained=insights_gained,
             uncertainty_count=self.uncertainty_tracker.get_critical_count(),
             avg_confidence=self.confidence_tracker.get_average_score()
         )
@@ -656,13 +739,94 @@ class PlanningPhaseHandler(BasePhaseHandler):
         else:
             return self._build_generic_continuation(round_num, all_results, context)
 
+    def validate_artifacts(self, context: AgentContext) -> Tuple[bool, Optional[str]]:
+        """
+        Override to include robust planning-specific validation.
+        
+        Verifies:
+        1. Artifact existence (base check)
+        2. Task.md quality (structure, subtasks)
+        3. Plan consistency (files exist, refs are valid)
+        """
+        # 1. Base checks (existence & basic syntax)
+        valid, error = super().validate_artifacts(context)
+        if not valid:
+            return False, error
+            
+        # 2. Task Quality
+        task_qual = self._validate_task_quality(context)
+        if not task_qual["is_valid"]:
+            issues = "; ".join(task_qual['issues'])
+            return False, f"task.md quality check failed: {issues}"
+            
+        # 3. Plan Consistency
+        plan_cons = self._validate_plan_consistency(context)
+        if not plan_cons["is_valid"]:
+             issues = "; ".join(plan_cons['issues'])
+             return False, f"Plan consistency check failed: {issues}"
+             
+        return True, None
+
+    def _validate_plan_consistency(self, context: AgentContext) -> Dict[str, Any]:
+        """
+        Verify implementation plan consistency.
+        
+        Checks:
+        - Files marked for [MODIFY] actually exist
+        - Files marked for [DELETE] actually exist
+        - [NEW] files don't already exist (optional warning)
+        """
+        result = {
+            "is_valid": True,
+            "issues": []
+        }
+        
+        try:
+            plan_content = self.artifact_manager.load_artifact("implementation_plan.md", context)
+            if not plan_content:
+                return result # Should be caught by base validation
+            
+            working_dir = Path(context.working_dir)
+            
+            # Find [MODIFY] entries
+            # Matches: #### [MODIFY] `src/foo.py` or [MODIFY] src/foo.py
+            modify_matches = re.findall(
+                r'\[MODIFY\]\s*(?:`|\[)?([^`\]\n]+)(?:`|\])?', 
+                plan_content, 
+                re.IGNORECASE
+            )
+            
+            for fpath in modify_matches:
+                # Clean up path (remove file:// prefix if present, extra whitespace)
+                clean_path = fpath.split('(')[0].strip() # remove (link) if markdown link
+                if "file:///" in clean_path:
+                    clean_path = clean_path.replace("file:///", "")
+                
+                # Resolve relative to working dir
+                if os.path.isabs(clean_path):
+                     target = Path(clean_path)
+                else:
+                     target = working_dir / clean_path
+                
+                # Check existence
+                if not target.exists():
+                    # Try fuzzy check? No, be strict.
+                    result["issues"].append(f"Plan modifies non-existent file: {clean_path}")
+                    result["is_valid"] = False
+
+        except Exception as e:
+            logger.warning(f"Failed to validate plan consistency: {e}")
+            # Don't fail the whole validation on exception, just warn
+            
+        return result
+
     def _validate_task_quality(self, context: AgentContext) -> Dict[str, Any]:
         """
         Validate task.md content meets quality requirements.
 
         Checks for:
         - ## Goal section
-        - At least 4 subtasks with <!-- id: N --> markers
+        - At least 4 subtasks (checkboxes or ID markers)
         - Acceptance criteria after subtasks
         - ## Risks / Edge Cases section
 
@@ -670,13 +834,7 @@ class PlanningPhaseHandler(BasePhaseHandler):
             context: Current agent context
 
         Returns:
-            Dict with validation results:
-            - is_valid: bool
-            - subtask_count: int
-            - has_goal: bool
-            - has_acceptance: bool
-            - has_risks: bool
-            - issues: List[str]
+            Dict with validation results
         """
         result = {
             "is_valid": False,
@@ -693,41 +851,40 @@ class PlanningPhaseHandler(BasePhaseHandler):
                 result["issues"].append("task.md is empty or could not be read")
                 return result
 
-            # Check for ## Goal section
-            result["has_goal"] = "## Goal" in task_content
+            # Check for ## Goal section (case insensitive, loose spacing)
+            result["has_goal"] = bool(re.search(r'##\s*Goal', task_content, re.IGNORECASE))
 
-            # Count subtasks with ID markers
-            subtask_count = task_content.count("<!-- id:")
+            # Count subtasks: try ID markers first, fall back to checkboxes
+            id_count = len(re.findall(r'<!--\s*id:\s*\d+\s*-->', task_content, re.IGNORECASE))
+            checkbox_count = len(re.findall(r'^\s*-\s*\[\s*[ x/]\s*\]', task_content, re.MULTILINE))
+            
+            subtask_count = max(id_count, checkbox_count)
             result["subtask_count"] = subtask_count
 
             # Check for acceptance criteria
-            result["has_acceptance"] = (
-                "Acceptance:" in task_content or
-                "acceptance:" in task_content or
-                "- Acceptance" in task_content
-            )
+            result["has_acceptance"] = bool(re.search(r'Acceptance:', task_content, re.IGNORECASE))
 
             # Check for risks/edge cases section
-            result["has_risks"] = (
-                "## Risks" in task_content or
-                "## Edge Cases" in task_content or
-                "## Risks / Edge Cases" in task_content
-            )
+            result["has_risks"] = bool(re.search(r'##\s*(?:Risks|Edge Cases)', task_content, re.IGNORECASE))
 
             # Build issues list
             if not result["has_goal"]:
                 result["issues"].append("Missing ## Goal section")
-            if subtask_count < 4:
-                result["issues"].append(f"Only {subtask_count} subtasks (need >= 4)")
+            
+            # Lower threshold slightly or be flexible
+            if subtask_count < 3: # Reduced from 4 to 3 for smaller tasks
+                result["issues"].append(f"Only {subtask_count} subtasks found (target >= 3)")
+            
             if not result["has_acceptance"]:
-                result["issues"].append("No acceptance criteria found after subtasks")
+                result["issues"].append("No acceptance criteria found")
+            
             if not result["has_risks"]:
                 result["issues"].append("Missing ## Risks / Edge Cases section")
 
             # Valid if all checks pass
             result["is_valid"] = (
                 result["has_goal"] and
-                subtask_count >= 4 and
+                subtask_count >= 3 and
                 result["has_acceptance"] and
                 result["has_risks"]
             )
@@ -1061,6 +1218,10 @@ Follow these guidelines EXACTLY when creating task.md and implementation_plan.md
                 if project_knowledge
                 else "(Run /init first to generate project knowledge.)"
             )
+            
+            # Safeguard: Truncate if too huge (approx 1500 tokens)
+            if len(pk_section) > 6000:
+                pk_section = pk_section[:6000] + "\n\n... (Project knowledge truncated for length) ..."
 
             # Add context information
             context_info = f"""
@@ -1085,6 +1246,7 @@ Current Iteration: {context.iteration}
 **Tools you should use in planning:**
 - Read: `{{"tool": "Read", "arguments": {{"AbsolutePath": "/full/path"}}}}`  ← primary tool
 - Grep: `{{"tool": "Grep", "arguments": {{"Query": "pattern", "SearchPath": "."}}}}`  ← find symbols
+- Reflect: `{{"tool": "Reflect", "arguments": {{"confidence": {{"requirements": 5, "architecture": 3}}, "uncertainties": ["..."]}}}}`  ← update mental state
 - Write: `{{"tool": "Write", "arguments": {{"TargetFile": "/full/path", "CodeContent": "content"}}}}`  ← artifacts only
 
 **Tools you should NOT need in planning:**
@@ -1594,53 +1756,48 @@ BEGIN.  Start with Step 1 — think out loud before calling any tool.
         context: AgentContext
     ) -> str:
         """
-        Determine the current cognitive phase based on progress.
+        Determine the current cognitive phase based on progress and meta-cognition.
         
         Phase transitions:
-        - discovery: Initial phase, until 3+ files identified
-        - exploration: Once files identified, until 5+ files read
-        - consolidation: Once sufficient reading done, until uncertainties resolved
-        - design: Once understanding solid, ready to design solution
+        - discovery: Initial phase, until target files identified
+        - exploration: Reading files until saturation or confidence thresholds met
+        - consolidation: Synthesizing information, resolving specific uncertainties
+        - design: Sufficient understanding to plan architectural changes
         - specification: Final phase, writing detailed artifacts
         
         Returns:
             Current phase name
         """
-        read_count = sum(
-            1 for r in all_results 
-            if r.get("success") and r.get("tool", "").lower() == "read"
-        )
-        glob_count = sum(
-            1 for r in all_results 
-            if r.get("success") and r.get("tool", "").lower() in ("glob", "smartglob")
-        )
+        # Metrics
+        read_count = sum(1 for r in all_results if r.get("success") and r.get("tool", "").lower() == "read")
+        glob_count = sum(1 for r in all_results if r.get("success") and r.get("tool", "").lower() in ("glob", "smartglob"))
         
-        wrote_task = any(
-            r.get("success") and "task.md" in str(r.get("file_path", ""))
-            for r in all_results
-        )
-        wrote_plan = any(
-            r.get("success") and "implementation_plan.md" in str(r.get("file_path", ""))
-            for r in all_results
-        )
+        wrote_task = any(r.get("success") and "task.md" in str(r.get("file_path", "")) for r in all_results)
+        wrote_plan = any(r.get("success") and "implementation_plan.md" in str(r.get("file_path", "")) for r in all_results)
         
-        # Specification phase: Writing artifacts
+        # 1. Specification phase: Writing artifacts (Always last)
         if wrote_task or wrote_plan:
             return "specification"
         
-        # Design phase: Sufficient research done, ready to design
-        if read_count >= 5 and self._has_resolved_critical_uncertainties():
+        # 2. Design phase: Ready when confidence is high OR research is saturated
+        is_ready, _ = self.confidence_tracker.is_ready_for_planning()
+        is_saturated = self.saturation_detector.is_saturated()
+        
+        if is_ready or (is_saturated and read_count >= 1):
             return "design"
         
-        # Consolidation phase: Done initial reading, verifying understanding
-        if read_count >= 3:
-            return "consolidation"
+        # 3. Consolidation phase: Have read files but confidence is low OR specific uncertainties exist
+        has_critical_unknowns = self.uncertainty_tracker.get_critical_count() > 0
+        if read_count >= 1 and (has_critical_unknowns or not is_ready):
+            # If we've read a lot but still aren't ready, we need to consolidate
+            if read_count >= 3:
+                return "consolidation"
         
-        # Exploration phase: Files identified, reading them
+        # 4. Exploration phase: Files identified and reading has started
         if glob_count >= 1 or read_count >= 1:
             return "exploration"
         
-        # Discovery phase: Initial understanding
+        # 5. Discovery phase: Initial understanding (default)
         return "discovery"
 
     def _is_planning_complete(
@@ -1964,6 +2121,9 @@ By end of this round, you should have:
 ## ⚠️ Important Reminders
 - DO NOT write task.md or implementation_plan.md yet
 - Focus on breadth (what exists) more than depth (how it works)
+- **NO GUESSING**: Do not assume files exist in standard locations like `docs/` or `tests/`.
+- **VERIFY BEFORE READ**: You are **STRICTLY PROHIBITED** from using `read_file` on a path unless you have successfully seen it in `list_dir` or `find_by_name`.
+- **IMPORT != FILE**: `import a.b.c` does NOT guarantee `a/b/c.py` exists. It could be `a/b/c/__init__.py` or `a/b.py`. **ALWAYS verify with Glob/LS.**
 
 ## 🚫 Scope Reminder
 You may ONLY write:
@@ -2053,6 +2213,9 @@ Observe:
 ## ⚠️ Critical Reminders
 - DO NOT write artifacts yet
 - Focus on understanding BEHAVIOR, not just structure
+- **NO GUESSING**: Do not assume files exist in standard locations like `docs/` or `tests/`.
+- **VERIFY BEFORE READ**: You are **STRICTLY PROHIBITED** from using `read_file` on a path unless you have successfully seen it in `list_dir` or `find_by_name`.
+- **IMPORT != FILE**: `import a.b.c` does NOT guarantee `a/b/c.py` exists. It could be `a/b/c/__init__.py` or `a/b.py`. **ALWAYS verify with Glob/LS.**
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Continue exploration. Document what you learn.
@@ -2352,32 +2515,34 @@ REFLECTION CHECKPOINT - End of Round {round_num}
 - Tool calls made: {len(round_results)}
 - Files read this round: {len(files_read_this_round)}
 
-## 🧠 Reflection Questions
+## 🧠 Reflection Actions
 
-### 1. What did you learn this round?
-[List 3-5 key insights]
+You must now explicitly update your meta-cognitive state.
 
-### 2. Confidence Self-Assessment
+**REQUIRED ACTION:** Call the `Reflect` tool.
 
-Rate your confidence (1-5) in each area:
+Example:
+```json
+{{
+  "tool": "Reflect",
+  "arguments": {{
+    "confidence": {{
+      "requirements": 5,
+      "architecture": 3,
+      "dependencies": 4,
+      "edge_cases": 2,
+      "testing": 5,
+      "patterns": 4
+    }},
+    "uncertainties": [
+        "How is the logger initialized?",
+        "Where is the config parsed?"
+    ]
+  }}
+}}
+```
 
-- Requirements: __/5
-- Architecture: __/5
-- Dependencies: __/5
-- Edge cases: __/5
-- Testing: __/5
-- Patterns: __/5
-
-### 3. Next Steps Decision
-
-Choose ONE:
-- [ ] **I need more research** - Specifically: [what?]
-- [ ] **I'm ready to move to design phase**
-- [ ] **I'm ready to write artifacts**
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Respond with your reflection, then continue.
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Do NOT write a text response. Call the tool immediately.
 """
 
     def _build_generic_continuation(

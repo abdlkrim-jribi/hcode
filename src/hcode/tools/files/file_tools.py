@@ -18,15 +18,15 @@ class ReadTool(BaseTool):
     View the contents of a file from the local filesystem.
     Text file usage:
     - The lines of the file are 1-indexed
-    - The first time you read a new file the tool will enforce reading 800 lines to understand as much about the file as possible
+    - The first time you read a new file the tool will enforce reading 2000 lines to understand as much about the file as possible
     - The output of this tool call will be the file contents from StartLine to EndLine (inclusive)
-    - You can view at most 800 lines at a time
+    - You can view at most 2000 lines at a time
     - To view the whole file do not pass StartLine or EndLine arguments
     Binary file usage:
     - Do not provide StartLine or EndLine arguments, this tool always returns the entire file (if manageable)
     """
 
-    MAX_LINES = 800
+    MAX_LINES = 2000
 
     def __init__(self, root_dir: Optional[str] = None):
         super().__init__()

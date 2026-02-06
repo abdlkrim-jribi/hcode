@@ -4,6 +4,13 @@ Hcode is a powerful CLI-based AI coding assistant designed to help developers wi
 
 ## Features
 
+## Architecture Overview
+
+Hcode follows a layered state‑machine architecture (Planning → Execution → Verification). The diagram below visualises the main layers and their interactions.
+
+![](docs/assets/architecture.svg)
+
+
 - **Advanced Context Awareness**: Understands your workspace, files, and project structure.
 - **Multi-Provider Support**: Compatible with major AI providers like Anthropic (Claude) and OpenAI (GPT).
 - **Agentic Workflow**: Capable of planning, executing, and verifying tasks autonomously.
