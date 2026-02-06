@@ -632,26 +632,73 @@ CRITICAL RULES:
             "or provide a summary if you're done."
         )
 
-    def _format_tool_results(self, results: List[Dict[str, Any]]) -> str:
+    def _format_tool_results(
+        self, results: List[Dict[str, Any]], preserve_signatures: bool = False
+    ) -> str:
         """
         Format tool execution results for feeding back to the AI.
 
         Args:
             results: List of tool result dicts
+            preserve_signatures: If True, preserve class/function signatures
+                                 in Read outputs before truncating (useful for planning)
 
         Returns:
             Formatted string describing each tool's output
         """
+        import re
+
         parts = []
         for r in results:
             tool = r.get('tool', 'unknown')
             success = r.get('success', False)
-            output = str(r.get('output', ''))[:2000]  # Truncate long outputs
+            output = str(r.get('output', ''))
             error = r.get('error', '')
 
             if success:
+                # Apply signature preservation for Read tool in planning phase
+                if preserve_signatures and tool.lower() == 'read':
+                    output = self._extract_signatures_and_truncate(output, max_chars=3000)
+                else:
+                    output = output[:2000]  # Standard truncation
+
                 parts.append(f"[{tool}] Success:\n{output}")
             else:
                 parts.append(f"[{tool}] Failed: {error}")
 
         return "\n\n".join(parts) if parts else "No tool results."
+
+    def _extract_signatures_and_truncate(self, content: str, max_chars: int = 3000) -> str:
+        """
+        Extract class and function signatures before truncating content.
+
+        Preserves structural information (class/def lines) even when the body
+        is truncated, giving the AI context about what's in the file.
+
+        Args:
+            content: Full file content
+            max_chars: Maximum characters for output
+
+        Returns:
+            Content with signatures preserved at the top if needed
+        """
+        import re
+
+        if len(content) <= max_chars:
+            return content
+
+        # Extract signatures
+        signatures = []
+        # Match class definitions
+        for match in re.finditer(r'^(class\s+\w+[^\n]*)', content, re.MULTILINE):
+            signatures.append(match.group(1))
+        # Match function definitions (including async)
+        for match in re.finditer(r'^(\s*(?:async\s+)?def\s+\w+[^\n]*)', content, re.MULTILINE):
+            signatures.append(match.group(1).strip())
+
+        if signatures:
+            sig_header = "# File signatures (extracted before truncation):\n# " + "\n# ".join(signatures[:15]) + "\n\n"
+            remaining = max_chars - len(sig_header)
+            return sig_header + content[:remaining] + "\n... [truncated]"
+        else:
+            return content[:max_chars] + "\n... [truncated]"

@@ -1,72 +1,12 @@
 # Artifact Templates for PEV Workflow
 # These templates define the structure of generated artifacts
-
-task_md:
-  # Template for task.md file
-  template: |
-    # Task
-
-    {task}
-
-    ## Understanding
-
-    [Agent's understanding of what needs to be done]
-
-    ## Context
-
-    [Relevant information about the codebase, existing files, etc.]
-
-    ## Subtasks
-
-    - [ ] Subtask 1
-    - [ ] Subtask 2
-    - [ ] Subtask 3
-
-    ## Questions/Clarifications
-
-    [Any questions or clarifications needed]
-
-implementation_plan_md:
-  # Template for implementation_plan.md file
-  template: |
-    # Implementation Plan
-
-    ## Approach
-
-    [High-level approach and strategy]
-
-    ## Steps
-
-    1. **Step 1**: [Description]
-       - File: `path/to/file.py`
-       - Action: [What to do]
-
-    2. **Step 2**: [Description]
-       - File: `path/to/file.py`
-       - Action: [What to do]
-
-    3. **Step 3**: [Description]
-       - Action: [What to do]
-
-    ## Files to Modify
-
-    - `file1.py`: [What changes to make]
-    - `file2.py`: [What changes to make]
-
-    ## Files to Create
-
-    - `new_file.py`: [What it should contain]
-
-    ## Testing Strategy
-
-    [How to verify the implementation works]
-
-    - Run tests: `pytest tests/`
-    - Manual verification: [Steps]
-
-    ## Potential Issues
-
-    [Any potential challenges or considerations]
+#
+# NOTE: task.md and implementation_plan.md are NOT template-based.
+# The agent generates them directly using the guidance prompts in:
+#   - src/hcode/config/core_prompts/core/task.md
+#   - src/hcode/config/core_prompts/core/implementation_plan.md
+#
+# Only walkthrough.md uses a template since it's generated programmatically.
 
 walkthrough_md:
   # Template for walkthrough.md file

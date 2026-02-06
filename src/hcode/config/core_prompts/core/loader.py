@@ -83,6 +83,8 @@ class CorePromptLoader:
             "tool_format.md",
             "planning_mode.md",
             "execution_mode.md",
+            "implementation_plan.md",
+            "task.md",
         ]
 
         for md_file in md_files:
@@ -263,6 +265,22 @@ class CorePromptLoader:
     def get_execution_mode(self) -> str:
         """Get the execution mode prompt."""
         return self._prompts.get("execution_mode", "")
+
+    def get_task_guidance(self) -> str:
+        """Get the task.md guidance document.
+
+        Returns:
+            Full content of task.md guidance file for artifact creation
+        """
+        return self._prompts.get("task", "")
+
+    def get_implementation_plan_guidance(self) -> str:
+        """Get the implementation_plan.md guidance document.
+
+        Returns:
+            Full content of implementation_plan.md guidance file for artifact creation
+        """
+        return self._prompts.get("implementation_plan", "")
 
     # =========================================================================
     # Convenience Methods for Common Prompts
