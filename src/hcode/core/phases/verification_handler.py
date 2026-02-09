@@ -231,6 +231,10 @@ Step 4: Identify DEVIATIONS — changes not in plan, or plan steps not done.
 Therefore: Compliance is [PASS/CONDITIONAL PASS/FAIL] because [evidence].
 </thinking>
 
+<output>
+[Tool calls to read task.md, plan, and modified files, then compliance verification matrix]
+</output>
+
 **Phase 2 — QUALITY GATES:**
 <thinking>
 Step 1: Complexity — Are functions reasonable length (≤50 lines)?
@@ -242,6 +246,10 @@ Step 6: Security — No obvious vulnerabilities?
 Therefore: Quality gates [X/6 passed].
 </thinking>
 
+<output>
+[Quality assessment with scores for each gate: X/6 passed]
+</output>
+
 **Phase 3 — INTEGRATION TESTING:**
 <thinking>
 Step 1: HAPPY PATH — Trace primary use case through code.
@@ -251,6 +259,10 @@ Step 4: REGRESSION — Could changes break existing functionality?
 Therefore: Integration testing [PASS/FAIL] with [N] scenarios verified.
 </thinking>
 
+<output>
+[Tool calls to run tests if applicable, then integration test results summary]
+</output>
+
 **Phase 4 — FINAL DECISION:**
 <thinking>
 Step 1: Aggregate — Phase 1 [result], Phase 2 [score], Phase 3 [result].
@@ -258,6 +270,10 @@ Step 2: Categorize issues — CRITICAL/HIGH/MEDIUM/LOW.
 Step 3: Verdict — APPROVED / APPROVED WITH NOTES / NEEDS REVISION / REJECTED.
 Therefore: Final verdict is [verdict] because [justification].
 </thinking>
+
+<output>
+[Final verdict with evidence-based justification]
+</output>
 
 """
 

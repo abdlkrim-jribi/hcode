@@ -208,6 +208,10 @@ Step 4: Assess readiness — Do I have all the information needed?
 Therefore: The next task to execute is [task] because [reason].
 </thinking>
 
+<output>
+[Tool calls to read task.md and implementation_plan.md, then summary of selected task]
+</output>
+
 **Phase 1 — PRE-IMPLEMENTATION ANALYSIS:**
 <thinking>
 Step 1: READ all target files — Extract current structure, patterns, imports.
@@ -219,6 +223,10 @@ Step 6: ANTI-HALLUCINATION — Am I referencing code I haven't read? If yes: STO
 Therefore: I am confident in the exact change because [evidence].
 </thinking>
 
+<output>
+[Tool calls to read files, then analysis summary with exact change specification]
+</output>
+
 **Phase 2 — CODE GENERATION (3-Pass):**
 <thinking>
 Pass 1 (Skeleton): Create structural skeleton — classes, functions, signatures, imports.
@@ -226,6 +234,10 @@ Pass 2 (Logic): Fill in function bodies — happy path, then error handling.
 Pass 3 (Polish): Check cross-file references, naming consistency, cleanup.
 Therefore: Code is complete and consistent with project patterns.
 </thinking>
+
+<output>
+[Tool calls to Write/Edit files implementing the change]
+</output>
 
 **Phase 3 — SELF-VALIDATION:**
 <thinking>
@@ -236,6 +248,10 @@ Step 4: VERIFY task.md — Are completed subtasks marked [x]?
 Step 5: LIST remaining issues — Any known issues or limitations?
 Therefore: Implementation is [complete/incomplete] because [evidence].
 </thinking>
+
+<output>
+[Tool calls to re-read files and update task.md, then validation summary]
+</output>
 
 CRITICAL RULES:
 - NEVER show code in response text without using Write/Edit tools
