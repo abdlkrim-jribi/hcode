@@ -676,16 +676,140 @@ Produce your analysis in structured format. Read the modified files to verify.""
 
         return commands
 
+    def _sanitize_command(self, command: str) -> Optional[str]:
+        """
+        Sanitize shell command against whitelist to prevent injection attacks.
+
+        Only allows safe, whitelisted test commands and patterns. Returns None
+        if the command is not safe to execute.
+
+        Whitelist includes:
+        - Standard test runners (pytest, npm test, cargo test, go test, etc.)
+        - Python compile checks (py_compile, compileall)
+        - Direct Python file execution (python <file.py>)
+
+        Rejects:
+        - Arbitrary shell commands
+        - Commands with dangerous operators (&&, ||, ;, |, >, <, `, $)
+        - Commands with subshells or command substitution
+        - Commands attempting to modify environment
+
+        Args:
+            command: Shell command to validate
+
+        Returns:
+            Sanitized command if safe, None if rejected
+        """
+        import re
+
+        # Strip whitespace
+        cmd = command.strip()
+
+        if not cmd:
+            return None
+
+        # Check for dangerous shell operators/characters
+        dangerous_patterns = [
+            r'&&',  # Command chaining
+            r'\|\|',  # Or operator
+            r';',  # Command separator
+            r'\|',  # Pipe (excluding pytest -v | grep which is safe)
+            r'>',  # Redirect output
+            r'<',  # Redirect input
+            r'`',  # Command substitution
+            r'\$\(',  # Command substitution
+            r'\${',  # Variable expansion with braces
+            r'rm\s',  # Remove files
+            r'dd\s',  # Disk operations
+            r'mkfs',  # Format filesystem
+            r'fdisk',  # Disk partitioning
+            r'/dev/',  # Device files
+            r'sudo',  # Elevated privileges
+            r'su\s',  # Switch user
+            r'chmod',  # Change permissions
+            r'chown',  # Change ownership
+            r'curl.*\|',  # Download and execute
+            r'wget.*\|',  # Download and execute
+        ]
+
+        for pattern in dangerous_patterns:
+            if re.search(pattern, cmd, re.IGNORECASE):
+                logger.warning(f"Command rejected due to dangerous pattern '{pattern}': {cmd}")
+                return None
+
+        # Whitelist safe command patterns
+        safe_patterns = [
+            # Python test runners
+            r'^pytest(\s|$)',
+            r'^python\s+-m\s+pytest(\s|$)',
+            r'^py\.test(\s|$)',
+
+            # JavaScript/Node test runners
+            r'^npm\s+test(\s|$)',
+            r'^npm\s+run\s+test(\s|$)',
+            r'^yarn\s+test(\s|$)',
+            r'^jest(\s|$)',
+            r'^mocha(\s|$)',
+
+            # Rust test runner
+            r'^cargo\s+test(\s|$)',
+
+            # Go test runner
+            r'^go\s+test(\s|$)',
+
+            # Python compile checks
+            r'^python\s+-m\s+py_compile\s+',
+            r'^python\s+-m\s+compileall\s+',
+
+            # Direct Python file execution (safe if file path is validated)
+            r'^python\s+"[^"]+\.py"(\s|$)',
+            r"^python\s+'[^']+\.py'(\s|$)",
+            r'^python\s+[a-zA-Z0-9_/\\.-]+\.py(\s|$)',
+
+            # Python version check
+            r'^python\s+--version(\s|$)',
+            r'^python\s+-V(\s|$)',
+
+            # Help commands (safe, read-only)
+            r'^pytest\s+--help(\s|$)',
+            r'^npm\s+--help(\s|$)',
+        ]
+
+        for pattern in safe_patterns:
+            if re.match(pattern, cmd):
+                logger.debug(f"Command approved via pattern '{pattern}': {cmd}")
+                return cmd
+
+        # If no pattern matched, reject
+        logger.warning(f"Command rejected (not in whitelist): {cmd}")
+        return None
+
     async def _execute_command(
         self,
         command: str,
         working_dir: str,
         timeout: int = 120
     ) -> Dict[str, Any]:
-        """Execute a shell command and capture output."""
+        """
+        Execute a shell command and capture output.
+
+        Commands are sanitized before execution to prevent injection attacks.
+        Only whitelisted safe commands are allowed.
+        """
+        # Sanitize command first
+        sanitized = self._sanitize_command(command)
+
+        if sanitized is None:
+            logger.error(f"Command rejected by security sanitization: {command}")
+            return {
+                "success": False,
+                "output": f"[SECURITY] Command rejected: not in whitelist",
+                "exit_code": -1,
+            }
+
         try:
             process = await asyncio.create_subprocess_shell(
-                command,
+                sanitized,  # Use sanitized command
                 cwd=working_dir,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.STDOUT,
