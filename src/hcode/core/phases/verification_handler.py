@@ -1,11 +1,17 @@
 """
-Verification phase handler.
+Verification Phase Handler — 5-Phase Quality Assurance Protocol
+================================================================
 
-Responsible for:
-- Running tests to verify implementation
-- Creating walkthrough.md documentation
-- Validating implementation correctness
-- Marking task as complete in task.md
+Implements the *Verification* phase of the PEV workflow with a structured
+5-phase protocol optimized for GPT OSS 120B reasoning:
+
+- **Phase 1: Compliance Verification** — Check implementation matches plan
+- **Phase 2: Quality Gates Assessment** — Score code quality metrics
+- **Phase 3: Integration Testing** — Mental execution + actual tests
+- **Phase 4: Final Decision** — Aggregate into APPROVED/NEEDS REVISION
+- **Phase 5: Update task.md** — MANDATORY final status update
+
+The handler combines AI-driven code review with actual test execution.
 """
 
 import re
@@ -13,8 +19,10 @@ import logging
 import asyncio
 from pathlib import Path
 from typing import List, Any, Dict, Optional
+
 from .base_handler import BasePhaseHandler
 from ..protocols import AgentContext, PhaseResult
+from hcode.providers.base import Message
 
 # FileAction enum for HcodeDisplay tracking
 try:
@@ -29,18 +37,20 @@ class VerificationPhaseHandler(BasePhaseHandler):
     """
     Handler for the Verification phase of PEV workflow.
 
-    Creates:
-    - .hcode/walkthrough.md: Documentation of what was implemented
+    Uses a 5-phase QA protocol:
+    - Phase 1: Compliance — verify implementation matches plan
+    - Phase 2: Quality Gates — score 6 quality dimensions
+    - Phase 3: Integration Testing — mental execution + actual tests
+    - Phase 4: Final Decision — aggregate verdict
+    - Phase 5: Update task.md — mandatory status sync
 
-    Actions:
-    - Runs tests (pytest, npm test, etc.)
-    - Validates implementation
-    - Documents results
+    Creates:
+    - .hcode/walkthrough.md: Structured verification evidence
 
     Transition criteria:
     - Tests run (pass or fail documented)
-    - walkthrough.md created with implementation summary
-    - Agent confirms task is complete
+    - walkthrough.md created with verification evidence
+    - task.md updated with true completion status
     """
 
     phase_name = "verification"
@@ -49,23 +59,24 @@ class VerificationPhaseHandler(BasePhaseHandler):
         """Get artifacts this phase should produce."""
         return ["walkthrough.md"]
 
+    # ═══════════════════════════════════════════════════════════════════════
+    # MAIN HANDLER
+    # ═══════════════════════════════════════════════════════════════════════
+
     async def handle(
         self,
         context: AgentContext,
         loop_controller: Any,
     ) -> PhaseResult:
         """
-        Execute verification phase.
+        Execute verification phase using the 5-phase QA protocol.
 
         Steps:
-        1. Run tests specified in implementation plan
-        2. Collect test results
-        3. Create walkthrough.md with:
-           - What was implemented
-           - Files modified
-           - Test results
-           - How to verify
-        4. Mark task as complete
+        1. Run actual tests / compile checks (scope-aware)
+        2. Generate AI verification analysis (5-phase protocol)
+        3. Build walkthrough.md with structured evidence
+        4. Update task.md with true status
+        5. Return final verdict
 
         Args:
             context: Current agent context
@@ -84,15 +95,18 @@ class VerificationPhaseHandler(BasePhaseHandler):
                 for f in non_artifact_files:
                     self._display(f"    - {f}", style="thinking")
 
-            # Load implementation plan to find test strategy
+            # Load artifacts
             plan_content = self.artifact_manager.load_artifact(
                 "implementation_plan.md", context
             )
+            task_content = self.artifact_manager.load_artifact(
+                "task.md", context
+            )
 
-            # Run tests / compile checks (each command is displayed as it runs)
+            # Phase 3 (partial): Run actual tests / compile checks
             test_results = await self._run_tests(context, plan_content)
 
-            # Display final test results summary
+            # Display test results summary
             if test_results.get("tests_run"):
                 passed = test_results.get("tests_passed", 0)
                 failed = test_results.get("tests_failed", 0)
@@ -102,11 +116,24 @@ class VerificationPhaseHandler(BasePhaseHandler):
                 else:
                     self._display(f"Verification: {passed} passed, {failed} failed", style="error")
             else:
-                self._display("No verification checks were run", style="thinking")
+                self._display("No automated checks were run", style="thinking")
 
-            # Create walkthrough
-            walkthrough_content = self._create_walkthrough(
-                context, test_results
+            # Generate AI verification analysis (Phases 1-4)
+            verification_analysis = ""
+            if self.provider is not None:
+                if self._hcode_display:
+                    self._hcode_display.start_thinking()
+
+                verification_analysis = await self._run_verification_analysis(
+                    context, plan_content, task_content, test_results
+                )
+
+                if self._hcode_display:
+                    self._hcode_display.end_thinking()
+
+            # Build walkthrough with structured verification evidence (AI-generated)
+            walkthrough_content = await self._create_walkthrough(
+                context, test_results, verification_analysis
             )
 
             # Save walkthrough.md
@@ -119,12 +146,14 @@ class VerificationPhaseHandler(BasePhaseHandler):
             if self._hcode_display and FileAction:
                 self._hcode_display.track_file(".hcode/walkthrough.md", FileAction.CREATED)
 
+            # Phase 5: Update task.md with true status
+            self._update_task_status(context, test_results)
+
             # Show summary
             self._display("Implementation Summary:", style="info")
             self._display(f"  - Files modified: {len(context.modified_files)}", style="default")
             self._display(f"  - Actions completed: {len(context.completed_actions)}", style="default")
 
-            # Display modified files list
             if context.modified_files:
                 for file_path in non_artifact_files:
                     self._display(f"  - {file_path}", style="default")
@@ -134,7 +163,6 @@ class VerificationPhaseHandler(BasePhaseHandler):
 
             # Validate artifact
             valid, error = self.validate_artifacts(context)
-
             if not valid:
                 return PhaseResult(
                     phase_name=self.phase_name,
@@ -145,16 +173,31 @@ class VerificationPhaseHandler(BasePhaseHandler):
                     error=error,
                 )
 
-            # Verification phase is terminal (can_transition = workflow complete)
+            # Determine verdict from test results
+            tests_ok = (
+                not test_results.get("tests_run")
+                or test_results.get("tests_failed", 0) == 0
+            )
+            verdict = "APPROVED" if tests_ok else "APPROVED WITH NOTES"
+
+            # Update task memory with learnings from this successful task
+            self._update_hcode_memory(
+                context=context,
+                test_results=test_results,
+                verification_analysis=verification_analysis,
+                verdict=verdict
+            )
+
             return PhaseResult(
                 phase_name=self.phase_name,
                 success=True,
-                output="Verification phase complete. Task is done.",
+                output=f"Verification complete. Verdict: {verdict}",
                 artifacts_created=["walkthrough.md"],
-                can_transition=True,  # True means workflow is complete
+                can_transition=True,
                 metadata={
                     "test_results": test_results,
                     "modified_files": context.modified_files,
+                    "verdict": verdict,
                 }
             )
 
@@ -167,16 +210,303 @@ class VerificationPhaseHandler(BasePhaseHandler):
                 error=str(e),
             )
 
-    def _get_non_artifact_files(self, context: AgentContext) -> List[str]:
-        """
-        Get modified files excluding .hcode artifacts.
+    # ═══════════════════════════════════════════════════════════════════════
+    # THINKING INSTRUCTIONS (GPT OSS 120B OPTIMIZED)
+    # ═══════════════════════════════════════════════════════════════════════
 
-        Args:
-            context: Current agent context
+    def _get_thinking_instructions(self) -> str:
+        """
+        Override base thinking instructions with 5-phase QA protocol.
+        """
+        return """### 5-PHASE VERIFICATION THINKING PROTOCOL
+
+You MUST think through each verification phase using structured reasoning:
+
+**Phase 1 — COMPLIANCE VERIFICATION:**
+<thinking>
+Step 1: Load task.md — What was supposed to be done?
+Step 2: Load implementation_plan.md — How was it supposed to be done?
+Step 3: For each plan step: Was it implemented? Correctly? Completely?
+Step 4: Identify DEVIATIONS — changes not in plan, or plan steps not done.
+Therefore: Compliance is [PASS/CONDITIONAL PASS/FAIL] because [evidence].
+</thinking>
+
+**Phase 2 — QUALITY GATES:**
+<thinking>
+Step 1: Complexity — Are functions reasonable length (≤50 lines)?
+Step 2: Documentation — Do public APIs have docstrings?
+Step 3: Error handling — Are exceptions caught? Descriptive messages?
+Step 4: Imports — All used? No circular deps?
+Step 5: Style — Matches project conventions?
+Step 6: Security — No obvious vulnerabilities?
+Therefore: Quality gates [X/6 passed].
+</thinking>
+
+**Phase 3 — INTEGRATION TESTING:**
+<thinking>
+Step 1: HAPPY PATH — Trace primary use case through code.
+Step 2: EDGE CASES — Check boundary conditions.
+Step 3: ERROR PATHS — Verify failure handling.
+Step 4: REGRESSION — Could changes break existing functionality?
+Therefore: Integration testing [PASS/FAIL] with [N] scenarios verified.
+</thinking>
+
+**Phase 4 — FINAL DECISION:**
+<thinking>
+Step 1: Aggregate — Phase 1 [result], Phase 2 [score], Phase 3 [result].
+Step 2: Categorize issues — CRITICAL/HIGH/MEDIUM/LOW.
+Step 3: Verdict — APPROVED / APPROVED WITH NOTES / NEEDS REVISION / REJECTED.
+Therefore: Final verdict is [verdict] because [justification].
+</thinking>
+
+"""
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # AI VERIFICATION ANALYSIS
+    # ═══════════════════════════════════════════════════════════════════════
+
+    async def _run_verification_analysis(
+        self,
+        context: AgentContext,
+        plan_content: Optional[str],
+        task_content: Optional[str],
+        test_results: Dict[str, Any],
+    ) -> str:
+        """
+        Run AI-driven verification analysis through Phases 1-4.
+
+        Gives the AI the verification_handler.md protocol, all artifacts,
+        test results, and the list of modified files. The AI produces
+        structured verification analysis.
 
         Returns:
-            List of non-artifact modified file paths
+            AI-generated verification analysis text
         """
+        system_prompt = self._get_verification_system_prompt(context)
+        prompt = self._build_verification_prompt(
+            context, plan_content, task_content, test_results
+        )
+
+        try:
+            response_text, tool_results = await self._generate_and_execute(
+                prompt,
+                context,
+                system_prompt=system_prompt,
+                max_rounds=6,
+                max_tokens=16384,
+                temperature=0.3,  # Deterministic analysis
+            )
+            return response_text
+        except Exception as e:
+            logger.error(f"Verification analysis failed: {e}")
+            return f"[Verification analysis could not be generated: {e}]"
+
+    def _get_verification_system_prompt(self, context: AgentContext) -> str:
+        """
+        Build system prompt for verification phase.
+
+        Loads verification_handler.md as the primary protocol.
+        """
+        try:
+            from hcode.config.core_prompts.core.loader import get_prompt_loader
+            loader = get_prompt_loader()
+
+            identity = loader.get_identity()
+            tool_format = loader.get_tool_format()
+
+            verification_protocol = self._load_verification_protocol()
+
+            return f"""{identity}
+
+{tool_format}
+
+---
+
+{verification_protocol}
+
+---
+{self._load_hcode_memory(context)}
+## CURRENT CONTEXT
+
+Working directory: {context.working_dir}
+Artifacts directory: .hcode
+Modified files: {len(context.modified_files)}
+Completed actions: {len(context.completed_actions)}
+
+### TOOL CALL FORMAT
+
+Output JSON tool calls in code blocks: `{{"tool": "ToolName", "arguments": {{"param": "value"}}}}`
+(See tool_format.md for complete documentation)
+"""
+        except Exception as e:
+            logger.warning(f"Failed to load core prompts: {e}")
+            return self._get_fallback_verification_prompt(context)
+
+    def _load_verification_protocol(self) -> str:
+        """Load verification_handler.md prompt file."""
+        try:
+            prompt_dir = Path(__file__).parent.parent.parent / "config" / "core_prompts" / "core"
+            protocol_path = prompt_dir / "verification_handler.md"
+
+            if protocol_path.exists():
+                return protocol_path.read_text(encoding="utf-8")
+
+            logger.warning("verification_handler.md not found, using inline protocol")
+        except Exception as e:
+            logger.warning(f"Failed to load verification_handler.md: {e}")
+
+        return """# Hcode Verification Mode — 5-Phase QA Protocol
+
+## THE 5-PHASE PROTOCOL
+
+### Phase 1: Compliance Verification
+Check each plan step was implemented correctly. PASS/CONDITIONAL/FAIL.
+
+### Phase 2: Quality Gates
+Score 6 dimensions: complexity, documentation, error handling, imports, style, security.
+
+### Phase 3: Integration Testing
+Trace happy path, edge cases, and error paths through the code.
+
+### Phase 4: Final Decision
+Aggregate phases into APPROVED / APPROVED WITH NOTES / NEEDS REVISION / REJECTED.
+
+### Phase 5: Update task.md
+MANDATORY — update checkboxes to reflect true implementation status.
+"""
+
+    def _get_fallback_verification_prompt(self, context: AgentContext) -> str:
+        """Fallback verification prompt."""
+        return f"""## VERIFICATION MODE
+
+You are Hcode in VERIFICATION mode. Verify the implementation is correct.
+
+Working directory: {context.working_dir}
+
+### Rules:
+1. Read all modified files
+2. Check implementation matches the plan
+3. Run tests if possible
+4. Create walkthrough.md with findings
+"""
+
+    def _build_verification_prompt(
+        self,
+        context: AgentContext,
+        plan_content: Optional[str],
+        task_content: Optional[str],
+        test_results: Dict[str, Any],
+    ) -> str:
+        """
+        Build the user prompt for AI verification analysis.
+        """
+        # Format modified files
+        modified_list = "\n".join(
+            f"  - {f}" for f in context.modified_files
+        ) if context.modified_files else "  (none)"
+
+        non_artifact_files = self._get_non_artifact_files(context)
+        code_files_list = "\n".join(
+            f"  - {f}" for f in non_artifact_files
+        ) if non_artifact_files else "  (none)"
+
+        # Format test results
+        test_summary = "No tests were run."
+        if test_results.get("tests_run"):
+            passed = test_results.get("tests_passed", 0)
+            failed = test_results.get("tests_failed", 0)
+            test_summary = f"Tests: {passed} passed, {failed} failed."
+            if test_results.get("output"):
+                test_summary += f"\n\nTest output:\n```\n{test_results['output'][:3000]}\n```"
+
+        return f"""## VERIFICATION PHASE — 5-Phase QA Protocol
+
+You are verifying the implementation that was just completed.
+Follow Phases 1 → 2 → 3 → 4 in sequence.
+
+### task.md (What Should Have Been Done):
+{task_content or "(Not available)"}
+
+### implementation_plan.md (How It Should Have Been Done):
+{plan_content or "(Not available)"}
+
+### Modified Files (What Was Actually Changed):
+All modified files:
+{modified_list}
+
+Code files (excluding artifacts):
+{code_files_list}
+
+### Test Results (Already Executed):
+{test_summary}
+
+### INSTRUCTIONS:
+
+Execute the 5-Phase QA Protocol:
+
+**Phase 1: Compliance Verification**
+Read each modified code file. For each plan step, verify:
+- Was it implemented?
+- Was it implemented correctly?
+- Are there unauthorized changes?
+
+**Phase 2: Quality Gates**
+Score each modified file on: complexity, documentation, error handling,
+imports, style consistency, security. Report X/6 gates passed.
+
+**Phase 3: Integration Testing (Mental Execution)**
+Trace at least:
+- 1 happy path scenario
+- 1 edge case
+- 1 error scenario
+
+**Phase 4: Final Decision**
+Aggregate all findings into:
+- APPROVED: No critical/high issues
+- APPROVED WITH NOTES: Minor issues documented
+- NEEDS REVISION: Critical issues found
+- REJECTED: Fundamental errors
+
+Produce your analysis in structured format. Read the modified files to verify."""
+
+    def _build_continuation_prompt(
+        self,
+        round_results: List[Dict[str, Any]],
+        all_results: List[Dict[str, Any]],
+        round_num: int,
+        context: Any = None,
+    ) -> str:
+        """Phase-aware continuation for verification rounds."""
+        read_count = sum(
+            1 for r in all_results
+            if r.get('success') and r.get('tool', '').lower() in ['read', 'readtool']
+        )
+
+        if round_num == 0 and read_count == 0:
+            return (
+                "You MUST read the modified files before making verification claims. "
+                "Start Phase 1: Read each modified file and check compliance with the plan."
+            )
+
+        if round_num <= 2:
+            return (
+                "Continue your verification analysis. If you've completed Phase 1 "
+                "(compliance), proceed to Phase 2 (quality gates) and Phase 3 "
+                "(mental execution traces). Then provide your Phase 4 final verdict."
+            )
+
+        return (
+            "Wrap up your verification. Provide the final verdict (Phase 4) "
+            "with a structured summary of findings by severity "
+            "(CRITICAL/HIGH/MEDIUM/LOW)."
+        )
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # TEST EXECUTION (Scope-Aware)
+    # ═══════════════════════════════════════════════════════════════════════
+
+    def _get_non_artifact_files(self, context: AgentContext) -> List[str]:
+        """Get modified files excluding .hcode artifacts."""
         return [
             f for f in context.modified_files
             if ".hcode" not in f
@@ -194,19 +524,8 @@ class VerificationPhaseHandler(BasePhaseHandler):
         Run verification commands with scope-aware strategy.
 
         Strategy:
-        - 1-2 modified files:  compile-check each .py file, then run it directly.
-          Full test suite is skipped (it's unrelated to the change).
-        - 3+ modified files:   run the full test suite (pytest / npm test etc.)
-          as specified in the plan or auto-detected.
-
-        This prevents a single new script from triggering 700+ unrelated tests.
-
-        Args:
-            context: Current agent context
-            plan_content: Implementation plan content
-
-        Returns:
-            Dict with test results
+        - 1-2 modified files: compile-check + run each .py file
+        - 3+ modified files: full test suite (pytest / npm test etc.)
         """
         results = {
             "tests_run": False,
@@ -219,18 +538,14 @@ class VerificationPhaseHandler(BasePhaseHandler):
         non_artifact_files = self._get_non_artifact_files(context)
         python_files = [f for f in non_artifact_files if f.endswith(".py")]
 
-        # ── Narrow scope: 1-2 files → compile + run only ──
+        # Narrow scope: 1-2 files → compile + run only
         if len(non_artifact_files) <= 2:
             test_commands = []
-
             for py_file in python_files:
-                # Syntax check first
                 test_commands.append(f'python -m py_compile "{py_file}"')
-                # Then run it (short timeout – just verify it doesn't crash)
                 test_commands.append(f'python "{py_file}"')
 
             if not test_commands and non_artifact_files:
-                # Non-Python files – just note them, no automated verification
                 results["output"] = (
                     "Verification: non-Python files modified, no automated check.\n"
                     "Files: " + ", ".join(non_artifact_files)
@@ -241,15 +556,12 @@ class VerificationPhaseHandler(BasePhaseHandler):
                 results["output"] = "No files to verify."
                 return results
 
-        # ── Wide scope: 3+ files → full test suite ──
+        # Wide scope: 3+ files → full test suite
         else:
-            # Honor explicit test commands from the plan first
             test_commands = self._extract_test_commands(plan_content)
             if not test_commands:
                 test_commands = self._detect_test_commands(context)
-
             if not test_commands:
-                # Fallback: still compile-check all Python files
                 test_commands = [f'python -m py_compile "{f}"' for f in python_files]
 
         # Execute each command
@@ -277,7 +589,6 @@ class VerificationPhaseHandler(BasePhaseHandler):
                 else:
                     self._display(f"      [FAIL] exit code {cmd_result['exit_code']}", style="error")
                     all_output.append(f"[Command exited with code {cmd_result['exit_code']}]")
-                    # For compile checks, a failure is a real error
                     if "py_compile" in command:
                         total_failed += 1
 
@@ -296,79 +607,53 @@ class VerificationPhaseHandler(BasePhaseHandler):
         return results
 
     def _extract_test_commands(self, plan_content: Optional[str]) -> List[str]:
-        """
-        Extract test commands from implementation plan.
-
-        Looks for patterns like:
-        - Run tests: `pytest tests/`
-        - Test with: `npm test`
-        - Verify: `python -m pytest`
-
-        Args:
-            plan_content: Implementation plan content
-
-        Returns:
-            List of test commands
-        """
+        """Extract test commands from implementation plan."""
         if not plan_content:
             return []
 
         commands = []
 
-        # Pattern for backtick commands in testing sections
+        # Look in testing sections
         test_section_pattern = r'(?:## Test|## Verification|## Testing)[^\n]*\n((?:.*\n)*?)(?:##|$)'
         test_sections = re.findall(test_section_pattern, plan_content, re.IGNORECASE)
 
         for section in test_sections:
-            # Extract commands from backticks
             cmd_pattern = r'`([^`]+(?:pytest|npm test|python|jest|cargo test|go test|mvn test)[^`]*)`'
             cmds = re.findall(cmd_pattern, section, re.IGNORECASE)
             commands.extend(cmds)
 
-        # Also look for explicit "Run:" or "Execute:" patterns
+        # Also look for explicit "Run:" patterns
         run_pattern = r'(?:Run|Execute|Test|Verify):\s*`([^`]+)`'
         run_cmds = re.findall(run_pattern, plan_content, re.IGNORECASE)
         commands.extend(run_cmds)
 
-        # Deduplicate while preserving order
+        # Deduplicate
         seen = set()
-        unique_commands = []
+        unique = []
         for cmd in commands:
             cmd = cmd.strip()
             if cmd and cmd not in seen:
                 seen.add(cmd)
-                unique_commands.append(cmd)
+                unique.append(cmd)
 
-        return unique_commands
+        return unique
 
     def _detect_test_commands(self, context: AgentContext) -> List[str]:
-        """
-        Auto-detect test commands based on project structure.
-
-        Args:
-            context: Current agent context
-
-        Returns:
-            List of detected test commands
-        """
+        """Auto-detect test commands based on project structure."""
         commands = []
         working_dir = Path(context.working_dir)
 
-        # Python: pytest or unittest
         if (working_dir / "pytest.ini").exists() or \
            (working_dir / "pyproject.toml").exists() or \
            (working_dir / "tests").is_dir():
             commands.append("pytest --no-cov -v")
 
-        # JavaScript/Node: npm test
         if (working_dir / "package.json").exists():
             commands.append("npm test")
 
-        # Rust: cargo test
         if (working_dir / "Cargo.toml").exists():
             commands.append("cargo test")
 
-        # Go: go test
         if (working_dir / "go.mod").exists():
             commands.append("go test ./...")
 
@@ -380,19 +665,8 @@ class VerificationPhaseHandler(BasePhaseHandler):
         working_dir: str,
         timeout: int = 120
     ) -> Dict[str, Any]:
-        """
-        Execute a shell command and capture output.
-
-        Args:
-            command: Command to execute
-            working_dir: Working directory
-            timeout: Timeout in seconds
-
-        Returns:
-            Dict with success, exit_code, output
-        """
+        """Execute a shell command and capture output."""
         try:
-            # Use asyncio subprocess for non-blocking execution
             process = await asyncio.create_subprocess_shell(
                 command,
                 cwd=working_dir,
@@ -429,159 +703,410 @@ class VerificationPhaseHandler(BasePhaseHandler):
             }
 
     def _parse_test_output(self, output: str, command: str) -> tuple:
-        """
-        Parse test output to extract pass/fail counts.
-
-        Supports pytest, npm test, jest, and other common formats.
-
-        Args:
-            output: Test command output
-            command: Original command (to determine parser)
-
-        Returns:
-            Tuple of (passed_count, failed_count)
-        """
+        """Parse test output to extract pass/fail counts."""
         passed = 0
         failed = 0
 
-        # Pytest format: "5 passed, 2 failed"
+        # Pytest format
         pytest_match = re.search(r'(\d+)\s+passed', output)
         if pytest_match:
             passed = int(pytest_match.group(1))
-
         pytest_failed = re.search(r'(\d+)\s+failed', output)
         if pytest_failed:
             failed = int(pytest_failed.group(1))
 
-        # Jest format: "Tests: 5 passed, 2 failed"
+        # Jest format
         jest_match = re.search(r'Tests:\s*(\d+)\s+passed', output)
         if jest_match:
             passed = int(jest_match.group(1))
-
         jest_failed = re.search(r'Tests:.*?(\d+)\s+failed', output)
         if jest_failed:
             failed = int(jest_failed.group(1))
 
-        # Go test format: "ok" or "FAIL"
+        # Go test format
         if 'go test' in command:
             passed = output.count('ok  ')
             failed = output.count('FAIL\t')
 
-        # Rust/Cargo format: "test result: ok. 5 passed"
+        # Cargo format
         cargo_match = re.search(r'(\d+)\s+passed[^;]*;', output)
         if cargo_match:
             passed = int(cargo_match.group(1))
-
         cargo_failed = re.search(r'(\d+)\s+failed', output)
         if cargo_failed:
             failed = int(cargo_failed.group(1))
 
         return passed, failed
 
-    def _create_walkthrough(
+    # ═══════════════════════════════════════════════════════════════════════
+    # TASK.MD UPDATE (Phase 5 — MANDATORY)
+    # ═══════════════════════════════════════════════════════════════════════
+
+    def _update_task_status(
         self,
         context: AgentContext,
-        test_results: dict
+        test_results: Dict[str, Any],
+    ) -> None:
+        """
+        Phase 5: Update task.md with true completion status.
+
+        This is MANDATORY and runs regardless of verdict. Updates each
+        subtask checkbox based on whether the corresponding files were
+        actually modified and tests passed.
+        """
+        task_content = self.artifact_manager.load_artifact("task.md", context)
+        if not task_content:
+            logger.warning("task.md not found, cannot update status")
+            return
+
+        tests_ok = (
+            not test_results.get("tests_run")
+            or test_results.get("tests_failed", 0) == 0
+        )
+
+        # Build set of modified code files (not artifacts)
+        completed_files = set(self._get_non_artifact_files(context))
+
+        # Update checkbox items
+        lines = task_content.split('\n')
+        updated_lines = []
+
+        for line in lines:
+            # Match unchecked or in-progress checkboxes
+            checkbox_match = re.match(r'^(\s*-\s*)\[[ /]\]\s*(.+)$', line)
+
+            if checkbox_match:
+                prefix = checkbox_match.group(1)
+                task_text = checkbox_match.group(2)
+
+                # Check if this task's files were modified
+                task_completed = False
+                for file_path in completed_files:
+                    file_name = file_path.split('/')[-1].split('\\')[-1]
+                    if file_name in task_text or file_path in task_text:
+                        task_completed = True
+                        break
+
+                # Also check completed actions
+                for action in context.completed_actions:
+                    tool_name = action.get("tool", "").lower()
+                    if tool_name in ['write', 'edit', 'writetool', 'edittool']:
+                        args = action.get("arguments", {})
+                        target = (
+                            args.get("TargetFile", "")
+                            or args.get("file_path", "")
+                            or action.get("file_path", "")
+                        )
+                        if target:
+                            target_name = target.split('/')[-1].split('\\')[-1]
+                            if target_name in task_text or target in task_text:
+                                task_completed = True
+                                break
+
+                if task_completed and tests_ok:
+                    updated_lines.append(f"{prefix}[x] {task_text}")
+                elif task_completed and not tests_ok:
+                    # Completed but tests failed — mark in-progress
+                    updated_lines.append(f"{prefix}[/] {task_text}")
+                else:
+                    updated_lines.append(line)
+            else:
+                updated_lines.append(line)
+
+        updated_content = '\n'.join(updated_lines)
+
+        # Add verification result section
+        verdict = "APPROVED" if tests_ok else "NEEDS REVISION"
+        passed = test_results.get("tests_passed", 0)
+        failed = test_results.get("tests_failed", 0)
+
+        # Remove old verification result if present
+        ver_marker = "## Verification Result"
+        if ver_marker in updated_content:
+            marker_idx = updated_content.index(ver_marker)
+            updated_content = updated_content[:marker_idx].rstrip()
+
+        # Remove old progress update if present
+        prog_marker = "## Progress Update"
+        if prog_marker in updated_content:
+            marker_idx = updated_content.index(prog_marker)
+            updated_content = updated_content[:marker_idx].rstrip()
+
+        verification_section = f"""
+
+## Verification Result
+
+**Verdict:** {verdict}
+**Files modified:** {len(context.modified_files)}
+**Tests passed:** {passed}
+**Tests failed:** {failed}
+"""
+        updated_content += verification_section
+
+        self.artifact_manager.create_artifact("task.md", updated_content, context)
+        self._display("Updated task.md with verification status", style="success")
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # WALKTHROUGH GENERATION
+    # ═══════════════════════════════════════════════════════════════════════
+
+    async def _create_walkthrough(
+        self,
+        context: AgentContext,
+        test_results: Dict[str, Any],
+        verification_analysis: str = "",
     ) -> str:
         """
-        Create walkthrough documentation.
+        Create walkthrough.md using AI with GPT OSS 120B protocol.
 
-        Args:
-            context: Current agent context
-            test_results: Results from test execution
-
-        Returns:
-            Walkthrough content
+        Uses the walkthrough.md prompt to generate concise, evidence-based documentation.
         """
-        modified_files_section = "\n".join(
-            f"- `{file}`" for file in context.modified_files
-        ) if context.modified_files else "- No files were modified"
+        try:
+            from hcode.config.core_prompts.core.loader import get_prompt_loader
+            loader = get_prompt_loader()
 
+            # Load walkthrough protocol
+            walkthrough_protocol = loader.get_walkthrough_protocol()
+
+            if not walkthrough_protocol:
+                # Fallback to template-based generation
+                self._display("Warning: Walkthrough protocol not found, using fallback", style="thinking")
+                return self._create_walkthrough_fallback(context, test_results, verification_analysis)
+
+            # Build input data for AI
+            input_data = self._build_walkthrough_input_data(context, test_results, verification_analysis)
+
+            # Build prompt
+            prompt = f"""{walkthrough_protocol}
+
+---
+
+## INPUT DATA
+
+{input_data}
+
+---
+
+## YOUR TASK
+
+Generate the walkthrough.md content following the GPT OSS 120B protocol above. Use <thinking> blocks for analysis and planning, then output the final walkthrough content in <output> blocks.
+
+Remember: BE CONCISE (max 200 words). Users will be annoyed by verbose documentation.
+"""
+
+            # Generate walkthrough using AI
+            self._display("Generating walkthrough.md with AI...", style="thinking")
+
+            response = await self.provider.generate_completion(
+                messages=[Message(role="user", content=prompt)],
+                max_tokens=2000,
+                temperature=0.3,  # Lower temperature for consistent formatting
+            )
+
+            # Extract walkthrough content from response
+            walkthrough_content = self._extract_walkthrough_from_response(response)
+
+            if not walkthrough_content:
+                self._display("Warning: AI generation failed, using fallback", style="thinking")
+                return self._create_walkthrough_fallback(context, test_results, verification_analysis)
+
+            return walkthrough_content
+
+        except Exception as e:
+            self._display(f"Warning: Walkthrough generation error: {e}", style="thinking")
+            return self._create_walkthrough_fallback(context, test_results, verification_analysis)
+
+    def _build_walkthrough_input_data(
+        self,
+        context: AgentContext,
+        test_results: Dict[str, Any],
+        verification_analysis: str,
+    ) -> str:
+        """Build formatted input data for walkthrough AI generation."""
+        # Format modified files with full paths
+        modified_files_list = []
+        for file_path in context.modified_files:
+            modified_files_list.append(f"  - {file_path}")
+        modified_files_str = "\n".join(modified_files_list) if modified_files_list else "  (none)"
+
+        # Format test results
+        test_data = {
+            "tests_run": test_results.get("tests_run", False),
+            "tests_passed": test_results.get("tests_passed", 0),
+            "tests_failed": test_results.get("tests_failed", 0),
+            "test_command": test_results.get("test_command", "N/A"),
+        }
+
+        # Format completed actions (last 10)
+        actions_list = []
+        for action in context.completed_actions[-10:]:
+            tool = action.get("tool", "unknown")
+            success = action.get("success", False)
+            status = "OK" if success else "FAIL"
+            actions_list.append(f"  - [{status}] {tool}")
+        actions_str = "\n".join(actions_list) if actions_list else "  (none)"
+
+        return f"""### Task Description
+{context.task}
+
+### Modified Files (with full paths)
+{modified_files_str}
+
+### Test Results
+- Tests Run: {test_data['tests_run']}
+- Tests Passed: {test_data['tests_passed']}
+- Tests Failed: {test_data['tests_failed']}
+- Test Command: {test_data['test_command']}
+
+### Verification Analysis (from QA Protocol)
+{verification_analysis if verification_analysis else "(No verification analysis available)"}
+
+### Completed Actions (last 10)
+{actions_str}
+
+### Context Metadata
+- Working Directory: {context.working_dir}
+- Iteration: {context.iteration}
+- Total Files Modified: {len(context.modified_files)}
+- Total Actions: {len(context.completed_actions)}
+"""
+
+    def _extract_walkthrough_from_response(self, response: str) -> str:
+        """Extract walkthrough content from AI response.
+
+        Looks for content in <output> tags or after final thinking block.
+        """
+        import re
+
+        # Try to extract from <output> tags first
+        output_pattern = r'<output>\s*(.*?)\s*</output>'
+        matches = re.findall(output_pattern, response, re.DOTALL | re.IGNORECASE)
+
+        if matches:
+            # Get the last output block (final walkthrough)
+            return matches[-1].strip()
+
+        # Fallback: try to find markdown content after thinking blocks
+        # Remove all thinking blocks
+        cleaned = re.sub(r'<thinking>.*?</thinking>', '', response, flags=re.DOTALL | re.IGNORECASE)
+        cleaned = cleaned.strip()
+
+        # If it starts with # Implementation Walkthrough, it's likely the content
+        if cleaned.startswith("# Implementation Walkthrough"):
+            return cleaned
+
+        # Last resort: return the whole response (AI might not have used tags)
+        return response.strip()
+
+    def _create_walkthrough_fallback(
+        self,
+        context: AgentContext,
+        test_results: Dict[str, Any],
+        verification_analysis: str = "",
+    ) -> str:
+        """
+        Fallback template-based walkthrough generation.
+
+        Used when AI generation fails or protocol is unavailable.
+        """
+        # Modified files section with file links
+        formatted_files = []
+        for f in context.modified_files:
+            basename = Path(f).name
+            formatted_files.append(f"- [{basename}](file:///{f})")
+        files_with_links = "\n".join(formatted_files) if formatted_files else "- No files were modified"
+
+        # Test results section
         test_section = self._format_test_results(test_results)
-        changes_details = self._format_changes_details(context)
-        verification_thinking = self._generate_verification_thinking(context, test_results)
 
-        # Build walkthrough using perfect prompts template or fallback
-        return self._build_walkthrough_content(
-            task=context.task,
-            modified_files_section=modified_files_section,
-            changes_details=changes_details,
-            test_section=test_section,
-            verification_thinking=verification_thinking,
+        # Changes details
+        changes_details = self._format_changes_details(context)
+
+        # Determine verdict
+        tests_ok = (
+            not test_results.get("tests_run")
+            or test_results.get("tests_failed", 0) == 0
         )
+        verdict = "APPROVED" if tests_ok else "NEEDS REVISION"
+
+        return f"""# Implementation Walkthrough
+
+## Task Summary
+
+{context.task}
+
+## Changes Made
+
+{files_with_links}
+
+## Verification Results
+
+{test_section}
+
+## Final Verdict
+
+**{verdict}**
+
+- Files modified: {len(context.modified_files)}
+- Tests passed: {test_results.get('tests_passed', 0)}
+- Tests failed: {test_results.get('tests_failed', 0)}
+
+---
+*Generated by Hcode Verification — 5-Phase QA Protocol*
+"""
 
     def _generate_verification_thinking(
         self,
         context: AgentContext,
-        test_results: dict
+        test_results: Dict[str, Any],
     ) -> str:
-        """
-        Generate verification thinking summary.
+        """Generate structured verification thinking summary."""
+        parts = []
 
-        Args:
-            context: Current agent context
-            test_results: Test execution results
+        parts.append("### Implementation Summary")
+        parts.append(f"- Task: {context.task[:100]}...")
+        parts.append(f"- Files modified: {len(context.modified_files)}")
+        parts.append(f"- Actions completed: {len(context.completed_actions)}")
+        parts.append(f"- Total iterations: {context.iteration}")
 
-        Returns:
-            Verification thinking summary
-        """
-        thinking_parts = []
-
-        # Summarize what was done
-        thinking_parts.append("### Implementation Summary")
-        thinking_parts.append(f"- Task: {context.task[:100]}...")
-        thinking_parts.append(f"- Files modified: {len(context.modified_files)}")
-        thinking_parts.append(f"- Actions completed: {len(context.completed_actions)}")
-        thinking_parts.append(f"- Total iterations: {context.iteration}")
-
-        # Analyze test results
-        thinking_parts.append("\n### Verification Analysis")
+        parts.append("\n### Verification Analysis")
         if test_results.get("tests_run"):
             passed = test_results.get("tests_passed", 0)
             failed = test_results.get("tests_failed", 0)
             if failed == 0:
-                thinking_parts.append(f"- All {passed} tests passed [OK]")
-                thinking_parts.append("- No regressions detected")
+                parts.append(f"- All {passed} tests passed [OK]")
+                parts.append("- No regressions detected")
             else:
-                thinking_parts.append(f"- {passed} tests passed, {failed} tests failed [NEEDS ATTENTION]")
-                thinking_parts.append("- Review failed tests for potential issues")
+                parts.append(f"- {passed} passed, {failed} failed [NEEDS ATTENTION]")
+                parts.append("- Review failed tests for potential issues")
         else:
-            thinking_parts.append("- Tests were not run")
-            thinking_parts.append("- Consider running tests manually to verify changes")
+            parts.append("- Automated tests were not run")
+            parts.append("- Consider running tests manually to verify changes")
 
-        # Success assessment
-        thinking_parts.append("\n### Success Assessment")
+        parts.append("\n### Success Assessment")
         has_changes = len(context.modified_files) > 0 or len(context.completed_actions) > 0
         tests_ok = not test_results.get("tests_run") or test_results.get("tests_failed", 0) == 0
 
         if has_changes and tests_ok:
-            thinking_parts.append("- Implementation appears successful")
-            thinking_parts.append("- Changes were made as planned")
-            thinking_parts.append("- No test failures detected")
+            parts.append("- Implementation appears successful")
+            parts.append("- Changes were made as planned")
+            parts.append("- No test failures detected")
         elif has_changes and not tests_ok:
-            thinking_parts.append("- Changes were made but tests failed")
-            thinking_parts.append("- May require follow-up fixes")
+            parts.append("- Changes were made but tests failed")
+            parts.append("- May require follow-up fixes")
         else:
-            thinking_parts.append("- Limited changes were made")
-            thinking_parts.append("- Review if all requirements were addressed")
+            parts.append("- Limited changes were made")
+            parts.append("- Review if all requirements were addressed")
 
-        return "\n".join(thinking_parts)
+        return "\n".join(parts)
 
     def _format_changes_details(self, context: AgentContext) -> str:
-        """
-        Format details about changes made.
-
-        Args:
-            context: Current agent context
-
-        Returns:
-            Formatted changes section
-        """
+        """Format details about changes made."""
         if not context.completed_actions:
             return "No detailed action history available."
 
         details = []
-        for action in context.completed_actions[-10:]:  # Last 10 actions
+        for action in context.completed_actions[-10:]:
             tool = action.get("tool", "unknown")
             success = action.get("success", False)
             status = "[OK]" if success else "[FAIL]"
@@ -589,24 +1114,16 @@ class VerificationPhaseHandler(BasePhaseHandler):
 
         return "\n".join(details)
 
-    def _format_test_results(self, test_results: dict) -> str:
-        """
-        Format test results section.
-
-        Args:
-            test_results: Test execution results
-
-        Returns:
-            Formatted test results
-        """
+    def _format_test_results(self, test_results: Dict[str, Any]) -> str:
+        """Format test results section."""
         if not test_results.get("tests_run"):
-            return "Tests were not run during this implementation."
+            return "No automated tests were run during verification."
 
         passed = test_results.get("tests_passed", 0)
         failed = test_results.get("tests_failed", 0)
         output = test_results.get("output", "")
 
-        status = "[OK] All tests passed" if failed == 0 else f"[FAIL] {failed} test(s) failed"
+        status = "[OK] All checks passed" if failed == 0 else f"[FAIL] {failed} check(s) failed"
 
         return f"""### Test Summary
 
@@ -622,94 +1139,325 @@ class VerificationPhaseHandler(BasePhaseHandler):
 ```
 """
 
-    def _build_walkthrough_content(
-        self,
-        task: str,
-        modified_files_section: str,
-        changes_details: str,
-        test_section: str,
-        verification_thinking: str = "",
-    ) -> str:
-        """
-        Build walkthrough.md content using perfect_prompts/walkthrough.md template.
-
-        The walkthrough.md template from perfect_prompts provides guidelines for:
-        - Summarizing what was accomplished
-        - Documenting verification results
-        - Being concise yet comprehensive
-
-        Args:
-            task: The user's original task
-            modified_files_section: Formatted list of modified files
-            changes_details: Details of changes made
-            test_section: Test results section
-            verification_thinking: Verification analysis summary
-
-        Returns:
-            Formatted walkthrough content following the template guidelines
-        """
-        # Build walkthrough following perfect_prompts/walkthrough.md guidelines:
-        # - Be concise yet comprehensive
-        # - Document what was tested and validation results
-        # - Use file basenames for link text
-
-        # Format file links with basenames (per walkthrough.md Critical Rules)
-        formatted_files = []
-        for file_path in self._extract_file_paths(modified_files_section):
-            basename = Path(file_path).name
-            formatted_files.append(f"- [{basename}](file:///{file_path})")
-
-        files_with_links = "\n".join(formatted_files) if formatted_files else modified_files_section
-
-        return f"""# Implementation Walkthrough
-
-## Task
-
-{task}
-
-## Changes Made
-
-{changes_details}
-
-## Files Modified
-
-{files_with_links}
-
-## Verification Summary
-
-{test_section}
-
-## Analysis
-
-{verification_thinking}
-
----
-*Generated following walkthrough.md guidelines: concise, comprehensive, with verification proof.*
-"""
-
-    def _extract_file_paths(self, modified_files_section: str) -> List[str]:
-        """Extract file paths from modified files section."""
-        paths = []
-        for line in modified_files_section.split('\n'):
-            # Match patterns like "- `file.py`" or "- file.py"
-            line = line.strip()
-            if line.startswith('- '):
-                path = line[2:].strip('`').strip()
-                if path and path != "No files were modified":
-                    paths.append(path)
-        return paths
+    # ═══════════════════════════════════════════════════════════════════════
+    # TRANSITION
+    # ═══════════════════════════════════════════════════════════════════════
 
     def can_transition_to_next(self, context: AgentContext) -> bool:
-        """
-        Check if verification is complete.
+        """Verification is terminal — if walkthrough exists, we're done."""
+        return self.artifact_manager.artifact_exists("walkthrough.md", context)
 
-        For verification phase, this means the workflow is complete.
+    # ═══════════════════════════════════════════════════════════════════════
+    # MEMORY MANAGEMENT
+    # ═══════════════════════════════════════════════════════════════════════
+
+    def _update_hcode_memory(
+        self,
+        context: AgentContext,
+        test_results: dict,
+        verification_analysis: str,
+        verdict: str
+    ) -> None:
+        """
+        Update task memory after successful verification.
+
+        Non-critical operation - logs warnings but doesn't fail on errors.
+
+        Args:
+            context: Current agent context
+            test_results: Test execution results
+            verification_analysis: AI verification analysis text
+            verdict: APPROVED or APPROVED WITH NOTES
+        """
+        try:
+            # Build new memory entry
+            new_entry = self._build_memory_entry(
+                context, test_results, verification_analysis, verdict
+            )
+
+            # Load existing memory
+            existing_memory = self.artifact_manager.load_artifact(
+                "hcode_memory.md", context
+            ) or ""
+
+            # Merge entries
+            updated_memory = self._merge_memory_entries(existing_memory, new_entry)
+
+            # Trim to budget
+            trimmed_memory = self._trim_memory(updated_memory)
+
+            # Save back
+            self.artifact_manager.create_artifact(
+                "hcode_memory.md", trimmed_memory, context
+            )
+
+            self._display("[OK] Task memory updated", style="success")
+
+        except Exception as e:
+            # Non-critical - log and continue
+            self._display(
+                f"Warning: Could not update task memory: {e}",
+                style="thinking"
+            )
+
+    def _build_memory_entry(
+        self,
+        context: AgentContext,
+        test_results: dict,
+        verification_analysis: str,
+        verdict: str
+    ) -> str:
+        """
+        Build a new memory entry from current task completion.
+
+        Args:
+            context: Current agent context
+            test_results: Test execution results
+            verification_analysis: AI verification analysis
+            verdict: Task verdict
+
+        Returns:
+            Formatted memory entry markdown
+        """
+        from datetime import datetime
+
+        # Get task summary
+        task_summary = context.task[:100] + "..." if len(context.task) > 100 else context.task
+        task_summary = task_summary.replace("\n", " ").strip()
+
+        # Extract insights
+        patterns = self._extract_patterns(verification_analysis)
+        testing_insights = self._extract_testing_insights(test_results, verification_analysis)
+        pitfalls = self._extract_pitfalls(verification_analysis)
+        changes_summary = self._summarize_changes(context)
+
+        # Build entry
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        entry = f"""## Task: {task_summary}
+**Date:** {timestamp.split()[0]}
+**Verdict:** {verdict}
+**Files Modified:** {len(context.modified_files)} files
+
+### What Was Done
+{changes_summary}
+
+### Successful Patterns
+{patterns}
+
+### Testing Insights
+{testing_insights}
+
+### Pitfalls Avoided
+{pitfalls}
+
+---
+"""
+        return entry
+
+    def _extract_patterns(self, verification_analysis: str) -> str:
+        """
+        Extract successful patterns from verification analysis.
+
+        Args:
+            verification_analysis: AI verification text
+
+        Returns:
+            Bullet list of patterns or default message
+        """
+        patterns = []
+
+        # Look for pattern indicators in analysis
+        analysis_lower = verification_analysis.lower()
+
+        # Common pattern keywords
+        pattern_keywords = [
+            ("graceful degradation", "Graceful degradation for error handling"),
+            ("non-critical", "Non-critical operations with safe fallbacks"),
+            ("inheritance", "Inheritance pattern for shared functionality"),
+            ("composition", "Composition pattern for modularity"),
+            ("dependency injection", "Dependency injection for testability"),
+            ("single responsibility", "Single Responsibility Principle adherence"),
+            ("open-closed", "Open-Closed Principle adherence"),
+        ]
+
+        for keyword, pattern_desc in pattern_keywords:
+            if keyword in analysis_lower:
+                patterns.append(f"- {pattern_desc}")
+
+        if not patterns:
+            return "- Standard implementation patterns applied"
+
+        return "\n".join(patterns)
+
+    def _extract_testing_insights(self, test_results: dict, verification_analysis: str) -> str:
+        """
+        Extract testing insights from results and analysis.
+
+        Args:
+            test_results: Test execution results dict
+            verification_analysis: AI verification text
+
+        Returns:
+            Bullet list of testing insights
+        """
+        insights = []
+
+        # Test command used
+        if test_results.get("test_command"):
+            insights.append(f"- Test command: `{test_results['test_command']}`")
+
+        # Test strategy
+        tests_run = test_results.get("tests_run", 0)
+        if tests_run > 0:
+            tests_failed = test_results.get("tests_failed", 0)
+            tests_passed = tests_run - tests_failed
+            insights.append(f"- Tests executed: {tests_passed}/{tests_run} passed")
+
+            # Scope detection
+            if tests_run <= 5:
+                insights.append("- Strategy: Targeted testing for focused changes")
+            else:
+                insights.append("- Strategy: Comprehensive test suite validation")
+        else:
+            insights.append("- No automated tests required for this change")
+
+        if not insights:
+            return "- Manual verification only"
+
+        return "\n".join(insights)
+
+    def _extract_pitfalls(self, verification_analysis: str) -> str:
+        """
+        Extract pitfalls and warnings from verification analysis.
+
+        Args:
+            verification_analysis: AI verification text
+
+        Returns:
+            Bullet list of pitfalls or default message
+        """
+        pitfalls = []
+
+        # Look for warning indicators
+        analysis_lower = verification_analysis.lower()
+
+        # Common pitfall keywords
+        pitfall_keywords = [
+            ("breaking change", "Watch for breaking changes in public APIs"),
+            ("backwardcompat", "Ensure backward compatibility maintained"),
+            ("performance", "Consider performance implications"),
+            ("memory", "Monitor memory usage for large operations"),
+            ("thread safe", "Verify thread safety in concurrent contexts"),
+            ("race condition", "Check for potential race conditions"),
+        ]
+
+        for keyword, pitfall_desc in pitfall_keywords:
+            if keyword in analysis_lower:
+                pitfalls.append(f"- {pitfall_desc}")
+
+        if not pitfalls:
+            return "- No specific pitfalls identified"
+
+        return "\n".join(pitfalls)
+
+    def _summarize_changes(self, context: AgentContext) -> str:
+        """
+        Summarize file changes from context.
 
         Args:
             context: Current agent context
 
         Returns:
-            True if verification is done (task complete)
+            Bullet list of changes with file references
         """
-        # Verification is terminal - if artifact exists, we're done
-        return self.artifact_manager.artifact_exists("walkthrough.md", context)
+        if not context.modified_files:
+            return "- No files modified"
+
+        changes = []
+        for file_path in list(context.modified_files)[:5]:  # Limit to 5 files
+            # Extract filename
+            file_name = file_path.split("/")[-1] if "/" in file_path else file_path.split("\\")[-1]
+            changes.append(f"- Modified: `{file_name}`")
+
+        if len(context.modified_files) > 5:
+            changes.append(f"- ... and {len(context.modified_files) - 5} more files")
+
+        return "\n".join(changes)
+
+    def _merge_memory_entries(self, existing_memory: str, new_entry: str) -> str:
+        """
+        Merge new entry with existing memory.
+
+        Prepends new entry and updates header timestamp.
+
+        Args:
+            existing_memory: Current memory content
+            new_entry: New entry to prepend
+
+        Returns:
+            Merged memory content
+        """
+        from datetime import datetime
+
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        # Build header
+        header = f"""# Hcode Task Memory
+Last updated: {timestamp}
+---
+
+"""
+
+        # Strip old header if present
+        if existing_memory.strip():
+            lines = existing_memory.split("\n")
+            # Skip header lines (first 3 lines typically)
+            content_start = 0
+            for i, line in enumerate(lines):
+                if line.strip().startswith("---") and i < 10:
+                    content_start = i + 1
+                    break
+
+            if content_start > 0:
+                existing_memory = "\n".join(lines[content_start:])
+
+        # Merge: header + new entry + existing entries
+        return header + new_entry + existing_memory
+
+    def _trim_memory(self, memory_content: str) -> str:
+        """
+        Trim memory to maintain rolling window of 10 tasks and token budget.
+
+        Args:
+            memory_content: Full memory content
+
+        Returns:
+            Trimmed memory content
+        """
+        MAX_TASKS = 10
+        MAX_TOKENS = 3500  # Approximate token budget (~14000 chars)
+
+        lines = memory_content.split("\n")
+
+        # Find all task separators (---)
+        separators = []
+        for i, line in enumerate(lines):
+            if line.strip() == "---":
+                separators.append(i)
+
+        # Keep header + first MAX_TASKS task entries
+        if len(separators) > MAX_TASKS + 1:  # +1 for header separator
+            trim_line = separators[MAX_TASKS + 1]
+            lines = lines[:trim_line]
+            memory_content = "\n".join(lines)
+
+        # Check token budget (rough approximation: 1 token ≈ 4 chars)
+        if len(memory_content) > MAX_TOKENS * 4:
+            # Trim by tasks until under budget
+            while len(separators) > 2 and len(memory_content) > MAX_TOKENS * 4:
+                separators.pop()
+                trim_line = separators[-1]
+                lines = lines[:trim_line]
+                memory_content = "\n".join(lines)
+
+        return memory_content

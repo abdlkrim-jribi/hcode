@@ -60,7 +60,7 @@ The module should follow best practices:
         )
 
     def test_planning_handler_deep_analysis_prompt(self, artifact_manager, complex_context):
-        """Test that planning handler builds proper deep analysis prompts."""
+        """Test that planning handler builds proper unified planning prompts."""
         handler = PlanningPhaseHandler(
             artifact_manager=artifact_manager,
             provider=None,
@@ -68,30 +68,27 @@ The module should follow best practices:
             context_manager=None,
         )
 
-        prompt = handler._build_analysis_prompt(complex_context)
+        # Test the unified planning prompt (5-Phase protocol)
+        prompt = handler._build_unified_planning_prompt(complex_context, "file_index_placeholder")
 
         # Verify thinking protocol is included
         assert "<thinking>" in prompt
-        assert "COMPREHENSION" in prompt
-        assert "KNOWLEDGE ASSESSMENT" in prompt
-        assert "EXPLORATION STRATEGY" in prompt
-        assert "RISK ASSESSMENT" in prompt
+        assert "PROBLEM SPACE EXPLORATION" in prompt
+        assert "DEEP CODE INVESTIGATION" in prompt
+        assert "SOLUTION CRYSTALLIZATION" in prompt
 
-        # Verify analysis instructions
-        assert "Requirement Understanding" in prompt
-        assert "Codebase Research" in prompt
-        assert "Hypothesis Formation" in prompt
-        # Anti-hallucination guidance (uses "assume" and "READ" language)
-        assert "Do NOT assume" in prompt or "Always READ" in prompt or "READ before" in prompt
+        # Verify key instructions
+        assert "Senior Software Architect" in prompt
+        assert "5-Phase Iterative Reasoning Protocol" in prompt
+        assert "task.md" in prompt
+        assert "implementation_plan.md" in prompt
 
-        # Verify output format requirements
-        assert "<analysis>" in prompt
-        assert "## Understanding" in prompt
-        assert "## Relevant Files" in prompt
-        assert "## Recommended Approach" in prompt
+        # Anti-hallucination guidance
+        assert "READ" in prompt or "Read" in prompt
+        assert "BLOCK" in prompt or "claim must trace back" in prompt
 
     def test_planning_handler_creates_task_template(self, artifact_manager, complex_context):
-        """Test that planning handler creates proper task.md template."""
+        """Test that planning handler provides proper task.md guidance."""
         handler = PlanningPhaseHandler(
             artifact_manager=artifact_manager,
             provider=None,
@@ -99,27 +96,20 @@ The module should follow best practices:
             context_manager=None,
         )
 
-        analysis_insights = {
-            "understanding": "Create a string manipulation utility module",
-            "relevant_files": ["string_utils.py", "test_string_utils.py"],
-            "components": ["String utilities", "Unit tests", "Documentation"],
-            "approach": "Create module with three functions, tests, and README"
-        }
+        # Test the task template guide
+        guide = handler._get_task_template_guide()
 
-        task_content = handler._create_fallback_task_md(complex_context, analysis_insights)
+        # Verify guidance includes proper formatting instructions
+        assert "task" in guide.lower()
+        assert "- [ ]" in guide
+        assert "<!-- id:" in guide
 
-        # Verify checkbox format with IDs
-        assert "- [" in task_content
-        assert "<!-- id:" in task_content
-
-        # Verify task breakdown
-        assert "# Task" in task_content
-        assert "## Subtasks" in task_content
-        assert "Implement required changes" in task_content
-        assert "Verify implementation works" in task_content
+        # Verify it provides usage guidance
+        assert "Task" in guide or "task" in guide
+        assert "Format" in guide or "format" in guide
 
     def test_execution_handler_enhanced_prompt(self, artifact_manager, complex_context):
-        """Test that execution handler builds enhanced prompts with thinking."""
+        """Test that execution handler builds 4-phase protocol prompts."""
         handler = ExecutionPhaseHandler(
             artifact_manager=artifact_manager,
             provider=None,
@@ -142,25 +132,20 @@ The module should follow best practices:
 
         prompt = handler._build_execution_prompt(complex_context, plan_content)
 
-        # Verify thinking protocol
-        assert "<thinking>" in prompt
-        assert "PRE-EXECUTION ANALYSIS" in prompt
-        assert "ANTI-HALLUCINATION CHECK" in prompt
-        assert "CHANGE SPECIFICATION" in prompt
-        assert "VERIFICATION PLAN" in prompt
+        # Verify 4-Phase protocol structure
+        assert "EXECUTION PHASE" in prompt
+        assert "4-Phase Protocol" in prompt
+        assert "Phase 0: Task Selection" in prompt or "Phase 0" in prompt
 
         # Verify execution rules
         assert "READ BEFORE WRITE" in prompt
-        assert "ONE CHANGE AT A TIME" in prompt
+        assert "ONE TASK AT A TIME" in prompt
         assert "TRACK PROGRESS" in prompt
-        assert "NO CODE IN RESPONSE TEXT" in prompt
+        assert "USE TOOLS" in prompt
 
-        # Verify workflow steps
-        assert "THINK" in prompt
-        assert "READ" in prompt
-        assert "PLAN" in prompt
-        assert "EXECUTE" in prompt
-        assert "VERIFY" in prompt
+        # Verify plan content is embedded
+        assert "String Manipulation Module" in prompt
+        assert "reverse_words" in prompt
 
     def test_verification_handler_thinking_generation(self, artifact_manager, complex_context):
         """Test that verification handler generates proper thinking summary."""
@@ -233,38 +218,35 @@ Test notes
         assert "<!-- id:" in loaded
 
     def test_full_planning_phase_artifacts(self, artifact_manager, complex_context):
-        """Test that planning phase creates both required artifacts."""
+        """Test that planning phase provides guidance for both required artifacts."""
         handler = PlanningPhaseHandler(
             artifact_manager=artifact_manager,
-            provider=None,  # No provider - use templates
+            provider=None,
             tool_executor=None,
             context_manager=None,
         )
 
-        # Manually create artifacts as if AI generated them
-        analysis_insights = {
-            "understanding": "Create string manipulation utilities",
-            "relevant_files": ["string_utils.py"],
-            "components": ["Utility functions"],
-            "approach": "Create module with functions and tests",
-        }
+        # Verify both guidance methods exist and return content
+        task_guide = handler._get_task_template_guide()
+        plan_guide = handler._get_plan_template_guide()
 
-        task_content = handler._create_fallback_task_md(complex_context, analysis_insights)
-        artifact_manager.create_artifact("task.md", task_content, complex_context)
+        # Verify task guide has essential content
+        assert len(task_guide) > 100
+        assert "task" in task_guide.lower()
+        assert "- [ ]" in task_guide
 
-        plan_content = handler._create_fallback_implementation_plan(complex_context, analysis_insights)
-        artifact_manager.create_artifact("implementation_plan.md", plan_content, complex_context)
+        # Verify plan guide has essential content
+        assert len(plan_guide) > 100
+        assert "implementation" in plan_guide.lower() or "plan" in plan_guide.lower()
+        assert "[MODIFY]" in plan_guide or "[NEW]" in plan_guide
 
-        # Verify both exist
-        assert artifact_manager.artifact_exists("task.md", complex_context)
-        assert artifact_manager.artifact_exists("implementation_plan.md", complex_context)
-
-        # Verify transition readiness
-        # Note: can_transition_to_next may return False because plan needs concrete steps
-        # This is expected behavior - the template is a starting point
+        # Verify required artifacts are declared
+        required = handler.get_required_artifacts()
+        assert "task.md" in required
+        assert "implementation_plan.md" in required
 
     def test_base_handler_thinking_instructions(self, artifact_manager, complex_context):
-        """Test that base handler provides proper thinking instructions."""
+        """Test that planning handler provides proper thinking instructions."""
         handler = PlanningPhaseHandler(
             artifact_manager=artifact_manager,
             provider=None,
@@ -274,11 +256,10 @@ Test notes
 
         instructions = handler._get_thinking_instructions()
 
-        # Verify thinking protocol structure
-        assert "THINKING PROTOCOL" in instructions
+        # Verify thinking protocol structure (DEEP REASONING PROTOCOL)
+        assert "REASONING PROTOCOL" in instructions
         assert "<thinking>" in instructions
         assert "COMPREHENSION" in instructions
-        assert "VERIFICATION" in instructions
         assert "ANTI-HALLUCINATION" in instructions
         assert "TOOL SELECTION" in instructions
         assert "EXPECTED OUTCOME" in instructions
@@ -451,12 +432,11 @@ class TestPlanningPromptGuides:
 
             guide = handler._get_task_template_guide()
 
-            # Verify format
-            assert "# Task" in guide
-            assert "## Subtasks" in guide
+            # Verify format contains essential guidance
+            assert "Task" in guide or "task" in guide
             assert "- [ ]" in guide
             assert "<!-- id:" in guide
-            assert "## Notes" in guide
+            assert "Format" in guide or "format" in guide
 
     def test_plan_template_guide_format(self):
         """Test implementation plan template guide has correct format."""

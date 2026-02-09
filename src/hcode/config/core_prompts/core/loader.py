@@ -77,17 +77,13 @@ class CorePromptLoader:
                 except Exception as e:
                     logger.error(f"Failed to load prompts from {yaml_file}: {e}")
 
-        # Load markdown files as raw text
-        md_files = [
+        # Load markdown files as raw text from core directory
+        core_md_files = [
             "identity.md",
             "tool_format.md",
-            "planning_mode.md",
-            "execution_mode.md",
-            "implementation_plan.md",
-            "task.md",
         ]
 
-        for md_file in md_files:
+        for md_file in core_md_files:
             file_path = self._prompts_dir / md_file
             if file_path.exists():
                 try:
@@ -100,6 +96,34 @@ class CorePromptLoader:
                             logger.debug(f"Loaded markdown prompt: {md_file}")
                 except Exception as e:
                     logger.error(f"Failed to load prompt {md_file}: {e}")
+
+        # Load PEV-specific prompts from pev_prompts subdirectory
+        pev_prompts_dir = self._prompts_dir / "pev_prompts"
+        pev_md_files = [
+            "planning_mode.md",
+            "execution_handler.md",
+            "execution_mode.md",
+            "verification_handler.md",
+            "walkthrough.md",
+            "implementation_plan.md",
+            "task.md",
+            "init_analysis_prompt.md",
+            "integration_strategy.md",
+        ]
+
+        for md_file in pev_md_files:
+            file_path = pev_prompts_dir / md_file
+            if file_path.exists():
+                try:
+                    with open(file_path, "r", encoding="utf-8") as f:
+                        content = f.read()
+                        if content:
+                            # Use filename without extension as key
+                            key = md_file.replace(".md", "")
+                            self._prompts[key] = content
+                            logger.debug(f"Loaded PEV prompt: {md_file}")
+                except Exception as e:
+                    logger.error(f"Failed to load PEV prompt {md_file}: {e}")
 
     def reload(self) -> None:
         """Reload all prompts from files."""
@@ -281,6 +305,14 @@ class CorePromptLoader:
             Full content of implementation_plan.md guidance file for artifact creation
         """
         return self._prompts.get("implementation_plan", "")
+
+    def get_walkthrough_protocol(self) -> str:
+        """Get the walkthrough.md generation protocol (GPT OSS 120B optimized).
+
+        Returns:
+            Full content of walkthrough.md protocol for AI generation
+        """
+        return self._prompts.get("walkthrough", "")
 
     # =========================================================================
     # Convenience Methods for Common Prompts

@@ -71,6 +71,24 @@ thinking_templates:
 
     Proceeding with confidence level: <confidence_level>
 
+  # GPT OSS 120B optimized thinking - uses XML tags, numbered steps, linear chain-of-thought
+  gpt_oss_120b: |
+    <thinking>
+    Step 1: COMPREHENSION — The user wants <explicit_request>. The implicit needs are <implicit_needs>.
+    Step 2: CONTEXT — From what I know: <known_context>. Knowledge gaps: <knowledge_gaps>.
+    Step 3: HYPOTHESIS — I believe <hypothesis> because <evidence>.
+    Step 4: ALTERNATIVES — Approach A: <desc_a> (complexity: <1-5>, risk: <1-5>). Approach B: <desc_b> (complexity: <1-5>, risk: <1-5>).
+    Step 5: SELECTION — I chose <approach> because <reason_grounded_in_code>.
+    Step 6: ANTI-HALLUCINATION — Am I about to reference code I haven't Read? <yes_no>. If yes: READ FIRST.
+    Step 7: TOOL PLAN — Sequence: <tool1> (purpose: <p1>) → <tool2> (purpose: <p2>) → <tool3> (purpose: <p3>).
+    Step 8: RISK ASSESSMENT — Failure points: <failure_points>. Fallback: <fallback>.
+    Therefore: I will execute <tool> with <params>. Expected outcome: <outcome>. Verification: <method>.
+    </thinking>
+
+    <output>
+    [Tool call or structured deliverable]
+    </output>
+
   # Execution-specific thinking for implementation tasks
   execution_focused: |
     === EXECUTION ANALYSIS ===

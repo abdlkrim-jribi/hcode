@@ -87,20 +87,22 @@ class TestCorePromptLoader:
         assert "proceed" in prompt.lower() or "continue" in prompt.lower() or "next" in prompt.lower()
 
     def test_get_template_task_md(self, loader):
-        """Test getting task.md template."""
-        template = loader.get_template("task_md")
-        assert "Task" in template
-        assert "task" in template.lower()
-        # Check for task structure content (subtasks, understanding, etc.)
-        assert "subtask" in template.lower() or "understanding" in template.lower()
+        """Test getting task.md guidance."""
+        # Note: task.md is not template-based, it uses guidance
+        guidance = loader.get_task_guidance()
+        assert "task" in guidance.lower()
+        # Check for format guidance
+        assert "- [ ]" in guidance
+        assert "<!-- id:" in guidance
 
     def test_get_template_implementation_plan(self, loader):
-        """Test getting implementation_plan.md template."""
-        template = loader.get_template("implementation_plan_md")
-        assert "Implementation Plan" in template
-        # Check for plan structure content
-        assert "step" in template.lower() or "approach" in template.lower()
-        assert "test" in template.lower() or "verif" in template.lower()
+        """Test getting implementation_plan.md guidance."""
+        # Note: implementation_plan.md is not template-based, it uses guidance
+        guidance = loader.get_implementation_plan_guidance()
+        assert "implementation" in guidance.lower() or "plan" in guidance.lower()
+        # Check for plan structure guidance
+        assert "[MODIFY]" in guidance or "[NEW]" in guidance
+        assert "test" in guidance.lower() or "verif" in guidance.lower()
 
     def test_get_template_walkthrough(self, loader):
         """Test getting walkthrough.md template."""
@@ -129,11 +131,12 @@ class TestCorePromptLoader:
         assert "5" in prompt  # completed actions count
 
     def test_build_task_md(self, loader):
-        """Test building task.md content."""
-        task = "Implement user authentication"
-        content = loader.build_task_md(task=task)
-        assert task in content
-        assert "Task" in content
+        """Test task.md guidance is available."""
+        # Note: task.md is not built from a template, the AI uses guidance
+        guidance = loader.get_task_guidance()
+        assert len(guidance) > 0
+        assert "task" in guidance.lower()
+        assert "- [ ]" in guidance
 
     def test_build_walkthrough_md(self, loader):
         """Test building walkthrough.md content."""
@@ -239,11 +242,10 @@ class TestPromptIntegration:
                 iteration=0,
             )
 
-            # Build prompt should work with analysis insights
-            analysis_insights = {"understanding": "Test understanding", "relevant_files": []}
-            prompt = handler._build_planning_prompt(context, analysis_insights)
-            assert "PLANNING" in prompt or "Test task" in prompt
+            # Build unified planning prompt should work
+            prompt = handler._build_unified_planning_prompt(context, "file_index_here")
             assert "Test task" in prompt
+            assert "PLANNING" in prompt or "5-Phase" in prompt
 
     def test_execution_handler_uses_loader(self):
         """Test that ExecutionPhaseHandler builds execution prompt."""

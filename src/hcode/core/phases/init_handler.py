@@ -520,40 +520,57 @@ Be thorough, use tools effectively, and provide specific paths and examples."""
             system_base = "You are Hcode, an AI coding assistant."
         
     
-        # Add init-specific instructions (forceful for OSS models)
+        # Add init-specific instructions (GPT OSS 120B optimized)
         init_instructions = f"""
 
-## 🚨 INIT MODE: Multi-Round Codebase Analysis
+## INIT MODE: 4-Dimension Deep Analysis Protocol
 
 Working directory: {context.working_dir}
 
-**CRITICAL PROTOCOL - YOU MUST FOLLOW THIS EXACTLY:**
+### Reasoning Protocol (GPT OSS 120B)
 
-### Phase Structure (24 rounds total)
-- **Rounds 1-12**: DEEP READING ONLY - Use Read, Glob, Grep tools to explore
-- **Rounds 13-20**: SYNTHESIS ONLY - Think about architecture, no new reads
-- **Round 21+**: GENERATION - Use Write tool to create .hcode/hcode.md
+Use <thinking> tags for ALL internal reasoning:
 
-### Rules for Each Phase
+<thinking>
+Step 1: [Action] — [Reasoning for this step]
+Step 2: [Action] — [Reasoning for this step]
+...
+Therefore: [Conclusion leading to next action]
+</thinking>
 
-**Phase 1 (Rounds 1-12): Deep Reading**
-- ❌ DO NOT write hcode.md yet
-- ✅ DO use Read, Glob, Grep to explore the codebase
-- ✅ DO summarize what you learned after each read
-- ✅ DO focus on understanding the system architecture
+**Key principles:**
+- Keep each thought LINEAR — no nested reasoning
+- Use "Therefore..." transitions between reasoning and conclusions
+- Use analytical reasoning; prioritize precision over novelty
+- Validate each step before proceeding
 
-**Phase 2 (Rounds 13-20): Synthesis**
-- ❌ DO NOT write hcode.md yet
-- ❌ DO NOT read new files
-- ✅ DO synthesize patterns, architecture, and conventions
-- ✅ DO prepare your mental model for documentation
+### 4-Dimension Phase Structure (24 rounds total)
 
-**Phase 3 (Round 21+): Generation**
-- ✅ NOW you can write hcode.md
-- ⚠️ YOU MUST use the Write tool in JSON format
-- ❌ DO NOT output markdown text directly
+**Dimension A (Rounds 1-6): ARCHITECTURAL PATTERNS**
+- Read core domain files, entry points, abstractions
+- Identify: layering, design patterns, module boundaries
+- After each Read: summarize what you learned and WHY it matters
 
-### CRITICAL: How to Output hcode.md
+**Dimension B (Rounds 7-10): DEPENDENCY GRAPH**
+- Map imports, data flow, coupling between modules
+- Identify: circular dependencies, external integrations
+- Use Grep to find import patterns across the codebase
+
+**Dimension C (Rounds 11-16): CODE QUALITY BASELINE**
+- Read the most complex test file, error handling patterns
+- Assess: test coverage, complexity, documentation quality
+- Identify: fragile zones, hot spots
+
+**Dimension D (Rounds 17-20): CONTEXT EXTRACTION**
+- Trace a complete request path: Input → Processing → Output
+- Extract: naming conventions, import patterns, code philosophy
+- Verify hypotheses from earlier dimensions
+
+**Generation (Round 21+): WRITE .hcode/hcode.md**
+- You MUST use the Write tool in JSON format
+- DO NOT output markdown text directly — it will not be saved
+
+### CRITICAL: Output Format
 
 **WRONG** (will fail):
 ```markdown
@@ -566,48 +583,52 @@ Working directory: {context.working_dir}
 {{"tool": "Write", "arguments": {{"TargetFile": ".hcode/hcode.md", "CodeContent": "# Project Name\\n..."}}}}
 ```
 
-### 🚨 CRITICAL: File Path Verification Protocol
+### File Path Verification Protocol
 
-**BEFORE reading any file, you MUST verify it exists using Glob or LS.**
+BEFORE reading any file, verify it exists using Glob or LS.
+NEVER assume paths. If Read fails with "File not found", you violated this protocol.
 
-**NEVER assume file paths based on:**
-- Naming conventions (e.g., "there must be a safety.py")
-- Directory structure assumptions (e.g., "it should be in core/")
-- Common patterns (e.g., "probably in tools/")
+### Evidence Citations
 
-**ALWAYS:**
-1. Use Glob to discover files: {{"tool": "Glob", "arguments": {{"Pattern": "**/*keyword*.py"}}}}
-2. Review the actual paths returned
-3. Only then Read the discovered files
+Use `[Evidence: file.py:line_num]` format for key architectural claims.
+Every finding in hcode.md should trace back to a specific file read.
 
-**If a Read fails with "File not found", you violated this protocol.**
-
-**YOU ARE CURRENTLY IN ROUND 1 - BEGIN PHASE 1 (DEEP READING)**
+**BEGIN DIMENSION A — Read the most logically complex file in the snapshot.**
 """
     
         return system_base + init_instructions
     
     def _get_current_phase(self, round_num: int) -> str:
-        """Determine current phase based on round number."""
-        if round_num < 12:
-            return "DEEP_READING"
+        """Determine current dimension based on round number."""
+        if round_num < 6:
+            return "DIM_A_ARCHITECTURE"
+        elif round_num < 10:
+            return "DIM_B_DEPENDENCIES"
+        elif round_num < 16:
+            return "DIM_C_QUALITY"
         elif round_num < 20:
-            return "SYNTHESIS"
+            return "DIM_D_CONTEXT"
         else:
             return "GENERATION"
 
     def _get_phase_message(self, round_num: int) -> str:
-        """Get phase-specific guidance message."""
+        """Get dimension-specific guidance message."""
         phase = self._get_current_phase(round_num)
 
-        if phase == "DEEP_READING":
-            remaining = 12 - round_num
-            return f"📍 **Phase 1: Deep Reading** (Round {round_num + 1}/12) - {remaining} rounds left to read key source files"
-        elif phase == "SYNTHESIS":
+        if phase == "DIM_A_ARCHITECTURE":
+            remaining = 6 - round_num
+            return f"**Dimension A: Architectural Patterns** (Round {round_num + 1}/6) — {remaining} rounds for architecture analysis"
+        elif phase == "DIM_B_DEPENDENCIES":
+            remaining = 10 - round_num
+            return f"**Dimension B: Dependency Graph** (Round {round_num + 1}/10) — {remaining} rounds for dependency mapping"
+        elif phase == "DIM_C_QUALITY":
+            remaining = 16 - round_num
+            return f"**Dimension C: Code Quality** (Round {round_num + 1}/16) — {remaining} rounds for quality assessment"
+        elif phase == "DIM_D_CONTEXT":
             remaining = 20 - round_num
-            return f"📍 **Phase 2: Synthesis** (Round {round_num + 1}/20) - {remaining} rounds left to synthesize architecture"
+            return f"**Dimension D: Context Extraction** (Round {round_num + 1}/20) — {remaining} rounds to extract conventions"
         else:
-            return f"📍 **Phase 3: GENERATION** (Round {round_num + 1}) - 🚨 OUTPUT WRITE TOOL JSON NOW"
+            return f"**Generation Phase** (Round {round_num + 1}) — OUTPUT Write tool JSON for .hcode/hcode.md NOW"
     
     
     async def _generate_and_execute(
@@ -698,42 +719,41 @@ Working directory: {context.working_dir}
                 
                 # Valid text output handling
                 phase = self._get_current_phase(round_num)
-                
-                # PHASE 1: Text output is a distraction (should be reading) -> WARNING
-                if round_num < 20 and phase == "DEEP_READING":
-                    logger.warning(f"[init] Round {round_num + 1}: Agent output text instead of exploring (Protocol Violation)")
+
+                # Dimensions A-C: Text output without tools is a protocol violation
+                if round_num < 16 and phase in ("DIM_A_ARCHITECTURE", "DIM_B_DEPENDENCIES", "DIM_C_QUALITY"):
+                    logger.warning(f"[init] Round {round_num + 1}: Agent output text instead of exploring ({phase})")
+                    dim_name = phase.replace("DIM_", "Dimension ").replace("_", ": ", 1).replace("_", " ")
                     reminder_msg = f"""
-🚨 **PROTOCOL VIOLATION DETECTED**
+**PROTOCOL VIOLATION** — You are in **{dim_name}** (Round {round_num + 1}).
 
-You are in **Phase 1: Deep Reading** (Round {round_num + 1}/12).
-
-**You MUST use tools to explore the codebase:**
+You MUST use tools to explore the codebase:
+- Use `Read` to understand code (primary)
 - Use `Glob` to find files
-- Use `Read` to understand code
+- Use `Grep` to find patterns
 
-**DO NOT write documentation yet.**
-Continue with tool calls in JSON format.
+Use <thinking> tags to reason about what to read next, then call the tool.
+DO NOT write documentation yet.
 """
                     messages.append(Message(role="assistant", content=last_response))
                     messages.append(Message(role="user", content=reminder_msg))
                     continue
 
-                # PHASE 2: Text output is valid synthesis -> BUFFER & CONTINUE
-                elif round_num < 20 and phase == "SYNTHESIS":
-                    logger.info(f"[init] Round {round_num + 1}: Synthesis step recorded")
-                    
+                # Dimension D: Text output is valid synthesis -> BUFFER & CONTINUE
+                elif round_num < 20 and phase == "DIM_D_CONTEXT":
+                    logger.info(f"[init] Round {round_num + 1}: Context extraction step recorded")
+
                     # Capture synthesis content
-                    synthesis_buffer.append(f"## Synthesis (Round {round_num+1})\n\n{last_response}")
-                    
+                    synthesis_buffer.append(f"## Context Extraction (Round {round_num+1})\n\n{last_response}")
+
                     remaining = 20 - round_num
                     reminder_msg = f"""
-✅ **Synthesis Recorded** (Round {round_num + 1}/20)
+**Context Extraction Captured** (Round {round_num + 1}/20)
 
-Excellent. I have captured your synthesis.
-You have {remaining} rounds left in Phase 2.
+Your synthesis has been recorded. {remaining} rounds remain before generation.
 
-**Continue synthesizing architecture and patterns.** 
-Do not write the final file yet.
+Continue extracting conventions, tracing request paths, and verifying hypotheses.
+Use <thinking> tags to reason, then take action or continue synthesis.
 """
                     messages.append(Message(role="assistant", content=last_response))
                     messages.append(Message(role="user", content=reminder_msg))
@@ -778,20 +798,22 @@ Output the JSON tool call now.
             # Check if Write tool was called
             write_tool_called = any(tc.get("tool", "").lower() in ["write", "writetool"] for tc in tool_calls)
 
-            # Build reminder based on phase
+            # Build reminder based on dimension transitions
             reminder = ""
-            if round_num == 12:
-                reminder = "\n\n➡️ **Next: Phase 2 - Synthesis.** Synthesize architecture, module interactions, and conventions from what you have read."
-            elif round_num == 20:
-                reminder = "\n\n➡️ **Next: Phase 3 - WRITE .hcode/hcode.md.** Output Write tool JSON in your next response."
+            if round_num == 5:
+                reminder = "\n\nTransition: **Dimension B — Dependency Graph.** Map imports, data flow, and coupling between modules."
+            elif round_num == 9:
+                reminder = "\n\nTransition: **Dimension C — Code Quality.** Read tests, error handling, assess quality baseline."
+            elif round_num == 15:
+                reminder = "\n\nTransition: **Dimension D — Context Extraction.** Trace request paths, extract conventions, verify hypotheses."
+            elif round_num == 19:
+                reminder = "\n\nTransition: **Generation Phase.** Output Write tool JSON for .hcode/hcode.md in your next response."
             elif round_num >= 20 and not write_tool_called:
                 reminder = """
 
-🚨 **URGENT: PHASE 3 (FINAL PHASE)**
-You MUST now create `.hcode/hcode.md`.
-Use the `Write` tool. Output JSON only.
+**GENERATION PHASE — WRITE .hcode/hcode.md NOW**
 
-Example:
+Use the Write tool in JSON format:
 ```json
 {"tool": "Write", "arguments": {"TargetFile": ".hcode/hcode.md", "CodeContent": "# Project Name\\n..."}}
 ```

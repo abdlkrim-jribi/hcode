@@ -165,6 +165,45 @@ class BasePhaseHandler(PhaseHandlerProtocol):
 
         return True, None
 
+    def _load_hcode_memory(self, context: AgentContext) -> str:
+        """
+        Load task-level memory from .hcode/hcode_memory.md.
+
+        This memory captures learnings from successful task completions,
+        providing historical context for pattern reuse and pitfall avoidance.
+
+        Args:
+            context: Current agent context
+
+        Returns:
+            Formatted memory section or empty string if unavailable
+        """
+        try:
+            memory_content = self.artifact_manager.load_artifact(
+                "hcode_memory.md", context
+            )
+
+            if not memory_content or not memory_content.strip():
+                return ""
+
+            # Return formatted section for prompt injection
+            return f"""
+---
+
+## HCODE TASK MEMORY (Past Learnings)
+
+{memory_content.strip()}
+
+---
+"""
+        except Exception as e:
+            # Non-critical operation - log and continue
+            self._display(
+                f"Warning: Could not load task memory: {e}",
+                style="thinking"
+            )
+            return ""
+
     def _build_phase_prompt(self, context: AgentContext) -> str:
         """
         Build prompt for this phase.
@@ -519,6 +558,7 @@ CRITICAL RULES:
         system_prompt: Optional[str] = None,
         max_rounds: int = 8,
         max_tokens: int = 8192,
+        temperature: float = 0.7,
     ) -> Tuple[str, List[Dict[str, Any]]]:
         """
         Generate response and execute tool calls in a multi-turn loop.
@@ -533,6 +573,7 @@ CRITICAL RULES:
             system_prompt: Optional system prompt override
             max_rounds: Maximum generation rounds before stopping
             max_tokens: Maximum tokens per generation call
+            temperature: Sampling temperature (0.3 for code, 0.7 for planning)
 
         Returns:
             Tuple of (last_response_text, all_tool_results)
@@ -552,7 +593,7 @@ CRITICAL RULES:
                 response = await self.provider.generate_completion(
                     messages=messages,
                     system_prompt=system_prompt,
-                    temperature=0.7,
+                    temperature=temperature,
                     max_tokens=max_tokens,
                 )
 
