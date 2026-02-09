@@ -12,8 +12,9 @@ import logging
 from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Dict, Any, Optional
-from hcode.core.protocols import AgentContext
+
 from hcode.core.phases.base_handler import BasePhaseHandler
+from hcode.core.protocols import AgentContext
 
 logger = logging.getLogger(__name__)
 
@@ -443,7 +444,7 @@ class InitHandler(BasePhaseHandler):
         try:
             # init_handler.py is in src/hcode/core/phases/
             # We need to go up 3 levels to get to src/hcode/, then into config/
-            prompt_path = Path(__file__).parent.parent.parent / "config" / "core_prompts" / "core" / "init_analysis_prompt.md"
+            prompt_path = Path(__file__).parent.parent.parent / "config" / "core_prompts" / "core" / "pev_prompts" / "init_analysis_prompt.md"
             
             logger.info(f"[init] Loading prompt from: {prompt_path}")
             logger.info(f"[init] Prompt exists: {prompt_path.exists()}")
@@ -649,9 +650,7 @@ Every finding in hcode.md should trace back to a specific file read.
             Tuple of (response_text, tool_results)
         """
         from hcode.providers.base import Message
-        import re
-        import json
-        
+
         all_tool_results = []
         synthesis_buffer = []
         last_response = ""
@@ -1028,8 +1027,7 @@ DO IT NOW!"""
         
         Provides clearer success/failure messages and warns about common mistakes.
         """
-        from pathlib import Path
-        
+
         parts = []
         for r in results:
             tool = r.get('tool', 'unknown')

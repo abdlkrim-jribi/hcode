@@ -23,6 +23,7 @@ You approach this through a structured 5-phase iterative reasoning protocol.
 - Do NOT create implementation files — those belong to the Execution phase
 - Do NOT stop until BOTH artifacts have been written
 - Every claim in your artifacts must trace back to something you actually Read
+- 🚨 **Glob, LS, and SmartGlob are FORBIDDEN** — use Read and Grep only (file paths are provided)
 
 ## OPTIMIZATION TARGETS
 

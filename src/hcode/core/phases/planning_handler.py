@@ -1419,12 +1419,15 @@ USER REQUEST
 {context.task}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-FILE INDEX  (use these paths in Read calls — do NOT run LS or Glob)
+FILE INDEX  (Read these files directly — Glob/LS/SmartGlob are FORBIDDEN)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 {exploration_context}
 
+🚨 CRITICAL: The tools Glob, LS, and SmartGlob are DISABLED in planning mode.
+   Use ONLY Read and Grep. The file index above provides all paths you need.
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-PHASE 1 — PROBLEM SPACE EXPLORATION  (think before calling any tool)
+PHASE 1 — PROBLEM SPACE EXPLORATION  (think then Read immediately)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Use <thinking> tags to reason through:
 
@@ -1432,31 +1435,33 @@ Use <thinking> tags to reason through:
 Step 1: Decompose — What is the user explicitly asking for?
 Step 2: Implicit needs — What unstated requirements exist?
 Step 3: Success criteria — What does "done" look like concretely?
-Step 4: Relevant files — Which files from the project knowledge are involved?
+Step 4: Relevant files — Which files from the FILE INDEX above are involved?
 Step 5: Approaches — What are 2-3 different ways to solve this?
-Therefore: [Your conclusion and which files to Read next]
+Therefore: I will Read these specific files: [list 3-5 file paths from index above]
 </thinking>
 
 Self-check before proceeding:
-- [ ] Can I explain the problem clearly?
-- [ ] Have I identified at least 3 relevant files?
-- [ ] Do I have at least 2 alternative approaches?
-- [ ] Have I listed my knowledge gaps?
+- [ ] Have I identified 3-5 specific files from the FILE INDEX to Read?
+- [ ] Am I about to call Read (NOT Glob/LS)?
+
+⚠️ NEXT ACTION: Call Read on the first file you identified above.
+   DO NOT use Glob, LS, or SmartGlob — they are forbidden.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-PHASE 2 — DEEP CODE INVESTIGATION  (tools: Read and Grep only)
+PHASE 2 — DEEP CODE INVESTIGATION  (Read every relevant file)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Read every file identified in Phase 1. Use absolute paths.
+Read every file you identified in Phase 1. Use absolute paths from the FILE INDEX.
 
-After EACH Read, state:
-  - What you learned
-  - How it affects the plan
+After EACH Read, state in <thinking>:
+  - What you learned from this specific file
+  - How it affects the implementation plan
   - What new questions arise
+  - Which file to Read next
 
-Anti-hallucination: If you are about to claim something about code you
-haven't Read — STOP and Read it first.
+Anti-hallucination: If you are about to make a claim about code you
+haven't Read — STOP and Read that file first.
 
-Do NOT use LS or SmartGlob — the file index and PROJECT KNOWLEDGE cover layout.
+🚨 REMINDER: Glob, LS, SmartGlob are FORBIDDEN. Use Read and Grep ONLY.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 PHASE 3 — SOLUTION CRYSTALLIZATION  (text reasoning, no tools)
@@ -2115,9 +2120,10 @@ If you are about to claim something about code you haven't Read — STOP and Rea
 ## Constraints
 - DO NOT write artifacts yet — focus on understanding
 - After each Read, state: what you learned, how it affects the plan, new questions
+- 🚨 Glob, LS, SmartGlob are FORBIDDEN — use Read and Grep only
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Use <thinking> tags, then Read the next relevant file.
+⚠️ NEXT ACTION: Read the next relevant file. DO NOT use Glob/LS/SmartGlob.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 """
 
