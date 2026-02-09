@@ -19,6 +19,7 @@ from ..protocols import (
     PhaseResult,
 )
 from ..loop.agent_loop import AgentLoopController, Phase, StopReason
+from ..services.checkpoint import get_checkpoint_manager
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +46,7 @@ class AgentOrchestrator(AgentOrchestratorProtocol):
         max_iterations: int = 50,
         console: Any = None,
         debug_mode: bool = False,
+        enable_checkpoints: bool = True,
     ):
         """
         Initialize orchestrator.
@@ -56,6 +58,7 @@ class AgentOrchestrator(AgentOrchestratorProtocol):
             max_iterations: Maximum iterations per phase
             console: Rich console for output
             debug_mode: Enable debug output
+            enable_checkpoints: Enable checkpoint serialization (default: True)
         """
         self.phase_manager = phase_manager
         self.task_classifier = task_classifier
@@ -63,6 +66,7 @@ class AgentOrchestrator(AgentOrchestratorProtocol):
         self.max_iterations = max_iterations
         self.console = console
         self.debug_mode = debug_mode
+        self.enable_checkpoints = enable_checkpoints
 
         # Initialize loop controller
         self.loop_controller = AgentLoopController(
@@ -70,6 +74,9 @@ class AgentOrchestrator(AgentOrchestratorProtocol):
             debug_mode=debug_mode,
             max_iterations=max_iterations,
         )
+
+        # Initialize checkpoint manager if enabled
+        self.checkpoint_manager = get_checkpoint_manager() if enable_checkpoints else None
 
     async def execute_task(
         self,
@@ -188,6 +195,14 @@ class AgentOrchestrator(AgentOrchestratorProtocol):
                     transitioned = self.phase_manager.transition_to_next_phase(context)
 
                     if transitioned:
+                        # Save checkpoint after successful phase completion
+                        if self.checkpoint_manager:
+                            try:
+                                self.checkpoint_manager.save_checkpoint(context, phase_name=current_phase)
+                                logger.debug(f"Saved checkpoint after {current_phase} phase")
+                            except Exception as e:
+                                logger.warning(f"Failed to save checkpoint: {e}")
+
                         # Update loop controller phase
                         new_phase = self.phase_manager.get_current_phase()
                         self._sync_loop_phase(new_phase)
@@ -198,6 +213,15 @@ class AgentOrchestrator(AgentOrchestratorProtocol):
                             self.console.print("\n[bold green]✓ Task completed successfully![/bold green]")
                         else:
                             print("\n[Hcode] Task completed successfully!")
+
+                        # Save final checkpoint
+                        if self.checkpoint_manager:
+                            try:
+                                self.checkpoint_manager.save_checkpoint(context, phase_name="completed")
+                                logger.debug("Saved final checkpoint after task completion")
+                            except Exception as e:
+                                logger.warning(f"Failed to save final checkpoint: {e}")
+
                         self.loop_controller.stop(StopReason.TASK_COMPLETE)
                         results["success"] = True
                         if not results["output"] or results["output"] == "Task completed successfully":
@@ -285,6 +309,36 @@ class AgentOrchestrator(AgentOrchestratorProtocol):
                 "started_at": self._get_timestamp(),
             }
         )
+
+    def resume_from_checkpoint(
+        self,
+        session_id: str,
+        iteration: Optional[int] = None,
+    ) -> Optional[AgentContext]:
+        """
+        Resume AgentContext from checkpoint.
+
+        Args:
+            session_id: Session ID to resume
+            iteration: Specific iteration to load (None = latest)
+
+        Returns:
+            Restored AgentContext or None if checkpoint doesn't exist
+        """
+        if not self.checkpoint_manager:
+            logger.warning("Checkpoints disabled, cannot resume")
+            return None
+
+        restored = self.checkpoint_manager.load_checkpoint(
+            session_id=session_id,
+            working_dir=self.working_dir,
+            iteration=iteration,
+        )
+
+        if restored:
+            logger.info(f"Resumed session {session_id} from iteration {restored.iteration}")
+
+        return restored
 
     async def execute_phase_iteration(
         self,
