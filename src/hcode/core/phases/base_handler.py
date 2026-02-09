@@ -351,6 +351,10 @@ CRITICAL RULES:
         Returns:
             List of parsed tool calls as dicts with 'tool' and 'arguments' keys
         """
+        # Handle None or empty response
+        if not response:
+            return []
+
         tool_calls = []
 
         # Primary: Extract content from all code blocks, parse as JSON

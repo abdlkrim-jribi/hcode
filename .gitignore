@@ -85,3 +85,4 @@ setup_cython.py
 
 # PyInstaller
 *.spec
+.hypothesis/
