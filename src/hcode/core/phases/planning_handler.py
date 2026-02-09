@@ -785,23 +785,39 @@ CRITICAL RULES:
         system_prompt: str,
         max_rounds: int,
         max_tokens: int,
+        timeout_seconds: int = 600,  # 10 minutes default
     ) -> Tuple[str, List[Dict[str, Any]]]:
         """
         Custom execution loop for planning phase.
-        
+
         Differs from base implementation by:
         1. Supporting "thinking rounds" (no tool calls)
         2. Using explicit phase completion check
         3. Forcing artifact creation if missing at end
         """
+        from datetime import datetime
+
         all_results = []
         last_response = ""
-        
+        start_time = datetime.now()
+
         # Build initial messages
         thinking_instructions = self._get_thinking_instructions()
         messages = [Message(role="user", content=thinking_instructions + unified_prompt)]
 
         for round_num in range(max_rounds):
+            # Check wall-clock timeout
+            elapsed = (datetime.now() - start_time).total_seconds()
+            if elapsed > timeout_seconds:
+                logger.warning(
+                    f"[{self.phase_name}] Phase timeout after {elapsed:.1f}s "
+                    f"({timeout_seconds}s limit)"
+                )
+                self._display(
+                    f"⚠️ Phase timeout reached ({int(elapsed)}s / {timeout_seconds}s limit)",
+                    style="error"
+                )
+                break
             logger.info(f"[{self.phase_name}] Planning round {round_num + 1}/{max_rounds}...")
             
             # Generate response
@@ -938,6 +954,7 @@ CRITICAL RULES:
                     system_prompt=self._get_planning_system_prompt(context),
                     max_rounds=self.MAX_ROUNDS,
                     max_tokens=16384,
+                    timeout_seconds=600,  # 10 minutes for planning phase
                 )
 
                 if self._hcode_display:

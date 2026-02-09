@@ -559,6 +559,7 @@ CRITICAL RULES:
         max_rounds: int = 8,
         max_tokens: int = 8192,
         temperature: float = 0.7,
+        timeout_seconds: int = 600,  # 10 minutes default
     ) -> Tuple[str, List[Dict[str, Any]]]:
         """
         Generate response and execute tool calls in a multi-turn loop.
@@ -574,18 +575,34 @@ CRITICAL RULES:
             max_rounds: Maximum generation rounds before stopping
             max_tokens: Maximum tokens per generation call
             temperature: Sampling temperature (0.3 for code, 0.7 for planning)
+            timeout_seconds: Wall-clock timeout in seconds (default 600 = 10 min)
 
         Returns:
             Tuple of (last_response_text, all_tool_results)
         """
+        from datetime import datetime
+
         all_tool_results = []
         last_response = ""
+        start_time = datetime.now()
 
         # Build initial messages with thinking instructions
         thinking_instructions = self._get_thinking_instructions()
         messages = [Message(role="user", content=thinking_instructions + prompt)]
 
         for round_num in range(max_rounds):
+            # Check wall-clock timeout
+            elapsed = (datetime.now() - start_time).total_seconds()
+            if elapsed > timeout_seconds:
+                logger.warning(
+                    f"[{self.phase_name}] Phase timeout after {elapsed:.1f}s "
+                    f"({timeout_seconds}s limit)"
+                )
+                self._display(
+                    f"⚠️ Phase timeout reached ({int(elapsed)}s / {timeout_seconds}s limit)",
+                    style="error"
+                )
+                break
             logger.info(f"[{self.phase_name}] Generation round {round_num + 1}/{max_rounds}...")
 
             # Call provider
@@ -606,6 +623,36 @@ CRITICAL RULES:
                     last_response = response
                 else:
                     last_response = str(response)
+
+                # Token counting and budget enforcement
+                # Rough estimation: 1 word ≈ 1.3 tokens
+                current_message = messages[-1].content if messages else ""
+                prompt_tokens = len(current_message.split()) * 1.3
+                response_tokens = len(last_response.split()) * 1.3
+                round_tokens = int(prompt_tokens + response_tokens)
+
+                # Track tokens used in this phase
+                phase_name = self.phase_name
+                context.tokens_used[phase_name] = context.tokens_used.get(phase_name, 0) + round_tokens
+
+                # Check budget
+                total_used = sum(context.tokens_used.values())
+                if total_used > context.token_budget:
+                    logger.warning(
+                        f"Token budget exceeded: {total_used}/{context.token_budget} "
+                        f"(+{round_tokens} this round)"
+                    )
+                    self._display(
+                        f"⚠️ Token budget reached ({total_used:,} tokens / {context.token_budget:,} limit)",
+                        style="error"
+                    )
+                    # Early termination to prevent runaway costs
+                    break
+
+                logger.debug(
+                    f"[{self.phase_name}] Round {round_num + 1} tokens: {round_tokens:,} "
+                    f"(total: {total_used:,}/{context.token_budget:,})"
+                )
 
             except Exception as e:
                 logger.error(f"Provider call failed on round {round_num + 1}: {e}")

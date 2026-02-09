@@ -130,6 +130,7 @@ class ExecutionPhaseHandler(BasePhaseHandler):
                     max_rounds=12,
                     max_tokens=16384,
                     temperature=0.3,  # Deterministic code generation
+                    timeout_seconds=900,  # 15 minutes for execution phase
                 )
 
                 # End thinking display
@@ -260,6 +261,123 @@ CRITICAL RULES:
 - ONE change at a time, verify each before proceeding
 
 """
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # EXECUTION WRITE GATE (Security Boundary)
+    # ═══════════════════════════════════════════════════════════════════════
+
+    def _extract_planned_files(self, plan_content: str) -> set:
+        """
+        Extract allowed file paths from implementation plan.
+
+        Parses the plan for [MODIFY], [NEW], and [DELETE] markers to build
+        a whitelist of files that execution is allowed to modify.
+
+        Args:
+            plan_content: Content of implementation_plan.md
+
+        Returns:
+            Set of file paths that are allowed to be written/edited
+        """
+        import re
+
+        allowed = set()
+
+        # [MODIFY] /path/to/file pattern
+        allowed.update(re.findall(r'\[MODIFY\]\s+([^\s]+)', plan_content))
+
+        # [NEW] /path/to/file pattern
+        allowed.update(re.findall(r'\[NEW\]\s+([^\s]+)', plan_content))
+
+        # file:///path markdown links (less common but valid)
+        allowed.update(re.findall(r'file:///([^\)]+)', plan_content))
+
+        # Always allow task.md updates
+        allowed.add(".hcode/task.md")
+
+        logger.debug(f"Execution write gate: {len(allowed)} files allowed from plan")
+        return allowed
+
+    async def _execute_tools(
+        self,
+        tool_calls: List[Dict[str, Any]],
+        context: AgentContext,
+    ) -> List[Dict[str, Any]]:
+        """
+        Execution-phase write gate: reject Write/Edit calls that target files
+        not listed in implementation_plan.md.
+
+        This is a critical security boundary - execution must follow the plan
+        and not write arbitrary files. Read-only tools pass through unchanged.
+
+        Blocked writes are returned as failed results so the multi-turn loop
+        feeds the error back to the AI.
+
+        Args:
+            tool_calls: List of tool calls to execute
+            context: Current agent context
+
+        Returns:
+            List of tool execution results
+        """
+        # Load plan and extract allowed files
+        plan = self.artifact_manager.load_artifact("implementation_plan.md", context)
+        allowed_files = self._extract_planned_files(plan) if plan else set()
+
+        gated_calls = []
+        results = []
+
+        for tc in tool_calls:
+            tool_name = (tc.get("tool") or "").lower()
+            arguments = tc.get("arguments", {})
+
+            # Only gate write-like tools
+            if tool_name in ("write", "writetool", "edit", "edittool"):
+                target = (
+                    arguments.get("TargetFile")
+                    or arguments.get("file_path")
+                    or arguments.get("path")
+                    or ""
+                )
+
+                # Normalize path separators for comparison
+                norm_target = target.replace("\\", "/").strip()
+
+                # Check if target matches any allowed file
+                # Use partial matching: allowed="/path/file.py" matches target containing "/path/file.py"
+                is_allowed = any(
+                    allowed in norm_target or norm_target in allowed
+                    for allowed in allowed_files
+                )
+
+                if not is_allowed:
+                    # Block and record
+                    self._display(
+                        f"  [>] {tc.get('tool')}: {target}  ← BLOCKED (not in plan)",
+                        style="error",
+                    )
+                    results.append({
+                        "tool": tc.get("tool"),
+                        "success": False,
+                        "output": None,
+                        "error": (
+                            f"EXECUTION WRITE GATE VIOLATION: Write to '{target}' is not allowed. "
+                            f"File not found in implementation_plan.md. "
+                            f"Allowed files: {', '.join(sorted(allowed_files)) if allowed_files else 'None (empty plan?)'}"
+                        ),
+                        "file_path": target,
+                    })
+                    logger.warning(f"Execution write gate blocked: {target}")
+                    continue  # Skip - don't add to gated_calls
+
+            gated_calls.append(tc)
+
+        # Execute the allowed calls via the parent implementation
+        if gated_calls:
+            parent_results = await super()._execute_tools(gated_calls, context)
+            results.extend(parent_results)
+
+        return results
 
     # ═══════════════════════════════════════════════════════════════════════
     # SYSTEM PROMPT

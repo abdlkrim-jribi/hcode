@@ -398,6 +398,8 @@ class AgentContext:
     completed_actions: List[Dict[str, Any]] = field(default_factory=list)
     artifacts: Dict[str, str] = field(default_factory=dict)  # artifact_name -> file_path
     metadata: Dict[str, Any] = field(default_factory=dict)
+    tokens_used: Dict[str, int] = field(default_factory=dict)  # phase_name -> token_count
+    token_budget: int = 500000  # 500K tokens per task
 
 
 @dataclass
