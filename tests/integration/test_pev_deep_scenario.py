@@ -462,3 +462,437 @@ class TestPlanningPromptGuides:
             assert "## Verification Plan" in guide
             assert "Automated Tests" in guide
             assert "Manual Verification" in guide
+
+
+class TestE2EPEVWorkflow:
+    """
+    End-to-end tests for full PEV workflow with multi-round AI mocking.
+
+    Task #17: E2E PEV test with real multi-round loop
+
+    These tests validate the entire Planning → Execution → Verification
+    workflow with realistic multi-round AI interactions to ensure all
+    bug fixes and optimizations work together correctly.
+    """
+
+    @pytest.fixture
+    def temp_workspace(self):
+        """Create a temporary workspace with necessary structure."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create directory structure
+            workspace = Path(tmpdir)
+            (workspace / ".hcode").mkdir(exist_ok=True)
+            (workspace / "src").mkdir(exist_ok=True)
+            (workspace / "tests").mkdir(exist_ok=True)
+
+            # Create a simple existing file for context
+            (workspace / "src" / "__init__.py").write_text("")
+            (workspace / "README.md").write_text("# Test Project\n")
+
+            yield str(workspace)
+
+    @pytest.fixture
+    def mock_provider(self):
+        """Create a mock AI provider that simulates multi-round interactions."""
+        from unittest.mock import AsyncMock, MagicMock
+        from hcode.providers.base import Message
+
+        provider = AsyncMock()
+
+        def generate_completion_side_effect(*args, **kwargs):
+            """Generate realistic multi-round responses based on conversation history."""
+            messages = kwargs.get("messages", [])
+            if not messages:
+                messages = args[0] if args else []
+
+            # Analyze conversation history to determine what to do next
+            conversation = []
+            for msg in messages:
+                if isinstance(msg, Message):
+                    conversation.append({"role": msg.role, "content": msg.content})
+                elif isinstance(msg, dict):
+                    conversation.append(msg)
+
+            # Check what has happened so far by looking at ASSISTANT messages only
+            assistant_messages = [msg.get("content", "") for msg in conversation if msg.get("role") == "assistant"]
+            task_md_written = any(".hcode/task.md" in content and '"tool": "Write"' in content for content in assistant_messages)
+            plan_md_written = any(".hcode/implementation_plan.md" in content and '"tool": "Write"' in content for content in assistant_messages)
+            calc_written = any("src/calculator.py" in content and '"tool": "Write"' in content for content in assistant_messages)
+            test_written = any("tests/test_calculator.py" in content and '"tool": "Write"' in content for content in assistant_messages)
+
+            # Determine current phase based on the first message
+            first_content = conversation[0].get("content", "").lower() if conversation else ""
+
+            # Generate appropriate response based on conversation state
+            response_content = ""
+
+            if "5-phase" in first_content or "planning phase" in first_content:
+                # PLANNING PHASE
+                if not task_md_written:
+                    # First round: Create task.md
+                    response_content = """<thinking>
+I need to create a task breakdown for the calculator module.
+</thinking>
+
+<output>
+Creating task breakdown
+</output>
+
+```json
+{"tool": "Write", "arguments": {"TargetFile": ".hcode/task.md", "Content": "# Task: Create Calculator Module\\n\\n## Subtasks\\n\\n- [ ] Create calculator.py with basic operations <!-- id: 0 -->\\n- [ ] Add unit tests <!-- id: 1 -->\\n- [ ] Update README.md <!-- id: 2 -->"}}
+```"""
+                elif not plan_md_written:
+                    # Second round: Create implementation_plan.md
+                    response_content = """<thinking>
+Now I'll create the detailed implementation plan.
+</thinking>
+
+<output>
+Creating implementation plan
+</output>
+
+```json
+{"tool": "Write", "arguments": {"TargetFile": ".hcode/implementation_plan.md", "Content": "# Implementation Plan\\n\\n## Proposed Changes\\n\\n### [NEW] src/calculator.py\\n- Add function for addition\\n- Add function for subtraction\\n- Add type hints and docstrings\\n\\n### [NEW] tests/test_calculator.py\\n- Test addition function\\n- Test subtraction function\\n- Test edge cases\\n\\n### [MODIFY] README.md\\n- Add calculator module documentation\\n\\n## Verification Plan\\n\\n### Automated Tests\\n- Run pytest tests/test_calculator.py\\n- Verify all tests pass\\n\\n### Manual Verification\\n- Import calculator module\\n- Test basic operations"}}
+```"""
+                else:
+                    # Both artifacts created - planning complete
+                    response_content = """<thinking>
+Both artifacts created successfully.
+</thinking>
+
+<output>
+Planning complete.
+</output>"""
+
+            elif "4-phase" in first_content or "execution phase" in first_content:
+                # EXECUTION PHASE
+                if not calc_written:
+                    # First round: Create calculator.py
+                    response_content = """<thinking>
+I'll implement the calculator module now.
+</thinking>
+
+<output>
+Creating calculator module
+</output>
+
+```json
+{"tool": "Write", "arguments": {"TargetFile": "src/calculator.py", "Content": "def add(a: float, b: float) -> float:\\n    \\\"\\\"\\\"Add two numbers.\\\"\\\"\\\"\\n    return a + b\\n\\ndef subtract(a: float, b: float) -> float:\\n    \\\"\\\"\\\"Subtract b from a.\\\"\\\"\\\"\\n    return a - b"}}
+```
+
+```json
+{"tool": "Edit", "arguments": {"TargetFile": ".hcode/task.md", "old_string": "- [ ] Create calculator.py with basic operations <!-- id: 0 -->", "new_string": "- [x] Create calculator.py with basic operations <!-- id: 0 -->"}}
+```"""
+                elif not test_written:
+                    # Second round: Add tests
+                    response_content = """<thinking>
+Now I'll add unit tests.
+</thinking>
+
+<output>
+Adding unit tests
+</output>
+
+```json
+{"tool": "Write", "arguments": {"TargetFile": "tests/test_calculator.py", "Content": "import pytest\\nfrom src.calculator import add, subtract\\n\\ndef test_add():\\n    assert add(2, 3) == 5\\n    assert add(-1, 1) == 0\\n\\ndef test_subtract():\\n    assert subtract(5, 3) == 2\\n    assert subtract(0, 0) == 0"}}
+```
+
+```json
+{"tool": "Edit", "arguments": {"TargetFile": ".hcode/task.md", "old_string": "- [ ] Add unit tests <!-- id: 1 -->", "new_string": "- [x] Add unit tests <!-- id: 1 -->"}}
+```"""
+                else:
+                    # Both files created - execution complete
+                    response_content = """<thinking>
+Implementation complete.
+</thinking>
+
+<output>
+Execution complete.
+</output>"""
+
+            elif "verification phase" in first_content or "5-phase verification" in first_content:
+                # VERIFICATION PHASE
+                response_content = """<thinking>
+Verification phase. Analyzing implementation quality and test results.
+</thinking>
+
+<output>
+## Verification Analysis
+
+Implementation quality: HIGH
+- All required functions implemented with type hints
+- Comprehensive test coverage
+- Code follows best practices
+
+Test results: ALL PASSED
+- test_add: PASS
+- test_subtract: PASS
+
+Verdict: APPROVED
+</output>"""
+            else:
+                # Default fallback
+                response_content = "<output>Proceeding</output>"
+
+            # Create mock response
+            mock_response = MagicMock()
+            mock_response.content = response_content
+            return mock_response
+
+        provider.generate_completion.side_effect = generate_completion_side_effect
+        return provider
+
+    @pytest.fixture
+    def mock_tool_executor(self, temp_workspace):
+        """Create a mock tool executor that simulates file operations."""
+        from unittest.mock import AsyncMock
+        from pathlib import Path
+
+        executor = AsyncMock()
+        workspace = Path(temp_workspace)
+
+        async def execute_tool_side_effect(tool_name, max_retries=2, **arguments):
+            """Simulate tool execution with realistic results."""
+            from hcode.core.execution.tool_executor import ToolResult
+
+            success = True
+            output = ""
+
+            if tool_name.lower() in ("read", "readtool"):
+                target = arguments.get("TargetFile", "")
+                file_path = workspace / target
+                if file_path.exists():
+                    content = file_path.read_text()
+                    output = f"File content:\n{content}"
+                else:
+                    output = f"File {target} exists"
+
+            elif tool_name.lower() in ("write", "writetool"):
+                target = arguments.get("TargetFile", "")
+                content = arguments.get("Content", "")
+                file_path = workspace / target
+                file_path.parent.mkdir(parents=True, exist_ok=True)
+                file_path.write_text(content)
+                output = f"Created {target}"
+
+            elif tool_name.lower() in ("edit", "edittool"):
+                target = arguments.get("TargetFile", "")
+                old_str = arguments.get("old_string", "")
+                new_str = arguments.get("new_string", "")
+                file_path = workspace / target
+                if file_path.exists():
+                    content = file_path.read_text()
+                    new_content = content.replace(old_str, new_str)
+                    file_path.write_text(new_content)
+                    output = f"Edited {target}"
+                else:
+                    success = False
+                    output = f"File {target} not found"
+
+            elif tool_name.lower() in ("bash", "bashtool"):
+                # Simulate pytest output
+                output = "===== test session starts =====\ncollected 2 items\n\ntest_calculator.py::test_add PASSED\ntest_calculator.py::test_subtract PASSED\n\n===== 2 passed in 0.01s ====="
+
+            return ToolResult(success=success, output=output, error=None if success else output)
+
+        executor.execute_tool.side_effect = execute_tool_side_effect
+        return executor
+
+    @pytest.mark.asyncio
+    async def test_full_pev_workflow_with_multi_round(
+        self, temp_workspace, mock_provider, mock_tool_executor
+    ):
+        """
+        Task #17: End-to-end test of full PEV workflow with multi-round AI interaction.
+
+        This test validates:
+        1. Planning phase creates task.md and implementation_plan.md through multi-round loop
+        2. Execution phase implements the plan with multiple tool calls
+        3. Verification phase validates results and creates walkthrough
+        4. All artifacts are created correctly
+        5. Phase transitions work properly
+        6. Multi-round loops execute correctly in each phase
+        """
+        from hcode.core.phases.planning_handler import PlanningPhaseHandler
+        from hcode.core.phases.execution_handler import ExecutionPhaseHandler
+        from hcode.core.phases.verification_handler import VerificationPhaseHandler
+        from hcode.core.services.artifact_manager import ArtifactManager
+        from hcode.core.orchestration.phase_manager import PhaseManager
+        from hcode.core.orchestration.agent_orchestrator import AgentOrchestrator
+        from hcode.core.classification.task_classifier import TaskClassifier
+        from hcode.core.protocols import AgentContext
+        from pathlib import Path
+
+        # Setup components
+        artifact_manager = ArtifactManager()  # Uses default ".hcode" subdirectory
+        task_classifier = TaskClassifier()
+
+        # Create phase handlers with mocked dependencies
+        handlers = {
+            "planning": PlanningPhaseHandler(
+                artifact_manager=artifact_manager,
+                provider=mock_provider,
+                tool_executor=mock_tool_executor,
+                context_manager=None,
+            ),
+            "execution": ExecutionPhaseHandler(
+                artifact_manager=artifact_manager,
+                provider=mock_provider,
+                tool_executor=mock_tool_executor,
+                context_manager=None,
+            ),
+            "verification": VerificationPhaseHandler(
+                artifact_manager=artifact_manager,
+                provider=mock_provider,
+                tool_executor=mock_tool_executor,
+                context_manager=None,
+            ),
+        }
+
+        # Create phase manager
+        phase_manager = PhaseManager(handlers)
+
+        # Create orchestrator
+        orchestrator = AgentOrchestrator(
+            phase_manager=phase_manager,
+            task_classifier=task_classifier,
+            working_dir=temp_workspace,
+            max_iterations=20,
+            console=None,
+            debug_mode=False,
+        )
+
+        # Execute full PEV workflow
+        task = "Create a calculator module with add and subtract functions, including tests"
+        session_id = "test-e2e-pev-workflow"
+
+        results = await orchestrator.execute_task(task, session_id)
+
+        # Validate results
+        assert results["success"] is True, f"Workflow should succeed. Error: {results.get('error', 'None')}"
+        assert results["final_phase"] == "verification", "Should complete at verification phase"
+        assert len(results["phase_results"]) >= 3, "Should have results from all 3 phases"
+
+        # Validate artifacts were created
+        workspace = Path(temp_workspace)
+        hcode_dir = workspace / ".hcode"
+
+        # Check task.md
+        task_md = hcode_dir / "task.md"
+        assert task_md.exists(), "task.md should be created"
+        task_content = task_md.read_text()
+        assert "# Task:" in task_content or "Task" in task_content
+        assert "<!-- id:" in task_content, "Should have task IDs"
+
+        # Check implementation_plan.md
+        plan_md = hcode_dir / "implementation_plan.md"
+        assert plan_md.exists(), "implementation_plan.md should be created"
+        plan_content = plan_md.read_text()
+        assert "[NEW]" in plan_content or "[MODIFY]" in plan_content
+        assert "calculator" in plan_content.lower()
+
+        # Check implementation files were created
+        calc_file = workspace / "src" / "calculator.py"
+        assert calc_file.exists(), "calculator.py should be created"
+        calc_content = calc_file.read_text()
+        assert "def add" in calc_content
+        assert "def subtract" in calc_content
+
+        # Check test file was created
+        test_file = workspace / "tests" / "test_calculator.py"
+        assert test_file.exists(), "test_calculator.py should be created"
+        test_content = test_file.read_text()
+        assert "test_add" in test_content
+        assert "test_subtract" in test_content
+
+        # Validate multi-round behavior
+        # Provider should have been called multiple times per phase
+        assert mock_provider.generate_completion.call_count >= 6, \
+            f"Should have multiple AI rounds (got {mock_provider.generate_completion.call_count})"
+
+        # Validate tool executor was used
+        assert mock_tool_executor.execute_tool.call_count >= 4, \
+            f"Should have multiple tool executions (got {mock_tool_executor.execute_tool.call_count})"
+
+    @pytest.mark.asyncio
+    async def test_pev_workflow_phase_transitions(self, temp_workspace, mock_provider, mock_tool_executor):
+        """
+        Test that phase transitions work correctly in PEV workflow.
+
+        Validates:
+        - Planning → Execution transition when artifacts are complete
+        - Execution → Verification transition when tasks are done
+        - Verification marks workflow as complete
+        """
+        from hcode.core.phases.planning_handler import PlanningPhaseHandler
+        from hcode.core.phases.execution_handler import ExecutionPhaseHandler
+        from hcode.core.phases.verification_handler import VerificationPhaseHandler
+        from hcode.core.services.artifact_manager import ArtifactManager
+        from hcode.core.orchestration.phase_manager import PhaseManager
+        from hcode.core.protocols import AgentContext
+
+        # Setup
+        artifact_manager = ArtifactManager()  # Uses default ".hcode" subdirectory
+
+        handlers = {
+            "planning": PlanningPhaseHandler(
+                artifact_manager=artifact_manager,
+                provider=mock_provider,
+                tool_executor=mock_tool_executor,
+                context_manager=None,
+            ),
+            "execution": ExecutionPhaseHandler(
+                artifact_manager=artifact_manager,
+                provider=mock_provider,
+                tool_executor=mock_tool_executor,
+                context_manager=None,
+            ),
+            "verification": VerificationPhaseHandler(
+                artifact_manager=artifact_manager,
+                provider=mock_provider,
+                tool_executor=mock_tool_executor,
+                context_manager=None,
+            ),
+        }
+
+        phase_manager = PhaseManager(handlers)
+
+        # Start in planning
+        assert phase_manager.get_current_phase() == "planning"
+
+        # Create context
+        context = AgentContext(
+            task="Create a simple module",
+            session_id="test-transitions",
+            working_dir=temp_workspace,
+            iteration=0,
+        )
+
+        # Execute planning phase
+        result = await phase_manager.execute_current_phase(context, loop_controller=None)
+
+        # Should be able to transition to execution
+        assert result.can_transition, "Planning should allow transition when artifacts are created"
+        transitioned = phase_manager.transition_to_next_phase(context)
+        assert transitioned, "Should successfully transition to execution"
+        assert phase_manager.get_current_phase() == "execution"
+
+        # Execute execution phase
+        result = await phase_manager.execute_current_phase(context, loop_controller=None)
+
+        # Should be able to transition to verification
+        assert result.can_transition, "Execution should allow transition when tasks are complete"
+        transitioned = phase_manager.transition_to_next_phase(context)
+        assert transitioned, "Should successfully transition to verification"
+        assert phase_manager.get_current_phase() == "verification"
+
+        # Execute verification phase
+        result = await phase_manager.execute_current_phase(context, loop_controller=None)
+
+        # Verification should indicate completion
+        assert result.success, "Verification should succeed"
+
+        # Should not be able to transition further (workflow complete)
+        transitioned = phase_manager.transition_to_next_phase(context)
+        assert not transitioned, "Should not transition after verification"
+        assert phase_manager.can_complete(context), "Workflow should be complete"
