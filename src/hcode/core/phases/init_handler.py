@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 from hcode.core.protocols import AgentContext
+from hcode.core.phases.base_handler import BasePhaseHandler
 
 logger = logging.getLogger(__name__)
 
@@ -25,20 +26,23 @@ class InitResult:
     tool_results: List[Dict[str, Any]] = None
     response_text: str = ""
     error: Optional[str] = None
-    
+
     def __post_init__(self):
         if self.tool_results is None:
             self.tool_results = []
 
 
-class InitHandler:
+class InitHandler(BasePhaseHandler):
     """
     Handler for /init command - agent-driven codebase analysis.
-    
+
+    Extends BasePhaseHandler to leverage common functionality like tool
+    execution, response parsing, and display utilities.
+
     Uses the agent's tools (Glob, Read, Grep) to intelligently explore
     the codebase and generate comprehensive hcode.md documentation.
     """
-    
+
     def __init__(
         self,
         provider: Any,
@@ -48,18 +52,24 @@ class InitHandler:
     ):
         """
         Initialize init handler.
-        
+
         Args:
             provider: AI provider for generating responses
             tool_executor: Executor for tool calls
             context_manager: Context manager (optional)
             console: Rich console for output (optional)
         """
-        self.provider = provider
-        self.tool_executor = tool_executor
-        self.context_manager = context_manager
+        # Initialize base handler (no artifact_manager needed for init)
+        super().__init__(
+            artifact_manager=None,
+            provider=provider,
+            tool_executor=tool_executor,
+            context_manager=context_manager,
+        )
+
+        self.phase_name = "init"
         self.console = console
-        
+
         # Initialize HcodeDisplay for modern UI
         self._hcode_display = None
         if console:
@@ -68,20 +78,6 @@ class InitHandler:
                 self._hcode_display = get_hcode_display(console)
             except ImportError:
                 pass
-    
-    def _display(self, message: str, style: str = "default"):
-        """Display message using Rich console."""
-        if self.console:
-            if style == "thinking":
-                self.console.print(f"[dim]{message}[/dim]")
-            elif style == "success":
-                self.console.print(f"[bold green]{message}[/bold green]")
-            elif style == "error":
-                self.console.print(f"[bold red]{message}[/bold red]")
-            elif style == "info":
-                self.console.print(f"[cyan]{message}[/cyan]")
-            else:
-                self.console.print(message)
     
     # ──────────────────────────────────────────────────────────
     # Static helper – JSON string unescape that is safe for UTF-8
@@ -915,22 +911,6 @@ DO IT NOW!"""
 
         return last_response, all_tool_results
 
-    def _extract_text_response(self, response: str) -> str:
-        """Extract text portions from response (excluding tool calls)."""
-        import re
-        if not response:
-            return ""
-
-        # Remove code blocks
-        text = re.sub(r'```[^\n]*\n?.*?```', '', response, flags=re.DOTALL)
-        # Remove thinking blocks
-        text = re.sub(r'<thinking>.*?</thinking>', '', text, flags=re.DOTALL)
-        # Clean up
-        text = re.sub(r'\n{3,}', '\n\n', text)
-
-        return text.strip()
-
-    
     def _looks_like_markdown_content(self, text: str) -> bool:
         """
         Check if text is structured markdown documentation suitable for
@@ -1042,129 +1022,6 @@ DO IT NOW!"""
 
         return None
 
-    def _extract_tool_calls(self, response: str) -> List[Dict[str, Any]]:
-        """Extract tool calls from response."""
-        import re
-        import json
-
-        tool_calls = []
-
-        # Extract from code blocks
-        code_block_pattern = r'```(?:json)?\s*\n?(.*?)\n?\s*```'
-        code_blocks = re.findall(code_block_pattern, response, re.DOTALL)
-
-        # If no code blocks found, look for raw JSON object if it looks like a tool call
-        if not code_blocks:
-            # Look for start of JSON object with "tool" key
-            # Simple heuristic: { ... "tool": ... }
-            if '"tool":' in response:
-                # Try to extract the whole JSON object finding the outer braces
-                # This is a naive extraction but better than nothing
-                start = response.find('{')
-                end = response.rfind('}')
-                if start != -1 and end != -1 and end > start:
-                    potential_json = response[start:end+1]
-                    code_blocks.append(potential_json)
-
-
-        for block in code_blocks:
-            block = block.strip()
-            if not block or not block.startswith('{'):
-                continue
-            try:
-                # Basic cleanup for common JSON errors
-                clean_block = block
-                # Fix unescaped newlines in strings? Hard to do safely without a parser.
-                # But allow control characters:
-                parsed = json.loads(clean_block, strict=False)
-
-                if isinstance(parsed, dict) and "tool" in parsed:
-                    tool_calls.append({
-                        "tool": parsed.get("tool"),
-                        "arguments": parsed.get("arguments", parsed.get("parameters", {}))
-                    })
-            except json.JSONDecodeError as e:
-                logger.debug(f"Failed to parse JSON block: {e}")
-                continue
-        
-        return tool_calls
-    
-    async def _execute_tools(
-        self,
-        tool_calls: List[Dict[str, Any]],
-        context: AgentContext,
-    ) -> List[Dict[str, Any]]:
-        """Execute tool calls and track results."""
-        results = []
-        
-        for tool_call in tool_calls:
-            tool_name = tool_call.get("tool", "")
-            arguments = tool_call.get("arguments", {})
-            
-            # Display
-            file_path = (
-                arguments.get('TargetFile') or
-                arguments.get('AbsolutePath') or
-                arguments.get('DirectoryPath') or
-                ''
-            )
-            if file_path:
-                self._display(f"  [>] {tool_name}: {file_path}", style="thinking")
-            else:
-                self._display(f"  [>] {tool_name}", style="thinking")
-            
-            try:
-                # Execute
-                result = await self.tool_executor.execute_tool(tool_name, **arguments)
-                
-                # Track
-                success = result.success if hasattr(result, 'success') else True
-                
-                if success:
-                    self._display(f"      [OK]", style="success")
-                else:
-                    error_msg = result.error if hasattr(result, 'error') else "Unknown error"
-                    self._display(f"      [FAIL] {error_msg}", style="error")
-                
-                # Track in context
-                if tool_name.lower() in ['write', 'writetool'] and file_path:
-                    if file_path not in context.modified_files:
-                        context.modified_files.append(file_path)
-                
-                results.append({
-                    "tool": tool_name,
-                    "success": success,
-                    "output": str(result.output)[:2000] if hasattr(result, 'output') else str(result)[:2000],
-                    "error": result.error if hasattr(result, 'error') else None,
-                })
-                
-            except Exception as e:
-                logger.error(f"Tool execution failed: {e}")
-                self._display(f"      [ERROR] {e}", style="error")
-                results.append({
-                    "tool": tool_name,
-                    "success": False,
-                    "error": str(e),
-                })
-        
-        return results
-    
-    def _format_tool_results(self, results: List[Dict[str, Any]]) -> str:
-        """Format tool results for feedback."""
-        parts = []
-        for r in results:
-            tool = r.get('tool', 'unknown')
-            success = r.get('success', False)
-            output = str(r.get('output', ''))[:2000]
-            error = r.get('error', '')
-            
-            if success:
-                parts.append(f"[{tool}] Success:\n{output}")
-            else:
-                parts.append(f"[{tool}] Failed: {error}")
-        
-        return "\n\n".join(parts) if parts else "No tool results."
-    
     def _format_tool_results_enhanced(self, results: List[Dict[str, Any]], context: AgentContext) -> str:
         """
         Format tool results with enhanced feedback and validation.
