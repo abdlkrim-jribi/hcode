@@ -572,6 +572,9 @@ CRITICAL RULES:
         output (e.g. file contents from Read) in subsequent responses.
         Loops until the AI produces no more tool calls or max_rounds hit.
 
+        Includes loop detection via response hashing - breaks if the same
+        response appears twice in a row to prevent degenerate loops.
+
         Args:
             prompt: User prompt
             context: Current agent context
@@ -585,10 +588,14 @@ CRITICAL RULES:
             Tuple of (last_response_text, all_tool_results)
         """
         from datetime import datetime
+        import hashlib
 
         all_tool_results = []
         last_response = ""
         start_time = datetime.now()
+
+        # Response hash history for loop detection
+        response_hashes = []
 
         # Build initial messages with thinking instructions
         thinking_instructions = self._get_thinking_instructions()
@@ -627,6 +634,26 @@ CRITICAL RULES:
                     last_response = response
                 else:
                     last_response = str(response)
+
+                # Loop detection: Check if we're getting identical responses
+                # Hash the response content (excluding thinking blocks for stability)
+                response_for_hash = self._extract_text_response(last_response) + str(self._extract_tool_calls(last_response))
+                response_hash = hashlib.sha256(response_for_hash.encode()).hexdigest()
+
+                # Check if this hash appeared in the last 2 responses (degenerate loop)
+                if response_hash in response_hashes[-2:]:
+                    logger.warning(
+                        f"[{self.phase_name}] Loop detected: identical response at round {round_num + 1}. "
+                        f"Breaking to prevent infinite loop."
+                    )
+                    self._display(
+                        f"⚠️ Loop detected - same response repeated. Stopping early.",
+                        style="error"
+                    )
+                    break
+
+                # Track this response hash
+                response_hashes.append(response_hash)
 
                 # Token counting and budget enforcement
                 # Rough estimation: 1 word ≈ 1.3 tokens
