@@ -15,14 +15,15 @@ The handler is responsible for:
 The module currently provides only utility imports; the actual handler class/function will be added in future iterations. The enhanced docstring ensures that developers immediately understand the intended responsibilities and integration points.
 """
 
+import json
 import logging
 import re
 from pathlib import Path
 from typing import List, Any, Dict, Tuple, Optional
 
+from hcode.providers.base import Message
 from .base_handler import BasePhaseHandler
 from ..protocols import AgentContext, PhaseResult
-from hcode.providers.base import Message
 
 # FileAction enum for HcodeDisplay tracking
 try:
@@ -483,7 +484,7 @@ class PlanningPhaseHandler(BasePhaseHandler):
     # ──────────────────────────────────────────────────────────
     # Round configuration for multi-round thinking
     # ──────────────────────────────────────────────────────────
-    MAX_ROUNDS = 8   # Maximum rounds for planning
+    MAX_ROUNDS = 20  # Maximum rounds for planning (increased from 8 to allow agent autonomy)
     MIN_ROUNDS = 3   # Must complete at least 3 rounds
     
     # Research thresholds
@@ -529,58 +530,75 @@ class PlanningPhaseHandler(BasePhaseHandler):
 
     def _get_thinking_instructions(self) -> str:
         """
-        GPT OSS 120B optimized thinking instructions for planning phase.
+        5-Phase thinking instructions for GPT-OSS-120B.
 
-        Uses explicit XML tags, numbered steps, and linear chain-of-thought
-        with "Therefore..." transitions for maximum reasoning quality on
-        open-source 120B models.
+        Enforces the Evidence-First principle.
         """
-        return """### DEEP REASONING PROTOCOL (GPT OSS 120B Optimized)
+        return """### DEEP REASONING PROTOCOL (5-Phase Planning)
 
-You MUST reason systematically before every action using this format:
+    Use `<thinking>` and `<output>` tags to structure your reasoning.
 
-<thinking>
-Step 1: COMPREHENSION — What exactly am I being asked to do?
-Step 2: CONTEXT — What do I already know from project knowledge and prior reads?
-Step 3: GAPS — What assumptions am I making that I should verify by reading code?
-Step 4: ANTI-HALLUCINATION — Am I about to reference code I haven't Read? If yes, READ FIRST.
-Step 5: TOOL SELECTION — What tool is most appropriate and why?
-Step 6: EXPECTED OUTCOME — What should happen if I do this correctly?
-Therefore: [Concrete conclusion that leads to the next action]
-</thinking>
+    **Critical Requirements**:
+    - Use `[Evidence: file.py:line]` to cite ALL code references in Phases 1 & 2.
+    - Complete ALL checkpoints in a phase before proceeding.
+    - You CANNOT write artifacts without reading the code first.
 
-After reasoning, produce structured output:
+    **Phase Structure Template**:
+    ```
+    <thinking>
+    [Phase Number]: [Phase Name]
 
-<output>
-[Tool call, artifact content, or analysis summary]
-</output>
+    Step 1: [Specific Action]
+      → Result: [Finding]
+      → Evidence: [file:line] (If applicable)
 
-CRITICAL RULES:
-- Keep each thought LINEAR and COMPLETE — no nested reasoning
-- Use explicit "Therefore..." transitions between reasoning and conclusions
-- Number every sub-step
-- Validate each step before proceeding to the next
-- NEVER show code you haven't Read — anti-hallucination is mandatory
-- For planning: use analytical reasoning, prioritize precision over novelty
-- ALWAYS read files before editing them
-- ONE change at a time, verify each before proceeding
+    Step 2: [Specific Action]
+      → Result: [Finding]
+      → Evidence: [file:line]
 
-"""
+    Self-validation checkpoint:
+    - [ ] Specific requirement 1
+    - [ ] Specific requirement 2
+    - [ ] Ready to proceed to next phase
 
+    Therefore: [Conclusion]
+    </thinking>
 
-    async def _execute_tools(
-        self,
-        tool_calls: List[Dict[str, Any]],
-        context: AgentContext,
-    ) -> List[Dict[str, Any]]:
-        """
-        Planning-phase gate: reject Write/Edit calls that target files
-        outside `.hcode/`.  Read-only tools (Read, LS, SmartGlob, Grep, Bash)
-        pass through unchanged.
+    <output>
+    [Brief summary]
+    [Tool calls]
+    </output>
+    ```
 
-        Blocked writes are returned as failed results with a clear message
-        so the multi-turn loop feeds the error back to the AI.
-        """
+    **The 5 Phases**:
+    1. **Phase 0**: Requirements Deconstruction — Understand the user's intent.
+    2. **Phase 1**: Deep Code Investigation — Read files. Gather evidence. NO SPECULATION.
+    3. **Phase 2**: Solution Crystallization — Design the changes. Assess risks.
+    4. **Phase 3**: Draft `task.md` — Create atomic subtasks.
+    5. **Phase 4**: Draft `implementation_plan.md` — Create the technical blueprint.
+
+    See `planning_mode.md` for detailed instructions for each phase.
+    """
+
+    def _extract_tool_calls(self, response: str) -> List[Dict[str, Any]]:
+        """Prioritize <output> tags for tool extraction."""
+        if not response:
+            return []
+
+        # Check for <output>
+        output_pattern = r'<output>(.*?)</output>'
+        output_matches = re.findall(output_pattern, response, re.DOTALL | re.IGNORECASE)
+
+        if output_matches:
+            for output_content in output_matches:
+                tool_calls = super()._extract_tool_calls(output_content.strip())
+                if tool_calls:
+                    return tool_calls
+
+        return super()._extract_tool_calls(response)
+
+    async def _execute_tools(self, tool_calls: List[Dict[str, Any]], context: AgentContext) -> List[Dict[str, Any]]:
+        """Enforce write gate."""
         gated_calls = []
         results = []
 
@@ -588,212 +606,354 @@ CRITICAL RULES:
             tool_name = (tc.get("tool") or "").lower()
             arguments = tc.get("arguments", {})
 
-            # Only gate write-like tools
             if tool_name in ("write", "writetool"):
                 target = (
-                    arguments.get("TargetFile")
-                    or arguments.get("file_path")
-                    or arguments.get("path")
-                    or ""
+                        arguments.get("TargetFile") or
+                        arguments.get("file_path") or ""
                 )
-                # Normalise path separators and check if target ends with an allowed artifact
                 norm_target = target.replace("\\", "/").rstrip("/")
                 allowed = any(norm_target.endswith(a) for a in self._PLANNING_WRITE_ALLOWED)
+
                 if not allowed:
-                    # Block and record
-                    self._display(
-                        f"  [>] {tc.get('tool')}: {target}  ← BLOCKED (planning scope)",
-                        style="error",
-                    )
                     results.append({
                         "tool": tc.get("tool"),
                         "success": False,
-                        "output": None,
-                        "error": (
-                            f"PLANNING SCOPE VIOLATION: Write to '{target}' is not allowed "
-                            f"during the planning phase. Only .hcode/task.md and "
-                            f".hcode/implementation_plan.md may be written. "
-                            f"Implementation files must be created in the Execution phase."
-                        ),
-                        "file_path": target,
+                        "error": f"PLANNING SCOPE: Cannot write '{target}'. Only {self._PLANNING_WRITE_ALLOWED} allowed.",
                     })
-                    logger.warning(f"Blocked planning-phase write to: {target}")
-                    continue  # skip — don't add to gated_calls
+                    continue
 
             gated_calls.append(tc)
 
-        # Execute the allowed calls via the parent implementation
         if gated_calls:
-            parent_results = await super()._execute_tools(gated_calls, context)
-            results.extend(parent_results)
+            results.extend(await super()._execute_tools(gated_calls, context))
 
         return results
 
     def _build_continuation_prompt(
-        self,
-        round_results: List[Dict[str, Any]],
-        all_results: List[Dict[str, Any]],
-        round_num: int,
-        context: Any = None,
+            self,
+            round_results: List[Dict[str, Any]],
+            all_results: List[Dict[str, Any]],
+            round_num: int,
+            context: Any = None,
     ) -> str:
         """
-        Planning-phase continuation: use phase detection to route to appropriate prompts.
+        5-Phase aware continuation prompt for GPT-OSS-120B.
 
-        This implements the multi-round thinking architecture:
-        1. Detect current cognitive phase based on progress
-        2. Update saturation detector with round metrics
-        3. Route to phase-specific prompt
-        4. Include reflection prompts at key checkpoints
+        Detects the current phase and provides specific guidance to steer the AI
+        from exploration to high-quality artifact generation.
         """
-        # ── Update saturation detector with round metrics ──
-        files_read_this_round = [
-            r.get("file_path", "") 
-            for r in round_results
+        # Detect state
+        wrote_task = any(
+            r.get("success") and "task.md" in str(r.get("file_path", ""))
+            for r in all_results
+        )
+        wrote_plan = any(
+            r.get("success") and "implementation_plan.md" in str(r.get("file_path", ""))
+            for r in all_results
+        )
+
+        read_count = sum(
+            1 for r in all_results
             if r.get("success") and r.get("tool", "").lower() == "read"
+        )
+        grep_count = sum(
+            1 for r in all_results
+            if r.get("success") and r.get("tool", "").lower() == "grep"
+        )
+        glob_count = sum(
+            1 for r in all_results
+            if r.get("success") and r.get("tool", "").lower() in ["glob", "globtool", "smartglobtool"]
+        )
+
+        # Check for errors
+        recent_errors = [r for r in round_results if not r.get("success")]
+
+        # ── PARAMETER FORMAT ERROR DETECTION ──────────────────────
+        parameter_errors = [
+            r for r in round_results
+            if not r.get("success") and "Missing required parameter" in str(r.get("error", ""))
         ]
-        
-        self.saturation_detector.record_round_completion(
-            files_read=files_read_this_round,
-            insights_gained=len(round_results),
-            uncertainty_count=self.uncertainty_tracker.get_critical_count(),
-            avg_confidence=self.confidence_tracker.get_average_score()
-        )
-        
-        # ── Determine current phase ──
-        current_phase = self._determine_current_phase(all_results, context)
-        
-        logger.info(
-            f"[planning] Round {round_num + 1}, Phase: {current_phase}, "
-            f"Files read: {len(self.saturation_detector.read_files)}, "
-            f"Confidence: {self.confidence_tracker.get_average_score():.1f}/5"
-        )
-        
-        # ── Check for phase-specific validation ──
-        can_continue, blocking_reasons = self._can_continue_to_next_round(
-            round_num, current_phase, all_results, context
-        )
-        
-        # ── Check if we should inject reflection ──
-        if self._should_inject_reflection(round_num, current_phase):
-            return self._build_reflection_prompt(round_num, round_results, all_results)
-        
-        # ── Route to phase-specific prompt ──
-        if current_phase == "discovery":
-            return self._build_discovery_prompt(round_num, all_results, context)
-        
-        elif current_phase == "exploration":
-            return self._build_exploration_prompt(round_num, all_results, context)
-        
-        elif current_phase == "consolidation":
-            return self._build_consolidation_prompt(round_num, all_results, context)
-        
-        elif current_phase == "design":
-            return self._build_design_prompt(round_num, all_results, context)
-        
-        elif current_phase == "specification":
-            return self._build_specification_prompt(round_num, all_results, context)
-        
-        else:
-            return self._build_generic_continuation(round_num, all_results, context)
+
+        if parameter_errors:
+            error_details = parameter_errors[0].get("error", "")
+            return f"""⚠️ TOOL FORMAT ERROR DETECTED
+
+You called a tool with WRONG parameter format.
+
+Error: {error_details}
+
+**CORRECT FORMAT (copy this exactly):**
+
+```json
+{{"tool": "Glob", "arguments": {{"pattern": "**/*.py"}}}}
+{{"tool": "Read", "arguments": {{"file_path": "path/file.py"}}}}
+{{"tool": "Write", "arguments": {{"file_path": ".hcode/task.md", "content": "..."}}}}
+{{"tool": "LS", "arguments": {{"path": "src/"}}}}
+{{"tool": "Grep", "arguments": {{"pattern": "search", "path": "."}}}}
+```
+
+**COMMON MISTAKES (don't do this):**
+❌ `{{"tool": "Glob"}}` - Missing arguments wrapper
+❌ `{{"tool": "Glob", "arguments": {{"Pattern": "..."}}}}` - Uppercase parameter name
+❌ `{{"Pattern": "..."}}` - Missing tool key
+❌ `{{"tool": "Glob", "parameters": {{"pattern": "..."}}}}` - Use 'arguments' not 'parameters'
+❌ `{{"tool": "Glob", "pattern": "..."}}` - Missing 'arguments' wrapper
+
+**Your next action:**
+Retry your last tool call using the CORRECT format from the table above.
+Use LOWERCASE parameter names: pattern, file_path, content, path (not Pattern, AbsolutePath, etc)."""
+
+        # ── LOOP DETECTION ────────────────────────────────────────
+        # Detect if same tool called 2+ times with same args
+        last_three_calls = []
+        for result in all_results[-3:]:
+            if result.get("success") and "tool" in result:
+                # Create a signature of tool + arguments
+                tool_name = result.get("tool", "")
+                arguments = result.get("arguments", {})
+                try:
+                    args_str = json.dumps(arguments, sort_keys=True)
+                    last_three_calls.append((tool_name, args_str))
+                except:
+                    pass
+
+        # Check for duplicate calls
+        if len(last_three_calls) >= 2:
+            if last_three_calls[-1] == last_three_calls[-2]:
+                tool_name = last_three_calls[-1][0]
+                return f"""⚠️  LOOP DETECTED: You called {tool_name} with identical arguments twice in a row.
+
+Recovery:
+1. If Glob: STOP globbing. List what you found. Move to Read.
+2. If Read failed: Check if file exists with a different path.
+3. If stuck: Write artifacts with assumptions and flag them.
+
+DO NOT call the same tool again. Progress to the next phase.
+
+Status: Reads: {read_count}, Globs: {glob_count}, Greps: {grep_count}"""
+
+        # ── ERROR RECOVERY ────────────────────────────────────────
+        if recent_errors:
+            return self._build_planning_error_recovery(recent_errors)
+
+        # ── PHASE 0: START ─────────────────────────────────────────
+        if read_count == 0 and glob_count == 0 and not wrote_task:
+            return """📍 PHASE 0: Requirements Deconstruction
+
+    You are at the start of planning.
+
+    **Action:**
+    1. Analyze the user's task request.
+    2. Identify what you need to know.
+    3. Formulate a search strategy (Glob/Grep).
+    4. Begin Phase 1: Deep Code Investigation.
+
+    **Do NOT write artifacts yet. You must read code first.**"""
+
+        # ── PHASE 1: INVESTIGATION ────────────────────────────────
+        if not wrote_task and not wrote_plan:
+            # Agent is in exploration/investigation mode
+
+            # If agent has read enough files, push toward design
+            if read_count >= 3:
+                return f"""📍 PHASE 1 → PHASE 2: Evidence Gathered
+
+    Excellent! You have read {read_count} files.
+
+    **Action:**
+    1. Stop reading.
+    2. Proceed to **Phase 2: Solution Crystallization**.
+    3. Design your solution based on the evidence you gathered.
+    4. Think about dependencies, risks, and atomicity.
+    5. Do NOT write artifacts yet—wait for the next prompt to draft `task.md`.
+
+    **Remember:**
+    - Base your design on [Evidence: file.py:line].
+    - Identify exact line numbers for changes."""
+
+            # If agent hasn't read much, encourage it
+            return f"""📍 PHASE 1: Deep Code Investigation
+
+    You are gathering evidence. Reads: {read_count}, Globs: {glob_count}.
+
+    **Action:**
+    - Use **Glob** to find relevant files.
+    - Use **Read** to inspect target files.
+    - Use **Grep** to find usages/dependencies.
+    - Extract context: Naming conventions, error handling, imports.
+
+    **CRITICAL:** 
+    - Do NOT guess file structures. Read them.
+    - Cite evidence in your thinking: [Evidence: file.py:line].
+    - Don't proceed to design until you understand the codebase.
+
+    Target: Read at least 3-4 key files before designing."""
+
+        # ── PHASE 3: WRITE task.md ─────────────────────────────────
+        if wrote_task and not wrote_plan:
+            # Validate task.md quality roughly before writing plan
+            return """📍 PHASE 3 → PHASE 4: Task.md Complete
+
+    You have created `task.md`. Now create the detailed blueprint.
+
+    **Action:**
+    Write `.hcode/implementation_plan.md` using the Write tool.
+
+    **Required Structure:**
+    1. **4-Dimension Deep Analysis** (Architecture, Dependencies, Quality, Context)
+    2. **Proposed Changes** (Group by file)
+       - [MODIFY] `file.py`
+         - Target: function_name at line X [Evidence: file.py:X]
+         - Current Behavior: ...
+         - Required Change: ...
+         - Why: ...
+    3. **Verification Plan** (Exact commands)
+
+    **Quality Check:**
+    - Does every claim have [Evidence: file.py:line]?
+    - Are changes specific (line numbers, function names)?
+    - Is the verification command copy-pasteable?
+
+    Write the plan now."""
+
+        # ── PHASE 4: COMPLETE ──────────────────────────────────────
+        if wrote_task and wrote_plan:
+            return """✓ PLANNING COMPLETE
+
+    Both artifacts have been created.
+    - [x] task.md
+    - [x] implementation_plan.md
+
+    **Self-Check:**
+    - [ ] Are subtasks atomic (doable in one session)?
+    - [ ] Is the plan detailed enough for an agent to execute without research?
+    - [ ] Are all changes backed by [Evidence: file.py:line]?
+
+    If satisfied, you may end the phase."""
+
+        # ── TIMEOUT / STUCK ─────────────────────────────────────────
+        if round_num > 15:
+            return f"""⚠️ ROUND LIMIT WARNING (Round {round_num + 1}/{self.MAX_ROUNDS})
+
+    You have been researching for {round_num + 1} rounds.
+
+    **Decision Time:**
+    1. If you have read >= 3 files: Proceed to design (Phase 2) immediately.
+    2. Write `task.md` now.
+    3. Write `implementation_plan.md` now.
+    4. Do not continue researching.
+
+    Force the artifacts to be written now."""
+
+        # Default fallback
+        return "Continue with the 5-phase protocol. Read code, gather evidence, design solution, write artifacts."
+
+    def _prompt_readiness_check(self, read_count: int, context: AgentContext) -> str:
+        """Prompt to write task.md after sufficient exploration."""
+        return f"""✓ Exploration complete ({read_count} files read).
+
+Now write task.md:
+
+```json
+{{
+  "tool": "Write",
+  "arguments": {{
+    "file_path": ".hcode/task.md",
+    "content": "# Task: [Title]\\n\\n## Goal\\n[1-2 sentence description]\\n\\n## Subtasks\\n- [ ] Subtask 1 <!-- id: 0 -->\\n- [ ] Subtask 2 <!-- id: 1 -->\\n- [ ] Subtask 3 <!-- id: 2 -->\\n- [ ] Subtask 4 <!-- id: 3 -->\\n\\n## Risks / Edge Cases\\n- [Risk 1]\\n- [Risk 2]"
+  }}
+}}
+```
+
+Fill in the content based on what you learned from exploring the codebase."""
+
+    def _prompt_for_implementation_plan(self, context: AgentContext) -> str:
+        """Prompt to write implementation_plan.md after task.md is done."""
+        return f"""✓ task.md created.
+
+Now write implementation_plan.md using Write tool:
+```json
+{{
+  "tool": "Write",
+  "arguments": {{
+    "file_path": ".hcode/implementation_plan.md",
+    "content": "# Implementation Plan: [Title]\\n\\n## Overview\\n[Approach description]\\n\\n## File Changes\\n\\n### [MODIFY] file.py\\n**Changes**: ...\\n\\n### [NEW] new_file.py\\n**Purpose**: ...\\n\\n## Verification Plan\\n- [ ] Test command 1\\n- [ ] Test command 2"
+  }}
+}}
+```"""
+
 
     def _validate_task_quality(self, context: AgentContext) -> Dict[str, Any]:
         """
-        Validate task.md content meets quality requirements.
-
-        Checks for:
-        - ## Goal section
-        - At least 4 subtasks with <!-- id: N --> markers
-        - Acceptance criteria after subtasks
-        - ## Risks / Edge Cases section
-
-        Args:
-            context: Current agent context
-
-        Returns:
-            Dict with validation results:
-            - is_valid: bool
-            - subtask_count: int
-            - has_goal: bool
-            - has_acceptance: bool
-            - has_risks: bool
-            - issues: List[str]
+        Validate task.md meets high standards for execution agent.
         """
         result = {
             "is_valid": False,
             "subtask_count": 0,
             "has_goal": False,
-            "has_acceptance": False,
+            "has_context": False,
             "has_risks": False,
             "issues": [],
         }
 
         try:
-            task_content = self.artifact_manager.load_artifact("task.md", context)
-            if not task_content:
-                result["issues"].append("task.md is empty or could not be read")
+            content = self.artifact_manager.load_artifact("task.md", context)
+            if not content:
+                result["issues"].append("Empty task.md")
                 return result
 
-            # Check for ## Goal section
-            result["has_goal"] = "## Goal" in task_content
-
-            # Count subtasks with ID markers
-            subtask_count = task_content.count("<!-- id:")
-            result["subtask_count"] = subtask_count
-
-            # Check for acceptance criteria
-            result["has_acceptance"] = (
-                "Acceptance:" in task_content or
-                "acceptance:" in task_content or
-                "- Acceptance" in task_content
-            )
-
-            # Check for risks/edge cases section
-            result["has_risks"] = (
-                "## Risks" in task_content or
-                "## Edge Cases" in task_content or
-                "## Risks / Edge Cases" in task_content
-            )
-
-            # Build issues list
+            # 1. Goal
+            result["has_goal"] = "## Goal" in content
             if not result["has_goal"]:
                 result["issues"].append("Missing ## Goal section")
-            if subtask_count < 4:
-                result["issues"].append(f"Only {subtask_count} subtasks (need >= 4)")
-            if not result["has_acceptance"]:
-                result["issues"].append("No acceptance criteria found after subtasks")
-            if not result["has_risks"]:
-                result["issues"].append("Missing ## Risks / Edge Cases section")
 
-            # Valid if all checks pass
+            # 2. Context
+            result["has_context"] = "## Context" in content or "## Current State" in content
+            if not result["has_context"]:
+                result["issues"].append("Missing ## Context section (Critical for execution agent)")
+
+            # 3. Subtasks (Atomic)
+            subtask_count = content.count("<!-- id:")
+            result["subtask_count"] = subtask_count
+            if subtask_count < 3:
+                result["issues"].append(f"Too few subtasks ({subtask_count}). Break work down further.")
+
+            # Check for non-atomic tasks (heuristic: long lines or "and")
+            lines = content.split('\n')
+            for line in lines:
+                if '- [ ]' in line and len(line) > 150:
+                    result["issues"].append(f"Potential non-atomic task (too long): {line[:50]}...")
+                if '- [ ]' in line.lower() and ' and ' in line:
+                    result["issues"].append(f"Potential non-atomic task (contains 'and'): {line[:50]}...")
+
+            # 4. Risks
+            result["has_risks"] = "## Risks" in content or "## Edge Cases" in content
+            if not result["has_risks"]:
+                result["issues"].append("Missing ## Risks / Edge Cases")
+
             result["is_valid"] = (
                 result["has_goal"] and
-                subtask_count >= 4 and
-                result["has_acceptance"] and
+                result["has_context"] and
+                subtask_count >= 3 and
                 result["has_risks"]
             )
 
         except Exception as e:
-            logger.warning(f"Failed to validate task.md quality: {e}")
+            logger.warning(f"Task validation error: {e}")
             result["issues"].append(f"Validation error: {e}")
 
         return result
 
     async def _run_planning_loop(
-        self,
-        unified_prompt: str,
-        context: AgentContext,
-        system_prompt: str,
-        max_rounds: int,
-        max_tokens: int,
-        timeout_seconds: int = 600,  # 10 minutes default
+            self,
+            unified_prompt: str,
+            context: AgentContext,
+            system_prompt: str,
+            max_rounds: int,
+            max_tokens: int,
+            timeout_seconds: int = 600,
     ) -> Tuple[str, List[Dict[str, Any]]]:
         """
-        Custom execution loop for planning phase.
-
-        Differs from base implementation by:
-        1. Supporting "thinking rounds" (no tool calls)
-        2. Using explicit phase completion check
-        3. Forcing artifact creation if missing at end
+        Custom execution loop with Loop Prevention.
         """
         from datetime import datetime
 
@@ -801,26 +961,20 @@ CRITICAL RULES:
         last_response = ""
         start_time = datetime.now()
 
-        # Build initial messages
-        thinking_instructions = self._get_thinking_instructions()
-        messages = [Message(role="user", content=thinking_instructions + unified_prompt)]
+        messages = [Message(role="user", content=system_prompt + "\n\n" + unified_prompt)]
+
+        # Track tool signatures to detect loops
+        last_tool_signature = None
+        duplicate_count = 0
 
         for round_num in range(max_rounds):
-            # Check wall-clock timeout
             elapsed = (datetime.now() - start_time).total_seconds()
             if elapsed > timeout_seconds:
-                logger.warning(
-                    f"[{self.phase_name}] Phase timeout after {elapsed:.1f}s "
-                    f"({timeout_seconds}s limit)"
-                )
-                self._display(
-                    f"⚠️ Phase timeout reached ({int(elapsed)}s / {timeout_seconds}s limit)",
-                    style="error"
-                )
+                logger.warning(f"Planning timeout after {elapsed:.1f}s")
                 break
-            logger.info(f"[{self.phase_name}] Planning round {round_num + 1}/{max_rounds}...")
-            
-            # Generate response
+
+            logger.info(f"Planning round {round_num + 1}/{max_rounds}...")
+
             try:
                 response = await self.provider.generate_completion(
                     messages=messages,
@@ -828,215 +982,280 @@ CRITICAL RULES:
                     temperature=0.7,
                     max_tokens=max_tokens,
                 )
-                
-                # Extract content
+
                 if hasattr(response, 'content'):
                     last_response = response.content
                 elif isinstance(response, dict):
                     last_response = response.get('content', '')
                 else:
                     last_response = str(response)
-                    
+
             except Exception as e:
-                logger.error(f"Provider call failed on round {round_num + 1}: {e}")
-                self._display(f"Generation error: {e}", style="error")
+                logger.error(f"Provider call failed: {e}")
                 break
 
-            # Display text portion
             text_portion = self._extract_text_response(last_response)
-            if text_portion and len(text_portion.strip()) > 20:
+            if text_portion:
                 self._display(text_portion, style="default")
 
-            # Extract tools
             tool_calls = self._extract_tool_calls(last_response)
-            
-            # Execute tools
+
+            # ─────────────────────────────────────────────────────────────
+            # LOOP BREAKER: Detect if agent is calling the EXACT same tool
+            # ─────────────────────────────────────────────────────────────
+            if tool_calls:
+                current_sig = self._create_tool_signature(tool_calls[0])
+
+                if current_sig == last_tool_signature:
+                    duplicate_count += 1
+                    logger.warning(f"Duplicate tool call detected (Count: {duplicate_count}): {current_sig}")
+
+                    if duplicate_count >= 2:
+                        # Force break the loop
+                        self._display(
+                            f"\n⚠️ INFINITE LOOP DETECTED: You have called `{tool_calls[0].get('tool')}` "
+                            f"3 times with identical arguments. STOPPING.\n",
+                            style="error"
+                        )
+
+                        # Inject a hard stop into results
+                        loop_break_result = {
+                            "tool": tool_calls[0].get("tool"),
+                            "success": False,
+                            "output": None,
+                            "error": (
+                                "INFINITE LOOP: You are repeating the exact same tool call. "
+                                "Stop calling this tool. Analyze previous results and proceed differently "
+                                "or write the artifacts now."
+                            ),
+                            "file_path": tool_calls[0].get("arguments", {}).get("TargetFile", ""),
+                        }
+                        all_results.append(loop_break_result)
+                        messages.append(Message(role="assistant", content=last_response))
+
+                        # Force continuation to break the cycle
+                        messages.append(Message(role="user", content="STOP. Do not call tools anymore. Write task.md and implementation_plan.md immediately."))
+                        duplicate_count = 0
+                        last_tool_signature = None
+                        continue
+                else:
+                    duplicate_count = 0
+                    last_tool_signature = current_sig
+            # ─────────────────────────────────────────────────────────────
+
             round_results = await self._execute_tools(tool_calls, context)
             all_results.extend(round_results)
-            
-            # Add assistant message
+
             messages.append(Message(role="assistant", content=last_response))
-            
-            # CHECK COMPLETION
+
             if self._is_planning_complete(all_results, context, round_num):
                 break
-                
-            # Handle continuation
-            if not tool_calls:
-                if round_num >= max_rounds - 2:
-                    # Force write if running out of rounds
-                    continuation = (
-                        "WARNING: You are running out of rounds. "
-                        "You must write task.md and implementation_plan.md NOW."
-                    )
-                else:
-                    # Just thinking/reflection - prod to continue
-                    continuation = "Proceed to the next step."
-            else:
-                # Build continuation based on results
-                continuation = self._build_continuation_prompt(
-                    round_results, all_results, round_num, context
-                )
-            
-            # Add user message
+
+            continuation = self._build_continuation_prompt(
+                round_results, all_results, round_num, context
+            )
+
             messages.append(Message(role="user", content=continuation))
-            
+
         return last_response, all_results
 
+    def _create_tool_signature(self, tool_call: Dict[str, Any]) -> str:
+        """Create a unique hash for a tool call to detect duplicates."""
+        import json
+        return f"{tool_call.get('tool')}:{json.dumps(tool_call.get('arguments'), sort_keys=True)}"
+
+    def _build_planning_error_recovery(self, errors: List[Dict[str, Any]]) -> Optional[str]:
+        """
+        Build specific error recovery for planning phase.
+
+        FIXED: Removed incorrect super() call.
+        """
+        if not errors:
+            return None
+
+        # 1. Check for "Missing required parameter" (The current blocker)
+        param_errors = [
+            e for e in errors
+            if 'missing required parameter' in str(e.get('error', '')).lower()
+               or 'missing required parameter' in str(e.get('output', '')).lower()
+        ]
+
+        if param_errors:
+            err_msg = param_errors[0].get('error', '')
+
+            # Try to guess which tool failed from the error message
+            tool_name = "Tool"
+            if "Pattern" in err_msg:
+                tool_name = "Glob"
+            elif "TargetFile" in err_msg or "file_path" in err_msg:
+                tool_name = "Read"
+
+            return (
+                f"🔴 CRITICAL ERROR: Tool Call Malformed\n\n"
+                f"You tried to call `{tool_name}` but missed required arguments.\n\n"
+                f"**IMMEDIATE FIX:**\n"
+                f"You MUST use the exact JSON format below:\n\n"
+                f"```json\n"
+                f'{{"tool": "{tool_name}", "arguments": {{"Pattern": "src/**/*.py"}}}}\n' if tool_name == "Glob" else \
+                    f'{{"tool": "{tool_name}", "arguments": {{"file_path": "path/to/file"}}}}\n'
+                    f"```\n\n"
+                    f"**Do NOT use just parameters.**\n"
+                    f"- ❌ Wrong: {{\"Pattern\": \"...\"}}\n"
+                    f"- ✅ Right: {{\"tool\": \"Glob\", \"arguments\": {{\"Pattern\": \"...\"}}}}\n\n"
+                    f"Retry the tool call with the CORRECT format."
+            )
+
+        # 2. Check for "File not found" (Hallucinated paths)
+        file_not_found_errors = [
+            e for e in errors
+            if 'file not found' in str(e.get('error', '')).lower()
+        ]
+
+        if file_not_found_errors:
+            bad_files = set()
+            for e in file_not_found_errors:
+                path = e.get('file_path', '')
+                if path:
+                    bad_files.add(path.split('/')[-1])
+
+            return (
+                f"🔴 FATAL ERROR: Files Do Not Exist\n\n"
+                f"You tried to read: {', '.join(list(bad_files)[:3])}\n\n"
+                f"**IMMEDIATE ACTION REQUIRED:**\n"
+                f"1. STOP trying to read these files. They do not exist.\n"
+                f"2. DO NOT run Glob again to find them. You already have the file list.\n"
+                f"3. Only use files found in initial Glob results.\n"
+                f"4. Proceed to write artifacts based on files you HAVE read.\n\n"
+                f"Write task.md NOW."
+            )
+
+        # 3. Check for "Write Gate" violations
+        write_gate_errors = [
+            e for e in errors
+            if 'write gate' in str(e.get('error', '')).lower()
+               or 'planning scope' in str(e.get('error', '')).lower()
+        ]
+
+        if write_gate_errors:
+            return (
+                "🔴 ERROR: Write Gate Violation\n\n"
+                "You tried to write a file that is not allowed.\n\n"
+                "PLANNING RULES:\n"
+                "- You can ONLY write `.hcode/task.md` and `.hcode/implementation_plan.md`\n"
+                "- Do NOT write implementation code files yet.\n\n"
+                "Focus on reading files and gathering evidence (Phase 1)."
+            )
+
+        # 4. Generic Fallback (Previously the crashing super() call)
+        err_details = []
+        for e in errors[:2]:
+            err_details.append(f"- {e.get('tool', 'Unknown')}: {str(e.get('error', ''))[:50]}")
+
+        return (
+            "🔴 ERROR DETECTED\n\n"
+            "Review the error messages above:\n"
+            f"{chr(10).join(err_details)}\n\n"
+            "Common Fixes:\n"
+            "- Ensure JSON has 'tool' and 'arguments' keys.\n"
+            "- Ensure arguments match tool definition (e.g., Pattern for Glob).\n"
+            "- Ensure paths are correct and files exist."
+        )
+
     async def handle(
-        self,
-        context: AgentContext,
-        loop_controller: Any,
+            self,
+            context: AgentContext,
+            loop_controller: Any,
     ) -> PhaseResult:
         """
-        Execute planning phase — single unified multi-turn exchange.
-
-        The AI does everything in one conversation:
-          Round 1-N  : Explore the codebase (Read, Glob, Grep, LS …)
-          Round N+1  : Write .hcode/task.md
-          Round N+2+ : Write .hcode/implementation_plan.md
-        The continuation prompt steers the AI after each round so it doesn't
-        stop prematurely.  Fallbacks fire only if the AI exhausts max_rounds
-        without producing an artifact.
-
-        Args:
-            context: Current agent context
-            loop_controller: Loop controller
-
-        Returns:
-            PhaseResult with planning outcome
+        Execute planning phase — 5-Phase Reasoning Protocol.
         """
         try:
-            artifacts_created = []
-            analysis_insights: Dict[str, Any] = {}
-
-            logger.info(f"Planning phase iteration {context.iteration} for task: {context.task[:50]}...")
-
-            # =====================================================================
-            # CLEAN SLATE – delete stale artifacts from previous tasks
-            # =====================================================================
+            # Clean slate
             for _art in ("task.md", "implementation_plan.md", "walkthrough.md"):
                 _path = self.artifact_manager._get_artifact_path(_art, context)
                 if _path.exists():
                     _path.unlink()
-                    logger.info(f"Removed stale artifact: {_art}")
 
-            # =====================================================================
-            # RESET TRACKERS – clean state for multi-round thinking
-            # =====================================================================
             self._reset_trackers()
-            logger.info("Reset meta-cognitive trackers for new planning session")
+            logger.info("Starting 5-Phase Planning Protocol...")
 
-            # =====================================================================
-            # PROGRAMMATIC EXPLORATION – ground the prompt with real data
-            # =====================================================================
-            exploration_context = self._explore_codebase(context)
-            self._display("Exploring codebase...", style="info")
+            artifacts_created = []
 
-            # =====================================================================
-            # SINGLE UNIFIED PROMPT – explore then create artifacts
-            # =====================================================================
-            unified_prompt = self._build_unified_planning_prompt(context, exploration_context)
+            # Build prompt
+            unified_prompt = self._build_unified_planning_prompt(context, "")
 
             response = ""
             tool_results: List[Dict[str, Any]] = []
 
             if self.provider is not None:
-                self._display("Planning…", style="info")
+                self._display("Planning (5-Phase Protocol)...", style="info")
 
                 if self._hcode_display:
                     self._hcode_display.start_thinking()
 
-                # Use custom loop instead of base _generate_and_execute
+                # Use custom loop for 5-phase handling
                 response, tool_results = await self._run_planning_loop(
                     unified_prompt,
                     context,
                     system_prompt=self._get_planning_system_prompt(context),
                     max_rounds=self.MAX_ROUNDS,
                     max_tokens=16384,
-                    timeout_seconds=600,  # 10 minutes for planning phase
+                    timeout_seconds=900,  # 15 mins
                 )
 
                 if self._hcode_display:
                     self._hcode_display.end_thinking()
 
-                # Track which artifacts the AI actually wrote
+                # Track artifacts
                 for result in tool_results:
-                    if not result.get("success"):
-                        continue
-                    fp = str(result.get("file_path", ""))
-                    if "task.md" in fp and "task.md" not in artifacts_created:
-                        artifacts_created.append("task.md")
-                        if self._hcode_display and FileAction:
-                            self._hcode_display.track_file(".hcode/task.md", FileAction.CREATED)
-                    if "implementation_plan.md" in fp and "implementation_plan.md" not in artifacts_created:
-                        artifacts_created.append("implementation_plan.md")
-                        if self._hcode_display and FileAction:
-                            self._hcode_display.track_file(".hcode/implementation_plan.md", FileAction.CREATED)
+                    if result.get("success"):
+                        fp = str(result.get("file_path", ""))
+                        if "task.md" in fp and "task.md" not in artifacts_created:
+                            artifacts_created.append("task.md")
+                            if self._hcode_display and FileAction:
+                                self._hcode_display.track_file(".hcode/task.md", FileAction.CREATED)
+                        if "implementation_plan.md" in fp and "implementation_plan.md" not in artifacts_created:
+                            artifacts_created.append("implementation_plan.md")
+                            if self._hcode_display and FileAction:
+                                self._hcode_display.track_file(".hcode/implementation_plan.md", FileAction.CREATED)
 
-                # Extract insights from the response (used by fallback if needed)
-                analysis_insights = self._extract_analysis_insights(response)
-
-            else:
-                logger.warning("No AI provider configured for planning phase")
-                self._display("No AI provider configured for planning!", style="error")
-
-            # =====================================================================
-            # ARTIFACT VALIDATION
-            # The agent is solely responsible for generating task.md and 
-            # implementation_plan.md using the guidance prompts. No fallbacks.
-            # =====================================================================
+            # Validation
             if not self.artifact_manager.artifact_exists("task.md", context):
-                self._display("  [!] task.md missing — agent failed to generate it", style="error")
                 return PhaseResult(
                     phase_name=self.phase_name,
                     success=False,
-                    output="Planning failed: Agent did not create task.md. Increase max_rounds or check prompts.",
-                    artifacts_created=artifacts_created,
+                    output="Failed: task.md not created.",
                     can_transition=False,
-                    error="task.md not created by agent",
+                    error="task.md missing",
                 )
 
             if not self.artifact_manager.artifact_exists("implementation_plan.md", context):
-                self._display("  [!] implementation_plan.md missing — agent failed to generate it", style="error")
                 return PhaseResult(
                     phase_name=self.phase_name,
                     success=False,
-                    output="Planning failed: Agent did not create implementation_plan.md. Increase max_rounds or check prompts.",
-                    artifacts_created=artifacts_created,
+                    output="Failed: implementation_plan.md not created.",
                     can_transition=False,
-                    error="implementation_plan.md not created by agent",
+                    error="implementation_plan.md missing",
                 )
 
-            # =====================================================================
-            # VALIDATE & TRANSITION
-            # =====================================================================
+            # Quality Validation
             valid, error = self.validate_artifacts(context)
             if not valid:
                 return PhaseResult(
                     phase_name=self.phase_name,
                     success=False,
-                    output=f"Planning phase validation failed: {error}",
-                    artifacts_created=artifacts_created,
+                    output=f"Validation failed: {error}",
                     can_transition=False,
                     error=error,
-                    metadata={"tool_results": tool_results, "analysis_insights": analysis_insights},
                 )
-
-            can_transition = self.can_transition_to_next(context)
-
-            is_exploration = context.metadata.get("task_type") == "exploration"
-            output = response if (is_exploration and response) else (
-                f"Planning phase complete. Created: {', '.join(artifacts_created) or 'no new artifacts'}"
-            )
 
             return PhaseResult(
                 phase_name=self.phase_name,
                 success=True,
-                output=output,
+                output=f"Planning complete. Created: {', '.join(artifacts_created)}",
                 artifacts_created=artifacts_created,
-                can_transition=can_transition,
-                metadata={"tool_results": tool_results, "analysis_insights": analysis_insights, "response": response},
+                can_transition=True,
+                metadata={"tool_results": tool_results}
             )
 
         except Exception as e:
@@ -1044,7 +1263,7 @@ CRITICAL RULES:
             return PhaseResult(
                 phase_name=self.phase_name,
                 success=False,
-                output=f"Planning phase failed: {str(e)}",
+                output=f"Planning failed: {str(e)}",
                 can_transition=False,
                 error=str(e),
             )
@@ -1162,9 +1381,9 @@ After reasoning, produce structured output with tool calls or text.
 - Use analytical reasoning; prioritize precision over novelty
 
 **Tools you should use in planning:**
-- Read: `{{"tool": "Read", "arguments": {{"AbsolutePath": "/full/path"}}}}`  ← primary tool
-- Grep: `{{"tool": "Grep", "arguments": {{"Query": "pattern", "SearchPath": "."}}}}`  ← find symbols
-- Write: `{{"tool": "Write", "arguments": {{"TargetFile": "/full/path", "CodeContent": "content"}}}}`  ← artifacts only
+- Read: `{{"tool": "Read", "arguments": {{"file_path": "path/to/file.py"}}}}`  ← primary tool
+- Grep: `{{"tool": "Grep", "arguments": {{"pattern": "pattern", "path": "."}}}}`  ← find symbols
+- Write: `{{"tool": "Write", "arguments": {{"file_path": ".hcode/task.md", "content": "..."}}}}`  ← artifacts only
 
 **Tools you should NOT need in planning:**
 - LS / SmartGlob: project structure is already in PROJECT KNOWLEDGE above.
@@ -1198,7 +1417,7 @@ in `src/hcode/core/observability/`.  Let me read the actual files before
 deciding anything.
 
 ```json
-{{"tool": "Read", "arguments": {{"AbsolutePath": "{context.working_dir}/src/hcode/main_cli.py"}}}}
+{{"tool": "Read", "arguments": {{"file_path": "src/hcode/main_cli.py"}}}}
 ```
 
 (… receives file contents …)
@@ -1207,7 +1426,7 @@ The startup sequence is at line 42 — a bare try block with no logging.
 Now let me check how the logger factory works:
 
 ```json
-{{"tool": "Read", "arguments": {{"AbsolutePath": "{context.working_dir}/src/hcode/core/observability/logger.py"}}}}
+{{"tool": "Read", "arguments": {{"file_path": "src/hcode/core/observability/logger.py"}}}}
 ```
 
 (… receives file contents …)
@@ -1216,13 +1435,13 @@ Now let me check how the logger factory works:
 the call site, and what the current code does.  Writing task.md:
 
 ```json
-{{"tool": "Write", "arguments": {{"TargetFile": "{context.working_dir}/.hcode/task.md", "CodeContent": "# Task\\n\\nAdd error logging to CLI startup\\n\\n## Goal\\n\\nErrors during CLI initialisation are captured by the observability logger.\\n\\n## Subtasks\\n\\n- [ ] Add `from hcode.core.observability.logger import get_logger` to main_cli.py <!-- id: 0 -->\\n  - Acceptance: `python -m py_compile src/hcode/main_cli.py` exits 0\\n- [ ] Insert `logger.error(exc)` in the except block at startup (line 42) <!-- id: 1 -->\\n  - Acceptance: error path produces a log entry in output\\n- [ ] Run `pytest tests/unit/test_cli.py -v` <!-- id: 2 -->\\n  - Acceptance: all tests pass\\n\\n## Risks\\n\\n- Logger must be initialised before the call site at line 42"}}}}
+{{"tool": "Write", "arguments": {{"file_path": ".hcode/task.md", "content": "# Task\\n\\nAdd error logging to CLI startup\\n\\n## Goal\\n\\nErrors during CLI initialisation are captured by the observability logger.\\n\\n## Subtasks\\n\\n- [ ] Add `from hcode.core.observability.logger import get_logger` to main_cli.py <!-- id: 0 -->\\n  - Acceptance: `python -m py_compile src/hcode/main_cli.py` exits 0\\n- [ ] Insert `logger.error(exc)` in the except block at startup (line 42) <!-- id: 1 -->\\n  - Acceptance: error path produces a log entry in output\\n- [ ] Run `pytest tests/unit/test_cli.py -v` <!-- id: 2 -->\\n  - Acceptance: all tests pass\\n\\n## Risks\\n\\n- Logger must be initialised before the call site at line 42"}}}}
 ```
 
 task.md written.  Now writing implementation_plan.md with full detail:
 
 ```json
-{{"tool": "Write", "arguments": {{"TargetFile": "{context.working_dir}/.hcode/implementation_plan.md", "CodeContent": "# Add error logging to CLI startup\\n\\nThe CLI startup at line 42 does not log errors — they propagate uncaught.\\nThis change adds a logger call so failures are captured.\\n\\n## Approach\\n\\n`get_logger` in the observability layer is the project convention.\\nReuse it — no new abstractions needed.\\n\\n## Execution Context\\n\\n- **Import convention:** absolute imports, one per line\\n- **Error handling:** try/except + logger.error()\\n- **Test framework:** pytest\\n- **Key interfaces:** none affected by this change\\n\\n## Proposed Changes\\n\\n### CLI Entry Point\\n\\n#### [MODIFY] `src/hcode/main_cli.py`\\n\\n**Target:** startup block, line 42\\n**Current behavior:** exceptions during init propagate uncaught (bare except)\\n**Required change:**\\n- Add import: `from hcode.core.observability.logger import get_logger`\\n- Add `logger = get_logger(__name__)` after existing imports\\n- In the except block at line 42: add `logger.error(\\\"Startup failed\\\", exc_info=True)`\\n**Why:** observability layer is the project convention for error capture\\n\\n## Dependencies Between Changes\\n\\nSingle file changed — no ordering constraints.\\n\\n## Verification Plan\\n\\n- `python -m py_compile src/hcode/main_cli.py`\\n- `pytest tests/unit/test_cli.py -v`\\n- `python -m hcode --help` — confirm no crash"}}}}
+{{"tool": "Write", "arguments": {{"file_path": ".hcode/implementation_plan.md", "content": "# Add error logging to CLI startup\\n\\nThe CLI startup at line 42 does not log errors — they propagate uncaught.\\nThis change adds a logger call so failures are captured.\\n\\n## Approach\\n\\n`get_logger` in the observability layer is the project convention.\\nReuse it — no new abstractions needed.\\n\\n## Execution Context\\n\\n- **Import convention:** absolute imports, one per line\\n- **Error handling:** try/except + logger.error()\\n- **Test framework:** pytest\\n- **Key interfaces:** none affected by this change\\n\\n## Proposed Changes\\n\\n### CLI Entry Point\\n\\n#### [MODIFY] `src/hcode/main_cli.py`\\n\\n**Target:** startup block, line 42\\n**Current behavior:** exceptions during init propagate uncaught (bare except)\\n**Required change:**\\n- Add import: `from hcode.core.observability.logger import get_logger`\\n- Add `logger = get_logger(__name__)` after existing imports\\n- In the except block at line 42: add `logger.error(\\\"Startup failed\\\", exc_info=True)`\\n**Why:** observability layer is the project convention for error capture\\n\\n## Dependencies Between Changes\\n\\nSingle file changed — no ordering constraints.\\n\\n## Verification Plan\\n\\n- `python -m py_compile src/hcode/main_cli.py`\\n- `pytest tests/unit/test_cli.py -v`\\n- `python -m hcode --help` — confirm no crash"}}}}
 ```
 
 Both artifacts written.  Planning complete.
@@ -1387,150 +1606,149 @@ Create a detailed implementation plan with:
 
     def _build_unified_planning_prompt(self, context: AgentContext, exploration_context: str) -> str:
         """
-        Build the single unified prompt that drives the entire planning phase.
+        Build a structured planning prompt with clear workflow examples.
 
-        Uses the 5-Phase Iterative Reasoning Protocol optimized for GPT OSS 120B:
-          Phase 1: Problem Space Exploration (think before tools)
-          Phase 2: Deep Code Investigation (Read + Grep)
-          Phase 3: Solution Crystallization (evaluate approaches)
-          Phase 4: Write task.md
-          Phase 5: Write implementation_plan.md
-
-        The system prompt already contains project knowledge (hcode.md).
-        This prompt provides the task context and structured reasoning framework.
+        Provides enough guidance to prevent infinite exploration while
+        allowing intelligent decision-making.
         """
-        task_template = self._get_task_template_guide()
-        plan_template = self._get_plan_template_guide()
+        return f"""# Planning Phase — 3-Phase Analysis Protocol
 
-        return f"""You are a Senior Software Architect in PLANNING mode.
-Your task is to produce two planning artifacts: task.md and implementation_plan.md.
-You will approach this through the 5-Phase Iterative Reasoning Protocol.
+You are a Senior Software Architect in PLANNING mode.
+Your task: Analyze the codebase and create two planning artifacts.
 
-CRITICAL CONSTRAINTS:
-- You may ONLY write: {context.working_dir}/.hcode/task.md and {context.working_dir}/.hcode/implementation_plan.md
-- Any write to any other path will be BLOCKED by the system
-- Do NOT create implementation files — those belong to Execution phase
-- Do NOT stop until BOTH artifacts have been written
-- Every claim must trace back to something you actually Read
+**Core Directive:** Do not just list files. Understand the *code*, the *patterns*, and the *requirements*.
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-USER REQUEST
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+---
+
+## USER REQUEST
+
 {context.task}
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-FILE INDEX  (Read these files directly — Glob/LS/SmartGlob are FORBIDDEN)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-{exploration_context}
+Working directory: {context.working_dir}
 
-🚨 CRITICAL: The tools Glob, LS, and SmartGlob are DISABLED in planning mode.
-   Use ONLY Read and Grep. The file index above provides all paths you need.
+---
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-PHASE 1 — PROBLEM SPACE EXPLORATION  (think then Read immediately)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Use <thinking> tags to reason through:
+## YOUR GOAL
+
+Generate two planning artifacts:
+1. `.hcode/task.md` - Breakdown of subtasks
+2. `.hcode/implementation_plan.md` - Implementation details
+
+---
+
+## CRITICAL PATH REQUIREMENTS
+
+**Working Directory:** {context.working_dir}
+
+**Path Rules:**
+- ALL file paths must be relative to working directory
+- Glob patterns: `src/**/*.py` (NOT `{context.working_dir}/src/**/*.py`)
+- Read paths: `src/module/file.py` (NOT `/home/sandbox/...` or `D:/absolute/...`)
+- Write paths: `.hcode/task.md` or `.hcode/implementation_plan.md` ONLY
+
+---
+
+## TOOL USAGE PROTOCOL
+
+**CRITICAL**: ALL tools require specific parameters in "arguments". Missing parameters will fail.
+
+```json
+{{"tool": "ToolName", "arguments": {{"param": "value"}}}}
+```
+
+**Available Tools:**
+*   **Glob** [REQUIRED: pattern]: `{{"tool": "Glob", "arguments": {{"pattern": "src/hcode/utils/**/*.py"}}}}` — Find files
+*   **Read** [REQUIRED: file_path]: `{{"tool": "Read", "arguments": {{"file_path": "src/hcode/utils/config.py"}}}}` — Read files
+*   **Grep** [REQUIRED: pattern]: `{{"tool": "Grep", "arguments": {{"pattern": "class.*Test", "path": "."}}}}` — Search patterns
+*   **Write** [REQUIRED: file_path, content]: `{{"tool": "Write", "arguments": {{"file_path": ".hcode/task.md", "content": "..."}}}}` — Create artifacts
+
+**Common Errors:**
+- ❌ `{{"tool": "Glob"}}` → FAILS (missing "pattern")
+- ❌ `{{"tool": "Read"}}` → FAILS (missing "file_path")
+- ✅ `{{"tool": "Glob", "arguments": {{"pattern": "**/*.py"}}}}` → WORKS
+
+---
+
+## THE 3-PHASE ANALYSIS PROTOCOL
+
+Execute these phases **sequentially**.
+
+### Phase A: CODE DISCOVERY (Rounds 1–2)
+
+**Goal:** Find all relevant files.
 
 <thinking>
-Step 1: Decompose — What is the user explicitly asking for?
-Step 2: Implicit needs — What unstated requirements exist?
-Step 3: Success criteria — What does "done" look like concretely?
-Step 4: Relevant files — Which files from the FILE INDEX above are involved?
-Step 5: Approaches — What are 2-3 different ways to solve this?
-Therefore: I will Read these specific files: [list 3-5 file paths from index above]
+Step 1: What files relate to this task?
+Step 2: Use Glob to discover them
+Therefore: I know which files to read.
 </thinking>
 
-Self-check before proceeding:
-- [ ] Have I identified 3-5 specific files from the FILE INDEX to Read?
-- [ ] Am I about to call Read (NOT Glob/LS)?
+**Required Actions:**
+1. Use Glob to find target files (e.g., "src/module/**/*.py")
+2. If creating tests, find existing tests (e.g., "tests/**/*.py")
 
-⚠️ NEXT ACTION: Call Read on the first file you identified above.
-   DO NOT use Glob, LS, or SmartGlob — they are forbidden.
+**After completion:** List of 3-10 relevant file paths.
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-PHASE 2 — DEEP CODE INVESTIGATION  (Read every relevant file)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Read every file you identified in Phase 1. Use absolute paths from the FILE INDEX.
+---
 
-After EACH Read, state in <thinking>:
-  - What you learned from this specific file
-  - How it affects the implementation plan
-  - What new questions arise
-  - Which file to Read next
+### Phase B: CODE UNDERSTANDING (Rounds 3–5)
 
-Anti-hallucination: If you are about to make a claim about code you
-haven't Read — STOP and Read that file first.
-
-🚨 REMINDER: Glob, LS, SmartGlob are FORBIDDEN. Use Read and Grep ONLY.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-PHASE 3 — SOLUTION CRYSTALLIZATION  (text reasoning, no tools)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Now that you have read the real code, use <thinking> tags:
+**Goal:** Understand code structure and patterns.
 
 <thinking>
-Step 1: Evaluate Approach A — [pros/cons based on what you Read]
-Step 2: Evaluate Approach B — [pros/cons based on what you Read]
-Step 3: Select approach — "I chose Approach X because [concrete reasons from code]"
-Step 4: Identify risks — 3-5 specific risks or edge cases
-Step 5: Plan testing — exact commands to validate correctness
-Therefore: I have a solution design ready for artifact generation.
+Step 1: Review the file list from Phase A Glob results
+Step 2: Select 2-4 most relevant files from that list
+Step 3: Read ONLY those specific files — no other files
+Therefore: I understand what needs to be done.
 </thinking>
 
-Pin down:
-  - Exactly which functions / classes / lines need changing
-  - What new files or code blocks are needed
-  - What imports, signatures, interfaces must be respected
-  - What conventions / patterns execution must follow
-  - Dependencies between changes — ordering matters
+**Required Actions:**
+1. Read 2-4 key files **from the Phase A Glob results above** (use exact paths from Glob output)
+2. **CRITICAL**: Do NOT read files that were not returned by Glob
+3. **CRITICAL**: Do NOT read the same file multiple times
+4. Use Grep if needed to find specific patterns
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-PHASE 4 — WRITE task.md
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Path: {context.working_dir}/.hcode/task.md
+**After completion:** Understand code well enough to plan.
 
-{task_template}
+**Anti-Hallucination Check:**
+- [ ] Every Read uses a path that was in the Glob results
+- [ ] No duplicate Read calls
+- [ ] No invented filenames
 
-Rules:
-  - Every subtask gets a unique `<!-- id: N -->` comment
-  - Use `- [ ]` for pending, `- [/]` for in-progress, `- [x]` for done
-  - 4-8 concrete subtasks grounded in what you Read
-  - Every subtask MUST name the specific file + function/class it touches
-  - Acceptance criteria after each subtask
-  - ## Goal section (1-2 sentences)
-  - ## Risks / Edge Cases section with findings from your reads
-  - No generic boilerplate — if you cannot tie a subtask to real code, omit it
+---
 
-Self-check before writing:
-- [ ] Does every subtask reference a real file I Read?
-- [ ] Does every subtask have acceptance criteria?
-- [ ] Are there at least 4 subtasks with <!-- id: N --> markers?
+### Phase C: ARTIFACT GENERATION (Rounds 6–7)
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-PHASE 5 — WRITE implementation_plan.md  (immediately after task.md)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Path: {context.working_dir}/.hcode/implementation_plan.md
+**Goal:** Write the planning artifacts.
 
-{plan_template}
+**CRITICAL:** Output Write tool calls in JSON format.
 
-Rules:
-  - Approach: WHY this approach — reference real code / patterns you Read
-  - Every [MODIFY] block: exact target, current behavior, required change, imports, why
-  - Every [NEW] block: purpose, structure, what imports from it
-  - ## Execution Context section: conventions, interfaces, error patterns, test framework
-  - ## Dependencies Between Changes section: ordering constraints
-  - Verification Plan: exact shell commands for syntax, unit, and integration tests
-  - Use [Evidence: file.py:line_num] citations for key claims
-  - Nothing may be speculation — every claim traces to a Read
+<thinking>
+Step 1: Draft task breakdown
+Step 2: Draft implementation plan
+Therefore: Ready to write both artifacts.
+</thinking>
 
-Self-check before writing:
-- [ ] Does every [MODIFY] have: target, current behavior, required change, why?
-- [ ] Is there an Execution Context section?
-- [ ] Are verification commands exact and runnable?
+**Required Actions:**
+1. Write `.hcode/task.md`
+2. Write `.hcode/implementation_plan.md`
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-BEGIN.  Start with Phase 1 — use <thinking> tags to reason before tools.
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"""
+---
+
+## QUALITY GATE CHECKLIST
+
+Before writing artifacts:
+
+* [ ] Files discovered with Glob
+* [ ] 2-4 key files read
+* [ ] Patterns/conventions understood
+* [ ] Content ready for both artifacts
+
+---
+
+## INITIATE SEQUENCE
+
+Begin **Phase A, Step 1**. Use Glob to find relevant files."""
 
     # NOTE: The agent generates task.md and implementation_plan.md directly from
     # the guidance prompts in src/hcode/config/core_prompts/core/task.md and
@@ -1685,32 +1903,19 @@ BEGIN.  Start with Phase 1 — use <thinking> tags to reason before tools.
     # ═══════════════════════════════════════════════════════════════════════════
 
     def _determine_current_phase(
-        self, 
-        all_results: List[Dict[str, Any]], 
+            self,
+            all_results: List[Dict[str, Any]],
         context: AgentContext
     ) -> str:
         """
         Determine the current cognitive phase based on progress.
-        
-        Phase transitions:
-        - discovery: Initial phase, until 3+ files identified
-        - exploration: Once files identified, until 5+ files read
-        - consolidation: Once sufficient reading done, until uncertainties resolved
-        - design: Once understanding solid, ready to design solution
-        - specification: Final phase, writing detailed artifacts
-        
+
+        Note: With simplified planning approach, this is primarily for logging.
+        Actual continuation logic is in _build_continuation_prompt.
+
         Returns:
             Current phase name
         """
-        read_count = sum(
-            1 for r in all_results 
-            if r.get("success") and r.get("tool", "").lower() == "read"
-        )
-        glob_count = sum(
-            1 for r in all_results 
-            if r.get("success") and r.get("tool", "").lower() in ("glob", "smartglob")
-        )
-        
         wrote_task = any(
             r.get("success") and "task.md" in str(r.get("file_path", ""))
             for r in all_results
@@ -1719,25 +1924,23 @@ BEGIN.  Start with Phase 1 — use <thinking> tags to reason before tools.
             r.get("success") and "implementation_plan.md" in str(r.get("file_path", ""))
             for r in all_results
         )
-        
-        # Specification phase: Writing artifacts
-        if wrote_task or wrote_plan:
-            return "specification"
-        
-        # Design phase: Sufficient research done, ready to design
-        if read_count >= 5 and self._has_resolved_critical_uncertainties():
-            return "design"
-        
-        # Consolidation phase: Done initial reading, verifying understanding
+
+        if wrote_task and wrote_plan:
+            return "complete"
+        if wrote_task:
+            return "writing_plan"
+
+        read_count = sum(
+            1 for r in all_results
+            if r.get("success") and r.get("tool", "").lower() == "read"
+        )
+
         if read_count >= 3:
-            return "consolidation"
-        
-        # Exploration phase: Files identified, reading them
-        if glob_count >= 1 or read_count >= 1:
-            return "exploration"
-        
-        # Discovery phase: Initial understanding
-        return "discovery"
+            return "ready_to_write"
+        if read_count >= 1:
+            return "exploring"
+
+        return "starting"
 
     def _is_planning_complete(
         self,
@@ -2335,36 +2538,55 @@ TargetFile = `{working_dir}/.hcode/implementation_plan.md`
         # Neither artifact written yet — provide full instructions
         return f"""
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-ROUND {round_num + 1}: SPECIFICATION PHASE
+ROUND {round_num + 1}: SPECIFICATION PHASE — WRITE ARTIFACTS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 ## 🎯 Phase Objective
-Create detailed planning artifacts based on your research and design.
+You have completed research and design. NOW CREATE THE PLANNING ARTIFACTS.
 
-**YOU ARE NOW READY TO WRITE PLANNING ARTIFACTS.**
+**STOP EXPLORING. START WRITING.**
 
-## 📝 Required Artifacts
+## 📝 Step 1: Create task.md
 
-### 1. task.md (Write First)
+Use the Write tool in this EXACT JSON format:
 
-Create `.hcode/task.md` with this structure:
-- **# Task Title**
-- **## Goal** (1-2 sentences)
-- **## Subtasks** (at least 4, with <!-- id: N --> markers)
-- **## Risks / Edge Cases**
+<thinking>
+Step 1: I have completed exploration and design
+Step 2: I understand the task requirements and approach
+Step 3: I will now write task.md with proper structure
+Step 4: Content includes: Goal, Subtasks with IDs, Risks/Edge Cases
+Therefore: Writing task.md now
+</thinking>
 
-### 2. implementation_plan.md (Write Second)
+<output>
+```json
+{{
+  "tool": "Write",
+  "arguments": {{
+    "file_path": "{working_dir}/.hcode/task.md",
+    "content": "# Task: [Your Task Title]\\n\\n## Goal\\n[1-2 sentence description of what needs to be done]\\n\\n## Subtasks\\n- [ ] First subtask <!-- id: 0 -->\\n- [ ] Second subtask <!-- id: 1 -->\\n- [ ] Third subtask <!-- id: 2 -->\\n- [ ] Fourth subtask <!-- id: 3 -->\\n\\n## Risks / Edge Cases\\n- [Specific risk 1]\\n- [Specific risk 2]\\n- [Specific risk 3]"
+  }}
+}}
+```
+</output>
 
-After task.md is created, write `.hcode/implementation_plan.md`.
+## 📝 Step 2: After task.md, create implementation_plan.md
 
-## 🛠️ How to Create task.md
+Same format, different file:
 
-Use Write tool with:
-- TargetFile = `{working_dir}/.hcode/task.md`
-- CodeContent = [your markdown content]
+```json
+{{
+  "tool": "Write",
+  "arguments": {{
+    "file_path": "{working_dir}/.hcode/implementation_plan.md",
+    "content": "# Implementation Plan: [Title]\\n\\n## Overview\\n[2-3 sentences]\\n\\n## File Changes\\n\\n### [MODIFY] path/to/file.py\\n**Purpose**: ...\\n**Changes**: ...\\n\\n### [NEW] path/to/new_file.py\\n**Purpose**: ...\\n**Contents**: ...\\n\\n## Verification Plan\\n- [ ] Test command 1\\n- [ ] Test command 2"
+  }}
+}}
+```
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Create task.md now. Be thorough and specific.
+🚨 ACTION REQUIRED: Write task.md NOW using the exact JSON format above.
+Replace placeholder text with your actual analysis from previous rounds.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 """
 

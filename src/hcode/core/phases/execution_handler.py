@@ -14,8 +14,8 @@ The handler loads execution_handler.md as the primary prompt template and
 uses phase-aware continuation prompts to steer the AI through each phase.
 """
 
-import re
 import logging
+import re
 from pathlib import Path
 from typing import List, Any, Dict, Optional
 
@@ -127,7 +127,7 @@ class ExecutionPhaseHandler(BasePhaseHandler):
                     prompt,
                     context,
                     system_prompt=self._get_execution_system_prompt(context),
-                    max_rounds=12,
+                    max_rounds=20,  # Increased from 12 to match planning phase capacity
                     max_tokens=16384,
                     temperature=0.3,  # Deterministic code generation
                     timeout_seconds=900,  # 15 minutes for execution phase
@@ -189,95 +189,124 @@ class ExecutionPhaseHandler(BasePhaseHandler):
     # THINKING INSTRUCTIONS (GPT OSS 120B OPTIMIZED)
     # ═══════════════════════════════════════════════════════════════════════
 
+    def _extract_tool_calls(self, response: str) -> List[Dict[str, Any]]:
+        """
+        Override to prioritize tool calls inside <output> tags for GPT OSS 120B.
+
+        Extraction strategy:
+        1. First, try to extract from <output>...</output> tags
+        2. Fall back to parent class extraction (code blocks + inline JSON)
+
+        This ensures that when GPT OSS 120B wraps tool calls in <output> tags,
+        we extract from there first before looking at the entire response.
+        """
+        if not response:
+            return []
+
+        # Strategy 1: Extract content from <output> tags
+        output_pattern = r'<output>(.*?)</output>'
+        output_matches = re.findall(output_pattern, response, re.DOTALL | re.IGNORECASE)
+
+        if output_matches:
+            # Try to extract tool calls from output tag content
+            for output_content in output_matches:
+                tool_calls = super()._extract_tool_calls(output_content.strip())
+                if tool_calls:
+                    logger.info(f"[execution] Extracted {len(tool_calls)} tool calls from <output> tags")
+                    return tool_calls
+
+        # Strategy 2: Fall back to standard extraction from full response
+        tool_calls = super()._extract_tool_calls(response)
+        if tool_calls:
+            logger.info(f"[execution] Extracted {len(tool_calls)} tool calls from full response")
+        return tool_calls
+
     def _get_thinking_instructions(self) -> str:
         """
         Override base thinking instructions with 4-phase execution protocol.
 
-        Uses XML-tagged reasoning, numbered steps, and anti-hallucination
-        checkpoints optimized for GPT OSS 120B.
+        Uses XML-tagged reasoning, numbered steps, evidence citations, and
+        anti-hallucination checkpoints optimized for GPT OSS 120B.
         """
-        return """### 4-PHASE EXECUTION THINKING PROTOCOL
+        return """### DEEP REASONING PROTOCOL (GPT-OSS-120B Optimized)
 
-Before EVERY action, you MUST think through one of these phases:
+    Use `<thinking>` and `<output>` tags to structure your reasoning and actions for each phase.
 
-**Phase 0 — TASK SELECTION:**
-<thinking>
-Step 1: Read task.md — Find all unchecked `- [ ]` items.
-Step 2: Read implementation_plan.md — Find the corresponding plan section.
-Step 3: Check dependencies — Does this task depend on another uncompleted task?
-Step 4: Assess readiness — Do I have all the information needed?
-Therefore: The next task to execute is [task] because [reason].
-</thinking>
+    **Critical Requirements**:
+    - Use `[Evidence: file.py:line]` to cite ALL code references
+    - Include self-validation checkpoints before proceeding to next phase
+    - Use Glob to discover files BEFORE reading them
+    - NEVER invent filenames not returned by Glob
+    - Follow the 4-phase protocol sequentially: Phase 0 → 1 → 2 → 3
+    - Complete all checkpoints in a phase before transitioning
 
-<output>
-[Tool calls to read task.md and implementation_plan.md, then summary of selected task]
-</output>
+    **Phase Structure Template**:
+    ```
+    <thinking>
+    [Phase Number]: [Phase Name]
 
-**Phase 1 — PRE-IMPLEMENTATION ANALYSIS:**
-<thinking>
-Step 1: READ all target files — Extract current structure, patterns, imports.
-Step 2: UNDERSTAND surrounding code — What calls this? What does this call?
-Step 3: IDENTIFY exact modification points — Line numbers, function boundaries.
-Step 4: CHECK for side effects — Will this change break callers? Tests? Imports?
-Step 5: PLAN the exact diff — What old text becomes what new text?
-Step 6: ANTI-HALLUCINATION — Am I referencing code I haven't read? If yes: STOP and READ.
-Therefore: I am confident in the exact change because [evidence].
-</thinking>
+    Step 1: [Clear description of what you're analyzing]
+      → Result: [what you found]
+      → Evidence: [file:line]
 
-<output>
-[Tool calls to read files, then analysis summary with exact change specification]
-</output>
+    Step 2: [Next analysis step]
+      → Result: [what you found]
+      → Evidence: [file:line]
 
-**Phase 2 — CODE GENERATION (3-Pass):**
-<thinking>
-Pass 1 (Skeleton): Create structural skeleton — classes, functions, signatures, imports.
-Pass 2 (Logic): Fill in function bodies — happy path, then error handling.
-Pass 3 (Polish): Check cross-file references, naming consistency, cleanup.
-Therefore: Code is complete and consistent with project patterns.
-</thinking>
+    ...
 
-<output>
-[Tool calls to Write/Edit files implementing the change]
-</output>
+    Self-validation checkpoint:
+    - [ ] Checkpoint 1 completed
+    - [ ] Checkpoint 2 completed
+    - [ ] All requirements met for this phase
 
-**Phase 3 — SELF-VALIDATION:**
-<thinking>
-Step 1: RE-READ every modified file — Does it look correct?
-Step 2: TRACE execution path — Walk through code mentally with sample input.
-Step 3: CHECK the plan — Does every plan step have a corresponding change?
-Step 4: VERIFY task.md — Are completed subtasks marked [x]?
-Step 5: LIST remaining issues — Any known issues or limitations?
-Therefore: Implementation is [complete/incomplete] because [evidence].
-</thinking>
+    Therefore: [Clear conclusion stating you're ready to proceed]
+    </thinking>
 
-<output>
-[Tool calls to re-read files and update task.md, then validation summary]
-</output>
+    <output>
+    [Brief summary of what you're about to do]
+    [Tool calls in JSON format]
+    </output>
+    ```
 
-CRITICAL RULES:
-- NEVER show code in response text without using Write/Edit tools
-- ALWAYS read files before editing them
-- VERIFY assumptions before acting on them
-- ONE change at a time, verify each before proceeding
+    **Tool Call Format**:
+    ```json
+    {"tool": "ToolName", "arguments": {"param": "value"}}
+    ```
 
-"""
+    **Anti-Hallucination Rules**:
+    1. Never reference a file you haven't read
+    2. Never use a filename not returned by Glob
+    3. Always cite evidence for every claim
+    4. If you're unsure, READ the file to verify
 
+    **Error Recovery**:
+    If a tool fails, STOP and:
+    1. Read the error message
+    2. Diagnose the root cause
+    3. Apply the correct recovery action
+    4. Re-run the tool to verify
+
+    See the full execution_handler.md protocol for detailed phase-by-phase instructions.
+
+    """
     # ═══════════════════════════════════════════════════════════════════════
     # EXECUTION WRITE GATE (Security Boundary)
     # ═══════════════════════════════════════════════════════════════════════
 
     def _extract_planned_files(self, plan_content: str) -> set:
         """
-        Extract allowed file paths from implementation plan.
+        Extract allowed file paths and patterns from implementation plan.
 
         Parses the plan for [MODIFY], [NEW], and [DELETE] markers to build
-        a whitelist of files that execution is allowed to modify.
+        a whitelist of files that execution is allowed to modify. Also extracts
+        pattern-based allowances from plan descriptions (e.g., "tests/unit/*.py").
 
         Args:
             plan_content: Content of implementation_plan.md
 
         Returns:
-            Set of file paths that are allowed to be written/edited
+            Set of file paths and patterns that are allowed to be written/edited
         """
         import re
 
@@ -292,11 +321,63 @@ CRITICAL RULES:
         # file:///path markdown links (less common but valid)
         allowed.update(re.findall(r'file:///([^\)]+)', plan_content))
 
+        # Extract backtick paths from plan (e.g., `tests/unit/test_utils.py`)
+        backtick_paths = re.findall(r'`([^`]+\.(py|txt|json|yaml|yml|md))`', plan_content)
+        allowed.update(path for path, _ in backtick_paths)
+
         # Always allow task.md updates
         allowed.add(".hcode/task.md")
 
-        logger.debug(f"Execution write gate: {len(allowed)} files allowed from plan")
+        # Pattern-based allowances for common test/task file patterns
+        # These patterns are checked separately in _is_path_allowed()
+        allowed.add("tests/**/*.py")  # Any test file
+        allowed.add("tests/conftest.py")  # Pytest fixtures
+        allowed.add("tasks/**/*.txt")  # Intermediate task tracking files
+        allowed.add("tasks/**/*.md")  # Task documentation
+
+        logger.debug(f"Execution write gate: {len(allowed)} paths/patterns allowed from plan")
         return allowed
+
+    def _is_path_allowed(self, target_path: str, allowed_files: set) -> bool:
+        """
+        Check if a target path is allowed by write gate.
+
+        Supports both exact path matching and pattern-based matching (glob-style).
+
+        Args:
+            target_path: Path to check
+            allowed_files: Set of allowed paths and patterns
+
+        Returns:
+            True if path is allowed, False otherwise
+        """
+        import fnmatch
+
+        # Normalize path separators
+        norm_target = target_path.replace("\\", "/").strip()
+
+        for allowed in allowed_files:
+            # Exact match or substring match
+            if allowed in norm_target or norm_target in allowed:
+                return True
+
+            # Pattern matching (supports ** for recursive globs)
+            # Convert glob pattern to fnmatch pattern
+            if "**" in allowed:
+                # tests/**/*.py -> tests/*/*.py, tests/*/*/*.py, etc.
+                # Simplified: just check if path starts with base and ends with suffix
+                parts = allowed.split("**/")
+                if len(parts) == 2:
+                    base, suffix = parts
+                    suffix_pattern = suffix.replace("*", ".*")  # Convert glob * to regex .*
+                    if norm_target.startswith(base) and re.match(suffix_pattern, norm_target.split("/")[-1]):
+                        return True
+            elif "*" in allowed:
+                # Simple glob pattern (e.g., tests/*.py)
+                if fnmatch.fnmatch(norm_target, allowed):
+                    return True
+
+        return False
 
     async def _execute_tools(
         self,
@@ -340,15 +421,8 @@ CRITICAL RULES:
                     or ""
                 )
 
-                # Normalize path separators for comparison
-                norm_target = target.replace("\\", "/").strip()
-
-                # Check if target matches any allowed file
-                # Use partial matching: allowed="/path/file.py" matches target containing "/path/file.py"
-                is_allowed = any(
-                    allowed in norm_target or norm_target in allowed
-                    for allowed in allowed_files
-                )
+                # Check if target matches any allowed file or pattern
+                is_allowed = self._is_path_allowed(target, allowed_files)
 
                 if not is_allowed:
                     # Block and record
@@ -451,14 +525,14 @@ Output JSON tool calls in code blocks: `{{"tool": "ToolName", "arguments": {{"pa
             Content of execution_handler.md, or a condensed fallback.
         """
         try:
-            # Try to load from the core prompts directory
-            prompt_dir = Path(__file__).parent.parent.parent / "config" / "core_prompts" / "core"
+            # Try to load from the core prompts directory (pev_prompts subdirectory)
+            prompt_dir = Path(__file__).parent.parent.parent / "config" / "core_prompts" / "core" / "pev_prompts"
             protocol_path = prompt_dir / "execution_handler.md"
 
             if protocol_path.exists():
                 return protocol_path.read_text(encoding="utf-8")
 
-            logger.warning("execution_handler.md not found, using inline protocol")
+            logger.warning(f"execution_handler.md not found at {protocol_path}, using inline protocol")
         except Exception as e:
             logger.warning(f"Failed to load execution_handler.md: {e}")
 
@@ -552,34 +626,111 @@ Follow Phases 0 → 1 → 2 → 3 for each subtask.
 {task_content}
 
 ### Session State:
+- Working Directory: {context.working_dir}
+- Artifacts Directory: .hcode (RELATIVE to working directory)
 - Iteration: {context.iteration}
 - Modified files ({len(context.modified_files)}):
 {modified_files_list}
 - Recent actions:
 {actions_summary}
 
+### CRITICAL REMINDERS:
+
+**Artifact Locations:**
+- Task list is at: `.hcode/task.md` (NOT `task.md` in root)
+- Implementation plan is at: `.hcode/implementation_plan.md` (NOT in root)
+
+**File Discovery:**
+- Use Glob to discover actual files FIRST
+- ONLY reference files that Glob returned
+- NEVER invent filenames like "file1.py" or "example.py"
+
 ### INSTRUCTIONS:
 
 Begin with **Phase 0: Task Selection**.
 
-1. Identify the next unchecked `- [ ]` task in task.md
-2. Cross-reference with the implementation plan for details
-3. Mark it as in-progress: `- [/]`
-4. Proceed to Phase 1: read ALL files you need to modify
-5. Then Phase 2: make the code changes (3-pass: skeleton → logic → polish)
-6. Then Phase 3: re-read modified files, trace execution, update task.md with [x]
+1. Read `.hcode/task.md` (note the .hcode/ prefix!)
+2. Identify the next unchecked `- [ ]` task
+3. Cross-reference with `.hcode/implementation_plan.md` for details
+4. Mark task as in-progress: `- [/]` using Edit tool on `.hcode/task.md`
+5. Proceed to Phase 1: Use Glob to discover files, then READ all targets
+6. Then Phase 2: make the code changes (3-pass: skeleton → logic → polish)
+7. Then Phase 3: re-read modified files, trace execution, update `.hcode/task.md` with [x]
 
 Remember:
-- READ BEFORE WRITE — always read files before editing
-- ONE TASK AT A TIME — complete each subtask fully before moving on
-- USE TOOLS — all code changes must use Write/Edit, never raw text
-- TRACK PROGRESS — update task.md after each completed subtask
+- CORRECT PATH: `.hcode/task.md` (NOT `D:/workshops/Hcaude/task.md`)
+- USE GLOB FIRST: Discover actual files before reading them
+- READ BEFORE WRITE: Always read files before editing
+- ONE TASK AT A TIME: Complete each subtask fully before moving on
+- USE TOOLS: All code changes must use Write/Edit, never raw text
+- TRACK PROGRESS: Update `.hcode/task.md` after each completed subtask
 
-NOW BEGIN Phase 0. Read task.md and identify the next task to implement."""
+NOW BEGIN Phase 0. Read `.hcode/task.md` and identify the next task to implement."""
 
     # ═══════════════════════════════════════════════════════════════════════
     # CONTINUATION PROMPTS (Phase-Aware Steering)
     # ═══════════════════════════════════════════════════════════════════════
+
+    def _detect_current_phase(
+            self,
+            all_results: List[Dict[str, Any]],
+            round_num: int,
+    ) -> str:
+        """
+        Detect which phase the AI should be in based on session state.
+
+        Uses hybrid detection: combines tool call patterns with round-based hints
+        to provide more robust phase detection.
+
+        Returns one of: 'phase0', 'phase1', 'phase2', 'phase3', 'complete'
+        """
+        # Count tool types
+        task_md_edits = sum(
+            1 for r in all_results
+            if r.get('success')
+            and 'task.md' in str(r.get('file_path', ''))
+            and r.get('tool', '').lower() in ['edit', 'edittool']
+        )
+
+        file_reads = sum(
+            1 for r in all_results
+            if r.get('success')
+            and r.get('tool', '').lower() in ['read', 'readtool']
+        )
+
+        file_writes = sum(
+            1 for r in all_results
+            if r.get('success')
+            and r.get('tool', '').lower() in ['write', 'writetool', 'edit', 'edittool']
+            and '.hcode' not in str(r.get('file_path', ''))
+        )
+
+        # Round-based phase hints (helps when tool counts are ambiguous)
+        if round_num <= 3:
+            expected_phase = 'phase0'  # Task selection
+        elif round_num <= 8:
+            expected_phase = 'phase1'  # Analysis
+        elif round_num <= 15:
+            expected_phase = 'phase2'  # Implementation
+        else:
+            expected_phase = 'phase3'  # Validation
+
+        # Tool-based phase detection (primary)
+        if task_md_edits == 0 and file_reads == 0 and file_writes == 0:
+            return 'phase0'  # Need to start by reading task.md
+        elif task_md_edits > 0 and file_reads == 0 and file_writes == 0:
+            return 'phase1'  # Task selected, now read target files
+        elif file_reads > 0 and file_writes == 0:
+            return 'phase1'  # Still in analysis phase
+        elif file_writes > 0 and task_md_edits == 1:
+            return 'phase2'  # Started writing code, need to finish
+        elif file_writes > 0 and task_md_edits >= 2:
+            return 'phase3'  # Code done, now validate
+        elif task_md_edits >= 2 and file_reads > 0:
+            return 'phase3'  # Re-reading for validation
+
+        # Fall back to round-based hint if tool counts are ambiguous
+        return expected_phase
 
     def _build_continuation_prompt(
         self,
@@ -589,12 +740,18 @@ NOW BEGIN Phase 0. Read task.md and identify the next task to implement."""
         context: Any = None,
     ) -> str:
         """
-        Build phase-aware continuation prompt after each tool round.
+        Build phase-aware continuation prompt with explicit steering for GPT-OSS-120B.
 
-        Steers the AI through the 4-phase protocol based on what has
-        been accomplished so far in the session.
+        Enhanced with:
+        - Explicit phase detection
+        - Clear phase-specific instructions
+        - Error recovery guidance
+        - Anti-hallucination reminders
         """
-        # Count successful file modifications (non-artifact)
+        # Detect current phase
+        current_phase = self._detect_current_phase(all_results, round_num)
+
+        # Extract key metrics
         write_count = sum(
             1 for r in all_results
             if r.get('success')
@@ -602,70 +759,280 @@ NOW BEGIN Phase 0. Read task.md and identify the next task to implement."""
             and '.hcode' not in str(r.get('file_path', ''))
         )
 
-        # Count file reads
         read_count = sum(
             1 for r in all_results
             if r.get('success')
             and r.get('tool', '').lower() in ['read', 'readtool']
         )
 
-        # Check if task.md was updated
-        task_updated = any(
-            'task.md' in str(r.get('file_path', ''))
-            for r in round_results
+        task_edit_count = sum(
+            1 for r in all_results
             if r.get('success')
+            and 'task.md' in str(r.get('file_path', ''))
             and r.get('tool', '').lower() in ['edit', 'edittool']
         )
 
-        # ── Round 0-1: Should be reading files (Phase 0 + Phase 1) ──
-        if round_num <= 1 and write_count == 0:
-            if read_count == 0:
-                return (
-                    "You MUST read files before making changes. "
-                    "Begin Phase 0: read task.md to find the next task. "
-                    "Then Phase 1: read ALL target files before any edits."
-                )
+        # Check for errors in recent rounds
+        recent_errors = [
+            r for r in round_results[-3:]
+            if not r.get('success')
+        ]
+
+        # ── ERROR RECOVERY PROMPTS ────────────────────────────────────────
+        if recent_errors:
+            error_msg = self._build_error_recovery_prompt(recent_errors)
+            if error_msg:
+                return error_msg
+
+        # ── PHASE-SPECIFIC CONTINUATION ───────────────────────────────────
+
+        if current_phase == 'phase0':
+            return self._phase0_continuation(round_num, all_results)
+
+        elif current_phase == 'phase1':
+            return self._phase1_continuation(round_num, read_count, write_count)
+
+        elif current_phase == 'phase2':
+            return self._phase2_continuation(round_num, write_count, task_edit_count)
+
+        elif current_phase == 'phase3':
+            return self._phase3_continuation(round_num, write_count, task_edit_count)
+
+        # ── ROUND LIMIT PUSH ───────────────────────────────────────────────
+        if round_num >= 15:
             return (
-                "Good — you're reading files. Continue Phase 1: "
-                "read ALL files you plan to modify. Understand the existing "
-                "code structure, imports, and patterns. Then proceed to "
-                "Phase 2: make your code changes."
+                "⚠️ You are approaching the execution round limit. "
+                "Complete your current work immediately:\n\n"
+                "1. Finish any pending code changes\n"
+                "2. Re-read modified files for verification\n"
+                "3. Update `.hcode/task.md` with current status\n"
+                "4. Provide a summary of what was accomplished\n\n"
+                "If the task is incomplete, clearly state what remains."
             )
 
-        # ── Rounds 2-6: Should be writing code (Phase 2) ──
-        if round_num <= 6 and write_count > 0 and not task_updated:
-            return (
-                "Good progress on code changes. Continue Phase 2 if more changes "
-                "are needed. When all code changes for this subtask are complete, "
-                "proceed to Phase 3: Self-Validation. "
-                "RE-READ modified files to verify correctness, then update "
-                "task.md to mark the subtask as [x] completed."
-            )
-
-        # ── Task.md was updated — check if more tasks remain ──
-        if task_updated:
-            return (
-                "task.md updated. Check if there are more unchecked `- [ ]` "
-                "items. If yes, start Phase 0 again for the next subtask. "
-                "If all tasks are complete, provide a summary of what was "
-                "implemented and declare execution complete."
-            )
-
-        # ── Late rounds: push toward completion ──
-        if round_num >= 7:
-            return (
-                "You are running low on execution rounds. "
-                "Complete your current changes and proceed to Phase 3: "
-                "Self-Validation. Update task.md with the current status "
-                "of all subtasks. Provide a summary of what was accomplished."
-            )
-
-        # Default: generic continuation
+        # ── DEFAULT CONTINUATION ───────────────────────────────────────────
         return (
-            "Continue with the 4-phase protocol. "
-            "If you need to read more files, do so. "
-            "If ready to make changes, proceed with Phase 2. "
-            "Remember to update task.md after completing each subtask."
+            f"Continue with the 4-phase protocol (detected: {current_phase}).\n\n"
+            "Remember:\n"
+            "- Use Glob to discover files BEFORE reading them\n"
+            "- ALWAYS read files before editing\n"
+            "- Update `.hcode/task.md` after completing each subtask\n"
+            "- Use [Evidence: file:line] citations for all claims\n"
+            "- One change at a time — verify before proceeding"
+        )
+
+    def _build_error_recovery_prompt(self, errors: List[Dict[str, Any]]) -> Optional[str]:
+        """Build targeted error recovery prompt based on error types."""
+        if not errors:
+            return None
+
+        error_types = []
+        for error in errors:
+            tool = error.get('tool', '').lower()
+            err_msg = error.get('error', error.get('output', ''))
+
+            if 'file not found' in err_msg.lower():
+                error_types.append('file_not_found')
+            elif 'old text not found' in err_msg.lower():
+                error_types.append('edit_mismatch')
+            elif 'write gate' in err_msg.lower():
+                error_types.append('write_gate')
+            elif 'import' in err_msg.lower():
+                error_types.append('import_error')
+
+        if 'file_not_found' in error_types:
+            return (
+                "🔴 ERROR RECOVERY: File Not Found\n\n"
+                "You tried to access a file that doesn't exist.\n\n"
+                "RECOVERY STEPS:\n"
+                "1. STOP — don't continue with incorrect paths\n"
+                "2. Use Glob tool to discover actual files in the target directory\n"
+                "3. Use ONLY filenames returned by Glob\n"
+                "4. Read the file first, then proceed\n\n"
+                "Example:\n"
+                '{"tool": "Glob", "arguments": {"Pattern": "src/**/*.py"}}\n\n'
+                "NEVER invent filenames like 'file1.py' or 'example.py'."
+            )
+
+        elif 'edit_mismatch' in error_types:
+            return (
+                "🔴 ERROR RECOVERY: Edit Failed — Old Text Not Found\n\n"
+                "The content you tried to edit doesn't match the file.\n\n"
+                "RECOVERY STEPS:\n"
+                "1. Re-read the file with Read tool to get actual content\n"
+                "2. Copy the exact text you want to replace\n"
+                "3. Retry the Edit with correct OldText\n\n"
+                "Make sure to include proper indentation and surrounding context."
+            )
+
+        elif 'write_gate' in error_types:
+            return (
+                "🔴 ERROR RECOVERY: Write Gate Violation\n\n"
+                "You tried to write to a file not listed in the implementation plan.\n\n"
+                "RECOVERY STEPS:\n"
+                "1. Read `.hcode/implementation_plan.md` to find allowed files\n"
+                "2. Only modify files explicitly listed in the plan\n"
+                "3. If you need to modify a file not in plan, flag it with reasoning\n\n"
+                "The write gate is a security boundary — follow the plan."
+            )
+
+        elif 'import_error' in error_types:
+            return (
+                "🔴 ERROR RECOVERY: Import Error\n\n"
+                "Your code change introduced an import error.\n\n"
+                "RECOVERY STEPS:\n"
+                "1. Read similar files to see correct import patterns\n"
+                "2. Verify imported modules exist (use Glob if needed)\n"
+                "3. Fix the import statement\n"
+                "4. Re-run to verify the fix\n\n"
+                "Use [Evidence: file:line] to show where you found correct import patterns."
+            )
+
+        # Generic error recovery
+        return (
+            "🔴 ERROR DETECTED\n\n"
+            "Recent tool calls failed. Please:\n\n"
+            "1. Review the error messages above\n"
+            "2. Diagnose the root cause\n"
+            "3. Apply the appropriate recovery action\n"
+            "4. Re-run the failed tool to verify the fix\n\n"
+            "Don't continue with broken state — fix errors first."
+        )
+
+    def _phase0_continuation(self, round_num: int, all_results: List[Dict]) -> str:
+        """Phase 0: Task Selection continuation."""
+        task_edits = sum(
+            1 for r in all_results
+            if 'task.md' in str(r.get('file_path', ''))
+            and r.get('tool', '').lower() in ['edit', 'edittool']
+        )
+
+        if task_edits == 0:
+            return (
+                "📍 PHASE 0: Task Selection\n\n"
+                "You need to start by reading the task list:\n\n"
+                "1. Read `.hcode/task.md` (note the .hcode/ prefix!)\n"
+                "2. Find the next unchecked `- [ ]` item\n"
+                "3. Read `.hcode/implementation_plan.md` for details\n"
+                "4. Mark the task as in-progress: change `- [ ]` to `- [/]`\n"
+                "5. Use Edit tool on `.hcode/task.md` to update\n\n"
+                "Remember: path is `.hcode/task.md` NOT `task.md`!"
+            )
+
+        return (
+            "📍 PHASE 0 → PHASE 1: Task Selected\n\n"
+            "Good! Task marked as in-progress. Now proceed to Phase 1:\n\n"
+            "1. Use Glob to discover actual files in target directories\n"
+            "2. Read ALL files you plan to modify\n"
+            "3. Understand existing code patterns and structure\n"
+            "4. Plan exact changes with evidence citations\n\n"
+            "Remember: ONLY use files discovered by Glob!"
+        )
+
+    def _phase1_continuation(self, round_num: int, read_count: int, write_count: int) -> str:
+        """Phase 1: Pre-Implementation Analysis continuation."""
+        if read_count == 0:
+            return (
+                "📍 PHASE 1: Pre-Implementation Analysis\n\n"
+                "You MUST read files before making changes:\n\n"
+                "1. Use Glob to discover actual files: `{\"tool\": \"Glob\", \"arguments\": {\"Pattern\": \"**/*.py\"}}`\n"
+                "2. Read each file you plan to modify\n"
+                "3. Understand the existing code structure\n"
+                "4. Identify exact modification points\n"
+                "5. Use [Evidence: file:line] for all claims\n\n"
+                "⚠️ NEVER invent filenames — only use what Glob returns!"
+            )
+
+        if write_count == 0:
+            return (
+                "📍 PHASE 1 CONTINUE: Analysis In Progress\n\n"
+                "Good — you're reading files. Continue analysis:\n\n"
+                "1. Use Glob for any remaining files you need\n"
+                "2. Read ALL target files before editing\n"
+                "3. Document the exact change locations\n"
+                "4. Plan the diff: old text → new text\n\n"
+                "When analysis is complete, proceed to Phase 2: Code Generation."
+            )
+
+        return (
+            "📍 PHASE 1 → PHASE 2: Analysis Complete\n\n"
+            "You've started writing code. Continue with Phase 2:\n\n"
+            "Use the 3-pass strategy:\n"
+            "Pass 1: Create skeleton (classes, signatures, imports)\n"
+            "Pass 2: Implement logic (function bodies, error handling)\n"
+            "Pass 3: Polish (docstrings, naming, consistency)\n\n"
+            "One change at a time — verify each Edit before proceeding."
+        )
+
+    def _phase2_continuation(self, round_num: int, write_count: int, task_edit_count: int) -> str:
+        """Phase 2: Code Generation continuation."""
+        if write_count == 0:
+            return (
+                "📍 PHASE 2: Code Generation\n\n"
+                "Begin implementing your changes:\n\n"
+                "Pass 1: Create structure\n"
+                "- Add classes/function signatures\n"
+                "- Add necessary imports\n"
+                "- Match existing code patterns\n\n"
+                "Pass 2: Add logic\n"
+                "- Implement function bodies\n"
+                "- Handle errors and edge cases\n"
+                "- Integrate with existing code\n\n"
+                "Pass 3: Polish\n"
+                "- Add docstrings\n"
+                "- Check naming consistency\n"
+                "- Verify style matches\n\n"
+                "Remember: Use Write/Edit tools, never raw code text!"
+            )
+
+        if task_edit_count == 1:
+            return (
+                "📍 PHASE 2 CONTINUE: Implementation In Progress\n\n"
+                f"Good progress — {write_count} file modification(s) made.\n\n"
+                "Continue with Phase 2 until all code changes are complete:\n"
+                "- Finish Pass 2 logic if needed\n"
+                "- Apply Pass 3 polish\n"
+                "- Verify no TODOs remain\n\n"
+                "When code is complete, proceed to Phase 3: Self-Validation."
+            )
+
+        return (
+            "📍 PHASE 2 → PHASE 3: Implementation Complete\n\n"
+            "Code changes are done. Now proceed to Phase 3:\n\n"
+            "1. Re-read ALL modified files\n"
+            "2. Trace execution with sample inputs\n"
+            "3. Cross-check against implementation_plan.md\n"
+            "4. Mark task as [x] in `.hcode/task.md`\n\n"
+            "Validate thoroughly before marking complete!"
+        )
+
+    def _phase3_continuation(self, round_num: int, write_count: int, task_edit_count: int) -> str:
+        """Phase 3: Self-Validation continuation."""
+        if task_edit_count == 1:
+            return (
+                "📍 PHASE 3: Self-Validation\n\n"
+                "Code changes are done. Now validate:\n\n"
+                "1. Re-read all modified files\n"
+                "2. Walk through execution mentally:\n"
+                "   - Test case 1 (happy path): [input] → [expected output]\n"
+                "   - Test case 2 (edge case): [input] → [expected behavior]\n"
+                "   - Test case 3 (error case): [input] → [expected handling]\n"
+                "3. Verify against implementation_plan.md\n"
+                "4. Mark task as [x] in `.hcode/task.md`\n\n"
+                "Provide validation results in output."
+            )
+
+        return (
+            "📍 PHASE 3 COMPLETE / NEXT TASK\n\n"
+            "Task validation complete! Check for more work:\n\n"
+            "1. Read `.hcode/task.md` to see remaining unchecked items\n"
+            "2. If tasks remain, start Phase 0 for the next task\n"
+            "3. If all tasks complete, provide final summary\n\n"
+            "Summary should include:\n"
+            "- Files modified\n"
+            "- Changes implemented\n"
+            "- Known issues (if any)\n"
+            "- Verification status"
         )
 
     # ═══════════════════════════════════════════════════════════════════════
@@ -712,15 +1079,18 @@ NOW BEGIN Phase 0. Read task.md and identify the next task to implement."""
 
     def _parse_plan_steps(self, plan_content: str) -> List[Dict[str, Any]]:
         """
-        Parse steps from implementation plan.
+        Parse steps from implementation plan with enhanced pattern matching.
 
-        Extracts numbered steps, file paths, and actions from plan markdown.
+        Supports multiple plan formats:
+        - Numbered steps: "1. **Step Name**: Description"
+        - Bullet lists: "- [ ] Task description"
+        - Section headers: "## Section Name"
         """
         steps = []
         if not plan_content:
             return steps
 
-        # Pattern for numbered steps: "1. **Step Name**: Description"
+        # Pattern 1: Numbered steps with bold names
         step_pattern = r'(\d+)\.\s*\*\*([^*]+)\*\*\s*:?\s*([^\n]*)'
         step_matches = re.findall(step_pattern, plan_content)
 
@@ -729,57 +1099,102 @@ NOW BEGIN Phase 0. Read task.md and identify the next task to implement."""
             step_name = match[1].strip()
             description = match[2].strip()
 
-            step = {
-                "number": step_num,
-                "name": step_name,
-                "description": description,
-                "files": [],
-                "actions": [],
-                "completed": False,
-            }
-
-            # Look for file paths after this step (before next step)
-            step_start = plan_content.find(f"{step_num}.")
-            next_step_match = re.search(rf'{step_num + 1}\.', plan_content[step_start + 3:])
-            step_end = step_start + 3 + next_step_match.start() if next_step_match else len(plan_content)
-            step_content = plan_content[step_start:step_end]
-
-            # Extract file paths
-            file_pattern = r'(?:File|file|Path|path):\s*`([^`]+)`'
-            file_matches = re.findall(file_pattern, step_content)
-            step["files"] = file_matches
-
-            # Also capture backtick paths that look like files
-            backtick_pattern = r'`([^`]+\.[a-z]+)`'
-            backtick_matches = re.findall(backtick_pattern, step_content)
-            for path in backtick_matches:
-                if path not in step["files"] and ('/' in path or '\\' in path):
-                    step["files"].append(path)
-
-            # Extract actions
-            action_pattern = r'(?:Action|action):\s*([^\n]+)'
-            action_matches = re.findall(action_pattern, step_content)
-            step["actions"] = action_matches
-
+            step = self._extract_step_details(
+                plan_content, step_num, step_name, description
+            )
             steps.append(step)
 
-        # Also parse bullet point items as simple steps
-        bullet_pattern = r'^\s*[-*]\s*\[([x ])\]\s*(.+)$'
-        bullet_matches = re.findall(bullet_pattern, plan_content, re.MULTILINE)
+        # Pattern 2: Markdown task lists with checkboxes
+        task_pattern = r'^\s*[-*]\s*\[([ x])\]\s*(.+?)(?:\s*<!--\s*id:\s*(\d+)\s*-->)?$'
+        task_matches = re.findall(task_pattern, plan_content, re.MULTILINE)
 
-        for i, (checkbox, description) in enumerate(bullet_matches):
+        for i, (checkbox, description, task_id) in enumerate(task_matches):
             is_completed = checkbox.lower() == 'x'
             steps.append({
                 "number": len(step_matches) + i + 1,
-                "name": description[:50],
+                "name": description[:50] if len(description) > 50 else description,
                 "description": description,
                 "files": [],
                 "actions": [description],
                 "completed": is_completed,
+                "id": int(task_id) if task_id else None,
             })
+
+        # Pattern 3: Section headers as step markers
+        section_pattern = r'^##\s+(\d+\.?\s*)?(.+)$'
+        section_matches = re.findall(section_pattern, plan_content, re.MULTILINE)
+
+        for i, (num, name) in enumerate(section_matches):
+            if name.lower() not in ['summary', 'notes', 'metadata']:
+                steps.append({
+                    "number": len(step_matches) + len(task_matches) + i + 1,
+                    "name": name.strip(),
+                    "description": f"Section: {name.strip()}",
+                    "files": [],
+                    "actions": [],
+                    "completed": False,
+                    "is_section": True,
+                })
 
         logger.debug(f"Parsed {len(steps)} steps from implementation plan")
         return steps
+
+    def _extract_step_details(
+            self,
+            plan_content: str,
+            step_num: int,
+            step_name: str,
+            description: str,
+    ) -> Dict[str, Any]:
+        """Extract file paths and actions for a given step."""
+        step = {
+            "number": step_num,
+            "name": step_name,
+            "description": description,
+            "files": [],
+            "actions": [],
+            "completed": False,
+        }
+
+        # Find content between this step and next step
+        step_marker = f"{step_num}."
+        step_start = plan_content.find(step_marker)
+        next_step_marker = f"{step_num + 1}."
+        next_step_pos = plan_content.find(next_step_marker, step_start)
+        step_end = next_step_pos if next_step_pos != -1 else len(plan_content)
+        step_content = plan_content[step_start:step_end]
+
+        # Extract file paths from various formats
+        file_patterns = [
+            r'(?:File|file|Path|path):\s*`([^`]+)`',
+            r'(?:\[NEW\]|\[MODIFY\]|\[DELETE\])\s*`([^`]+)`',
+            r'`([^`]+\.(?:py|js|ts|tsx|jsx|java|go|rs|c|cpp|h|yaml|yml|json|md|txt))`',
+        ]
+
+        for pattern in file_patterns:
+            file_matches = re.findall(pattern, step_content)
+            for path in file_matches:
+                normalized = path.strip().strip('`').strip()
+                if normalized and normalized not in step["files"]:
+                    # Check if it looks like a file path
+                    if '/' in normalized or '\\' in normalized or '.' in normalized.split('/')[-1]:
+                        step["files"].append(normalized)
+
+        # Extract action descriptions
+        action_patterns = [
+            r'(?:Action|action):\s*([^\n]+)',
+            r'(?:Do|do):\s*([^\n]+)',
+            r'^\s*[-*]\s+(.+)$',  # Bullet points
+        ]
+
+        for pattern in action_patterns:
+            action_matches = re.findall(pattern, step_content, re.MULTILINE)
+            for action in action_matches:
+                action = action.strip()
+                if action and action not in step["actions"]:
+                    step["actions"].append(action)
+
+        return step
 
     def _update_task_progress(self, context: AgentContext) -> None:
         """

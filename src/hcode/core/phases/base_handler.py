@@ -72,16 +72,19 @@ class BasePhaseHandler(PhaseHandlerProtocol):
     def _display(self, message: str, style: str = "default"):
         """Display message using HcodeDisplay or fallback to print."""
         if self.console:
+            # Escape square brackets to prevent Rich markup errors (e.g., checkbox markers [x], [/], [ ])
+            safe_message = message.replace("[", r"\[").replace("]", r"\]")
+
             if style == "thinking":
-                self.console.print(f"[dim]{message}[/dim]")
+                self.console.print(f"[dim]{safe_message}[/dim]")
             elif style == "success":
-                self.console.print(f"[bold green]{message}[/bold green]")
+                self.console.print(f"[bold green]{safe_message}[/bold green]")
             elif style == "error":
-                self.console.print(f"[bold red]{message}[/bold red]")
+                self.console.print(f"[bold red]{safe_message}[/bold red]")
             elif style == "info":
-                self.console.print(f"[cyan]{message}[/cyan]")
+                self.console.print(f"[cyan]{safe_message}[/cyan]")
             else:
-                self.console.print(message)
+                self.console.print(safe_message)
         else:
             print(message)
 
@@ -342,8 +345,9 @@ CRITICAL RULES:
         """
         Extract tool calls from response.
 
-        Primary path: parses JSON from ```json code blocks (handles nested objects).
-        Fallback: brace-balanced extraction for inline JSON tool calls.
+        Primary path: extracts from <output> tags (GPT-OSS 120B format)
+        Secondary path: parses JSON from ```json code blocks (handles nested objects)
+        Fallback: brace-balanced extraction for inline JSON tool calls
 
         Args:
             response: AI response text
@@ -357,7 +361,31 @@ CRITICAL RULES:
 
         tool_calls = []
 
-        # Primary: Extract content from all code blocks, parse as JSON
+        # Try 1: Extract from <output> tags (GPT-OSS 120B format)
+        output_match = re.search(r'<output>(.*?)</output>', response, re.DOTALL)
+        if output_match:
+            output_content = output_match.group(1)
+            # Look for JSON in code blocks within output
+            code_block_pattern = r'```(?:json)?\s*\n?(.*?)\n?\s*```'
+            matches = re.findall(code_block_pattern, output_content, re.DOTALL)
+            for match in matches:
+                match = match.strip()
+                if not match or not match.startswith('{'):
+                    continue
+                try:
+                    parsed = json.loads(match)
+                    if isinstance(parsed, dict) and "tool" in parsed:
+                        tool_calls.append({
+                            "tool": parsed.get("tool"),
+                            "arguments": parsed.get("arguments", parsed.get("parameters", {}))
+                        })
+                except json.JSONDecodeError:
+                    continue
+            if tool_calls:
+                logger.debug(f"Extracted {len(tool_calls)} tool calls from <output> tags")
+                return self._validate_tool_calls(tool_calls)
+
+        # Try 2: Extract content from all code blocks, parse as JSON
         code_block_pattern = r'```(?:json)?\s*\n?(.*?)\n?\s*```'
         code_blocks = re.findall(code_block_pattern, response, re.DOTALL)
 
@@ -375,14 +403,67 @@ CRITICAL RULES:
             except json.JSONDecodeError:
                 continue
 
-        # Fallback: brace-balanced extraction for inline JSON (no code blocks)
+        # Try 3: brace-balanced extraction for inline JSON (no code blocks)
         if not tool_calls:
             tool_calls = self._extract_inline_json_tools(response)
 
         if tool_calls:
             logger.debug(f"Extracted {len(tool_calls)} tool calls from response")
 
-        return tool_calls
+        return self._validate_tool_calls(tool_calls)
+
+    def _validate_tool_calls(self, tool_calls: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        Validate extracted tool calls and log issues with corrections.
+
+        Args:
+            tool_calls: List of tool call dicts
+
+        Returns:
+            Filtered list of valid tool calls
+        """
+        valid_calls = []
+        for i, call in enumerate(tool_calls):
+            if 'tool' not in call:
+                self._display(
+                    f"⚠️  Tool call {i+1} missing 'tool' key\n"
+                    f"   Got: {call}\n"
+                    f"   Expected: {{\"tool\": \"ToolName\", \"arguments\": {{...}}}}",
+                    "error"
+                )
+                continue
+
+            if 'arguments' not in call:
+                # Check if they used 'parameters' instead
+                if 'parameters' in call:
+                    self._display(
+                        f"⚠️  Tool call {i+1} uses 'parameters' instead of 'arguments'\n"
+                        f"   ❌ Wrong: {{\"tool\": \"{call['tool']}\", \"parameters\": {{...}}}}\n"
+                        f"   ✅ Correct: {{\"tool\": \"{call['tool']}\", \"arguments\": {{...}}}}",
+                        "error"
+                    )
+                else:
+                    # Check if they provided params directly without wrapper
+                    param_keys = [k for k in call.keys() if k != 'tool']
+                    if param_keys:
+                        self._display(
+                            f"⚠️  Tool call {i+1} missing 'arguments' wrapper\n"
+                            f"   ❌ Wrong: {{\"tool\": \"{call['tool']}\", \"{param_keys[0]}\": \"...\"}}\n"
+                            f"   ✅ Correct: {{\"tool\": \"{call['tool']}\", \"arguments\": {{\"{param_keys[0]}\": \"...\"}}}}\n"
+                            f"   Wrap parameters inside 'arguments' key",
+                            "error"
+                        )
+                    else:
+                        self._display(
+                            f"⚠️  Tool call {i+1} ({call.get('tool')}) missing 'arguments' key\n"
+                            f"   Got: {call}\n"
+                            f"   Expected: {{\"tool\": \"{call['tool']}\", \"arguments\": {{\"param\": \"value\"}}}}",
+                            "error"
+                        )
+                continue
+
+            valid_calls.append(call)
+        return valid_calls
 
     def _extract_inline_json_tools(self, text: str) -> List[Dict[str, Any]]:
         """
@@ -461,9 +542,33 @@ CRITICAL RULES:
             logger.warning("No tool executor configured")
             return results
 
+        # Initialize deduplication tracker per session
+        if not hasattr(self, '_tool_call_history'):
+            self._tool_call_history = set()
+
         for tool_call in tool_calls:
             tool_name = tool_call.get("tool", "")
             arguments = tool_call.get("arguments", {})
+
+            # Check for duplicate tool calls (prevent reading same file 9 times)
+            # Create signature from tool name + normalized arguments
+            arg_signature = json.dumps(arguments, sort_keys=True)
+            call_signature = f"{tool_name}:{arg_signature}"
+
+            if call_signature in self._tool_call_history:
+                logger.info(f"Skipping duplicate tool call: {tool_name} with same arguments")
+                # Return cached result from context
+                for action in reversed(context.completed_actions):
+                    if (action.get("tool") == tool_name and
+                        json.dumps(action.get("arguments", {}), sort_keys=True) == arg_signature):
+                        results.append(action)
+                        self._display(f"  [>] {tool_name} (cached)", style="thinking")
+                        self._display(f"      [CACHED]", style="info")
+                        break
+                continue
+
+            # Mark this call as executed
+            self._tool_call_history.add(call_signature)
 
             # Display tool execution using modern UI
             # Get file path from various argument names used by different tools
