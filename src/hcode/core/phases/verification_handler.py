@@ -14,15 +14,15 @@ Implements the *Verification* phase of the PEV workflow with a structured
 The handler combines AI-driven code review with actual test execution.
 """
 
-import re
-import logging
 import asyncio
+import logging
+import re
 from pathlib import Path
 from typing import List, Any, Dict, Optional
 
+from hcode.providers.base import Message
 from .base_handler import BasePhaseHandler
 from ..protocols import AgentContext, PhaseResult
-from hcode.providers.base import Message
 
 # FileAction enum for HcodeDisplay tracking
 try:
@@ -362,7 +362,7 @@ Output JSON tool calls in code blocks: `{{"tool": "ToolName", "arguments": {{"pa
     def _load_verification_protocol(self) -> str:
         """Load verification_handler.md prompt file."""
         try:
-            prompt_dir = Path(__file__).parent.parent.parent / "config" / "core_prompts" / "core"
+            prompt_dir = Path(__file__).parent.parent.parent / "config" / "core_prompts" / "core" / "pev_prompts"
             protocol_path = prompt_dir / "verification_handler.md"
 
             if protocol_path.exists():

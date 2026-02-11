@@ -16,6 +16,7 @@ uses phase-aware continuation prompts to steer the AI through each phase.
 
 import logging
 import re
+import time
 from pathlib import Path
 from typing import List, Any, Dict, Optional
 
@@ -48,9 +49,155 @@ class ExecutionPhaseHandler(BasePhaseHandler):
 
     phase_name = "execution"
 
+    def __init__(self, artifact_manager, provider, tool_executor, context_manager, console=None):
+        """Initialize execution handler with caching and tracking."""
+        super().__init__(artifact_manager, provider, tool_executor, context_manager, console)
+
+        # File read cache to avoid redundant operations
+        self._file_cache = {}  # path -> (content, timestamp)
+        self._cache_ttl = 60  # seconds
+
+        # Tool failure tracking for better error recovery
+        self._tool_failures = {}  # tool_name -> failure_count
+        self._max_retries = 3
+
+        # Task completion tracking
+        self._completed_files = set()  # Track verified file creations
+
     def get_required_artifacts(self) -> List[str]:
         """Execution phase doesn't produce new artifacts."""
         return []
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # HELPER METHODS (Caching, Validation, Retry Logic)
+    # ═══════════════════════════════════════════════════════════════════════
+
+    def _read_with_cache(self, file_path: str, context: AgentContext) -> Optional[str]:
+        """
+        Read file with caching to avoid redundant operations.
+
+        Args:
+            file_path: Path to file (absolute or relative to working_dir)
+            context: Agent context
+
+        Returns:
+            File content or None if file doesn't exist
+        """
+        # Check cache
+        if file_path in self._file_cache:
+            content, timestamp = self._file_cache[file_path]
+            if time.time() - timestamp < self._cache_ttl:
+                logger.debug(f"[execution] Cache hit for {file_path}")
+                return content
+
+        # Cache miss or stale - read fresh
+        try:
+            # Resolve path correctly (handles both absolute and relative paths)
+            resolved_path = Path(file_path)
+
+            # If relative, resolve against working directory
+            if not resolved_path.is_absolute():
+                resolved_path = Path(context.working_dir) / file_path
+
+            # Check if file exists
+            if not resolved_path.exists() or not resolved_path.is_file():
+                logger.debug(f"[execution] File not found or not a file: {file_path}")
+                return None
+
+            # Read the file
+            content = resolved_path.read_text(encoding='utf-8')
+            self._file_cache[file_path] = (content, time.time())
+            return content
+
+        except Exception as e:
+            logger.debug(f"[execution] Read failed for {file_path}: {e}")
+            return None
+
+    def _validate_edit_params(self, file_path: str, old_string: str, new_string: str, context: AgentContext) -> tuple[bool, str]:
+        """
+        Validate Edit tool parameters before execution.
+
+        Args:
+            file_path: Path to file
+            old_string: Text to replace
+            new_string: Replacement text
+            context: Agent context
+
+        Returns:
+            (is_valid, error_message) tuple
+        """
+        # Check new_string exists
+        if not new_string:
+            return False, "new_string is required for Edit tool"
+
+        # Read current file content
+        content = self._read_with_cache(file_path, context)
+        if content is None:
+            return False, f"File not found: {file_path}"
+
+        # Check old_string exists
+        count = content.count(old_string)
+        if count == 0:
+            return False, f"old_string not found in {file_path}"
+
+        # Warn if multiple occurrences (suggest replace_all=True)
+        if count > 1:
+            return False, f"old_string appears {count} times in {file_path}. Use replace_all=True or provide more context to make it unique."
+
+        return True, ""
+
+    def _track_tool_failure(self, tool_name: str) -> bool:
+        """
+        Track tool failures and determine if retry limit exceeded.
+
+        Args:
+            tool_name: Name of tool that failed
+
+        Returns:
+            True if should continue retrying, False if limit exceeded
+        """
+        if tool_name not in self._tool_failures:
+            self._tool_failures[tool_name] = 0
+
+        self._tool_failures[tool_name] += 1
+
+        if self._tool_failures[tool_name] >= self._max_retries:
+            logger.warning(f"[execution] Tool {tool_name} exceeded retry limit ({self._max_retries})")
+            return False
+
+        return True
+
+    def _reset_tool_failures(self, tool_name: str):
+        """Reset failure counter for a tool after success."""
+        if tool_name in self._tool_failures:
+            self._tool_failures[tool_name] = 0
+
+    def _verify_task_deliverables(self, expected_files: List[str], context: AgentContext) -> tuple[bool, List[str]]:
+        """
+        Verify that expected files were created/modified.
+
+        Args:
+            expected_files: List of file paths that should exist
+            context: Agent context
+
+        Returns:
+            (all_exist, missing_files) tuple
+        """
+        missing = []
+        for file_path in expected_files:
+            # Check if file exists via read
+            content = self._read_with_cache(file_path, context)
+            if content is None:
+                # Try fresh read (bypass cache)
+                try:
+                    content = self.artifact_manager.load_artifact(file_path.replace("\\", "/"), context)
+                except:
+                    pass
+
+            if not content:
+                missing.append(file_path)
+
+        return len(missing) == 0, missing
 
     # ═══════════════════════════════════════════════════════════════════════
     # MAIN HANDLER
@@ -94,11 +241,17 @@ class ExecutionPhaseHandler(BasePhaseHandler):
                 "task.md", context
             ) or "(No task.md found)"
 
+            # Get task statistics for multi-task visibility
+            task_stats = self._get_task_statistics(task_content)
+
             # Find next incomplete step for display
             next_step = self._get_next_incomplete_step(plan_content, context)
             step_info = ""
             if next_step:
-                step_info = f"Working on: {next_step.get('name', 'Step ' + str(next_step.get('number', '?')))}"
+                # Enhanced display with task counter
+                task_counter = f"Task {task_stats['current']}/{task_stats['total']}" if task_stats['total'] > 0 else ""
+                step_name = next_step.get('name', 'Step ' + str(next_step.get('number', '?')))
+                step_info = f"{task_counter} - {step_name}" if task_counter else f"Working on: {step_name}"
                 logger.info(step_info)
 
             # Build the execution prompt with 4-phase protocol
@@ -118,6 +271,12 @@ class ExecutionPhaseHandler(BasePhaseHandler):
                 self._display("Executing implementation...", style="info")
                 if step_info:
                     self._display(step_info, style="thinking")
+
+                # Display task progress via HcodeDisplay if available
+                if self._hcode_display and task_stats['total'] > 0:
+                    progress_msg = f"Executing: Task {task_stats['current']}/{task_stats['total']}"
+                    # Note: HcodeDisplay doesn't have display_phase_info, but _display works
+                    self._display(progress_msg, style="info")
 
                 # Start execution thinking display
                 if self._hcode_display:
@@ -151,19 +310,32 @@ class ExecutionPhaseHandler(BasePhaseHandler):
             if tool_results:
                 self._update_task_progress(context)
 
+            # Check for critical tool failures (Bash, verification commands)
+            critical_failures = [
+                r for r in tool_results
+                if not r.get("success", True) and r.get("tool", "").lower() in ("bash", "bashtool")
+            ]
+
+            # Determine success based on critical failures
+            execution_success = len(critical_failures) == 0
+
             # Check if can transition (implementation sufficient)
-            can_transition = self._check_execution_complete(context)
+            can_transition = self._check_execution_complete(context) and execution_success
 
             # Build output message
             actions_count = len(tool_results)
             files_count = len(context.modified_files)
-            output_msg = f"Execution iteration complete. {actions_count} actions, {files_count} files modified."
+            if critical_failures:
+                failure_details = "; ".join(f"{r['tool']}: {r.get('error', 'unknown')}" for r in critical_failures[:3])
+                output_msg = f"⚠️  Execution FAILED - {len(critical_failures)} critical failures: {failure_details}"
+            else:
+                output_msg = f"Execution iteration complete. {actions_count} actions, {files_count} files modified."
             if step_info:
                 output_msg = f"{step_info}. {output_msg}"
 
             return PhaseResult(
                 phase_name=self.phase_name,
-                success=True,
+                success=execution_success,
                 output=output_msg,
                 can_transition=can_transition,
                 metadata={
@@ -385,14 +557,13 @@ class ExecutionPhaseHandler(BasePhaseHandler):
         context: AgentContext,
     ) -> List[Dict[str, Any]]:
         """
-        Execution-phase write gate: reject Write/Edit calls that target files
-        not listed in implementation_plan.md.
+        Enhanced execution-phase tool executor with validation and retry logic.
 
-        This is a critical security boundary - execution must follow the plan
-        and not write arbitrary files. Read-only tools pass through unchanged.
-
-        Blocked writes are returned as failed results so the multi-turn loop
-        feeds the error back to the AI.
+        Features:
+        - Write gate: reject Write/Edit calls not in implementation_plan.md
+        - Edit validation: check parameters before execution
+        - Failure tracking: detect retry loops and abort early
+        - Cache invalidation: clear cache when files are modified
 
         Args:
             tool_calls: List of tool calls to execute
@@ -412,7 +583,64 @@ class ExecutionPhaseHandler(BasePhaseHandler):
             tool_name = (tc.get("tool") or "").lower()
             arguments = tc.get("arguments", {})
 
-            # Only gate write-like tools
+            # ── VALIDATION FOR EDIT TOOL ──────────────────────────────────
+            if tool_name in ("edit", "edittool"):
+                target = arguments.get("file_path") or arguments.get("TargetFile") or ""
+                old_string = arguments.get("old_string") or arguments.get("OldText") or ""
+                new_string = arguments.get("new_string") or arguments.get("NewText") or ""
+
+                # CRITICAL: Validate task.md checkbox updates
+                if "task.md" in target and "- [ ]" in old_string and "- [x]" in new_string:
+                    # Attempting to mark task as complete - verify operations succeeded
+                    recent_failures = [r for r in results[-10:] if not r.get("success", True)]
+                    if recent_failures:
+                        failure_list = "\n".join(
+                            f"  • {r.get('tool', 'unknown')}: {r.get('error', 'unknown error')}"
+                            for r in recent_failures[-3:]
+                        )
+                        error_msg = (
+                            f"⚠️  Cannot mark task complete - recent operations failed:\n"
+                            f"{failure_list}\n\n"
+                            f"Fix these failures before marking the task as complete."
+                        )
+                        self._display(f"  [>] Edit: {target}  ← BLOCKED (task not complete)", style="error")
+                        results.append({
+                            "tool": tc.get("tool"),
+                            "success": False,
+                            "error": error_msg,
+                            "file_path": target,
+                        })
+                        continue  # Skip this tool call
+
+                # Validate parameters
+                is_valid, error_msg = self._validate_edit_params(target, old_string, new_string, context)
+
+                if not is_valid:
+                    # Track failure
+                    if not self._track_tool_failure("Edit"):
+                        # Retry limit exceeded - provide helpful message
+                        error_msg = (
+                            f"⚠️  Edit operation failed {self._max_retries} times. "
+                            f"Error: {error_msg}\n\n"
+                            f"Recovery suggestion:\n"
+                            f"1. Re-read {target} to get fresh content\n"
+                            f"2. Verify the old_string you're trying to replace still exists\n"
+                            f"3. If old_string appears multiple times, use replace_all=True\n"
+                            f"4. Provide more context to make old_string unique"
+                        )
+
+                    self._display(f"  [>] Edit: {target}  ← VALIDATION FAILED", style="error")
+                    results.append({
+                        "tool": tc.get("tool"),
+                        "success": False,
+                        "output": None,
+                        "error": error_msg,
+                        "file_path": target,
+                    })
+                    logger.warning(f"Edit validation failed: {error_msg}")
+                    continue  # Skip this tool call
+
+            # ── WRITE GATE FOR WRITE/EDIT TOOLS ───────────────────────────
             if tool_name in ("write", "writetool", "edit", "edittool"):
                 target = (
                     arguments.get("TargetFile")
@@ -425,7 +653,7 @@ class ExecutionPhaseHandler(BasePhaseHandler):
                 is_allowed = self._is_path_allowed(target, allowed_files)
 
                 if not is_allowed:
-                    # Block and record
+                    # Block and record with helpful error message
                     self._display(
                         f"  [>] {tc.get('tool')}: {target}  ← BLOCKED (not in plan)",
                         style="error",
@@ -435,9 +663,12 @@ class ExecutionPhaseHandler(BasePhaseHandler):
                         "success": False,
                         "output": None,
                         "error": (
-                            f"EXECUTION WRITE GATE VIOLATION: Write to '{target}' is not allowed. "
-                            f"File not found in implementation_plan.md. "
-                            f"Allowed files: {', '.join(sorted(allowed_files)) if allowed_files else 'None (empty plan?)'}"
+                            f"⚠️  WRITE GATE VIOLATION: Cannot write to '{target}'\n\n"
+                            f"This file is not listed in .hcode/implementation_plan.md\n\n"
+                            f"Allowed patterns:\n" +
+                            "\n".join(f"  - {f}" for f in sorted(list(allowed_files)[:10])) +
+                            (f"\n  ... and {len(allowed_files) - 10} more" if len(allowed_files) > 10 else "") +
+                            "\n\nTo fix: Either update the plan to include this file, or write to an allowed path."
                         ),
                         "file_path": target,
                     })
@@ -449,6 +680,22 @@ class ExecutionPhaseHandler(BasePhaseHandler):
         # Execute the allowed calls via the parent implementation
         if gated_calls:
             parent_results = await super()._execute_tools(gated_calls, context)
+
+            # Post-processing: invalidate cache for modified files and reset failure counters
+            for result in parent_results:
+                if result.get("success"):
+                    tool_name = result.get("tool", "").lower()
+
+                    # Reset failure counter on success
+                    self._reset_tool_failures(tool_name)
+
+                    # Invalidate cache for modified files
+                    if tool_name in ("write", "writetool", "edit", "edittool"):
+                        file_path = result.get("file_path", "")
+                        if file_path in self._file_cache:
+                            del self._file_cache[file_path]
+                            logger.debug(f"[execution] Cache invalidated for {file_path}")
+
             results.extend(parent_results)
 
         return results
@@ -484,11 +731,13 @@ class ExecutionPhaseHandler(BasePhaseHandler):
                 "task.md", context
             ) or "(No task.md found)"
 
-            # Build system prompt
+            # Build system prompt with full context hierarchy
             system_prompt = f"""{identity}
 
 {tool_format}
 
+{self._load_user_memory(context)}
+{self._load_claude_md(context)}
 ---
 
 {execution_protocol}
@@ -505,11 +754,6 @@ Completed actions: {len(context.completed_actions)}
 
 ### CURRENT task.md:
 {task_content}
-
-### TOOL CALL FORMAT (CRITICAL!)
-
-Output JSON tool calls in code blocks: `{{"tool": "ToolName", "arguments": {{"param": "value"}}}}`
-(See tool_format.md for complete documentation)
 """
             return system_prompt
 
@@ -563,6 +807,96 @@ Update task.md: [x] for completed, [/] for in-progress.
 - NO CODE IN RESPONSE TEXT — use Write/Edit tools
 - TRACK PROGRESS — update task.md checkboxes
 """
+
+    def _load_claude_md(self, context: AgentContext) -> str:
+        """
+        Load user's project-specific instructions from CLAUDE.md.
+
+        Checks .hcode/CLAUDE.md first, then root CLAUDE.md.
+
+        Args:
+            context: Current agent context
+
+        Returns:
+            Formatted CLAUDE.md section or empty string if unavailable
+        """
+        try:
+            # Try .hcode/CLAUDE.md first, then root CLAUDE.md
+            for path_str in [".hcode/CLAUDE.md", "CLAUDE.md"]:
+                try:
+                    file_path = Path(context.working_dir) / path_str
+                    if file_path.exists():
+                        content = file_path.read_text(encoding="utf-8")
+                        if content.strip():
+                            logger.debug(f"Loaded project instructions from {path_str}")
+                            return f"""
+---
+
+## PROJECT INSTRUCTIONS (CLAUDE.md)
+
+{content.strip()}
+
+---
+"""
+                except Exception as e:
+                    logger.debug(f"Could not read {path_str}: {e}")
+                    continue
+
+            return ""
+        except Exception as e:
+            logger.debug(f"CLAUDE.md loading failed: {e}")
+            return ""
+
+    def _load_user_memory(self, context: AgentContext) -> str:
+        """
+        Load user's global memory from ~/.claude/projects/.../memory/MEMORY.md.
+
+        This provides cross-session learnings and user preferences that span
+        multiple projects.
+
+        Args:
+            context: Current agent context
+
+        Returns:
+            Formatted user memory section or empty string if unavailable
+        """
+        try:
+            # Try to discover memory path from context metadata or standard location
+            # Standard path: ~/.claude/projects/{project_dir_hash}/memory/MEMORY.md
+            home = Path.home()
+            claude_dir = home / ".claude" / "projects"
+
+            if not claude_dir.exists():
+                return ""
+
+            # Get working directory to compute project ID
+            working_dir = Path(context.working_dir).resolve()
+            project_dir_name = working_dir.name or "default"
+
+            # Search for memory directory matching this project
+            for project_folder in claude_dir.iterdir():
+                if project_folder.is_dir():
+                    memory_file = project_folder / "memory" / "MEMORY.md"
+                    if memory_file.exists():
+                        content = memory_file.read_text(encoding="utf-8")
+                        if content.strip():
+                            logger.debug(f"Loaded user memory from {memory_file}")
+                            return f"""
+---
+
+## USER MEMORY (Cross-Session Learnings)
+
+{content.strip()}
+
+---
+"""
+                        # Found the memory file, stop searching
+                        break
+
+            return ""
+        except Exception as e:
+            logger.debug(f"User memory loading failed: {e}")
+            return ""
 
     def _get_fallback_execution_prompt(self, context: AgentContext) -> str:
         """Fallback execution prompt when core prompts are unavailable."""
@@ -618,6 +952,8 @@ Artifacts directory: .hcode
 
 You are executing the implementation plan using the 4-phase protocol.
 Follow Phases 0 → 1 → 2 → 3 for each subtask.
+
+{self._discover_codebase_structure(context)}
 
 ### Implementation Plan:
 {plan_content}
@@ -793,7 +1129,13 @@ NOW BEGIN Phase 0. Read `.hcode/task.md` and identify the next task to implement
             return self._phase1_continuation(round_num, read_count, write_count)
 
         elif current_phase == 'phase2':
-            return self._phase2_continuation(round_num, write_count, task_edit_count)
+            # Load plan content for progress tracking
+            plan_content = ""
+            try:
+                plan_content = self.artifact_manager.load_artifact("implementation_plan.md", context) or ""
+            except:
+                pass
+            return self._phase2_continuation(round_num, write_count, task_edit_count, context, plan_content)
 
         elif current_phase == 'phase3':
             return self._phase3_continuation(round_num, write_count, task_edit_count)
@@ -822,23 +1164,82 @@ NOW BEGIN Phase 0. Read `.hcode/task.md` and identify the next task to implement
         )
 
     def _build_error_recovery_prompt(self, errors: List[Dict[str, Any]]) -> Optional[str]:
-        """Build targeted error recovery prompt based on error types."""
+        """Build targeted error recovery prompt based on error types with retry detection."""
         if not errors:
             return None
 
         error_types = []
+        edit_failures = 0
         for error in errors:
             tool = error.get('tool', '').lower()
             err_msg = error.get('error', error.get('output', ''))
 
+            # Count Edit failures for retry detection
+            if tool in ('edit', 'edittool') and not error.get('success', True):
+                edit_failures += 1
+
             if 'file not found' in err_msg.lower():
                 error_types.append('file_not_found')
-            elif 'old text not found' in err_msg.lower():
+            elif 'old text not found' in err_msg.lower() or 'old_string' in err_msg.lower():
                 error_types.append('edit_mismatch')
-            elif 'write gate' in err_msg.lower():
+            elif 'appears' in err_msg.lower() and 'times' in err_msg.lower():
+                error_types.append('edit_duplicate')
+            elif 'new_string' in err_msg.lower() and 'required' in err_msg.lower():
+                error_types.append('edit_params')
+            elif 'retry limit' in err_msg.lower() or 'exceeded' in err_msg.lower():
+                error_types.append('retry_limit')
+            elif 'write gate' in err_msg.lower() or 'violation' in err_msg.lower():
                 error_types.append('write_gate')
             elif 'import' in err_msg.lower():
                 error_types.append('import_error')
+
+        # ── RETRY LIMIT EXCEEDED ───────────────────────────────────────────
+        if 'retry_limit' in error_types or edit_failures >= 3:
+            return (
+                "🛑 STOP: Edit Retry Limit Exceeded\n\n"
+                f"You've attempted Edit operations {edit_failures} times with failures.\n\n"
+                "**MANDATORY RECOVERY PROTOCOL**:\n"
+                "1. **STOP** trying the same Edit approach\n"
+                "2. **READ** the target file fresh to see current state\n"
+                "3. **ANALYZE** what changed (did previous Edits partially succeed?)\n"
+                "4. **CHANGE STRATEGY**:\n"
+                "   - If old_string appears multiple times, use replace_all=True\n"
+                "   - If old_string not found, verify it still exists in the file\n"
+                "   - Consider using Write instead of multiple Edits\n"
+                "5. **DOCUMENT** the issue if unresolvable\n\n"
+                "⚠️  Do NOT retry the same Edit without re-reading the file first!"
+            )
+
+        # ── EDIT PARAMETER ERRORS ──────────────────────────────────────────
+        if 'edit_params' in error_types:
+            return (
+                "🔴 ERROR: Edit Tool Parameter Missing\n\n"
+                "Your Edit call is missing required parameters.\n\n"
+                "**REQUIRED PARAMETERS**:\n"
+                "```json\n"
+                '{"tool": "Edit", "arguments": {\n'
+                '  "file_path": "path/to/file",  // REQUIRED\n'
+                '  "old_string": "text to replace",  // REQUIRED\n'
+                '  "new_string": "replacement text",  // REQUIRED\n'
+                '  "replace_all": false  // OPTIONAL (default: false)\n'
+                "}}\n"
+                "```\n\n"
+                "⚠️  Both old_string AND new_string are required!"
+            )
+
+        # ── EDIT DUPLICATE STRING ──────────────────────────────────────────
+        if 'edit_duplicate' in error_types:
+            return (
+                "🔴 ERROR: Old String Appears Multiple Times\n\n"
+                "The text you're trying to replace appears more than once.\n\n"
+                "**SOLUTIONS**:\n"
+                "1. **Add more context** to make old_string unique:\n"
+                "   Instead of: `def function():`\n"
+                "   Use: `def function():\\n    # existing comment\\n    pass`\n\n"
+                "2. **Use replace_all=True** to change all occurrences:\n"
+                '   `{"tool": "Edit", "arguments": {..., "replace_all": true}}`\n\n'
+                "3. **Re-read the file** to verify current content"
+            )
 
         if 'file_not_found' in error_types:
             return (
@@ -964,35 +1365,53 @@ NOW BEGIN Phase 0. Read `.hcode/task.md` and identify the next task to implement
             "One change at a time — verify each Edit before proceeding."
         )
 
-    def _phase2_continuation(self, round_num: int, write_count: int, task_edit_count: int) -> str:
-        """Phase 2: Code Generation continuation."""
+    def _phase2_continuation(
+        self,
+        round_num: int,
+        write_count: int,
+        task_edit_count: int,
+        context: Optional[AgentContext] = None,
+        plan_content: str = ""
+    ) -> str:
+        """Phase 2: Code Generation continuation with plan alignment checks and progress tracking."""
+        # Get plan progress summary if available
+        progress_summary = ""
+        if context and plan_content:
+            progress_summary = self._get_plan_progress_summary(context, plan_content)
+
         if write_count == 0:
             return (
-                "📍 PHASE 2: Code Generation\n\n"
-                "Begin implementing your changes:\n\n"
-                "Pass 1: Create structure\n"
-                "- Add classes/function signatures\n"
-                "- Add necessary imports\n"
-                "- Match existing code patterns\n\n"
-                "Pass 2: Add logic\n"
-                "- Implement function bodies\n"
-                "- Handle errors and edge cases\n"
-                "- Integrate with existing code\n\n"
-                "Pass 3: Polish\n"
-                "- Add docstrings\n"
-                "- Check naming consistency\n"
-                "- Verify style matches\n\n"
+                "📍 PHASE 2: Code Generation (3-Pass Strategy) + Plan Verification\n\n"
+                "**CRITICAL**: At each pass, VERIFY your changes align with `.hcode/implementation_plan.md`\n\n"
+                f"{progress_summary}\n"
+                "**3-Pass Implementation**:\n\n"
+                "Pass 1: Structure + Plan Alignment Check\n"
+                "- [ ] Create file structure (classes, functions, imports)\n"
+                "- [ ] VERIFY: Does structure match plan expectations?\n"
+                "- [ ] If deviating from plan, document WHY\n\n"
+                "Pass 2: Logic Implementation + Plan Step Mapping\n"
+                "- [ ] Implement function bodies\n"
+                "- [ ] VERIFY: Which plan steps does this complete?\n"
+                "- [ ] If approach differs from plan, explain reasoning\n\n"
+                "Pass 3: Polish + Final Plan Cross-Check\n"
+                "- [ ] Add error handling, edge cases\n"
+                "- [ ] VERIFY: Are all relevant plan requirements satisfied?\n"
+                "- [ ] Document any intentional deviations\n\n"
+                "**If you deviate from the plan**: Explicitly state WHAT changed and WHY.\n"
+                "**If the plan is incomplete/wrong**: Describe the issue; don't silently work around it.\n\n"
                 "Remember: Use Write/Edit tools, never raw code text!"
             )
 
         if task_edit_count == 1:
             return (
-                "📍 PHASE 2 CONTINUE: Implementation In Progress\n\n"
+                "📍 PHASE 2 CONTINUE: Implementation In Progress + Plan Alignment\n\n"
                 f"Good progress — {write_count} file modification(s) made.\n\n"
+                f"{progress_summary}\n"
                 "Continue with Phase 2 until all code changes are complete:\n"
-                "- Finish Pass 2 logic if needed\n"
-                "- Apply Pass 3 polish\n"
-                "- Verify no TODOs remain\n\n"
+                "- [ ] Finish Pass 2 logic if needed\n"
+                "- [ ] Apply Pass 3 polish\n"
+                "- [ ] VERIFY: Does your code match the plan?\n"
+                "- [ ] Document any deviations from the plan\n\n"
                 "When code is complete, proceed to Phase 3: Self-Validation."
             )
 
@@ -1001,25 +1420,42 @@ NOW BEGIN Phase 0. Read `.hcode/task.md` and identify the next task to implement
             "Code changes are done. Now proceed to Phase 3:\n\n"
             "1. Re-read ALL modified files\n"
             "2. Trace execution with sample inputs\n"
-            "3. Cross-check against implementation_plan.md\n"
+            "3. Cross-check against `.hcode/implementation_plan.md`\n"
             "4. Mark task as [x] in `.hcode/task.md`\n\n"
             "Validate thoroughly before marking complete!"
         )
 
     def _phase3_continuation(self, round_num: int, write_count: int, task_edit_count: int) -> str:
-        """Phase 3: Self-Validation continuation."""
+        """Phase 3: Self-Validation continuation with deviation report and file verification."""
         if task_edit_count == 1:
             return (
-                "📍 PHASE 3: Self-Validation\n\n"
+                "📍 PHASE 3: Self-Validation + Deviation Report + File Verification\n\n"
                 "Code changes are done. Now validate:\n\n"
-                "1. Re-read all modified files\n"
-                "2. Walk through execution mentally:\n"
+                "**Step 1: File Verification**\n"
+                "- [ ] Verify ALL planned files were created/modified\n"
+                "- [ ] Use Read tool to confirm files exist and have content\n"
+                "- [ ] If any files are missing, do NOT mark task [x]\n\n"
+                "**Step 2: Logic Validation**\n"
+                "- [ ] Re-read all modified files\n"
+                "- [ ] Walk through execution mentally:\n"
                 "   - Test case 1 (happy path): [input] → [expected output]\n"
                 "   - Test case 2 (edge case): [input] → [expected behavior]\n"
-                "   - Test case 3 (error case): [input] → [expected handling]\n"
-                "3. Verify against implementation_plan.md\n"
-                "4. Mark task as [x] in `.hcode/task.md`\n\n"
-                "Provide validation results in output."
+                "   - Test case 3 (error case): [input] → [expected handling]\n\n"
+                "**Step 3: Plan Compliance**\n"
+                "- [ ] Verify against `.hcode/implementation_plan.md`\n"
+                "- [ ] Cross-check: did you complete ALL plan steps for this task?\n\n"
+                "**Step 4: Deviation Report** (REQUIRED):\n"
+                "- [ ] Did you deviate from any plan steps? If YES:\n"
+                "  - Which plan steps were modified/skipped?\n"
+                "  - Why was deviation necessary?\n"
+                "  - What was implemented instead?\n"
+                "- [ ] If NO deviations, confirm: \"Implementation matches plan exactly\"\n\n"
+                "**Step 5: Task Completion Decision**\n"
+                "- [ ] If ALL files verified AND logic validated AND no critical issues:\n"
+                "      → Mark task as [x] in `.hcode/task.md`\n"
+                "- [ ] If ANY file is missing OR logic has issues:\n"
+                "      → Keep task as [/] and document what remains\n\n"
+                "⚠️  CRITICAL: Only mark [x] if task is truly complete!"
             )
 
         return (
@@ -1031,6 +1467,7 @@ NOW BEGIN Phase 0. Read `.hcode/task.md` and identify the next task to implement
             "Summary should include:\n"
             "- Files modified\n"
             "- Changes implemented\n"
+            "- Deviations from plan (if any)\n"
             "- Known issues (if any)\n"
             "- Verification status"
         )
@@ -1076,6 +1513,44 @@ NOW BEGIN Phase 0. Read `.hcode/task.md` and identify the next task to implement
     # ═══════════════════════════════════════════════════════════════════════
     # PLAN PARSING & STEP TRACKING
     # ═══════════════════════════════════════════════════════════════════════
+
+    def _get_task_statistics(self, task_content: str) -> Dict[str, int]:
+        """
+        Count total, completed, and current task from task.md.
+
+        Parses task.md checkboxes to provide visibility into multi-task progress.
+
+        Args:
+            task_content: Content of task.md
+
+        Returns:
+            Dictionary with keys: total, completed, in_progress, pending, current
+        """
+        try:
+            if not task_content:
+                return {'total': 0, 'completed': 0, 'in_progress': 0, 'pending': 0, 'current': 1}
+
+            lines = task_content.split('\n')
+
+            # Count tasks by checkbox state
+            total = sum(1 for line in lines if re.match(r'^\s*-\s*\[[ x/]\]', line))
+            completed = sum(1 for line in lines if '- [x]' in line)
+            in_progress = sum(1 for line in lines if '- [/]' in line)
+            pending = total - completed - in_progress
+
+            # Current task is the first in-progress or pending task
+            current_num = completed + 1 if (pending > 0 or in_progress > 0) else total
+
+            return {
+                'total': total,
+                'completed': completed,
+                'in_progress': in_progress,
+                'pending': pending,
+                'current': current_num
+            }
+        except Exception as e:
+            logger.debug(f"Task statistics calculation failed: {e}")
+            return {'total': 0, 'completed': 0, 'in_progress': 0, 'pending': 0, 'current': 1}
 
     def _parse_plan_steps(self, plan_content: str) -> List[Dict[str, Any]]:
         """
@@ -1291,3 +1766,120 @@ NOW BEGIN Phase 0. Read `.hcode/task.md` and identify the next task to implement
                 return step
 
         return None
+
+    def _discover_codebase_structure(self, context: AgentContext) -> str:
+        """
+        Pre-discover codebase structure before execution starts.
+
+        Provides AI with a map of the project structure, reducing need for
+        exploratory Glob calls during execution.
+
+        Args:
+            context: Current agent context
+
+        Returns:
+            Formatted codebase structure summary or empty string
+        """
+        try:
+            cwd = Path(context.working_dir)
+
+            # Discover directory structure (max 20)
+            dirs = []
+            for d in cwd.rglob("*"):
+                if d.is_dir() and not any(part.startswith(".") for part in d.parts):
+                    try:
+                        relative_path = d.relative_to(cwd)
+                        dirs.append(str(relative_path))
+                        if len(dirs) >= 20:
+                            break
+                    except ValueError:
+                        continue
+
+            # Discover Python files (max 30)
+            py_files = []
+            for f in cwd.rglob("*.py"):
+                if not any(part.startswith(".") for part in f.parts):
+                    try:
+                        relative_path = f.relative_to(cwd)
+                        py_files.append(str(relative_path))
+                        if len(py_files) >= 30:
+                            break
+                    except ValueError:
+                        continue
+
+            # Discover key config files (max 15)
+            config_extensions = ['json', 'yaml', 'yml', 'toml', 'ini', 'cfg', 'md']
+            config_files = []
+            for ext in config_extensions:
+                for f in cwd.glob(f"*.{ext}"):
+                    if f.is_file():
+                        config_files.append(f.name)
+                        if len(config_files) >= 15:
+                            break
+                if len(config_files) >= 15:
+                    break
+
+            # Build summary
+            dir_list = ', '.join(dirs[:20]) if dirs else 'None'
+            py_list = ', '.join(py_files[:10]) if py_files else 'None'
+            py_more = f'... and {len(py_files) - 10} more' if len(py_files) > 10 else ''
+            config_list = ', '.join(config_files) if config_files else 'None'
+
+            return f"""
+---
+
+## CODEBASE STRUCTURE (Pre-Discovered)
+
+**Key Directories ({len(dirs)})**: {dir_list}
+
+**Python Files ({len(py_files)})**: {py_list} {py_more}
+
+**Config Files ({len(config_files)})**: {config_list}
+
+(Use Glob/Read tools to explore further)
+
+---
+"""
+        except Exception as e:
+            logger.debug(f"Codebase discovery failed: {e}")
+            return ""
+
+    def _get_plan_progress_summary(self, context: AgentContext, plan_content: str) -> str:
+        """
+        Generate summary of plan step completion for AI awareness.
+
+        Shows which implementation plan steps are complete/pending, helping AI
+        maintain continuous plan alignment during Phase 2.
+
+        Args:
+            context: Current agent context
+            plan_content: Content of implementation_plan.md
+
+        Returns:
+            Formatted plan progress summary or empty string
+        """
+        try:
+            steps = self._parse_plan_steps(plan_content)
+            if not steps:
+                return ""
+
+            total = len(steps)
+            completed = sum(1 for step in steps if self._check_step_completion(step, context))
+
+            # Show which steps are done/pending
+            status_lines = []
+            for i, step in enumerate(steps[:5], 1):  # Show first 5 steps
+                status = "✓" if self._check_step_completion(step, context) else "○"
+                step_name = step.get('name', 'Unnamed')
+                status_lines.append(f"{status} Step {i}: {step_name}")
+
+            more_indicator = '...' if total > 5 else ''
+
+            return f"""
+**Plan Progress**: {completed}/{total} steps complete
+{chr(10).join(status_lines)}
+{more_indicator}
+"""
+        except Exception as e:
+            logger.debug(f"Plan progress summary failed: {e}")
+            return ""

@@ -4,6 +4,7 @@ Includes Bash, BashOutput, and KillShell tools for command execution.
 """
 
 import asyncio
+import logging
 import os
 import time
 import uuid
@@ -12,6 +13,9 @@ from pathlib import Path
 from typing import Dict, Optional, List
 
 from hcode.tools.base.base_tool import BaseTool, ToolResult, ToolParameter, ToolCategory
+
+# Get logger for this module
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -187,18 +191,27 @@ class BashTool(BaseTool):
 
         if not raw_command:
             return ToolResult(success=False, output="", error="command (or CommandLine) is required")
-            
+
         # Translate command for Windows
         command = self._translate_command(raw_command)
-        
+
         # If translation changed the command, notify in description/metadata
         if command != raw_command and description == raw_command[:50]:
              description = f"{raw_command} (translated to {command})"
 
-        # Validate timeout
+        # Validate timeout with MINIMUM guard
+        MIN_TIMEOUT = 5.0  # 5 seconds minimum to prevent accidental immediate timeouts
         max_timeout = 600000 / 1000  # 10 minutes in seconds
+
+        if timeout < MIN_TIMEOUT:
+            logger.warning(f"[BASH] Timeout {timeout}s too short (< {MIN_TIMEOUT}s), using minimum")
+            timeout = MIN_TIMEOUT
         if timeout > max_timeout:
+            logger.warning(f"[BASH] Timeout {timeout}s too long (> {max_timeout}s), capping at max")
             timeout = max_timeout
+
+        # DEBUG: Log timeout value
+        logger.info(f"[BASH] Executing with timeout={timeout}s: {command[:100]}")
 
         # Show confirmation before executing command
         try:
@@ -241,6 +254,7 @@ class BashTool(BaseTool):
         import sys
 
         start_time = time.time()
+        logger.info(f"[BASH] _execute_foreground started with timeout={timeout}s at t=0.000s")
 
         # Platform-specific shell handling
         is_windows = sys.platform == "win32"
@@ -279,6 +293,7 @@ class BashTool(BaseTool):
             )
 
         try:
+            logger.info(f"[BASH] Creating subprocess at t={time.time() - start_time:.3f}s")
             process = await asyncio.create_subprocess_shell(
                 command,
                 stdout=asyncio.subprocess.PIPE,
@@ -286,6 +301,7 @@ class BashTool(BaseTool):
                 cwd=str(self.root_dir),
                 shell=True,
             )
+            logger.info(f"[BASH] Subprocess created at t={time.time() - start_time:.3f}s, PID={process.pid}")
 
             # Get output managers
             stream_console = None
@@ -295,7 +311,9 @@ class BashTool(BaseTool):
                 from hcode.ui.hcode_display import get_hcode_display
                 stream_console = get_console()
                 hcode_display = get_hcode_display()
+                logger.info(f"[BASH] Display managers loaded at t={time.time() - start_time:.3f}s")
             except ImportError:
+                logger.info(f"[BASH] Display managers not available (ImportError)")
                 pass
 
             # Stream stdout line-by-line in real-time
@@ -327,14 +345,18 @@ class BashTool(BaseTool):
             # Run with live display if available
             if hcode_display:
                 # We need to run the async loop inside the sync context manager
-                # But context manager is sync. 
+                # But context manager is sync.
+                logger.info(f"[BASH] Entering live_command_context at t={time.time() - start_time:.3f}s")
                 with hcode_display.live_command_context(command) as live:
+                    logger.info(f"[BASH] Starting wait_for (timeout={timeout}s) at t={time.time() - start_time:.3f}s")
                     await asyncio.wait_for(
                         asyncio.gather(_stream_stdout(live), _stream_stderr(live)),
                         timeout=timeout,
                     )
+                    logger.info(f"[BASH] wait_for completed successfully at t={time.time() - start_time:.3f}s")
             else:
                 # Run without live display
+                logger.info(f"[BASH] Starting wait_for (no live display, timeout={timeout}s) at t={time.time() - start_time:.3f}s")
                 await asyncio.wait_for(
                     asyncio.gather(_stream_stdout(), _stream_stderr()),
                     timeout=timeout,
@@ -392,16 +414,20 @@ class BashTool(BaseTool):
 
         except asyncio.TimeoutError:
             # Kill process on timeout
+            elapsed = time.time() - start_time
+            logger.error(f"[BASH] TIMEOUT at t={elapsed:.3f}s (limit was {timeout}s): {command}")
             try:
                 process.kill()
                 await process.wait()
-            except:
+                logger.info(f"[BASH] Process killed successfully")
+            except Exception as kill_error:
+                logger.error(f"[BASH] Failed to kill process: {kill_error}")
                 pass
             return ToolResult(
                 success=False,
                 output="",
-                error=f"Command timed out after {timeout}s",
-                metadata={"timeout": True, "description": description},
+                error=f"Command timed out after {timeout}s (actual: {elapsed:.2f}s)",
+                metadata={"timeout": True, "description": description, "elapsed": elapsed, "limit": timeout},
             )
         except Exception as e:
             return ToolResult(

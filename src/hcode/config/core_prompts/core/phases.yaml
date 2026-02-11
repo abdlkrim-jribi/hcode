@@ -33,13 +33,16 @@ planning:
     {"tool": "ToolName", "arguments": {"param1": "value1", "param2": "value2"}}
     ```
 
+    # Tool Call Format - Reference: tool_format.md
+    # ALWAYS use lowercase parameter names: file_path, content, pattern, path
+    # NEVER use uppercase: AbsolutePath, TargetFile, Pattern, CodeContent
     Common tools:
-    - LS: `{"tool": "LS", "arguments": {"DirectoryPath": "."}}`
-    - Read: `{"tool": "Read", "arguments": {"AbsolutePath": "/path/to/file"}}`
-    - Write: `{"tool": "Write", "arguments": {"TargetFile": "/path/to/file", "CodeContent": "content"}}`
-    - Edit: `{"tool": "Edit", "arguments": {"TargetFile": "/path", "TargetContent": "old", "ReplacementContent": "new"}}`
-    - Glob: `{"tool": "Glob", "arguments": {"Pattern": "**/*.py"}}`
-    - Grep: `{"tool": "Grep", "arguments": {"Query": "pattern", "SearchPath": "."}}`
+    - LS: `{"tool": "LS", "arguments": {"path": "."}}`
+    - Read: `{"tool": "Read", "arguments": {"file_path": "/path/to/file"}}`
+    - Write: `{"tool": "Write", "arguments": {"file_path": "/path/to/file", "content": "content"}}`
+    - Edit: `{"tool": "Edit", "arguments": {"file_path": "/path", "old_string": "old", "new_string": "new"}}`
+    - Glob: `{"tool": "Glob", "arguments": {"pattern": "**/*.py"}}`
+    - Grep: `{"tool": "Grep", "arguments": {"pattern": "search", "path": "."}}`
 
     ## Example Response Format
 
@@ -49,19 +52,19 @@ planning:
     First, let me explore the project structure:
 
     ```json
-    {"tool": "LS", "arguments": {"DirectoryPath": "."}}
+    {"tool": "LS", "arguments": {"path": "."}}
     ```
 
     Based on my exploration, I found several directories. Now I'll create the task.md:
 
     ```json
-    {"tool": "Write", "arguments": {"TargetFile": ".hcode/task.md", "CodeContent": "# Task\n\nCreate a script to count markdown files.\n\n## Subtasks\n\n- [ ] Create script skeleton <!-- id: 0 -->\n- [ ] Implement file discovery <!-- id: 1 -->\n- [ ] Implement line counting <!-- id: 2 -->\n\n## Notes\n\nScript will use Python with glob for file discovery."}}
+    {"tool": "Write", "arguments": {"file_path": ".hcode/task.md", "content": "# Task\n\nCreate a script to count markdown files.\n\n## Subtasks\n\n- [ ] Create script skeleton <!-- id: 0 -->\n- [ ] Implement file discovery <!-- id: 1 -->\n- [ ] Implement line counting <!-- id: 2 -->\n\n## Notes\n\nScript will use Python with glob for file discovery."}}
     ```
 
     Task breakdown created. Now creating the implementation plan:
 
     ```json
-    {"tool": "Write", "arguments": {"TargetFile": ".hcode/implementation_plan.md", "CodeContent": "# Count Markdown Files Script\n\nCreate a Python script to count .md files and their lines.\n\n## Proposed Changes\n\n### [NEW] count_md.py\n- Main script with file discovery and line counting\n\n## Verification Plan\n\n- Run: `python count_md.py`"}}
+    {"tool": "Write", "arguments": {"file_path": ".hcode/implementation_plan.md", "content": "# Count Markdown Files Script\n\nCreate a Python script to count .md files and their lines.\n\n## Proposed Changes\n\n### [NEW] count_md.py\n- Main script with file discovery and line counting\n\n## Verification Plan\n\n- Run: `python count_md.py`"}}
     ```
 
     Planning complete! I've created task.md and implementation_plan.md.
@@ -163,19 +166,19 @@ execution:
     First, let me understand the project structure:
 
     ```json
-    {"tool": "LS", "arguments": {"DirectoryPath": "."}}
+    {"tool": "LS", "arguments": {"path": "."}}
     ```
 
     Good, I see the directory structure. Now I'll create the script:
 
     ```json
-    {"tool": "Write", "arguments": {"TargetFile": "count_md.py", "CodeContent": "#!/usr/bin/env python3\nimport glob\n\ndef count_md_files():\n    md_files = glob.glob('**/*.md', recursive=True)\n    total_lines = 0\n    for f in md_files:\n        with open(f) as file:\n            total_lines += len(file.readlines())\n    print(f'Found {len(md_files)} .md files with {total_lines} total lines')\n\nif __name__ == '__main__':\n    count_md_files()"}}
+    {"tool": "Write", "arguments": {"file_path": "count_md.py", "content": "#!/usr/bin/env python3\nimport glob\n\ndef count_md_files():\n    md_files = glob.glob('**/*.md', recursive=True)\n    total_lines = 0\n    for f in md_files:\n        with open(f) as file:\n            total_lines += len(file.readlines())\n    print(f'Found {len(md_files)} .md files with {total_lines} total lines')\n\nif __name__ == '__main__':\n    count_md_files()"}}
     ```
 
     The script has been created. Now updating task.md to mark completion:
 
     ```json
-    {"tool": "Edit", "arguments": {"TargetFile": ".hcode/task.md", "TargetContent": "- [ ] Create script skeleton <!-- id: 0 -->", "ReplacementContent": "- [x] Create script skeleton <!-- id: 0 -->"}}
+    {"tool": "Edit", "arguments": {"file_path": ".hcode/task.md", "old_string": "- [ ] Create script skeleton <!-- id: 0 -->", "new_string": "- [x] Create script skeleton <!-- id: 0 -->"}}
     ```
 
     Done! Created count_md.py with file discovery and line counting.
