@@ -542,33 +542,9 @@ CRITICAL RULES:
             logger.warning("No tool executor configured")
             return results
 
-        # Initialize deduplication tracker per session
-        if not hasattr(self, '_tool_call_history'):
-            self._tool_call_history = set()
-
         for tool_call in tool_calls:
             tool_name = tool_call.get("tool", "")
             arguments = tool_call.get("arguments", {})
-
-            # Check for duplicate tool calls (prevent reading same file 9 times)
-            # Create signature from tool name + normalized arguments
-            arg_signature = json.dumps(arguments, sort_keys=True)
-            call_signature = f"{tool_name}:{arg_signature}"
-
-            if call_signature in self._tool_call_history:
-                logger.info(f"Skipping duplicate tool call: {tool_name} with same arguments")
-                # Return cached result from context
-                for action in reversed(context.completed_actions):
-                    if (action.get("tool") == tool_name and
-                        json.dumps(action.get("arguments", {}), sort_keys=True) == arg_signature):
-                        results.append(action)
-                        self._display(f"  [>] {tool_name} (cached)", style="thinking")
-                        self._display(f"      [CACHED]", style="info")
-                        break
-                continue
-
-            # Mark this call as executed
-            self._tool_call_history.add(call_signature)
 
             # Display tool execution using modern UI
             # Get file path from various argument names used by different tools

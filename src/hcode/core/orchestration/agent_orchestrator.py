@@ -207,6 +207,7 @@ class AgentOrchestrator(AgentOrchestratorProtocol):
                         new_phase = self.phase_manager.get_current_phase()
                         self._sync_loop_phase(new_phase)
                         logger.info(f"Transitioned from {current_phase} to {new_phase}")
+
                     elif current_phase == "verification":
                         # Verification complete means task is done
                         if self.console:
