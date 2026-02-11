@@ -1124,7 +1124,7 @@ NOW BEGIN Phase 0. Read `.hcode/task.md` and identify the next task to implement
         section_pattern = r'^##\s+(\d+\.?\s*)?(.+)$'
         section_matches = re.findall(section_pattern, plan_content, re.MULTILINE)
 
-        for i, (num, name) in enumerate(section_matches):
+        for i, (_, name) in enumerate(section_matches):
             if name.lower() not in ['summary', 'notes', 'metadata']:
                 steps.append({
                     "number": len(step_matches) + len(task_matches) + i + 1,
@@ -1208,7 +1208,6 @@ NOW BEGIN Phase 0. Read `.hcode/task.md` and identify the next task to implement
             return
 
         plan_content = self.artifact_manager.load_artifact("implementation_plan.md", context)
-        plan_steps = self._parse_plan_steps(plan_content) if plan_content else []
 
         completed_files = set(context.modified_files)
 

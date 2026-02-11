@@ -635,7 +635,7 @@ CRITICAL RULES:
                 results.append({
                     "tool": tool_name,
                     "success": action_record["success"],
-                    "output": action_record["output"],
+                    "output": str(result.output) if hasattr(result, 'output') else str(result),
                     "error": result.error if hasattr(result, 'error') else None,
                     "file_path": file_path,
                 })

@@ -90,7 +90,7 @@ class BashTool(BaseTool):
     def get_parameters(self) -> List[ToolParameter]:
         return [
             ToolParameter(
-                name="CommandLine",
+                name="command",
                 type="string",
                 description="The bash command to execute",
                 required=True,
@@ -114,7 +114,7 @@ class BashTool(BaseTool):
                 required=False,
             ),
             # Legacy
-            ToolParameter("command", "string", "Alias for CommandLine", default=None),
+            ToolParameter("CommandLine", "string", "Alias for command", default=None),
         ]
 
     def validate_parameters(self, **kwargs) -> tuple[bool, Optional[str]]:
@@ -178,15 +178,15 @@ class BashTool(BaseTool):
                 
         return command
 
-    async def execute(self, CommandLine: str = None, command: str = None, **kwargs) -> ToolResult:
+    async def execute(self, command: str = None, CommandLine: str = None, **kwargs) -> ToolResult:
         """Execute bash command"""
-        raw_command = CommandLine or command
+        raw_command = command or CommandLine
         timeout = kwargs.get("timeout", 120000) / 1000  # Convert ms to seconds
         run_in_background = kwargs.get("run_in_background", False)
         description = kwargs.get("description", raw_command[:50] if raw_command else "")
 
         if not raw_command:
-            return ToolResult(success=False, output="", error="CommandLine (or command) is required")
+            return ToolResult(success=False, output="", error="command (or CommandLine) is required")
             
         # Translate command for Windows
         command = self._translate_command(raw_command)
@@ -648,7 +648,7 @@ class LSTool(BaseTool):
     def get_parameters(self) -> List[ToolParameter]:
         return [
             ToolParameter(
-                name="DirectoryPath",
+                name="path",
                 type="string",
                 description="Absolute directory path to list",
                 required=True,
@@ -660,7 +660,7 @@ class LSTool(BaseTool):
                 required=False,
             ),
             # Legacy
-            ToolParameter("path", "string", "Alias for DirectoryPath", default=None),
+            ToolParameter("DirectoryPath", "string", "Alias for path", default=None),
         ]
 
     def validate_parameters(self, **kwargs) -> tuple[bool, Optional[str]]:
@@ -671,15 +671,15 @@ class LSTool(BaseTool):
         return True, None
 
 
-    async def execute(self, DirectoryPath: str = None, path: str = None, **kwargs) -> ToolResult:
+    async def execute(self, path: str = None, DirectoryPath: str = None, **kwargs) -> ToolResult:
         """List directory contents"""
         import sys
 
-        path_str = DirectoryPath or path
+        path_str = path or DirectoryPath
         ignore_patterns = kwargs.get("ignore", "")
 
         if not path_str:
-            return ToolResult(success=False, output="", error="DirectoryPath (or path) is required")
+            return ToolResult(success=False, output="", error="path (or DirectoryPath) is required")
 
         # Handle "/" on Windows - convert to current working directory
         if sys.platform == "win32" and path_str == "/":

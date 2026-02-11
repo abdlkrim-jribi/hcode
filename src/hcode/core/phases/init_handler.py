@@ -168,8 +168,7 @@ class InitHandler(BasePhaseHandler):
                     # Skip excluded items
                     if name in _EXCLUDE or (name.startswith('.') and name not in ('.env.example', '.hcode', '.hcoderc')):
                         continue
-                        
-                    is_last = (i == len(items) - 1)
+
                     # Visual branch characters could be used, but simple indentation is token-efficient
                     # using 2 spaces per level
                     indent = "  " * current_depth
@@ -1052,9 +1051,6 @@ DO IT NOW!"""
                 else:
                     # Provide helpful guidance for file not found errors
                     if 'not found' in error.lower() or 'does not exist' in error.lower():
-                        # Extract the attempted path from the error
-                        attempted_path = error.split(':')[-1].strip() if ':' in error else "unknown"
-                        
                         parts.append(f"""[{tool}] ✗ File not found: {error}
 
 🚨 **CRITICAL ERROR: File Path Hallucination Detected**

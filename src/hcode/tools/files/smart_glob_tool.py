@@ -39,7 +39,7 @@ class SmartGlobTool(BaseTool):
     def get_parameters(self) -> List[ToolParameter]:
         return [
             ToolParameter(
-                "Pattern",
+                "pattern",
                 "string",
                 """Glob pattern to match files.
 
@@ -54,23 +54,34 @@ Note: Automatically excludes .git, .venv, node_modules, __pycache__, etc.
                 required=True
             ),
             ToolParameter(
-                "SearchDirectory",
+                "path",
                 "string",
                 "Directory to search in (default: project root)",
                 default=None
             ),
+            # Legacy aliases
+            ToolParameter("Pattern", "string", "Alias for pattern", default=None),
+            ToolParameter("SearchDirectory", "string", "Alias for path", default=None),
         ]
 
     async def execute(
         self,
-        Pattern: str,
+        pattern: str = None,
+        path: Optional[str] = None,
+        Pattern: str = None,
         SearchDirectory: Optional[str] = None,
         **kwargs
     ) -> ToolResult:
         """Find files matching pattern with context protection."""
+        # Normalize parameters
+        final_pattern = pattern or Pattern
+        final_path = path or SearchDirectory
+
+        if not final_pattern:
+             return ToolResult(success=False, output="", error="pattern (or Pattern) is required")
 
         try:
-            search_dir = Path(SearchDirectory) if SearchDirectory else self.root_dir
+            search_dir = Path(final_path) if final_path else self.root_dir
 
             if not search_dir.exists():
                 return ToolResult(
@@ -80,7 +91,7 @@ Note: Automatically excludes .git, .venv, node_modules, __pycache__, etc.
                 )
 
             # Expand brace patterns like {file1,file2} since Python glob doesn't support them
-            expanded_patterns = self._expand_brace_pattern(Pattern)
+            expanded_patterns = self._expand_brace_pattern(final_pattern)
             
             # Find matching files for all expanded patterns
             matches = []
@@ -106,7 +117,7 @@ Note: Automatically excludes .git, .venv, node_modules, __pycache__, etc.
 
             # Filter and limit results (Claude Code approach)
             filtered, was_truncated, guidance = self.budget_manager.filter_glob_results(
-                matches, Pattern
+                matches, final_pattern
             )
 
             # Format output with smart truncation
@@ -133,11 +144,11 @@ Note: Automatically excludes .git, .venv, node_modules, __pycache__, etc.
             # Provide helpful message if no matches at all
             # Check original matches, not filtered (filtered might be empty due to exclusions)
             if not matches:
-                help_msg = self._generate_no_match_help(Pattern, search_dir)
+                help_msg = self._generate_no_match_help(final_pattern, search_dir)
                 output = help_msg
             elif not filtered:
                 # Files exist but all were filtered out
-                output = f"Found {len(matches)} file(s) matching '{Pattern}', but all were excluded by filters (e.g., __pycache__, .venv, etc.)\\n\\n"
+                output = f"Found {len(matches)} file(s) matching '{final_pattern}', but all were excluded by filters (e.g., __pycache__, .venv, etc.)\\n\\n"
                 output += "Try a more specific pattern or search in a different directory."
 
             # Display with Hcode UI

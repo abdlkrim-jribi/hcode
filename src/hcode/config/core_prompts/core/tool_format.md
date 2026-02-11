@@ -17,13 +17,13 @@ This table defines the ONLY valid parameter names for each tool:
 
 | Tool | Required Parameters | Optional Parameters | Notes |
 |------|---------------------|---------------------|-------|
-| Read | `file_path` (string) | `offset` (int), `limit` (int) | Read file contents |
+| Read | `file_path` (string) | `start_line` (int), `end_line` (int) | Read file contents |
 | Write | `file_path` (string), `content` (string) | none | Create or overwrite file |
 | Edit | `file_path` (string), `old_string` (string), `new_string` (string) | `replace_all` (bool) | Replace text in file |
 | Glob | `pattern` (string) | `path` (string) | Find files by pattern |
 | Grep | `pattern` (string) | `path` (string), `glob` (string), `output_mode` (string) | Search file contents |
-| Bash | `command` (string) | `timeout` (int), `description` (string) | Run shell command |
-| LS | `path` (string) | none | List directory contents |
+| Bash | `command` (string) | `timeout` (int), `description` (string), `run_in_background` (bool) | Run shell command |
+| LS | `path` (string) | `ignore` (string) | List directory contents |
 
 **IMPORTANT**: Use lowercase parameter names as specified above.
 DO NOT use: `AbsolutePath`, `TargetFile`, `CommandLine`, `Pattern`, `Query` (uppercase variants).
