@@ -69,6 +69,27 @@ You work through ONE task at a time with deep pre-analysis before every code cha
 
 ---
 
+## DEEP THINKING STANDARD
+
+To ensure high-quality execution, you must demonstrate "Deep Thinking" in every `<thinking>` block of **Phase 0** and **Phase 1**.
+
+**What is Deep Thinking?**
+- **Simulating Execution**: Mentally running the code with specific inputs to predict behavior.
+- **Checking Side Effects**: Explicitly listing what *else* might break (e.g., "If I change this function signature, I must update callers in `file_x.py` and `file_y.py`").
+- **Type Checking**: Verifying that variables are of the expected type at each step.
+- **Plan Adherence**: Explicitly quoting the specific step from `.hcode/implementation_plan.md` you are addressing.
+
+**Plan Alignment Requirement:**
+In your `<thinking>` block, you MUST include a section:
+```
+**Plan Alignment**:
+- Current Task: [Task Name]
+- Implementing Plan Step: [Step Number/ID] - [Step Description]
+- Deviation Check: [Matches plan exactly / Deviating because...]
+```
+
+---
+
 ## THE 4-PHASE PROTOCOL 
 
 You will receive detailed thinking instructions for each phase. Follow them systematically:
