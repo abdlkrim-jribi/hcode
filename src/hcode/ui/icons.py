@@ -132,6 +132,13 @@ class Icons:
     GLOBE = "🌐" if USE_UNICODE else "[W]"
     ARROW_RIGHT_FANCY = "❯" if USE_UNICODE else ">"
     STAR = "★" if USE_UNICODE else "*"
+    
+    # HCode Design System Specific
+    GUTTER_BAR = "┃" if USE_UNICODE else "|"
+    ICON_FILE_CIRCLE = "○" if USE_UNICODE else "[F]"
+    ICON_DIR_CIRCLE = "●" if USE_UNICODE else "[D]"
+    PROMPT_LAMBDA = "λ" if USE_UNICODE else ">"
+
 
     # ═══════════════════════════════════════════════════════════════
     # DECORATIVE
@@ -310,6 +317,58 @@ class Icons:
             "task": cls.AI,
         }
         return tool_map.get(tool_name.lower(), cls.GEAR)
+
+    # ═══════════════════════════════════════════════════════════════
+    # TOOL-SPECIFIC ICONS WITH ENHANCED VISIBILITY
+    # ═══════════════════════════════════════════════════════════════
+
+    @classmethod
+    def get_ls_icon(cls) -> str:
+        """Get LS tool icon with enhanced visibility."""
+        return cls.FOLDER_OPEN if USE_UNICODE else "[LS]"
+
+    @classmethod
+    def get_glob_icon(cls) -> str:
+        """Get Glob tool icon with search emphasis."""
+        return cls.SEARCH if USE_UNICODE else "[GLOB]"
+
+    @classmethod
+    def get_smart_glob_icon(cls) -> str:
+        """Get Smart Glob tool icon with intelligence indicator."""
+        # Sparkle + Search for "smart" matching
+        return f"{cls.SPARKLE}{cls.SEARCH}" if USE_UNICODE else "[SMART]"
+
+    @classmethod
+    def get_generic_tool_icon(cls) -> str:
+        """Get generic tool icon."""
+        return cls.GEAR if USE_UNICODE else "[TOOL]"
+
+    @classmethod
+    def get_directory_icon(cls) -> str:
+        """Get directory icon for file listings."""
+        return cls.FOLDER if USE_UNICODE else "[DIR]"
+
+    @classmethod
+    def get_file_type_icon(cls, filename: str, is_dir: bool = False) -> str:
+        """
+        Get icon for file/directory with type awareness.
+
+        Args:
+            filename: Name of file or directory
+            is_dir: Whether this is a directory
+
+        Returns:
+            Appropriate icon for the file type
+        """
+        if is_dir:
+            return cls.get_directory_icon()
+
+        # Check for hidden files
+        if filename.startswith("."):
+            return cls.BULLET_HOLLOW if USE_UNICODE else "[.]"
+
+        # Use existing file icon logic
+        return cls.get_file_icon(filename)
 
 
 # ═══════════════════════════════════════════════════════════════════════

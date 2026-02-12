@@ -772,13 +772,7 @@ class LSTool(BaseTool):
 
             output_text = "\n".join(output_lines)
 
-            # Display with Hcode UI
-            try:
-                from hcode.ui.hcode_display import get_hcode_display
-                display = get_hcode_display()
-                display.display_tool_result("LS", output_text, "success")
-            except ImportError:
-                pass
+
 
             return ToolResult(
                 success=True,

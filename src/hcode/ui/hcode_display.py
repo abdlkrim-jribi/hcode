@@ -425,7 +425,7 @@ class HcodeDisplay:
 
         # Build Title
         title = Text()
-        title.append(f"{self._icons.LOGO} Thinking", style="bold #39FF14")
+        title.append("Thinking", style="thinking.title")
         
         if phase:
             phase_colors = {
@@ -441,24 +441,49 @@ class HcodeDisplay:
             title.append(f" ({phase})", style=f"bold {p_color}")
         
         if duration_str:
-            title.append(duration_str, style=self._palette.text_muted)
+            title.append(duration_str, style="thinking.metadata")
 
-        # Create Panel
-        # Using rounded box for modern look and neon green border
-        panel_content = Markdown(display_content) if not collapsed else Text(display_content, style=self._palette.text_muted)
+        # Create Grid Layout (Borderless with Gutter)
+        grid = Table.grid(padding=(0, 1))
+        # Column 1: Gutter
+        grid.add_column(style="thinking.gutter", width=2, justify="center")
+        # Column 2: Content
+        grid.add_column(style="thinking.content")
         
-        panel = Panel(
-            panel_content,
-            title=title,
-            title_align="left",
-            border_style="#39FF14",
-            box=box.ROUNDED,
-            padding=(1, 2),
-            expand=True
-        )
+        # Determine Icon
+        icon = "◈"  # Diamond for active thinking
+        
+        # Row 1: Header
+        grid.add_row("▍", title)
+        
+        # Row 2: Content (if any)
+        if content:
+            # Add a spacer row
+            grid.add_row("▍", "")
+            
+            if collapsed:
+                lines = content.strip().split('\n')
+                display_content = lines[0] + ("..." if len(lines) > 1 else "")
+                grid.add_row("▍", Text(display_content, style="thinking.metadata"))
+            else:
+                # Render content as Markdown but we need to potentially process line by line
+                # for the gutter to persist. Alternatively, we can nest a table.
+                # For simplicity and "airiness", let's indent the content.
+                
+                # We can't easily put Markdown in a single cell and have the gutter on the left 
+                # for every line unless we split it.
+                # But a simple indentation logic is often cleaner for "airy" design.
+                
+                # Let's try rendering Markdown in the second column.
+                # Rich Tables handle multiline content in cells automatically.
+                md_content = Markdown(content.strip())
+                grid.add_row("▍", md_content)
+
+        # Footer / Spacer
+        # grid.add_row("▍", "") 
         
         self.console.print()
-        self.console.print(panel)
+        self.console.print(grid)
         self.console.print()
 
 
@@ -474,29 +499,47 @@ class HcodeDisplay:
         buffer = deque(maxlen=5)
         
         def generate_panel(content_lines, is_done=False):
-            content = "".join(content_lines)
-            title = Text()
-            title.append(f"{self._icons.LOGO} ", style="bold #00FF88")
-            title.append("Executing ", style="bold #39FF14")
+            # HCode "Gutter" Style for Executing Commands
+            # ┃ Executing command...
+            # ┃ stdout...
             
-            # Truncate command if too long
+            # Colors
+            gutter_color = "#FF5F00" # Orange for execution/bash-like
+            if is_done:
+                gutter_color = "#39FF14" # Green for done? Or keep orange?
+                # Actually typically execution is orange/yellow then success is green.
+            
+            gutter = f"[{gutter_color}]┃[/]" # Gutter symbol
+            
+            # Header
+            header = Text()
+            header.append("┃ ", style=f"{gutter_color}")
+            header.append("Executing ", style=f"bold {gutter_color}")
+            
+            # Truncate command
             cmd_display = command
-            if len(cmd_display) > 40:
-                cmd_display = cmd_display[:37] + "..."
-            title.append(cmd_display, style="dim white")
+            if len(cmd_display) > 60:
+                cmd_display = cmd_display[:57] + "..."
+            header.append(cmd_display, style="white")
             
             if not is_done:
-                title.append(f" {self._icons.LOADING}", style="bold #00FFAA")
+                header.append(f" {self._icons.LOADING}", style=f"bold {gutter_color}")
+                
+            # Content
+            # Join content lines
+            # Limit to last 10 lines for "pane" effect without scrolling too much in Live
+            visible_lines = content_lines[-10:] if len(content_lines) > 10 else content_lines
+            content_text = Text()
+            for line in visible_lines:
+                # Add gutter to each line
+                content_text.append(f"{gutter}   ", style="")
+                content_text.append(line, style="dim white")
+                if not line.endswith("\n"):
+                    content_text.append("\n")
             
-            return Panel(
-                Text(content, style="dim white"),
-                title=title,
-                border_style="#39FF14",
-                box=box.ROUNDED,
-                padding=(1, 2),
-                height=10,
-                expand=True
-            )
+            # Assemble Group/Layout
+            # using Group to stack Header + Content
+            return Group(header, content_text)
 
         # Initial render
         with Live(generate_panel([]), console=self.console, refresh_per_second=10) as live:

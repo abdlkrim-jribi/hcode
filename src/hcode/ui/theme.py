@@ -65,6 +65,7 @@ class ColorPalette:
     text_muted: str = "#6B6B6B"  # Muted gray
     text_glow: str = "#00FFFF"  # Glowing cyan
     text_highlight: str = "#FF00FF"  # Highlight magenta
+    text_dim: str = "#BBBBBB"  # Brighter dim gray for visibility
 
     # ═══════════════════════════════════════════════════════════════
     # SPECIAL EFFECTS
@@ -111,6 +112,7 @@ class ColorPalette:
     border_focus: str = "#00FFFF"
     border_error: str = "#FF0055"
     border_success: str = "#00FF88"
+    border_dim: str = "#666666"  # Visible dim border
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -132,6 +134,8 @@ THEMES: Dict[ThemeMode, ColorPalette] = {
         gradient_end="#00FFFF",
         glow_color="#00FFFF",
         border_glow="#FF00FF",
+        text_dim="#AAAAAA",
+        border_dim="#555555",
     ),
     ThemeMode.NEON_NIGHTS: ColorPalette(
         primary="#F72585",
@@ -172,6 +176,8 @@ THEMES: Dict[ThemeMode, ColorPalette] = {
         code_string="#88FF88",
         code_function="#00FF00",
         code_comment="#006600",
+        text_dim="#008F11",
+        border_dim="#004400",
     ),
     ThemeMode.SYNTHWAVE: ColorPalette(
         primary="#FF6AD5",
@@ -251,45 +257,51 @@ THEMES: Dict[ThemeMode, ColorPalette] = {
         code_comment="#2E8B57",
     ),
     # Signature HCODE theme - Modern neon green aesthetic
+    # Signature HCODE theme - Electric Cyan & Slate Grey
     ThemeMode.NEON_GREEN: ColorPalette(
-        primary="#39FF14",       # Neon green (signature color)
-        secondary="#00FF88",     # Mint green
-        accent="#00FFAA",        # Cyan-green
-        bg_dark="#0A0F0A",       # Dark green-tinted black
-        bg_medium="#0F1A0F",     # Subtle green dark
-        bg_light="#142114",      # Light green dark
-        bg_elevated="#1A2E1A",   # Elevated green surface
-        bg_hover="#214021",      # Hover with green tint
-        text_primary="#FFFFFF",  # Pure white for contrast
-        text_secondary="#B8FFB8", # Light green text
-        text_muted="#4A8F4A",    # Muted green
-        text_glow="#39FF14",     # Neon green glow
-        text_highlight="#00FFAA", # Cyan-green highlight
-        success="#39FF14",       # Neon green
-        error="#FF3355",         # Softer red
-        warning="#FFCC00",       # Golden yellow
-        info="#00DDFF",          # Cyan info
-        gradient_start="#39FF14", # Neon green
-        gradient_mid="#00FF88",   # Mint
-        gradient_end="#00FFAA",   # Cyan-green
-        glow_color="#39FF14",    # Neon green glow
-        border_glow="#00FF00",   # Green border glow
-        pulse_color="#00FF88",   # Mint pulse
-        code_keyword="#39FF14",   # Neon green keywords
-        code_string="#7FFF00",    # Yellow-green strings
-        code_function="#00FF7F",  # Mint functions
-        code_comment="#3D9140",   # Forest green comments
-        code_number="#00FFAA",    # Cyan-green numbers
-        code_operator="#39FF14",  # Neon green operators
-        code_class="#00FF88",     # Mint classes
-        code_variable="#B8FFB8",  # Light green vars
-        diff_added="#39FF14",     # Neon green added
-        diff_added_bg="#0A2010",  # Dark green bg
-        diff_removed="#FF3355",   # Red removed
-        diff_removed_bg="#200A10", # Dark red bg
-        border_default="#1A4A1A", # Dark green border
-        border_focus="#39FF14",   # Neon green focus
-        border_success="#00FF88", # Mint success
+        primary="#00E5FF",       # Electric Cyan (Action/Progress)
+        secondary="#708090",     # Muted Slate (Metadata/Borders)
+        accent="#39FF14",        # Neon Green (Success/Additions - kept for compatibility/success)
+        bg_dark="#1E1E1E",       # Deep Charcoal
+        bg_medium="#252526",     # Slightly Lighter Charcoal
+        bg_light="#2D2D30",      # Lightest Charcoal
+        bg_elevated="#333333",   # Elevated Surface
+        bg_hover="#3E3E42",      # Hover State
+        text_primary="#FFFFFF",  # Pure White
+        text_secondary="#B0BEC5", # Light Blue-Grey
+        text_muted="#708090",    # Muted Slate
+        text_glow="#00E5FF",     # Electric Cyan Glow
+        text_highlight="#39FF14", # Neon Green Highlight
+        success="#39FF14",       # Neon Green
+        error="#FF3355",         # Red
+        warning="#FF5F00",       # Safety Orange
+        info="#00E5FF",          # Electric Cyan
+        gradient_start="#00E5FF", # Cyan
+        gradient_mid="#9D00FF",   # Vivid Purple
+        gradient_end="#39FF14",   # Neon Green
+        glow_color="#00E5FF",    # Cyan Glow
+        border_glow="#00E5FF",   # Cyan Border Glow
+        pulse_color="#00E5FF",   # Cyan Pulse
+        code_keyword="#FF5F00",   # Orange Keywords
+        code_string="#39FF14",    # Green Strings
+        code_function="#00E5FF",  # Cyan Functions
+        code_comment="#708090",   # Slate Comments
+        code_number="#9D00FF",    # Purple Numbers
+        code_operator="#FFFFFF",  # White Operators
+        code_class="#00E5FF",     # Cyan Classes
+        code_variable="#B0BEC5",  # Blue-Grey Vars
+        diff_added="#39FF14",     # Neon Green Added
+        diff_added_bg="#0A2E18",  # Dark Green BG
+        diff_removed="#FF3355",   # Red Removed
+        diff_removed_bg="#2E0A1A", # Dark Red BG
+        border_default="#708090", # Slate Border
+        border_focus="#00E5FF",   # Cyan Focus
+        border_success="#39FF14", # Green Success
+        text_dim="#606060",       # Dim Grey
+        border_dim="#404040",     # Dim Border
+        # Special HCode Palette extras
+        code_constant="#9D00FF",  # Purple Constants
+        code_parameter="#FF5F00", # Orange Parameters
     ),
 }
 
@@ -391,6 +403,7 @@ class ThemeEngine:
                 "text.secondary": Style(color=p.text_secondary),
                 "text.glow": Style(color=p.text_glow, bold=True),
                 "text.highlight": Style(color=p.text_highlight, bold=True),
+                "text.dim": Style(color=p.text_dim),
                 # ═══════════════════════════════════════════════════════
                 # UI ELEMENTS
                 # ═══════════════════════════════════════════════════════
@@ -436,6 +449,7 @@ class ThemeEngine:
                 "border": Style(color=p.border_default),
                 "border.focus": Style(color=p.border_focus, bold=True),
                 "border.glow": Style(color=p.border_glow, bold=True),
+                "border.dim": Style(color=p.border_dim),
                 # ═══════════════════════════════════════════════════════
                 # GRADIENT SIMULATION
                 # ═══════════════════════════════════════════════════════
@@ -447,6 +461,14 @@ class ThemeEngine:
                 # ═══════════════════════════════════════════════════════
                 "glow": Style(color=p.glow_color, bold=True),
                 "pulse": Style(color=p.pulse_color, bold=True),
+                # ═══════════════════════════════════════════════════════
+                # THINKING BLOCK STYLES
+                # ═══════════════════════════════════════════════════════
+                "thinking.gutter": Style(color=p.primary, bold=True),
+                "thinking.title": Style(color=p.text_primary, bold=True),
+                "thinking.content": Style(color=p.text_secondary),
+                "thinking.metadata": Style(color=p.text_muted, italic=True),
+                "thinking.spinner": Style(color=p.accent, bold=True),
             }
         )
 

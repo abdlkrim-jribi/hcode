@@ -98,6 +98,9 @@ class ExecutionPhaseHandler(BasePhaseHandler):
 
         # File read cache to avoid redundant operations
         self._file_cache = {}  # path -> (content, timestamp)
+
+        # Track files already read this session to prevent unnecessary re-reads
+        self._files_read_this_session = set()  # Set of file paths already read
         self._cache_ttl = 60  # seconds
 
         # GPT OSS 120B specific tracking
@@ -264,7 +267,6 @@ class ExecutionPhaseHandler(BasePhaseHandler):
             response_text = ""
 
             if self.provider is not None:
-                self._display("Executing implementation...", style="info")
                 if step_info:
                     self._display(step_info, style="thinking")
 
@@ -535,11 +537,17 @@ class ExecutionPhaseHandler(BasePhaseHandler):
 
         Focuses on reasoning QUALITY and bridge thinking between steps,
         not template filling. The agent must explain WHY at every step.
+        MINIMUM 50 WORDS per thinking block.
         """
         return """### DEEP REASONING PROTOCOL
 
 You MUST produce substantial, genuine reasoning between every tool call.
 Use `<thinking>` for reasoning and `<output>` for tool calls.
+
+**CRITICAL REQUIREMENT: MINIMUM 50 WORDS PER THINKING BLOCK**
+
+Each `<thinking>` block MUST contain AT LEAST 50 words of deep reasoning.
+Count your words - if under 50, you MUST expand your reasoning.
 
 **MANDATORY: Bridge Reasoning After Every Tool Result**
 
@@ -547,27 +555,41 @@ After receiving tool results, BEFORE your next action, you MUST:
 1. **Synthesize**: What did you learn? What was surprising or confirming?
 2. **Connect**: How does this relate to your current task and the plan?
 3. **Decide**: What's the next action and WHY? What question does it answer?
+4. **Anticipate**: What do you expect to see? What could go wrong?
+5. **Trace**: How does this fit into the overall implementation flow?
 
 **SHALLOW THINKING IS FORBIDDEN.** Do not write:
-- "Reading file X" → tool call (too shallow)
+- "Reading file X" → tool call (too shallow, < 50 words)
 - "Now I will edit the file" → tool call (no reasoning)
 - Template checklists filled with "yes/no" (no genuine analysis)
 
-**DEEP THINKING IS REQUIRED.** Write:
-- What you expect to find and why
+**DEEP THINKING IS REQUIRED (50+ words).** Write:
+- What you expect to find and why (multiple sentences)
 - What you actually found (with evidence citations)
-- How this changes or confirms your approach
-- What risks or side effects you've identified
+- How this changes or confirms your approach (detailed analysis)
+- What risks or side effects you've identified (thorough consideration)
+- Alternative approaches you considered and rejected (with reasoning)
+- How this step connects to previous and future steps (context)
 
 **Format:**
 ```
 <thinking>
-[2-6 sentences of genuine reasoning about current state, what you learned,
- and why you're taking the next action. Cite evidence: [Evidence: file:line]]
+[MINIMUM 50 WORDS of genuine reasoning about current state, what you learned,
+ why you're taking the next action, what you expect, what could go wrong,
+ how this fits the overall plan. Cite evidence: [Evidence: file:line]]
+
+Example length: "I need to read the configuration file because [reason].
+I expect to find [expectation] based on [evidence]. This will inform my next
+decision about [future action]. The plan specifies [plan requirement], which
+means I should look for [specific details]. If I find [scenario A], I will
+[action A] because [reasoning]. If instead [scenario B], then [action B]
+makes more sense because [reasoning]. This step is critical because
+[importance]. Related files might include [related files] which could
+affect [potential impact]." <- This is ~50 words.
 </thinking>
 
 <output>
-[Brief explanation of action]
+[BRIEF 1-sentence description - NO JSON shown to user]
 {"tool": "ToolName", "arguments": {"param": "value"}}
 </output>
 ```
@@ -681,11 +703,14 @@ After receiving tool results, BEFORE your next action, you MUST:
         """
         Execution-phase tool executor.
 
-        Delegates entirely to the parent implementation. The Edit tool itself
-        provides helpful error messages with file context when edits fail.
-        Only adds cache invalidation for subsequent reads.
+        Delegates entirely to the parent implementation. Tool execution
+        status messages are shown (e.g., "[>] Read: file.py").
+        Thinking blocks are displayed before tool execution.
+        The Edit tool itself provides helpful error messages with file
+        context when edits fail. Only adds cache invalidation for
+        subsequent reads.
         """
-        results = await super()._execute_tools(tool_calls, context)
+        results = await super()._execute_tools(tool_calls, context, silent=False)
 
         # Post-processing: invalidate cache when files are modified
         for result in results:
@@ -980,7 +1005,13 @@ Execute the implementation plan one task at a time: Phase 0 (select) → 1 (anal
 - Glob first → Read → then Write/Edit. Never invent filenames.
 - THINK deeply between every tool call — explain what you learned and why you're taking the next action.
 
-BEGIN Phase 0: Read `.hcode/task.md`, find the next unchecked task, understand it from the plan, mark it `[/]`, then proceed."""
+BEGIN Phase 0:
+1. Read `.hcode/task.md` to see CURRENT state of all tasks
+2. Find next task to work on:
+   - If you see a task with `[/]` (in-progress), continue working on it (skip to step 4)
+   - If no `[/]` tasks, find first `[ ]` (unchecked) task
+3. ONLY if task is currently `[ ]`: Mark it as `[/]` via Edit
+4. Understand the task from the plan, then proceed to Phase 1."""
 
     # ═══════════════════════════════════════════════════════════════════════
     # CONTINUATION PROMPTS (Phase-Aware Steering - GPT OSS Optimized)
@@ -1227,7 +1258,8 @@ BEGIN Phase 0: Read `.hcode/task.md`, find the next unchecked task, understand i
         if 'edit_mismatch' in error_types:
             return (
                 "Edit failed: old_string not found in file. "
-                "Re-read the file, copy exact text (with whitespace), then retry."
+                "Read the file to see CURRENT content, verify what state it's in, "
+                "then use exact text from the file."
             )
 
         return (
@@ -1247,11 +1279,12 @@ BEGIN Phase 0: Read `.hcode/task.md`, find the next unchecked task, understand i
 
         if task_edits == 0:
             return (
-                "You haven't started yet. Read `.hcode/task.md` to find the next "
-                "unchecked task, then read `.hcode/implementation_plan.md` to understand "
-                "what it requires. Mark the task `[/]` before proceeding.\n\n"
-                "THINK: What does this task involve? What files will it touch? "
-                "What's your approach?"
+                "You haven't started yet. Read `.hcode/task.md` to see CURRENT task states.\n\n"
+                "Find next task:\n"
+                "- If you see `[/]` (in-progress), continue with that task (skip to Phase 1)\n"
+                "- If no `[/]`, find first `[ ]` (unchecked) and mark it `[/]`\n\n"
+                "ONLY mark a task if it's currently `[ ]`. If already `[/]`, just continue.\n\n"
+                "THINK: What does this task involve? What files will it touch?"
             )
 
         return (
@@ -1352,10 +1385,11 @@ BEGIN Phase 0: Read `.hcode/task.md`, find the next unchecked task, understand i
 
         return (
             "Implementation looks done. Now VALIDATE before marking complete:\n\n"
-            "1. Re-read modified files — does the final code look correct?\n"
+            "1. **Review** the code (mentally) — does the final code look correct?\n"
             "2. Mental trace — walk through with a test input\n"
             "3. Plan check — did you cover everything the plan asked for?\n"
-            "4. Mark `[x]` in `.hcode/task.md` only if confident"
+            "4. Mark `[x]` in `.hcode/task.md` only if confident\n\n"
+            "⚠️  Do NOT re-read files you already read — review from memory."
         )
 
     def _phase3_continuation(
@@ -1372,7 +1406,7 @@ BEGIN Phase 0: Read `.hcode/task.md`, find the next unchecked task, understand i
         if task_edit_count == 1:
             return (
                 "Validate before marking complete:\n\n"
-                "1. Re-read each modified file — is the code correct?\n"
+                "1. **Review** the code you wrote (mentally, from memory) — is it correct?\n"
                 "2. Mental trace with sample input — does execution flow correctly?\n"
                 "3. Check plan compliance — did you implement everything asked?\n"
                 "4. If any deliverable is missing, keep task as [/]\n\n"

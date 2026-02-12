@@ -1027,14 +1027,13 @@ Status: Reads: {read_count}, Globs: {glob_count}, Greps: {grep_count}"""
             tool_results: List[Dict[str, Any]] = []
 
             if self.provider is not None:
-                self._display("Planning (5-Phase Protocol)...", style="info")
 
                 if self._hcode_display:
                     self._hcode_display.start_thinking()
 
-                # Use base loop (Phase-aware due to _build_continuation_prompt override)
-                response, tool_results = await self._generate_and_execute(
-                    prompt=unified_prompt,
+                # Use planning-specific loop with completion check
+                response, tool_results = await self._run_planning_loop(
+                    unified_prompt=unified_prompt,
                     context=context,
                     system_prompt=self._get_planning_system_prompt(context),
                     max_rounds=self.MAX_ROUNDS,

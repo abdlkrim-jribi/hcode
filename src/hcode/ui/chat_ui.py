@@ -234,14 +234,22 @@ class ChatInterface:
         self.console.print(text)
 
     def get_input_prompt(self, label: str = "You") -> Text:
-        """Get styled input prompt text."""
+        """Get styled input prompt text (Floating Input)."""
         palette = get_palette()
-
+        from hcode.ui.icons import Icons
+        icons = Icons()
+        
         text = Text()
-        text.append("◆ ", style=f"bold {palette.secondary}")
-        text.append(f"{label} ", style=f"bold {palette.primary}")
-        text.append("› ", style=palette.primary)
-
+        # Lambda icon in Cyan
+        text.append(f"{icons.PROMPT_LAMBDA} ", style=f"bold {palette.primary}")
+        
+        # We can drop the label for a cleaner look or keep it minimal
+        # Design spec: "Prefix: A colored lambda λ"
+        # Let's keep label but make it subtle if needed, or just Lambda?
+        # "Floating Input: For User Ask, characterized by a colored prefix (λ) and an underlined input area."
+        # Use Lambda + Label for clarity
+        text.append(f"{label} ", style=f"bold {palette.secondary}")
+        
         return text
 
     def clear(self) -> None:

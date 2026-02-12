@@ -17,10 +17,15 @@ Features:
 
 import os
 import sys
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List, Tuple
 
-from rich.console import Console
+from rich.console import Console, Group
 from rich.markup import escape
+from rich.panel import Panel
+from rich.syntax import Syntax
+from rich.text import Text
+from rich.align import Align
+from rich import box
 
 # Import output handler for smart truncation
 from hcode.core.response.output_handler import (
@@ -42,6 +47,34 @@ _output_handler = OutputHandler(
     max_lines=300,  # Max lines before truncation (increased from 50)
     max_line_length=500,  # Max chars per line (increased from 200)
 )
+
+# ============================================================
+# PYGMENTS STYLE
+# ============================================================
+from pygments.style import Style
+from pygments.token import Token, Keyword, Name, Comment, String, Error, Number, Operator, Generic
+
+class HcodeSyntaxTheme(Style):
+    """Custom Pygments style matching Hcode Neon Green theme."""
+    default_style = ""
+    styles = {
+        Token:                "#CCCCCC", # text_dim
+        Comment:              "#3D9140 italic", # code_comment
+        Keyword:              "#39FF14 bold", # code_keyword (Neon Green)
+        Keyword.Type:         "#00FF88", # code_class
+        Name:                 "#FFFFFF", # text_primary
+        Name.Function:        "#00FF7F", # code_function
+        Name.Class:           "#00FF88 bold", # code_class
+        Name.Builtin:         "#00FFAA", # code_number (Cyan-green)
+        String:               "#7FFF00", # code_string (Yellow-green)
+        Number:               "#00FFAA", # code_number
+        Operator:             "#39FF14", # code_operator
+        Generic.Heading:      "#39FF14 bold", 
+        Generic.Subheading:   "#00FF88 bold",
+        Generic.Emph:         "italic",
+        Generic.Strong:       "bold",
+        Error:                "#FF3355", # error
+    }
 
 
 # ============================================================
@@ -81,8 +114,14 @@ class HcodeStyle:
         self.FILE_PATH = palette.info
         self.LINE_NUMBER = f"dim {palette.accent}"
         self.ADDED = palette.diff_added
+        self.ADDED_BG = palette.diff_added_bg
         self.REMOVED = palette.diff_removed
+        self.REMOVED_BG = palette.diff_removed_bg
         self.CONTEXT = palette.text_muted
+        
+        # Dim colors from theme
+        self.TEXT_DIM = "text.dim"
+        self.BORDER_DIM = "border.dim"
 
         # Icons from UI system
         self.ICON_READ = self._icons.FILE
@@ -96,6 +135,18 @@ class HcodeStyle:
         self.ICON_ARROW = self._icons.ARROW_RIGHT
         self.ICON_DIFF_ADD = "+"
         self.ICON_DIFF_DEL = "-"
+        
+        # HCode Design: Gutter & Tree-Lite
+        self.GUTTER = self._icons.GUTTER_BAR
+        self.ICON_FILE_CIRCLE = self._icons.ICON_FILE_CIRCLE
+        self.ICON_DIR_CIRCLE = self._icons.ICON_DIR_CIRCLE
+        self.PROMPT_LAMBDA = self._icons.PROMPT_LAMBDA
+        
+        # Gutter Colors
+        self.COLOR_READ = palette.primary        # Cyan
+        self.COLOR_WRITE = palette.success       # Green (Neon)
+        self.COLOR_EDIT = palette.code_number    # Purple
+        self.COLOR_BASH = palette.warning        # Orange
 
         # Box characters from UI system (using Borders class)
         from ..ui.icons import Borders
@@ -161,7 +212,7 @@ class HcodeToolDisplay:
             self._display_multiedit(arguments, result)
         elif tool_name_lower in ["bash"]:
             self._display_bash(arguments, result)
-        elif tool_name_lower in ["glob"]:
+        elif tool_name_lower in ["glob", "smartglob"]:
             self._display_glob(arguments, result)
         elif tool_name_lower in ["grep"]:
             self._display_grep(arguments, result)
@@ -175,56 +226,110 @@ class HcodeToolDisplay:
     # ─────────────────────────────────────────────────────────
 
     def _display_read(self, arguments: Dict[str, Any], result: Any):
-        """Display Read tool execution - Claude Code style with full-width lines"""
+        """Display Read tool execution - Status Gutter Style"""
         file_path = arguments.get("file_path", "unknown")
         from pathlib import Path
 
         # Get file extension for syntax hint
         ext = Path(file_path).suffix.lower() if file_path else ""
         lang_map = {
-            ".py": "python",
-            ".js": "javascript",
-            ".ts": "typescript",
-            ".jsx": "jsx",
-            ".tsx": "tsx",
-            ".json": "json",
-            ".yaml": "yaml",
-            ".yml": "yaml",
-            ".md": "markdown",
-            ".html": "html",
-            ".css": "css",
-            ".sh": "bash",
-            ".bash": "bash",
-            ".rs": "rust",
-            ".go": "go",
-            ".java": "java",
-            ".cpp": "cpp",
-            ".c": "c",
-            ".h": "c",
-            ".sql": "sql",
-            ".xml": "xml",
-            ".toml": "toml",
-            ".ini": "ini",
+            ".py": "python", ".js": "javascript", ".ts": "typescript",
+            ".jsx": "jsx", ".tsx": "tsx", ".json": "json",
+            ".yaml": "yaml", ".yml": "yaml", ".md": "markdown",
+            ".html": "html", ".css": "css", ".sh": "bash",
+            ".bash": "bash", ".rs": "rust", ".go": "go",
+            ".java": "java", ".cpp": "cpp", ".c": "c",
+            ".h": "c", ".sql": "sql", ".xml": "xml",
+            ".toml": "toml", ".ini": "ini",
         }
-        lang = lang_map.get(ext, "")
+        lang = lang_map.get(ext, "text")
+        
+        gutter_color = self.style.COLOR_READ
+        gutter = f"[{gutter_color}]{self.style.GUTTER}[/]"
 
         if result.success:
             content = result.output or ""
             lines = content.split("\n") if content else []
-            line_count = len(lines)
+            total_lines = len(lines)
+            
+            # 1. Header: ┃ Read path
+            self.console.print()
+            header = Text()
+            header.append(f"{self.style.GUTTER} ", style=str(gutter_color))
+            header.append("Read ", style=f"bold {gutter_color}")
+            header.append(Path(file_path).name, style="bold white")
+            try:
+                parent = Path(file_path).parent.name
+                if parent:
+                    header.append(f" ({parent}/)", style=f"{self.style.TEXT_DIM}")
+            except:
+                pass
+            self.console.print(header)
+            
+            # 2. Spacer: ┃
+            self.console.print(f"{gutter}")
 
-            # Modern neon green styled header
-            file_name = Path(file_path).name
-            self.console.print(f"\n  [bold #00FF88]◈[/bold #00FF88] [bold #39FF14]Read[/bold #39FF14] [dim]•[/dim] [{self.style.FILE_PATH}]{escape(file_path)}[/]")
-            self.console.print(f"  [dim]{line_count} lines{f' • {lang}' if lang else ''}[/dim]")
+            # 3. Content Logic
+            
+            def create_content_grid(lines_to_print, start_line_num):
+                # Use a single grid for the whole chunk to ensure alignment
+                from rich.table import Table
+                # Expand to full width to prevent squeezing
+                grid = Table.grid(padding=0, expand=True)
+                grid.add_column(style=f"dim {gutter_color}", no_wrap=True) # Gutter + Line Num
+                grid.add_column(style="white", ratio=1, no_wrap=True) # Code column takes remaining space
+                
+                for i, line_content in enumerate(lines_to_print):
+                    line_num = start_line_num + i
+                    line_num_str = f"{line_num:>4}"
+                    
+                    # Safe highlighting
+                    try:
+                        # Use Syntax for single line
+                        # word_wrap=False ensures it does not wrap to a new line.
+                        syntax = Syntax(line_content, lang, theme="monokai", line_numbers=False, word_wrap=False, code_width=None)
+                    except:
+                        syntax = escape(line_content)
+                    
+                    prefix = Text.assemble(
+                            (f"{self.style.GUTTER} ", str(gutter_color)),
+                            (f"{line_num_str} ", f"{self.style.TEXT_DIM}"),
+                            (f"│ ", f"{self.style.TEXT_DIM}")
+                    )
+                    
+                    grid.add_row(prefix, syntax)
+                
+                return grid
 
-            # Show preview for all files (not just large ones)
-            self._show_file_preview_enhanced(content, file_path, lang)
+            if total_lines <= 10:
+                self.console.print(create_content_grid(lines, 1))
+            else:
+                # Head (4 lines)
+                head_lines = lines[:4]
+                self.console.print(create_content_grid(head_lines, 1))
+                
+                # Gap
+                self.console.print(
+                     Text.assemble(
+                        (f"{self.style.GUTTER} ", str(gutter_color)),
+                        (f"   ⋮   ", f"bold {self.style.TEXT_DIM}"),
+                        (f"  {total_lines - 8} lines hidden", f"italic {self.style.TEXT_DIM}")
+                     )
+                )
+                
+                # Tail (4 lines)
+                tail_lines = lines[-4:]
+                self.console.print(create_content_grid(tail_lines, total_lines - 3))
+
+            # 4. Footer: ┃
+            self.console.print(f"{gutter}")
+            self.console.print()
+
         else:
             self.console.print(
-                f"\n  [bold red]✗ Read failed:[/bold red] [{self.style.FILE_PATH}]{file_path}[/]"
+                f"\n[{self.style.TOOL_ERROR}]┃[/] [bold red]Read failed:[/bold red] [{self.style.FILE_PATH}]{file_path}[/]"
             )
-            self.console.print(f"    [red]{escape(str(result.error))}[/red]")
+            self.console.print(f"  [red]{escape(str(result.error))}[/red]")
 
     def _show_file_preview_enhanced(
         self, content: str, file_path: str, lang: str = "", max_preview_lines: int = 25
@@ -281,58 +386,101 @@ class HcodeToolDisplay:
     # WRITE TOOL DISPLAY - Claude Code Style
     # ─────────────────────────────────────────────────────────
 
-    # ─────────────────────────────────────────────────────────
-    # WRITE TOOL DISPLAY - Claude Code Style
-    # ─────────────────────────────────────────────────────────
-
     def _display_write(self, arguments: Dict[str, Any], result: Any):
-        """Display Write tool execution - Claude Code style"""
+        """Display Write tool execution - Status Gutter Style (Green)"""
         file_path = arguments.get("file_path", "unknown")
         content = arguments.get("content", "")
         from pathlib import Path
-        from rich.markup import escape
 
-        # Get file extension for language hint
-        ext = Path(file_path).suffix.lower() if file_path else ""
-        lang_map = {
-            ".py": "python",
-            ".js": "javascript",
-            ".ts": "typescript",
-            ".json": "json",
-            ".yaml": "yaml",
-            ".yml": "yaml",
-            ".md": "markdown",
-            ".html": "html",
-            ".css": "css",
-            ".sh": "bash",
-            ".sql": "sql",
-        }
-        lang = lang_map.get(ext, "")
+        gutter_color = self.style.COLOR_WRITE
+        gutter = f"[{gutter_color}]{self.style.GUTTER}[/]"
 
         if result.success:
             lines = content.split("\n") if content else []
-            line_count = len(lines)
+            total_lines = len(lines)
             byte_count = len(content.encode("utf-8"))
+            
+            # 1. Header: ┃ Write path
+            self.console.print()
+            header = Text()
+            header.append(f"{self.style.GUTTER} ", style=str(gutter_color))
+            header.append("Write ", style=f"bold {gutter_color}")
+            header.append(Path(file_path).name, style="bold white")
+            try:
+                parent = Path(file_path).parent.name
+                if parent:
+                    header.append(f" ({parent}/)", style=f"{self.style.TEXT_DIM}")
+            except:
+                pass
+            self.console.print(header)
+            
+            # 2. Spacer
+            self.console.print(f"{gutter}")
 
-            # Modern neon green styled header
-            self.console.print(f"\n  [bold #00FF88]◈[/bold #00FF88] [bold #39FF14]Write[/bold #39FF14] [dim]•[/dim] [{self.style.FILE_PATH}]{escape(file_path)}[/]")
-            self.console.print(
-                f"  [dim]Created {line_count} lines ({byte_count} bytes){f' • {lang}' if lang else ''}[/dim]"
-            )
+            # 3. Content
+            bg_green = "green"  # or self.style.ADDED_BG? Let's use simple green for now or theme ID
+            # self.style.ADDED_BG is hex, Rich text style needs careful handling. 
+            # Reverting to explicit styling
+            
+            def print_green_line(line_content, line_num):
+                # Format: ┃   1 │ content (with green bg implication?)
+                # Actually, write output should just show it was written. 
+                # Design spec says: "Green for Write".
+                line_num_str = f"{line_num:>4}"
+                self.console.print(
+                    Text.assemble(
+                        (f"{self.style.GUTTER} ", str(gutter_color)),
+                        (f"{line_num_str} ", f"{self.style.TEXT_DIM}"),
+                        (f"│ ", f"{self.style.TEXT_DIM}"),
+                        (f"{line_content}", f"green") # Make text green to indicate create/write
+                    )
+                )
+
+            if total_lines <= 10:
+                for i, line in enumerate(lines):
+                    print_green_line(line, i + 1)
+            else:
+                # Head (4 lines)
+                for i in range(4):
+                    print_green_line(lines[i], i + 1)
+                
+                self.console.print(
+                     Text.assemble(
+                        (f"{self.style.GUTTER} ", str(gutter_color)),
+                        (f"   ⋮   ", f"bold {self.style.TEXT_DIM}"),
+                        (f"  {total_lines - 8} lines hidden", f"italic {self.style.TEXT_DIM}")
+                     )
+                )
+
+                # Tail (4 lines)
+                for i in range(total_lines - 4, total_lines):
+                    print_green_line(lines[i], i + 1)
+
+            # 4. Footer
+            self.console.print(f"{gutter}   [dim]({byte_count} bytes written)[/dim]")
+            self.console.print()
+
         else:
             self.console.print(
-                f"\n  [bold red]✗ Write failed:[/bold red] [{self.style.FILE_PATH}]{file_path}[/]"
+                f"\n[{self.style.TOOL_ERROR}]┃[/] [bold red]Write failed:[/bold red] [{self.style.FILE_PATH}]{file_path}[/]"
             )
-            # SAFE: Escape error message to prevent markup injection
-            self.console.print(f"    [red]{escape(str(result.error))}[/red]")
+            self.console.print(f"  [red]{escape(str(result.error))}[/red]")
+
+
+    # ─────────────────────────────────────────────────────────
+    # MULTI-EDIT TOOL DISPLAY
+    # ─────────────────────────────────────────────────────────
 
     # ─────────────────────────────────────────────────────────
     # MULTI-EDIT TOOL DISPLAY
     # ─────────────────────────────────────────────────────────
 
     def _display_multiedit(self, arguments: Dict[str, Any], result: Any):
-        """Display MultiEdit tool execution - Hcode style"""
+        """Display MultiEdit tool execution - Status Gutter Style"""
         file_path = arguments.get("file_path", "unknown")
+        
+        gutter_color = self.style.COLOR_EDIT
+        gutter = f"[{gutter_color}]{self.style.GUTTER}[/]"
 
         if result.success:
             metadata = result.metadata or {}
@@ -340,351 +488,319 @@ class HcodeToolDisplay:
             total_edits = metadata.get("total_edits", 0)
             total_replacements = metadata.get("total_replacements", 0)
 
-            # Parse simple diff summary if possible to colorize
-            # Expected format: "+X -Y" or similar
-            if "+" in diff_summary and "-" in diff_summary:
-                added = diff_summary.split("+")[1].split()[0]
-                removed = diff_summary.split("-")[1].strip()
-                diff_display = f"[green]+{added}[/green] [red]-{removed}[/red]"
-            else:
-                diff_display = diff_summary
+            # Header
+            self.console.print()
+            header = Text()
+            header.append(f"{self.style.GUTTER} ", style=str(gutter_color))
+            header.append("MultiEdit ", style=f"bold {gutter_color}")
+            header.append(file_path, style="bold white")
+            self.console.print(header)
+            self.console.print(f"{gutter}")
 
-            # Modern neon green styled header
-            self.console.print(f"\n  [bold #00FF88]◈[/bold #00FF88] [bold #39FF14]MultiEdit[/bold #39FF14] [dim]•[/dim] [{self.style.FILE_PATH}]{escape(file_path)}[/]")
-            self.console.print(
-                f"  [dim]Applied {total_edits} edits ({total_replacements} replacements)[/dim]"
-            )
-            if diff_display:
-                self.console.print(f"  {diff_display} lines changed")
+            # Content Info
+            info_text = Text()
+            info_text.append(f" {self.style.GUTTER} ", style=str(gutter_color))
+            info_text.append(" Applied ", style=f"{self.style.TEXT_DIM}")
+            info_text.append(f"{total_edits} edits", style="bold white")
+            info_text.append(", ", style=f"{self.style.TEXT_DIM}")
+            info_text.append(f"{total_replacements} replacements", style="bold white")
+            self.console.print(info_text)
+            
+            if diff_summary:
+                self.console.print(
+                    Text.assemble(
+                         (f" {self.style.GUTTER} ", str(gutter_color)),
+                         (f" {diff_summary}", f"{self.style.TEXT_DIM}")
+                    )
+                )
+
+            self.console.print()
 
         else:
             self.console.print(
-                f"\n  [bold red]✗ MultiEdit failed:[/bold red] [{self.style.FILE_PATH}]{file_path}[/]"
+                f"\n[{self.style.TOOL_ERROR}]┃[/] [bold red]MultiEdit failed:[/bold red] [{self.style.FILE_PATH}]{file_path}[/]"
             )
-            from rich.markup import escape
-
-            self.console.print(f"    [red]{escape(str(result.error))}[/red]")
+            self.console.print(f"  [red]{escape(str(result.error))}[/red]")
 
     # ─────────────────────────────────────────────────────────
     # EDIT TOOL DISPLAY - Claude Code Style
     # ─────────────────────────────────────────────────────────
 
     def _display_edit(self, arguments: Dict[str, Any], result: Any):
-        """Display Edit tool execution - Claude Code style with full-width diff"""
+        """Display Edit tool execution - Status Gutter Style (Purple)"""
         file_path = arguments.get("file_path", "unknown")
         old_string = arguments.get("old_string", "")
         new_string = arguments.get("new_string", "")
-        from rich.markup import escape
+        import difflib
+
+        gutter_color = self.style.COLOR_EDIT
+        gutter = f"[{gutter_color}]{self.style.GUTTER}[/]"
 
         if result.success:
-            # Calculate change statistics
-            old_lines = old_string.split("\n")
-            new_lines = new_string.split("\n")
-            lines_removed = len(old_lines)
-            lines_added = len(new_lines)
+            self.console.print()
+            header = Text()
+            header.append(f"{self.style.GUTTER} ", style=str(gutter_color))
+            header.append("Edit ", style=f"bold {gutter_color}")
+            header.append(file_path, style="bold white")
+            self.console.print(header)
+            self.console.print(f"{gutter}")
 
-            # Modern neon green styled header
-            self.console.print(f"\n  [bold #00FF88]◈[/bold #00FF88] [bold #39FF14]Edit[/bold #39FF14] [dim]•[/dim] [{self.style.FILE_PATH}]{escape(file_path)}[/]")
-            self.console.print(
-                f"  [green]+{lines_added}[/green] [red]-{lines_removed}[/red] lines changed"
-            )
+            old_lines = old_string.splitlines()
+            new_lines = new_string.splitlines()
+            
+            diff = list(difflib.unified_diff(
+                old_lines, 
+                new_lines, 
+                lineterm=""
+            ))
+            
+            # Skip header lines
+            content_diff = diff[3:] if len(diff) > 3 else []
+            
+            for line in content_diff:
+                if line.startswith("-"):
+                    # Deletion
+                     self.console.print(
+                        Text.assemble(
+                            (f"{self.style.GUTTER} ", str(gutter_color)),
+                            (f" - ", "red"),
+                            (line[1:], "dim red")
+                        )
+                    )
+                elif line.startswith("+"):
+                    # Addition
+                    self.console.print(
+                        Text.assemble(
+                            (f"{self.style.GUTTER} ", str(gutter_color)),
+                            (f" + ", "green"),
+                            (line[1:], "green")
+                        )
+                    )
+                else:
+                    # Context
+                    self.console.print(
+                        Text.assemble(
+                            (f"{self.style.GUTTER} ", str(gutter_color)),
+                            (f"   ", "dim"),
+                            (line[1:], "dim")
+                        )
+                    )
 
-            # Show full diff
-            self._show_diff_enhanced(old_string, new_string)
+            self.console.print()
+
         else:
             self.console.print(
-                f"\n  [bold red]✗ Edit failed:[/bold red] [{self.style.FILE_PATH}]{file_path}[/]"
+                f"\n[{self.style.TOOL_ERROR}]┃[/] [bold red]Edit failed:[/bold red] [{self.style.FILE_PATH}]{file_path}[/]"
             )
-            # SAFE: Escape error message to prevent markup injection
-            self.console.print(f"    [red]{escape(str(result.error))}[/red]")
+            self.console.print(f"  [red]{escape(str(result.error))}[/red]")
+            
 
-    def _show_diff_enhanced(self, old_string: str, new_string: str, max_lines: int = 20):
-        """
-        Show diff in Claude Code style - full width with smart truncation.
 
-        Features:
-        - Full terminal width for reasonable lines
-        - Smart truncation for very long lines (>100 chars)
-        - Clear visual distinction between removed and added lines
-        - Line count for large diffs
-        - Smart truncation for very large changes
-        """
-        from rich.text import Text
+    # ─────────────────────────────────────────────────────────
+    # BASH TOOL DISPLAY
+    # ─────────────────────────────────────────────────────────
 
-        old_lines = old_string.split("\n")
-        new_lines = new_string.split("\n")
-
-        self.console.print()  # spacing
-
-        def print_diff_line(prefix: str, line: str, color: str, max_width: int = 100):
-            """Print a diff line with proper truncation and no wrapping."""
-            # Truncate if needed (before any escaping)
-            if len(line) > max_width:
-                display_line = line[: max_width - 3] + "..."
-            else:
-                display_line = line
-
-            # Use Text object to avoid markup interpretation and control overflow
-            text = Text()
-            text.append("  ", style="")
-            text.append(f"{prefix} ", style=color)
-            text.append(display_line, style=color)
-            self.console.print(text, overflow="ellipsis", no_wrap=True)
-
-        # Show removed lines (red with - prefix)
-        if len(old_lines) <= max_lines:
-            for line in old_lines:
-                print_diff_line("-", line, "red")
-        else:
-            # Show first 10, then truncation, then last 5
-            for line in old_lines[:10]:
-                print_diff_line("-", line, "red")
-            omitted = len(old_lines) - 15
-            self.console.print(f"  [dim red]  ... {omitted} more lines removed ...[/dim red]")
-            for line in old_lines[-5:]:
-                print_diff_line("-", line, "red")
-
-        # Show added lines (green with + prefix)
-        if len(new_lines) <= max_lines:
-            for line in new_lines:
-                print_diff_line("+", line, "green")
-        else:
-            # Show first 10, then truncation, then last 5
-            for line in new_lines[:10]:
-                print_diff_line("+", line, "green")
-            omitted = len(new_lines) - 15
-            self.console.print(f"  [dim green]  ... {omitted} more lines added ...[/dim green]")
-            for line in new_lines[-5:]:
-                print_diff_line("+", line, "green")
-
-        self.console.print()  # spacing after
+    # ─────────────────────────────────────────────────────────
+    # BASH TOOL DISPLAY
+    # ─────────────────────────────────────────────────────────
 
     # ─────────────────────────────────────────────────────────
     # BASH TOOL DISPLAY
     # ─────────────────────────────────────────────────────────
 
     def _display_bash(self, arguments: Dict[str, Any], result: Any):
-        """Display Bash tool execution - Hcode style with output"""
+        """Display Bash tool execution - Status Gutter Style (Orange)"""
         command = arguments.get("command", "")
 
         # Truncate long commands for display
         display_cmd = command if len(command) <= 60 else command[:57] + "..."
 
-        # Modern neon green styled header for bash command
-        self.console.print(
-            f"  [bold #00FF88]◈[/bold #00FF88] [bold #39FF14]Bash[/bold #39FF14] "
-            f"[dim]•[/dim] [{self.style.TOOL_NAME}]{escape(display_cmd)}[/]"
-        )
+        gutter_color = self.style.COLOR_BASH
+        gutter = f"[{gutter_color}]{self.style.GUTTER}[/]"
 
         if result.success:
-            if result.output and result.output.strip():
-                # Show output in a box
-                self._show_bash_output(result.output)
+            output = result.output or ""
+            lines = output.split("\n")
+            total_lines = len(lines)
+            
+            # Header
+            self.console.print()
+            header = Text()
+            header.append(f"{self.style.GUTTER} ", style=str(gutter_color))
+            header.append("Bash ", style=f"bold {gutter_color}")
+            header.append(f"{display_cmd}", style="white")
+            self.console.print(header)
+            
+            self.console.print(f"{gutter}")
+            
+            def print_bash_line(line_content):
+                 self.console.print(
+                    Text.assemble(
+                        (f"{self.style.GUTTER} ", str(gutter_color)),
+                        (f"  {line_content}", f"{self.style.TEXT_DIM}")
+                    )
+                )
+
+            if not output.strip():
+                 self.console.print(
+                    Text.assemble(
+                        (f"{self.style.GUTTER} ", str(gutter_color)),
+                        (f"  (no output)", "italic dim")
+                    )
+                )
+            elif total_lines <= 10:
+                for line in lines:
+                    print_bash_line(line)
             else:
-                self.console.print(f"    [{self.style.DIM}](completed with no output)[/]")
+                # Head
+                for i in range(3):
+                    print_bash_line(lines[i])
+                
+                self.console.print(
+                     Text.assemble(
+                        (f"{self.style.GUTTER} ", str(gutter_color)),
+                        (f"   ⋮   ", f"bold {self.style.TEXT_DIM}"),
+                        (f"  {total_lines - 6} lines hidden", f"italic {self.style.TEXT_DIM}")
+                     )
+                )
+                
+                # Tail
+                for i in range(total_lines - 3, total_lines):
+                    print_bash_line(lines[i])
+            
+            self.console.print(f"{gutter}")
+            self.console.print()
+
         else:
-            # Show error with proper formatting
-            error_msg = result.error if result.error else "Command failed (no error message)"
-
-            # For multi-line errors, show them properly
-            error_lines = error_msg.strip().split("\n")
-            if len(error_lines) == 1:
-                self.console.print(f"    [{self.style.TOOL_ERROR}]Error: {escape(error_lines[0])}[/]")
-            else:
-                self.console.print(f"    [{self.style.TOOL_ERROR}]Error:[/]")
-                for line in error_lines[:5]:
-                    self.console.print(f"    [{self.style.TOOL_ERROR}]  {escape(line)}[/]")
-                if len(error_lines) > 5:
-                    self.console.print(
-                        f"    [{self.style.DIM}]... ({len(error_lines) - 5} more lines)[/]"
-                    )
-
-            # Also show stdout if present in failed commands (sometimes useful)
-            if result.output and result.output.strip() and "stdout:" in result.output:
-                self.console.print(f"    [{self.style.DIM}]Output before failure:[/]")
-                self._show_bash_output(result.output, max_lines=10)
-
-    def _show_bash_output(self, output: str, max_lines: int = 50, show_errors: bool = True):
-        """
-        Show bash output with smart truncation.
-
-        In normal mode: Minimal output, just show content directly
-        In debug mode: Full verbose output with boxes and error analysis
-
-        Features:
-        - Always shows last 5 lines (latest output)
-        - Extracts and highlights errors
-        - Preserves important lines (errors, stack traces)
-        - Intelligent middle truncation
-        """
-        # Use smart output handler
-        truncated = _output_handler.process_output(
-            output,
-            output_type=OutputType.STDOUT,
-            extract_errors=show_errors,
-            preserve_important=True,
-        )
-
-        # ═══════════════════════════════════════════════════════════════════════════
-        # NORMAL MODE: Claude Code-style minimal output
-        # ═══════════════════════════════════════════════════════════════════════════
-        if not self.debug_mode:
-            # Show output directly without boxes (Claude Code style)
-            content_lines = truncated.content.split("\n")
-
-            # Show up to 200 lines to ensure agent sees full error details
-            max_display_lines = 200
-
-            for line in content_lines[:max_display_lines]:
-                # Highlight error lines
-                if any(
-                    word in line.lower() for word in ["error", "exception", "failed", "traceback"]
-                ):
-                    self.console.print(f"    [{self.style.TOOL_ERROR}]{escape(line)}[/]")
-                else:
-                    self.console.print(f"    [{self.style.DIM}]{escape(line)}[/]")
-
-            if len(content_lines) > max_display_lines:
-                self.console.print(
-                    f"    [{self.style.DIM}]... ({len(content_lines) - max_display_lines} more lines)[/]"
-                )
-            return
-
-        # ═══════════════════════════════════════════════════════════════════════════
-        # DEBUG MODE: Full verbose output with boxes
-        # ═══════════════════════════════════════════════════════════════════════════
-
-        # Show error summary if errors found
-        if show_errors and truncated.errors_found:
-            critical_errors = [
-                e
-                for e in truncated.errors_found
-                if e.severity in (ErrorSeverity.CRITICAL, ErrorSeverity.ERROR)
-            ]
-            if critical_errors:
-                self.console.print(
-                    f"    [{self.style.TOOL_ERROR}]=== {len(critical_errors)} Error(s) Detected ===[/]"
-                )
-                for error in critical_errors[:3]:
-                    error_line = str(error)[:70]
-                    self.console.print(f"    [{self.style.TOOL_ERROR}]  {error_line}[/]")
-                    if error.suggestion:
-                        self.console.print(
-                            f"    [{self.style.DIM}]    -> {error.suggestion[:60]}[/]"
-                        )
-                if len(critical_errors) > 3:
-                    self.console.print(
-                        f"    [{self.style.DIM}]  ... and {len(critical_errors) - 3} more errors[/]"
-                    )
-                self.console.print("")
-
-        # Draw output box
-        self.console.print(f"    {self.style.BOX_TL}{self.style.BOX_H * 70}{self.style.BOX_TR}")
-
-        # Show truncation stats if truncated
-        if truncated.truncated:
-            stats_line = (
-                f"[{truncated.original_lines} lines total, showing {truncated.displayed_lines}]"
-            )
+            # Error Case
+            error_msg = result.error if result.error else "Command failed"
             self.console.print(
-                f"    {self.style.BOX_V} [{self.style.DIM}]{stats_line:<68}[/] {self.style.BOX_V}"
+                f"\n[{self.style.TOOL_ERROR}]┃[/] [bold red]Bash failed:[/bold red] [{self.style.TOOL_NAME}]{display_cmd}[/]"
             )
-            self.console.print(f"    {self.style.BOX_V}{' ' * 70}{self.style.BOX_V}")
+            self.console.print(f"  [red]{escape(str(error_msg))}[/red]")
 
-        # Display the processed content
-        content_lines = truncated.content.split("\n")
-        for line in content_lines:
-            # Determine line style based on content
-            line_style = self.style.DIM
-
-            # Highlight error lines
-            if any(word in line.lower() for word in ["error", "exception", "failed", "traceback"]):
-                line_style = self.style.TOOL_ERROR
-            # Highlight "latest lines" section header
-            elif line.startswith("--- Latest"):
-                line_style = "bold cyan"
-            # Highlight omission indicator
-            elif line.startswith("...") and "omitted" in line:
-                line_style = "yellow"
-
-            # Truncate long lines for display
-            display_line = line[:68] if len(line) <= 68 else line[:65] + "..."
-
-            self.console.print(
-                f"    {self.style.BOX_V} [{line_style}]{escape(display_line):<68}[/] {self.style.BOX_V}"
-            )
-
-        self.console.print(f"    {self.style.BOX_BL}{self.style.BOX_H * 70}{self.style.BOX_BR}")
-
-        # Show stack trace indicator
-        if truncated.has_stack_trace:
-            self.console.print(f"    [{self.style.DIM}][Stack trace detected in output][/]")
+    # ─────────────────────────────────────────────────────────
+    # GLOB TOOL DISPLAY
+    # ─────────────────────────────────────────────────────────
 
     # ─────────────────────────────────────────────────────────
     # GLOB TOOL DISPLAY
     # ─────────────────────────────────────────────────────────
 
     def _display_glob(self, arguments: Dict[str, Any], result: Any):
-        """Display Glob tool execution - Hcode style"""
+        """Display Glob tool execution - Tree-Lite Style"""
         pattern = arguments.get("pattern", "*")
         path = arguments.get("path", ".")
 
         if result.success:
-            files = result.output.strip().split("\n") if result.output else []
-            file_count = len([f for f in files if f.strip()])
+            # Check for SmartGlob metadata first
+            metadata = getattr(result, "metadata", {}) or {}
+            if metadata.get("files") is not None:
+                files = metadata.get("files", [])
+            else:
+                files = result.output.strip().split("\n") if result.output else []
+                files = [f.strip() for f in files if f.strip()]
+            
+            # Header
+            self.console.print()
+            header = Text()
+            header.append("Files in ", style=f"{self.style.TEXT_DIM}")
+            header.append(f"{path}", style="bold white")
+            header.append(f" (pattern: {pattern})", style="dim cyan")
+            self.console.print(header)
 
-            self.console.print(
-                f"  {self.style.ICON_GLOB} [bold]Glob[/bold] "
-                f"[{self.style.TOOL_NAME}]{escape(pattern)}[/] "
-                f"[{self.style.DIM}]in {escape(path)}[/] "
-                f"[{self.style.DIM}]({file_count} files)[/]"
-            )
+            display_files = []
+            
+            for f in files:
+                # Determine icon based on simple heuristic or metadata if available
+                # Logic: if ends with /, it is dir.
+                is_dir = f.endswith("/") or f.endswith("\\")
+                
+                icon = self.style.ICON_DIR_CIRCLE if is_dir else self.style.ICON_FILE_CIRCLE
+                color = "cyan" if is_dir else "white"
+                
+                display_files.append((icon, f, color))
 
-            # Show first few files
-            if files and file_count > 0:
-                for f in files[:5]:
-                    if f.strip():
-                        self.console.print(f"    [{self.style.DIM}]{escape(f)}[/]")
-                if file_count > 5:
-                    self.console.print(f"    [{self.style.DIM}]... and {file_count - 5} more[/]")
+            self._display_tree_lite_results(display_files, "No files found")
+            
         else:
             self.console.print(
                 f"  [{self.style.TOOL_ERROR}]{self.style.ICON_ERROR}[/] "
                 f"[bold]Glob[/bold] [{self.style.TOOL_NAME}]{escape(pattern)}[/] "
                 f"[{self.style.TOOL_ERROR}]failed: {escape(str(result.error))}[/]"
             )
+            
+    def _display_tree_lite_results(self, items: List[Tuple[str, str, str]], empty_text: str = "No items found"):
+        """Display a list of items in Tree-Lite style."""
+        total_items = len(items)
+        
+        if total_items == 0:
+             self.console.print(f"  [italic dim]{empty_text}[/italic dim]")
+             self.console.print()
+             return
+
+        def print_item(item):
+            icon, text, color = item
+            self.console.print(
+                 Text.assemble(
+                    (f"{icon} ", f"{color}"),
+                    (f"{text}", f"{color} dim" if color == "cyan" else f"{self.style.TEXT_DIM}")
+                 )
+            )
+
+        if total_items <= 15:
+            for item in items:
+                print_item(item)
+        else:
+            # Show first 10 and last 5
+            head = items[:10]
+            tail = items[-5:]
+            hidden = total_items - 15
+            
+            for item in head:
+                print_item(item)
+                
+            self.console.print(f"  ... {hidden} more items ...", style="italic dim")
+            
+            for item in tail:
+                print_item(item)
+        
+        self.console.print()
+
+    # ─────────────────────────────────────────────────────────
+    # GREP TOOL DISPLAY
+    # ─────────────────────────────────────────────────────────
 
     # ─────────────────────────────────────────────────────────
     # GREP TOOL DISPLAY
     # ─────────────────────────────────────────────────────────
 
     def _display_grep(self, arguments: Dict[str, Any], result: Any):
-        """Display Grep tool execution - Hcode style with smart output handling"""
+        """Display Grep tool execution - Tree-Lite Style"""
         pattern = arguments.get("pattern", "")
         path = arguments.get("path", ".")
 
         if result.success:
             output = result.output.strip() if result.output else ""
             matches = output.split("\n") if output else []
-            match_count = len([m for m in matches if m.strip()])
+            matches = [m.strip() for m in matches if m.strip()]
+            
+            # Header
+            self.console.print()
+            header = Text()
+            header.append("Grep matches in ", style=f"{self.style.TEXT_DIM}")
+            header.append(f"{path}", style="bold white")
+            header.append(f" (pattern: {pattern})", style="dim cyan")
+            self.console.print(header)
 
-            self.console.print(
-                f"  {self.style.ICON_GREP} [bold]Grep[/bold] "
-                f"[{self.style.TOOL_NAME}]{escape(pattern)}[/] "
-                f"[{self.style.DIM}]({match_count} matches)[/]"
-            )
+            display_items = []
+            for m in matches:
+                # Grep match format usually "file:line:content" or just "file"
+                # Use simplified icon
+                display_items.append((self.style.ICON_FILE_CIRCLE, m, "white"))
 
-            # Use smart truncation for large results
-            if match_count > 20:
-                self._show_grep_output(output, pattern, match_count)
-            elif matches and match_count > 0:
-                # Show first few matches for smaller results
-                for m in matches[:10]:
-                    if m.strip():
-                        display = m[:80] + "..." if len(m) > 80 else m
-                        self.console.print(f"    [{self.style.DIM}]{escape(display)}[/]")
-                if match_count > 10:
-                    self.console.print(f"    [{self.style.DIM}]... and {match_count - 10} more[/]")
+            self._display_tree_lite_results(display_items, "No matches found")
+
         else:
             self.console.print(
                 f"  [{self.style.TOOL_ERROR}]{self.style.ICON_ERROR}[/] "
@@ -692,78 +808,74 @@ class HcodeToolDisplay:
                 f"[{self.style.TOOL_ERROR}]failed: {escape(str(result.error))}[/]"
             )
 
-    def _show_grep_output(self, output: str, pattern: str, total_matches: int):
-        """
-        Show grep output with smart truncation.
 
-        Features:
-        - Shows first matches
-        - Shows last 5 matches (latest)
-        - Highlights matched pattern
-        """
-        truncated = _output_handler.process_output(
-            output,
-            output_type=OutputType.STDOUT,
-            extract_errors=False,
-            preserve_important=False,
-        )
 
-        self.console.print(f"    [{self.style.DIM}][{total_matches} matches - showing preview][/]")
-
-        # Draw results box
-        self.console.print(f"    {self.style.BOX_TL}{self.style.BOX_H * 70}{self.style.BOX_TR}")
-
-        result_lines = truncated.content.split("\n")
-        for line in result_lines[:25]:  # Limit display
-            # Highlight pattern matches
-            if pattern.lower() in line.lower():
-                line_style = "bold"
-            elif line.startswith("---") or line.startswith("..."):
-                line_style = "yellow"
-            else:
-                line_style = self.style.DIM
-
-            display_line = line[:68] if len(line) <= 68 else line[:65] + "..."
-            self.console.print(
-                f"    {self.style.BOX_V} [{line_style}]{display_line:<68}[/] {self.style.BOX_V}"
-            )
-
-        if len(result_lines) > 25:
-            self.console.print(
-                f"    {self.style.BOX_V} [{self.style.DIM}]{'... (more matches available)':<68}[/] {self.style.BOX_V}"
-            )
-
-        self.console.print(f"    {self.style.BOX_BL}{self.style.BOX_H * 70}{self.style.BOX_BR}")
+    # ─────────────────────────────────────────────────────────
+    # LS TOOL DISPLAY
+    # ─────────────────────────────────────────────────────────
 
     # ─────────────────────────────────────────────────────────
     # LS TOOL DISPLAY
     # ─────────────────────────────────────────────────────────
 
     def _display_ls(self, arguments: Dict[str, Any], result: Any):
-        """Display LS tool execution - Hcode style"""
+        """Display LS tool execution - Tree-Lite Style"""
         path = arguments.get("path", ".")
 
         if result.success:
             items = result.output.strip().split("\n") if result.output else []
-            item_count = len([i for i in items if i.strip()])
+            items = [i.strip() for i in items if i.strip()]
+            
+            # Header
+            self.console.print()
+            header = Text()
+            header.append("Files in ", style=f"{self.style.TEXT_DIM}")
+            header.append(f"{path}", style="bold white")
+            self.console.print(header)
 
-            self.console.print(
-                f"  {self._icons.FOLDER} [bold]Listed[/bold] "
-                f"[{self.style.FILE_PATH}]{escape(path)}[/] "
-                f"[{self.style.DIM}]({item_count} items)[/]"
-            )
+            display_items = []
+            
+            for f in items:
+                # Basic heuristic for LS output (usually doesn't have trailing slash in simple list)
+                # But we can try to guess or just use Generic File
+                # If we want to be smart, we'd need to check file system, but that's expensive.
+                # Let's check if it ends with / 
+                is_dir = f.endswith("/") or f.endswith("\\")
+                icon = self.style.ICON_DIR_CIRCLE if is_dir else self.style.ICON_FILE_CIRCLE
+                color = "cyan" if is_dir else "white"
+                
+                display_items.append((icon, f, color))
 
-            # Show first few items
-            if items and item_count > 0:
-                for item in items[:8]:
-                    if item.strip():
-                        self.console.print(f"    [{self.style.DIM}]{escape(item)}[/]")
-                if item_count > 8:
-                    self.console.print(f"    [{self.style.DIM}]... and {item_count - 8} more[/]")
+            self._display_tree_lite_results(display_items, "Empty directory")
+
         else:
             self.console.print(
                 f"  [{self.style.TOOL_ERROR}]{self.style.ICON_ERROR}[/] "
                 f"[bold]LS[/bold] [{self.style.FILE_PATH}]{path}[/] "
+                f"[{self.style.TOOL_ERROR}]failed: {escape(str(result.error))}[/]"
+            )
+
+    # ─────────────────────────────────────────────────────────
+    # GENERIC TOOL DISPLAY
+    # ─────────────────────────────────────────────────────────
+
+    def _display_generic(self, tool_name: str, arguments: Dict[str, Any], result: Any):
+        """Display generic tool execution"""
+        if result.success:
+            self.console.print(
+                f"  [{self.style.TOOL_SUCCESS}]{self.style.ICON_SUCCESS}[/] "
+                f"[bold]{tool_name}[/bold] "
+                f"[{self.style.DIM}]completed[/]"
+            )
+
+            # Show brief output if available
+            if result.output:
+                preview = result.output[:100] + "..." if len(result.output) > 100 else result.output
+                self.console.print(f"    [{self.style.DIM}]{escape(preview)}[/]")
+        else:
+            self.console.print(
+                f"  [{self.style.TOOL_ERROR}]{self.style.ICON_ERROR}[/] "
+                f"[bold]{tool_name}[/bold] "
                 f"[{self.style.TOOL_ERROR}]failed: {escape(str(result.error))}[/]"
             )
 

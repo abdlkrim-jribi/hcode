@@ -195,8 +195,10 @@ class ConfirmationDisplay:
                  from hcode.ui.icons import Icons
                  folder_icon = Icons.FOLDER
             except ImportError:
-                 folder_icon = "D"
-            content.append(f"\n\n{folder_icon} Directory: {working_dir}", style="dim")
+                 folder_icon = "📁"
+            content.append(f"\n\n{folder_icon} ", style="dim grey")
+            content.append(f"Directory: ", style="dim white")
+            content.append(working_dir, style="dim grey italic")
         
         self.console.print()
         # Import Icons locally to avoid circular import at top level
@@ -206,10 +208,17 @@ class ConfirmationDisplay:
         except ImportError:
             icon = "⚡"
 
+        # Truncate command for title
+        display_cmd = command if len(command) <= 50 else command[:47] + "..."
+        
+        from rich import box
+        
         self.console.print(Panel(
             content,
-            title=f"[bold cyan]{icon} Run Command[/bold cyan]",
-            border_style="yellow",
+            title=f"[bold white]{icon} Bash[/bold white] [dim white]{display_cmd}[/]",
+            title_align="left",
+            border_style="dim white",
+            box=box.ROUNDED,
             padding=(1, 2)
         ))
         

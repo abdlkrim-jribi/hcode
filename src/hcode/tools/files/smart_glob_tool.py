@@ -151,13 +151,7 @@ Note: Automatically excludes .git, .venv, node_modules, __pycache__, etc.
                 output = f"Found {len(matches)} file(s) matching '{final_pattern}', but all were excluded by filters (e.g., __pycache__, .venv, etc.)\\n\\n"
                 output += "Try a more specific pattern or search in a different directory."
 
-            # Display with Hcode UI
-            try:
-                from hcode.ui.hcode_display import get_hcode_display
-                display = get_hcode_display()
-                display.display_tool_result("SmartGlob", output, "success")
-            except ImportError:
-                pass
+
 
             return ToolResult(
                 success=True,
@@ -168,6 +162,7 @@ Note: Automatically excludes .git, .venv, node_modules, __pycache__, etc.
                     "filtered_matches": len(filtered),
                     "was_truncated": was_truncated,
                     "excluded_count": len(matches) - len(filtered),
+                    "files": [str(p) for p in filtered]
                 }
             )
 

@@ -467,23 +467,9 @@ def chat_mode(provider, session, show_todos, debug, autonomous):
     reasoning_runner = create_chat_reasoning_runner(console=console)
     reasoning_runner.show_todos = True  # Always show todos
 
-    # Show modern info panel for chat tips
-    info_panel = InfoPanel(
-        title="Interactive Chat Mode",
-        content=(
-            f"{icons.INFO} Tips:\n"
-            "  • Type naturally, Hcode understands context\n"
-            "  • Use /commands for special actions (Tab to autocomplete)\n"
-            "  • Press Ctrl+C to interrupt, /exit to quit\n"
-            "  • Responses stream in real-time\n\n"
-            f"{icons.LIGHTNING} Shortcuts:\n"
-            "  • Tab: Autocomplete commands & suggestions\n"
-            "  • Ctrl+Space: Show all suggestions\n"
-            "  • ↑/↓: Navigate history & suggestions\n"
-            "  • /todos: Toggle task progress display"
-        ),
-    )
-    console.print(info_panel.render())
+    # Show modern welcome/help
+    from hcode.ui.banners import display_welcome_help
+    display_welcome_help(console)
 
     # Create smart prompt with autocomplete
     hcode_prompt = create_hcode_prompt()

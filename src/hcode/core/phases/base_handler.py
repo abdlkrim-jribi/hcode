@@ -311,12 +311,59 @@ CRITICAL RULES:
             self._display(f"Failed to generate response: {e}", style="error")
             return f"[Error generating response: {e}]"
 
+    def _display_thinking_blocks(self, response: str) -> None:
+        """
+        Extract and display thinking blocks from AI response.
+
+        Shows <thinking> content ONLY. Does not display JSON tool calls
+        as they are shown by the tool executor instead.
+
+        Handles both closed and unclosed thinking tags.
+
+        Args:
+            response: Full AI response text
+        """
+        if not response:
+            return
+
+        # Extract and display all complete <thinking>...</thinking> blocks
+        thinking_pattern = r'<thinking>(.*?)</thinking>'
+        thinking_matches = re.findall(thinking_pattern, response, re.DOTALL | re.IGNORECASE)
+
+        for thinking_content in thinking_matches:
+            thinking_text = thinking_content.strip()
+            if thinking_text and len(thinking_text) > 10:
+                # Display thinking block with distinctive styling
+                if self._hcode_display:
+                    self._hcode_display.display_thinking_block(thinking_text)
+                else:
+                    self._display("\n💭 Thinking:", style="info")
+                    self._display(thinking_text, style="thinking")
+
+        # Handle unclosed <thinking> tags (extract until next tag or end)
+        if not thinking_matches:
+            unclosed_pattern = r'<thinking>\s*(.+?)(?=<output>|<thinking>|$)'
+            unclosed_matches = re.findall(unclosed_pattern, response, re.DOTALL | re.IGNORECASE)
+
+            for thinking_content in unclosed_matches:
+                thinking_text = thinking_content.strip()
+                if thinking_text and len(thinking_text) > 10:
+                    logger.debug("Found unclosed <thinking> tag, extracting content")
+                    # Display thinking block with distinctive styling
+                    if self._hcode_display:
+                        self._hcode_display.display_thinking_block(thinking_text)
+                    else:
+                        self._display("\n💭 Thinking:", style="info")
+                        self._display(thinking_text, style="thinking")
+
     def _extract_text_response(self, response: str) -> str:
         """
         Extract text portions from response (excluding JSON tool calls).
 
         Removes code blocks (which contain tool calls) and thinking/analysis
         tags, keeping only the conversational text.
+
+        Handles both closed and unclosed tags.
 
         Args:
             response: Full AI response text
@@ -330,11 +377,20 @@ CRITICAL RULES:
         # Remove all ```...``` code blocks (tool calls live in these)
         text = re.sub(r'```[^\n]*\n?.*?```', '', response, flags=re.DOTALL)
 
-        # Remove <thinking>...</thinking> blocks
-        text = re.sub(r'<thinking>.*?</thinking>', '', text, flags=re.DOTALL)
+        # Remove complete <thinking>...</thinking> blocks
+        text = re.sub(r'<thinking>.*?</thinking>', '', text, flags=re.DOTALL | re.IGNORECASE)
+
+        # Remove unclosed <thinking> tags (everything from <thinking> to next tag or end)
+        text = re.sub(r'<thinking>.*?(?=<output>|<thinking>|$)', '', text, flags=re.DOTALL | re.IGNORECASE)
 
         # Remove <analysis>...</analysis> blocks
-        text = re.sub(r'<analysis>.*?</analysis>', '', text, flags=re.DOTALL)
+        text = re.sub(r'<analysis>.*?</analysis>', '', text, flags=re.DOTALL | re.IGNORECASE)
+
+        # Remove complete <output>...</output> blocks
+        text = re.sub(r'<output>.*?</output>', '', text, flags=re.DOTALL | re.IGNORECASE)
+
+        # Remove unclosed <output> tags (everything from <output> to end)
+        text = re.sub(r'<output>.*$', '', text, flags=re.DOTALL | re.IGNORECASE)
 
         # Clean up multiple newlines
         text = re.sub(r'\n{3,}', '\n\n', text)
@@ -362,6 +418,7 @@ CRITICAL RULES:
         tool_calls = []
 
         # Try 1: Extract from <output> tags (GPT-OSS 120B format)
+        # First try complete <output>...</output> blocks
         output_match = re.search(r'<output>(.*?)</output>', response, re.DOTALL)
         if output_match:
             output_content = output_match.group(1)
@@ -383,6 +440,38 @@ CRITICAL RULES:
                     continue
             if tool_calls:
                 logger.debug(f"Extracted {len(tool_calls)} tool calls from <output> tags")
+                return self._validate_tool_calls(tool_calls)
+
+        # Try 1b: Handle unclosed <output> tags
+        # Look for <output> without closing tag and extract everything after it
+        unclosed_match = re.search(r'<output>\s*(.+?)(?=<thinking>|<output>|$)', response, re.DOTALL)
+        if unclosed_match:
+            output_content = unclosed_match.group(1)
+            logger.debug("Found unclosed <output> tag, extracting content")
+            # Look for JSON in code blocks within output
+            code_block_pattern = r'```(?:json)?\s*\n?(.*?)\n?\s*```'
+            matches = re.findall(code_block_pattern, output_content, re.DOTALL)
+            for match in matches:
+                match = match.strip()
+                if not match or not match.startswith('{'):
+                    continue
+                try:
+                    parsed = json.loads(match)
+                    if isinstance(parsed, dict) and "tool" in parsed:
+                        tool_calls.append({
+                            "tool": parsed.get("tool"),
+                            "arguments": parsed.get("arguments", parsed.get("parameters", {}))
+                        })
+                except json.JSONDecodeError:
+                    continue
+
+            # Also try inline JSON without code blocks
+            if not tool_calls:
+                inline_tools = self._extract_inline_json_tools(output_content)
+                tool_calls.extend(inline_tools)
+
+            if tool_calls:
+                logger.debug(f"Extracted {len(tool_calls)} tool calls from unclosed <output> tag")
                 return self._validate_tool_calls(tool_calls)
 
         # Try 2: Extract content from all code blocks, parse as JSON
@@ -525,6 +614,7 @@ CRITICAL RULES:
         self,
         tool_calls: List[Dict[str, Any]],
         context: AgentContext,
+        silent: bool = False,
     ) -> List[Dict[str, Any]]:
         """
         Execute tool calls and track results.
@@ -532,6 +622,7 @@ CRITICAL RULES:
         Args:
             tool_calls: List of tool calls to execute
             context: Current agent context
+            silent: If True, suppress tool execution status messages
 
         Returns:
             List of tool execution results
@@ -546,7 +637,7 @@ CRITICAL RULES:
             tool_name = tool_call.get("tool", "")
             arguments = tool_call.get("arguments", {})
 
-            # Display tool execution using modern UI
+            # Display tool execution using modern UI (unless silent mode)
             # Get file path from various argument names used by different tools
             file_path = (
                 arguments.get('TargetFile') or
@@ -556,10 +647,23 @@ CRITICAL RULES:
                 arguments.get('DirectoryPath') or
                 ''
             )
-            if file_path:
-                self._display(f"  [>] {tool_name}: {file_path}", style="thinking")
-            else:
-                self._display(f"  [>] {tool_name}", style="thinking")
+            if not silent:
+                # Use theme styles: [>] Tool: Path
+                if hasattr(self, 'console') and self.console:
+                    # HACK: Commented out to prevent duplicate header with HCode Tool Display
+                    # if file_path:
+                    #     self.console.print(f"  [text.dim]>[/] [tool.name]{tool_name}[/]: [text.dim]{file_path}[/]")
+                    # else:
+                    #     self.console.print(f"  [text.dim]>[/] [tool.name]{tool_name}[/]")
+                    pass
+                else:
+                    # Fallback if no console
+                    # Also commenting out for consistency if needed, but let's keep fallback for logs?
+                    # The user issue is specifically about the console output.
+                    if file_path:
+                        self._display(f"  [>] {tool_name}: {file_path}", style="thinking")
+                    else:
+                        self._display(f"  [>] {tool_name}", style="thinking")
 
             try:
                 # Execute the tool
@@ -578,7 +682,10 @@ CRITICAL RULES:
 
                 # Display result with modern UI
                 if success:
-                    self._display(f"      [OK]", style="success")
+                    if self.tool_executor:
+                        self.tool_executor.display_tool_result(tool_name, result, arguments)
+                    else:
+                        self._display(f"      [OK]", style="success")
                     # Track file with HcodeDisplay using FileAction enum
                     if self._hcode_display and file_path and FileAction:
                         action_type = FileAction.CREATED if tool_name.lower() in ['write', 'writetool'] else FileAction.EDITED
@@ -773,24 +880,25 @@ CRITICAL RULES:
 
             logger.info(f"[{self.phase_name}] Response length: {len(last_response) if last_response else 0}")
 
-            # Display text portions of this response immediately (Claude Code-style)
-            text_portion = self._extract_text_response(last_response)
-            if text_portion and len(text_portion.strip()) > 20:
-                self._display(text_portion, style="default")
+            # Display thinking blocks before tool execution
+            self._display_thinking_blocks(last_response)
 
             # Extract tool calls from this response
             tool_calls = self._extract_tool_calls(last_response)
             logger.info(f"[{self.phase_name}] Extracted {len(tool_calls)} tool calls")
 
             if not tool_calls:
-                # No tool calls — AI is done, exit loop
+                # No tool calls — AI is done, display any remaining text
+                text_portion = self._extract_text_response(last_response)
+                if text_portion and len(text_portion.strip()) > 20:
+                    self._display(text_portion, style="default")
                 break
 
             # Log tool calls for debugging
             for tc in tool_calls:
                 logger.debug(f"  Tool: {tc.get('tool')} args: {list(tc.get('arguments', {}).keys())}")
 
-            # Execute extracted tool calls
+            # Execute extracted tool calls (without displaying status messages)
             tool_results = await self._execute_tools(tool_calls, context)
             all_tool_results.extend(tool_results)
 
@@ -858,15 +966,15 @@ CRITICAL RULES:
             'bash': 15000,           # Execution tools - full test outputs with stack traces
             'bashtool': 15000,
             'bashexecutor': 15000,
-            'read': 5000,            # File reading - moderate file content
-            'readtool': 5000,
-            'grep': 3000,            # Search results - compact
-            'greptool': 3000,
-            'smartgreptool': 3000,
-            'glob': 2000,            # File listings - small
-            'globtool': 2000,
-            'smartglobtool': 2000,
-            'default': 2000          # Fallback for other tools (backward compatible)
+            'read': 30000,            # Increased to align with 800-line limit (~30KB)
+            'readtool': 30000,
+            'grep': 5000,            # Increased for more search results
+            'greptool': 5000,
+            'smartgreptool': 5000,
+            'glob': 5000,            # Increased for larger file listings
+            'globtool': 5000,
+            'smartglobtool': 5000,
+            'default': 5000          # Higher fallback for other tools
         }
 
         parts = []
