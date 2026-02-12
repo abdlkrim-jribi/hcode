@@ -23,6 +23,8 @@ class ContextEntry:
     timestamp: str
     tokens: int
     importance: float = 1.0  # 0-1 scale for importance scoring
+    tool_calls: Optional[List[Dict]] = None  # Stored as list of dicts
+    tool_call_id: Optional[str] = None
 
     def to_dict(self) -> Dict:
         return asdict(self)
@@ -81,18 +83,41 @@ class ContextManager:
         conn = sqlite3.connect(self.session_file)
         cursor = conn.cursor()
 
-        cursor.execute(
+        # Check if table exists and has new columns
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='messages'")
+        table_exists = cursor.fetchone()
+
+        if not table_exists:
+            cursor.execute(
+                """
+                CREATE TABLE messages (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    role TEXT NOT NULL,
+                    content TEXT NOT NULL,
+                    timestamp TEXT NOT NULL,
+                    tokens INTEGER,
+                    importance REAL DEFAULT 1.0,
+                    tool_calls TEXT,
+                    tool_call_id TEXT
+                )
             """
-            CREATE TABLE IF NOT EXISTS messages (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                role TEXT NOT NULL,
-                content TEXT NOT NULL,
-                timestamp TEXT NOT NULL,
-                tokens INTEGER,
-                importance REAL DEFAULT 1.0
             )
-        """
-        )
+        else:
+            # Check for missing columns (simple migration)
+            cursor.execute("PRAGMA table_info(messages)")
+            columns = [info[1] for info in cursor.fetchall()]
+            
+            if "tool_calls" not in columns:
+                try:
+                    cursor.execute("ALTER TABLE messages ADD COLUMN tool_calls TEXT")
+                except sqlite3.OperationalError:
+                    pass # Already exists
+            
+            if "tool_call_id" not in columns:
+                try:
+                    cursor.execute("ALTER TABLE messages ADD COLUMN tool_call_id TEXT")
+                except sqlite3.OperationalError:
+                    pass # Already exists
 
         cursor.execute(
             """
@@ -111,18 +136,38 @@ class ContextManager:
         conn = sqlite3.connect(self.session_file)
         cursor = conn.cursor()
 
-        # Load messages
-        cursor.execute(
-            "SELECT role, content, timestamp, tokens, importance FROM messages ORDER BY id"
-        )
-        rows = cursor.fetchall()
-
-        for row in rows:
-            self.context.append(
-                ContextEntry(
-                    role=row[0], content=row[1], timestamp=row[2], tokens=row[3], importance=row[4]
-                )
+        # Load messages - check columns first to be safe
+        try:
+            cursor.execute(
+                "SELECT role, content, timestamp, tokens, importance, tool_calls, tool_call_id FROM messages ORDER BY id"
             )
+            rows = cursor.fetchall()
+
+            for row in rows:
+                tool_calls_data = json.loads(row[5]) if row[5] else None
+                self.context.append(
+                    ContextEntry(
+                        role=row[0], 
+                        content=row[1], 
+                        timestamp=row[2], 
+                        tokens=row[3], 
+                        importance=row[4],
+                        tool_calls=tool_calls_data,
+                        tool_call_id=row[6]
+                    )
+                )
+        except sqlite3.OperationalError:
+            # Fallback for old schema if migration failed (shouldn't happen with updated _init)
+            cursor.execute(
+                "SELECT role, content, timestamp, tokens, importance FROM messages ORDER BY id"
+            )
+            rows = cursor.fetchall()
+            for row in rows:
+                self.context.append(
+                    ContextEntry(
+                        role=row[0], content=row[1], timestamp=row[2], tokens=row[3], importance=row[4]
+                    )
+                )
 
         # Load system prompt
         cursor.execute("SELECT value FROM metadata WHERE key = ?", ("system_prompt",))
@@ -138,15 +183,19 @@ class ContextManager:
         content: str,
         importance: float = 1.0,
         provider: Optional[AIProvider] = None,
+        tool_calls: Optional[List[Dict]] = None,
+        tool_call_id: Optional[str] = None,
     ):
         """
         Add a message to the context.
 
         Args:
-            role: Message role (user, assistant, system)
+            role: Message role (user, assistant, system, tool)
             content: Message content
             importance: Importance score (0-1)
             provider: AI provider for token counting
+            tool_calls: List of tool calls (for assistant messages)
+            tool_call_id: ID of tool call being responded to (for tool messages)
         """
         # Count tokens
         tokens = provider.count_tokens(content) if provider else len(content) // 4
@@ -157,6 +206,8 @@ class ContextManager:
             timestamp=datetime.now().isoformat(),
             tokens=tokens,
             importance=importance,
+            tool_calls=tool_calls,
+            tool_call_id=tool_call_id,
         )
 
         self.context.append(entry)
@@ -167,12 +218,22 @@ class ContextManager:
         conn = sqlite3.connect(self.session_file)
         cursor = conn.cursor()
 
+        tool_calls_json = json.dumps(entry.tool_calls) if entry.tool_calls else None
+        
         cursor.execute(
             """
-            INSERT INTO messages (role, content, timestamp, tokens, importance)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT INTO messages (role, content, timestamp, tokens, importance, tool_calls, tool_call_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
         """,
-            (entry.role, entry.content, entry.timestamp, entry.tokens, entry.importance),
+            (
+                entry.role, 
+                entry.content, 
+                entry.timestamp, 
+                entry.tokens, 
+                entry.importance,
+                tool_calls_json,
+                entry.tool_call_id
+            ),
         )
 
         conn.commit()
@@ -227,8 +288,26 @@ class ContextManager:
             truncated_context = self.context
 
         # Convert to Message objects
+        from hcode.providers import ToolCall
+
         for entry in truncated_context:
-            messages.append(Message(role=entry.role, content=entry.content))
+            # Reconstruct ToolCall objects if present
+            tool_calls_objs = None
+            if entry.tool_calls:
+                tool_calls_objs = []
+                for tc in entry.tool_calls:
+                    tool_calls_objs.append(ToolCall(
+                        id=tc.get("id", ""),
+                        name=tc.get("name", ""),
+                        arguments=tc.get("arguments", {})
+                    ))
+
+            messages.append(Message(
+                role=entry.role, 
+                content=entry.content,
+                tool_calls=tool_calls_objs,
+                tool_call_id=entry.tool_call_id
+            ))
 
         return messages
 

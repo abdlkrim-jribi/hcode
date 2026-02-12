@@ -305,12 +305,15 @@ class ToolRegistry:
         "multi_edit_tool": "multiedittool",
         "batch_edit": "multiedittool",
         # ===== SEARCH OPERATIONS =====
-        # GlobTool - registered as 'globtool'
-        "glob": "globtool",
-        "findfiles": "globtool",
-        "find_files": "globtool",
-        "file_glob": "globtool",
-        "pattern_search": "globtool",
+        # SmartGlobTool - registered as 'smartglobtool'
+        "glob": "smartglobtool",
+        "globtool": "smartglobtool",
+        "findfiles": "smartglobtool",
+        "find_files": "smartglobtool",
+        "file_glob": "smartglobtool",
+        "pattern_search": "smartglobtool",
+        "smartglob": "smartglobtool",
+        "smart_glob": "smartglobtool",
         # GrepTool - registered as 'greptool'
         "grep": "greptool",
         "search": "greptool",

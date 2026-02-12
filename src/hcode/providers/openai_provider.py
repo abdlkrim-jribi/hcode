@@ -178,6 +178,35 @@ class OpenAIProvider(AIProvider):
             # Default to cl100k_base for unknown models
             self.encoding = tiktoken.get_encoding("cl100k_base")
 
+    def _convert_message(self, message: Message) -> Dict[str, Any]:
+        """Convert a Message object to OpenAI API format."""
+        data = {"role": message.role, "content": message.content}
+        
+        # Handle tool calls conversion to OpenAI format
+        if message.tool_calls:
+            data["tool_calls"] = []
+            for tc in message.tool_calls:
+                # Arguments must be a JSON string for the API
+                if isinstance(tc.arguments, dict):
+                    import json
+                    args_str = json.dumps(tc.arguments)
+                else:
+                    args_str = str(tc.arguments)
+                    
+                data["tool_calls"].append({
+                    "id": tc.id,
+                    "type": "function",
+                    "function": {
+                        "name": tc.name,
+                        "arguments": args_str
+                    }
+                })
+                
+        if message.tool_call_id:
+            data["tool_call_id"] = message.tool_call_id
+            
+        return data
+
     @retry(
         stop=stop_after_attempt(5),
         wait=wait_exponential(multiplier=2, min=2, max=30),
@@ -188,6 +217,7 @@ class OpenAIProvider(AIProvider):
         messages: List[Message],
         stream: bool = False,
         functions: Optional[List[Dict[str, Any]]] = None,
+        system_prompt: Optional[str] = None,
         **kwargs,
     ) -> CompletionResponse | AsyncIterator[str]:
         """
@@ -197,6 +227,7 @@ class OpenAIProvider(AIProvider):
             messages: Conversation messages
             stream: Enable streaming
             functions: Function definitions for function calling
+            system_prompt: Optional system prompt to prepend
             **kwargs: Additional parameters
 
         Returns:
@@ -208,7 +239,11 @@ class OpenAIProvider(AIProvider):
         """
         try:
             # Convert messages to OpenAI format
-            openai_messages = [msg.to_dict() for msg in messages]
+            openai_messages = [self._convert_message(msg) for msg in messages]
+
+            # Prepend system prompt if provided
+            if system_prompt:
+                openai_messages.insert(0, {"role": "system", "content": system_prompt})
 
             request_params = {
                 "model": self.model,
@@ -378,11 +413,26 @@ class OpenAIProvider(AIProvider):
         try:
             response = await self.client.chat.completions.create(**params)
 
-            usage = Usage(
-                input_tokens=response.usage.prompt_tokens,
-                output_tokens=response.usage.completion_tokens,
-                total_tokens=response.usage.total_tokens,
-            )
+            if response.usage:
+                usage = Usage(
+                    input_tokens=response.usage.prompt_tokens,
+                    output_tokens=response.usage.completion_tokens,
+                    total_tokens=response.usage.total_tokens,
+                )
+            else:
+                # Fallback calculation if usage is missing (e.g. some OSS providers)
+                content = response.choices[0].message.content or ""
+                output_tokens = self.count_tokens(content)
+                
+                # Estimate input tokens from messages
+                input_text = " ".join([str(msg.get("content", "")) for msg in params.get("messages", [])])
+                input_tokens = self.count_tokens(input_text)
+                
+                usage = Usage(
+                    input_tokens=input_tokens,
+                    output_tokens=output_tokens,
+                    total_tokens=input_tokens + output_tokens,
+                )
 
             self._update_usage(usage)
 

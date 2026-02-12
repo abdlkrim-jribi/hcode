@@ -147,7 +147,7 @@ class ToolCallValidator:
         # 5. Validate command safety for bash
         if tool_lower in {"bash", "bashtool"}:
             command = arguments.get("command", "")
-            dangerous_patterns = ["rm -rf /", "rm -rf ~", "> /dev/sda", "mkfs", "dd if="]
+            dangerous_patterns = ["rm -rf /", "rm -rf ~", "> /dev/sda", "mkfs", "perfect_prompts if="]
             for pattern in dangerous_patterns:
                 if pattern in command.lower():
                     return ValidationResult(

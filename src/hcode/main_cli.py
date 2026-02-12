@@ -59,7 +59,7 @@ from hcode.ui.live_todo_bar import (
 )
 
 # Import reasoning components for automatic todo extraction
-from hcode.core.response.thinking_processor import ThinkingBlockProcessor, parse_thinking_block
+from hcode.core.response.thinking_processor import parse_thinking_block
 from hcode.core.reasoning import ReasoningParser, ReasoningToTodoIntegrator
 
 # Get themed console
@@ -255,17 +255,24 @@ def run_task(task, provider, model, model_size, complexity, cost, session, strea
     )
     console.print(task_panel)
 
-    # Load config
     config = load_config()
-
-    # Get API keys
     anthropic_key = os.getenv("ANTHROPIC_API_KEY") or config.get("providers", {}).get(
         "anthropic", {}
     ).get("api_key")
     openai_key = os.getenv("OPENAI_API_KEY") or config.get("providers", {}).get("openai", {}).get(
         "api_key"
     )
-    openai_base_url = config.get("providers", {}).get("openai", {}).get("base_url")
+    openai_base_url = os.getenv("OPENAI_BASE_URL") or config.get("providers", {}).get(
+        "openai", {}
+    ).get("base_url")
+
+    # Get model configuration
+    anthropic_model = os.getenv("ANTHROPIC_MODEL") or config.get("providers", {}).get(
+        "anthropic", {}
+    ).get("default_model")
+    openai_model = os.getenv("OPENAI_MODEL") or config.get("providers", {}).get("openai", {}).get(
+        "default_model"
+    )
 
     if not anthropic_key and not openai_key:
         console.print(
@@ -281,31 +288,7 @@ def run_task(task, provider, model, model_size, complexity, cost, session, strea
         )
         sys.exit(1)
 
-    # Determine model selection
-    from hcode.utils import get_model_for_size
 
-    anthropic_model = None
-    openai_model = None
-
-    # Priority: CLI arg > env var (handled in config) > config default
-    if model:
-        # Specific model provided via CLI
-        if provider in ["anthropic", "claude"]:
-            anthropic_model = model
-        elif provider in ["openai", "gpt"]:
-            openai_model = model
-        else:
-            # Auto provider, use for both (will be selected by provider selector)
-            anthropic_model = model if "claude" in model.lower() else None
-            openai_model = model if "gpt" in model.lower() or "llama" in model.lower() else None
-    elif model_size:
-        # Model size provided via CLI
-        anthropic_model = get_model_for_size("anthropic", model_size)
-        openai_model = get_model_for_size("openai", model_size, openai_base_url)
-    else:
-        # Use from config (already loaded with env overrides)
-        anthropic_model = config.get("providers", {}).get("anthropic", {}).get("default_model")
-        openai_model = config.get("providers", {}).get("openai", {}).get("default_model")
 
     # Create agent
     preferences = ProviderPreferences(
@@ -812,6 +795,7 @@ def chat_mode(provider, session, show_todos, debug, autonomous):
                     settings_help.add_column("Command", style=f"{palette.info}", min_width=15)
                     settings_help.add_column("Description", style=f"{palette.text_secondary}")
                     settings_help.add_column("Aliases", style=f"{palette.text_muted}")
+                    settings_help.add_row("/init", "Analyze codebase and generate hcode.md", "")
                     settings_help.add_row("/debug", "Toggle debug mode (verbose output)", "")
                     settings_help.add_row("/theme <name>", "Change color theme", "")
                     settings_help.add_row("/clear", "Clear conversation history", "")
@@ -990,6 +974,98 @@ def chat_mode(provider, session, show_todos, debug, autonomous):
                     console.print(f"[green]{EMOJI['success']} Exported to {filename}[/green]")
                     continue
 
+                elif command == "init":
+                    # Codebase initialization - agent-driven analysis
+                    console.print(
+                        Panel(
+                            f"[bold {palette.primary}]🚀 Initializing codebase analysis...[/bold {palette.primary}]\n\n"
+                            f"The agent will now comprehensively analyze your codebase using its tools:\n"
+                            f"  • Glob to discover structure\n"
+                            f"  • Read to understand code\n"
+                            f"  • Grep to find patterns\n\n"
+                            f"This will generate detailed documentation in [cyan].hcode/hcode.md[/cyan]\n"
+                            f"that will guide all future implementations.",
+                            title=f"[bold {palette.primary}]/init Command[/bold {palette.primary}]",
+                            border_style=palette.primary,
+                        )
+                    )
+                    
+                    try:
+                        from pathlib import Path as PathlibPath
+                        from hcode.core.phases.init_handler import InitHandler
+                        from hcode.core.protocols import AgentContext
+                        
+                        # Create InitHandler with agent's components
+                        # Note: agent.current_provider may be None if not yet selected
+                        # We need to select a provider first
+                        if not agent.current_provider:
+                            from hcode.providers import TaskComplexity, TaskType
+                            agent.current_provider = agent.provider_selector.select_provider(
+                                complexity=TaskComplexity.MODERATE,
+                                task_type=TaskType.CODE_GENERATION
+                            )
+                        
+                        init_handler = InitHandler(
+                            provider=agent.current_provider,
+                            tool_executor=agent._tool_executor,
+                            context_manager=agent.context_manager,
+                            console=console,
+                        )
+                        
+                        # Create AgentContext
+                        context = AgentContext(
+                            task="/init codebase analysis",
+                            session_id=agent.context_manager.session_id,
+                            working_dir=str(PathlibPath.cwd()),
+                            iteration=1,
+                        )
+                        
+                        # Execute analysis
+                        result = asyncio.run(init_handler.analyze(context))
+                        
+                        # Display results
+                        if result.success:
+                            console.print(
+                                Panel(
+                                    f"[bold {palette.success}]✅ Codebase initialization complete![/bold {palette.success}]\n\n"
+                                    f"📁 Documentation created: [cyan]{result.hcode_path}[/cyan]\n\n"
+                                    f"[{palette.text_muted}]The agent has analyzed your codebase and generated\n"
+                                    f"comprehensive documentation that will guide all future\n"
+                                    f"implementations. Use this as a reference for understanding\n"
+                                    f"the project structure, patterns, and conventions.[/]\n\n"
+                                    f"🎯 Ready for implementation tasks!",
+                                    title=f"[bold {palette.success}]Analysis Complete[/bold {palette.success}]",
+                                    border_style=palette.success,
+                                )
+                            )
+                        else:
+                            console.print(
+                                Panel(
+                                    f"[bold {palette.warning}]⚠️ Analysis completed with issues[/bold {palette.warning}]\n\n"
+                                    f"Error: {result.error}\n\n"
+                                    f"The agent completed its analysis but did not generate hcode.md.\n"
+                                    f"Try running /init again or check the error above.",
+                                    title=f"[bold {palette.warning}]Incomplete Analysis[/bold {palette.warning}]",
+                                    border_style=palette.warning,
+                                )
+                            )
+                        
+                    except Exception as e:
+                        from rich.markup import escape
+                        error_panel = ErrorPanel(
+                            message=f"An error occurred during codebase analysis:",
+                            details=(
+                                f"{escape(str(e))}\n\n"
+                                f"Make sure you're in a valid project directory."
+                            ),
+                            error_type="Initialization Failed"
+                        )
+                        console.print(error_panel.render())
+                        if debug:
+                            console.print_exception()
+                    
+                    continue
+
             # Execute task with modern assistant indicator
             console.print(
                 f"\n[bold {palette.success}]{icons.AI} Assistant [{message_count}]:[/bold {palette.success}]\n"
@@ -1017,26 +1093,20 @@ def chat_mode(provider, session, show_todos, debug, autonomous):
             if len(user_input) > 50:
                 task_name = task_name[:47] + "..."
             
-            # Start task boundary display
-            hcode_display.start_task(task_name or "Processing Request", TaskMode.PLANNING)
+            # Wrapper for agent execution
+            # The agent handles task boundary display internally
             
             # Pause todo bar during streaming to prevent ANSI interference
             live_todo_bar.pause()
             
-            # Let agent manage thinking display during execution
-            # hcode_display.start_thinking()
-            
             try:
                 result = asyncio.run(agent.execute_task(task=user_input, stream=True))
             finally:
-                # End thinking timer
+                # End thinking timer if it was running (safety)
                 hcode_display.end_thinking()
                 
                 # Resume todo bar after streaming
                 live_todo_bar.resume()
-            
-            # Show task completion
-            hcode_display.end_task()
 
             # Stop live todo bar after task
             if live_todo_bar.is_active:

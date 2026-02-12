@@ -1,0 +1,204 @@
+# Task Classification Configuration
+# Replaces hardcoded word lists and regex patterns
+#
+# Each task type has:
+# - indicators: Patterns that suggest this task type (with weights)
+# - negative_indicators: Patterns that suggest it's NOT this type
+# - keywords: Simple keyword matches (lower weight than patterns)
+
+task_types:
+  exploration:
+    description: "Read-only tasks that explore, explain, or display information"
+    indicators:
+      - pattern: "^(what|show|list|display|explain|describe|tell me|find|search|where|how does)"
+        weight: 0.8
+      - pattern: "(structure|repo|folder|files|contents|overview|summary)"
+        weight: 0.6
+      - pattern: "(understand|analyze|review|examine|inspect|investigate)"
+        weight: 0.7
+    negative_indicators:
+      - pattern: "^(run|test|fix|create|implement|add|build|write|update|modify|delete|remove)"
+        weight: 0.9
+      - pattern: "(commit|push|deploy|install|execute)"
+        weight: 0.8
+    keywords:
+      - "what"
+      - "show"
+      - "list"
+      - "explain"
+      - "describe"
+      - "structure"
+      - "overview"
+    examples:
+      - "What is the codebase structure?"
+      - "Show me all the test files"
+      - "Explain how authentication works"
+
+  implementation:
+    description: "Tasks that create new features or functionality"
+    indicators:
+      - pattern: "^(create|implement|build|write|add|make|develop)"
+        weight: 0.9
+      - pattern: "(new feature|functionality|component|module|class|function)"
+        weight: 0.7
+      - pattern: "(scaffold|generate|setup|initialize)"
+        weight: 0.6
+    negative_indicators:
+      - pattern: "^(fix|debug|resolve|patch)"
+        weight: 0.8
+      - pattern: "(bug|error|issue|problem|broken)"
+        weight: 0.7
+    keywords:
+      - "create"
+      - "implement"
+      - "build"
+      - "add"
+      - "new"
+    examples:
+      - "Implement user authentication"
+      - "Create a new API endpoint"
+      - "Add dark mode support"
+
+  debugging:
+    description: "Tasks that fix bugs or resolve errors"
+    indicators:
+      - pattern: "^(fix|debug|resolve|patch|correct)"
+        weight: 0.9
+      - pattern: "(bug|error|issue|problem|crash|fail|broken|not working)"
+        weight: 0.8
+      - pattern: "(troubleshoot|diagnose|investigate error)"
+        weight: 0.7
+    keywords:
+      - "fix"
+      - "debug"
+      - "bug"
+      - "error"
+      - "broken"
+      - "issue"
+    examples:
+      - "Fix the login bug"
+      - "Debug why tests are failing"
+      - "Resolve the import error"
+
+  refactoring:
+    description: "Tasks that improve existing code without changing behavior"
+    indicators:
+      - pattern: "^(refactor|restructure|reorganize|cleanup|improve|optimize)"
+        weight: 0.9
+      - pattern: "(clean up|improve|enhance|modernize|simplify)"
+        weight: 0.7
+      - pattern: "(extract|consolidate|deduplicate|remove duplication)"
+        weight: 0.8
+    keywords:
+      - "refactor"
+      - "cleanup"
+      - "improve"
+      - "optimize"
+      - "restructure"
+    examples:
+      - "Refactor the authentication module"
+      - "Clean up duplicate code"
+      - "Improve error handling"
+
+  testing:
+    description: "Tasks that create or run tests"
+    indicators:
+      - pattern: "^(test|run tests|write tests|add tests)"
+        weight: 0.9
+      - pattern: "(unit test|integration test|e2e test|test suite|test coverage)"
+        weight: 0.8
+      - pattern: "(pytest|jest|unittest|testing)"
+        weight: 0.7
+    keywords:
+      - "test"
+      - "pytest"
+      - "unittest"
+      - "coverage"
+    examples:
+      - "Run all tests"
+      - "Add unit tests for the user service"
+      - "Test the API endpoints"
+
+  documentation:
+    description: "Tasks that create or update documentation"
+    indicators:
+      - pattern: "^(document|write docs|add documentation|update readme)"
+        weight: 0.9
+      - pattern: "(readme|documentation|docstring|comment|api docs)"
+        weight: 0.8
+      - pattern: "(explain in comments|add docstrings)"
+        weight: 0.7
+    keywords:
+      - "document"
+      - "readme"
+      - "docs"
+      - "docstring"
+    examples:
+      - "Add docstrings to the API module"
+      - "Update the README"
+      - "Document the configuration options"
+
+  configuration:
+    description: "Tasks that modify configuration or setup"
+    indicators:
+      - pattern: "^(configure|setup|install|enable|disable)"
+        weight: 0.8
+      - pattern: "(config|configuration|settings|environment|dependencies)"
+        weight: 0.7
+      - pattern: "(package|library|tool|linter|formatter)"
+        weight: 0.6
+    keywords:
+      - "configure"
+      - "setup"
+      - "install"
+      - "config"
+      - "settings"
+    examples:
+      - "Setup ESLint"
+      - "Configure the database connection"
+      - "Install dependencies"
+
+# Complexity scoring
+complexity:
+  simple:
+    indicators:
+      - pattern: "^(run|test|show|list|display)"
+        weight: 0.8
+      - pattern: "(single file|one file|quick|simple)"
+        weight: 0.7
+    max_estimated_files: 2
+    max_estimated_lines: 50
+
+  moderate:
+    indicators:
+      - pattern: "(add|create|implement|fix)"
+        weight: 0.6
+      - pattern: "(feature|module|component)"
+        weight: 0.5
+    max_estimated_files: 5
+    max_estimated_lines: 200
+
+  complex:
+    indicators:
+      - pattern: "(refactor|restructure|redesign|rewrite)"
+        weight: 0.8
+      - pattern: "(entire|whole|all|multiple|system|architecture)"
+        weight: 0.7
+      - pattern: "(migrate|upgrade|transform)"
+        weight: 0.6
+    # No file/line limits - anything beyond moderate is complex
+
+# Classification settings
+settings:
+  # Minimum confidence to accept classification
+  min_confidence: 0.5
+
+  # Default task type if no clear match
+  default_type: "implementation"
+
+  # Default complexity if uncertain
+  default_complexity: "moderate"
+
+  # Weight for pattern matches vs keyword matches
+  pattern_weight_multiplier: 1.5
+  keyword_weight_multiplier: 0.5

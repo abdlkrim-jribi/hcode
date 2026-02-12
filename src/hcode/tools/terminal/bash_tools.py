@@ -4,6 +4,7 @@ Includes Bash, BashOutput, and KillShell tools for command execution.
 """
 
 import asyncio
+import logging
 import os
 import time
 import uuid
@@ -12,6 +13,9 @@ from pathlib import Path
 from typing import Dict, Optional, List
 
 from hcode.tools.base.base_tool import BaseTool, ToolResult, ToolParameter, ToolCategory
+
+# Get logger for this module
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -90,7 +94,7 @@ class BashTool(BaseTool):
     def get_parameters(self) -> List[ToolParameter]:
         return [
             ToolParameter(
-                name="CommandLine",
+                name="command",
                 type="string",
                 description="The bash command to execute",
                 required=True,
@@ -114,7 +118,7 @@ class BashTool(BaseTool):
                 required=False,
             ),
             # Legacy
-            ToolParameter("command", "string", "Alias for CommandLine", default=None),
+            ToolParameter("CommandLine", "string", "Alias for command", default=None),
         ]
 
     def validate_parameters(self, **kwargs) -> tuple[bool, Optional[str]]:
@@ -178,27 +182,38 @@ class BashTool(BaseTool):
                 
         return command
 
-    async def execute(self, CommandLine: str = None, command: str = None, **kwargs) -> ToolResult:
+    async def execute(self, command: str = None, CommandLine: str = None, **kwargs) -> ToolResult:
         """Execute bash command"""
-        raw_command = CommandLine or command
-        timeout = kwargs.get("timeout", 120000) / 1000  # Convert ms to seconds
+        raw_command = command or CommandLine
+        raw_timeout = kwargs.get("timeout", 120000)
+        # Smart unit detection: if value < 1000, assume seconds; otherwise milliseconds
+        # This handles both AI sending seconds (30) and milliseconds (30000) correctly
+        if raw_timeout < 1000:
+            timeout = float(raw_timeout)  # Already in seconds
+        else:
+            timeout = raw_timeout / 1000  # Convert ms to seconds
         run_in_background = kwargs.get("run_in_background", False)
         description = kwargs.get("description", raw_command[:50] if raw_command else "")
 
         if not raw_command:
-            return ToolResult(success=False, output="", error="CommandLine (or command) is required")
-            
+            return ToolResult(success=False, output="", error="command (or CommandLine) is required")
+
         # Translate command for Windows
         command = self._translate_command(raw_command)
-        
+
         # If translation changed the command, notify in description/metadata
         if command != raw_command and description == raw_command[:50]:
              description = f"{raw_command} (translated to {command})"
 
-        # Validate timeout
-        max_timeout = 600000 / 1000  # 10 minutes in seconds
+        # Validate timeout - let agent decide, just enforce reasonable bounds
+        max_timeout = 600000 / 1000  # 10 minutes max to prevent runaway processes
+
         if timeout > max_timeout:
+            logger.warning(f"[BASH] Timeout {timeout}s exceeds maximum ({max_timeout}s), capping at max")
             timeout = max_timeout
+
+        # DEBUG: Log timeout value
+        logger.info(f"[BASH] Executing with timeout={timeout}s: {command[:100]}")
 
         # Show confirmation before executing command
         try:
@@ -241,6 +256,7 @@ class BashTool(BaseTool):
         import sys
 
         start_time = time.time()
+        logger.info(f"[BASH] _execute_foreground started with timeout={timeout}s at t=0.000s")
 
         # Platform-specific shell handling
         is_windows = sys.platform == "win32"
@@ -279,33 +295,78 @@ class BashTool(BaseTool):
             )
 
         try:
-            if is_windows:
-                # On Windows, use cmd.exe explicitly for better compatibility
-                process = await asyncio.create_subprocess_shell(
-                    command,
-                    stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.PIPE,
-                    cwd=str(self.root_dir),
-                    shell=True,
-                )
-            else:
-                # On Unix, use bash
-                process = await asyncio.create_subprocess_shell(
-                    command,
-                    stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.PIPE,
-                    cwd=str(self.root_dir),
-                    shell=True,
-                )
-
-            # Wait for completion with timeout
-            stdout_data, stderr_data = await asyncio.wait_for(
-                process.communicate(), timeout=timeout
+            logger.info(f"[BASH] Creating subprocess at t={time.time() - start_time:.3f}s")
+            process = await asyncio.create_subprocess_shell(
+                command,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+                cwd=str(self.root_dir),
+                shell=True,
             )
+            logger.info(f"[BASH] Subprocess created at t={time.time() - start_time:.3f}s, PID={process.pid}")
 
-            # Decode output with fallback encodings
-            stdout = self._decode_output(stdout_data)
-            stderr = self._decode_output(stderr_data)
+            # Get output managers
+            stream_console = None
+            hcode_display = None
+            try:
+                from hcode.ui import get_console
+                from hcode.ui.hcode_display import get_hcode_display
+                stream_console = get_console()
+                hcode_display = get_hcode_display()
+                logger.info(f"[BASH] Display managers loaded at t={time.time() - start_time:.3f}s")
+            except ImportError:
+                logger.info(f"[BASH] Display managers not available (ImportError)")
+                pass
+
+            # Stream stdout line-by-line in real-time
+            stdout_lines: list = []
+            stderr_lines: list = []
+
+            async def _stream_stdout(live_update=None):
+                while True:
+                    line = await process.stdout.readline()
+                    if not line:
+                        break
+                    decoded = self._decode_output(line)
+                    stdout_lines.append(decoded)
+                    if live_update:
+                        live_update.update(decoded)
+                    elif stream_console:
+                        stream_console.print(f"    {decoded.rstrip()}", style="dim")
+
+            async def _stream_stderr(live_update=None):
+                while True:
+                    line = await process.stderr.readline()
+                    if not line:
+                        break
+                    decoded = self._decode_output(line)
+                    stderr_lines.append(decoded)
+                    if live_update:
+                        live_update.update(decoded)
+
+            # Run with live display if available
+            if hcode_display:
+                # We need to run the async loop inside the sync context manager
+                # But context manager is sync.
+                logger.info(f"[BASH] Entering live_command_context at t={time.time() - start_time:.3f}s")
+                with hcode_display.live_command_context(command) as live:
+                    logger.info(f"[BASH] Starting wait_for (timeout={timeout}s) at t={time.time() - start_time:.3f}s")
+                    await asyncio.wait_for(
+                        asyncio.gather(_stream_stdout(live), _stream_stderr(live)),
+                        timeout=timeout,
+                    )
+                    logger.info(f"[BASH] wait_for completed successfully at t={time.time() - start_time:.3f}s")
+            else:
+                # Run without live display
+                logger.info(f"[BASH] Starting wait_for (no live display, timeout={timeout}s) at t={time.time() - start_time:.3f}s")
+                await asyncio.wait_for(
+                    asyncio.gather(_stream_stdout(), _stream_stderr()),
+                    timeout=timeout,
+                )
+            await process.wait()
+
+            stdout = "".join(stdout_lines)
+            stderr = "".join(stderr_lines)
             exit_code = process.returncode
             duration = time.time() - start_time
 
@@ -355,16 +416,20 @@ class BashTool(BaseTool):
 
         except asyncio.TimeoutError:
             # Kill process on timeout
+            elapsed = time.time() - start_time
+            logger.error(f"[BASH] TIMEOUT at t={elapsed:.3f}s (limit was {timeout}s): {command}")
             try:
                 process.kill()
                 await process.wait()
-            except:
+                logger.info(f"[BASH] Process killed successfully")
+            except Exception as kill_error:
+                logger.error(f"[BASH] Failed to kill process: {kill_error}")
                 pass
             return ToolResult(
                 success=False,
                 output="",
-                error=f"Command timed out after {timeout}s",
-                metadata={"timeout": True, "description": description},
+                error=f"Command timed out after {timeout}s (actual: {elapsed:.2f}s)",
+                metadata={"timeout": True, "description": description, "elapsed": elapsed, "limit": timeout},
             )
         except Exception as e:
             return ToolResult(
@@ -611,7 +676,7 @@ class LSTool(BaseTool):
     def get_parameters(self) -> List[ToolParameter]:
         return [
             ToolParameter(
-                name="DirectoryPath",
+                name="path",
                 type="string",
                 description="Absolute directory path to list",
                 required=True,
@@ -623,7 +688,7 @@ class LSTool(BaseTool):
                 required=False,
             ),
             # Legacy
-            ToolParameter("path", "string", "Alias for DirectoryPath", default=None),
+            ToolParameter("DirectoryPath", "string", "Alias for path", default=None),
         ]
 
     def validate_parameters(self, **kwargs) -> tuple[bool, Optional[str]]:
@@ -634,15 +699,15 @@ class LSTool(BaseTool):
         return True, None
 
 
-    async def execute(self, DirectoryPath: str = None, path: str = None, **kwargs) -> ToolResult:
+    async def execute(self, path: str = None, DirectoryPath: str = None, **kwargs) -> ToolResult:
         """List directory contents"""
         import sys
 
-        path_str = DirectoryPath or path
+        path_str = path or DirectoryPath
         ignore_patterns = kwargs.get("ignore", "")
 
         if not path_str:
-            return ToolResult(success=False, output="", error="DirectoryPath (or path) is required")
+            return ToolResult(success=False, output="", error="path (or DirectoryPath) is required")
 
         # Handle "/" on Windows - convert to current working directory
         if sys.platform == "win32" and path_str == "/":
@@ -705,9 +770,19 @@ class LSTool(BaseTool):
             output_lines.append("")
             output_lines.append(f"Total: {len(entries)} items")
 
+            output_text = "\n".join(output_lines)
+
+            # Display with Hcode UI
+            try:
+                from hcode.ui.hcode_display import get_hcode_display
+                display = get_hcode_display()
+                display.display_tool_result("LS", output_text, "success")
+            except ImportError:
+                pass
+
             return ToolResult(
                 success=True,
-                output="\n".join(output_lines),
+                output=output_text,
                 metadata={"path": str(path), "count": len(entries), "entries": entries},
             )
 

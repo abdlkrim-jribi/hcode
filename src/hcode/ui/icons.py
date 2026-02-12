@@ -16,6 +16,12 @@ IS_WINDOWS = sys.platform == "win32"
 def supports_unicode() -> bool:
     """Check if terminal supports Unicode."""
     if IS_WINDOWS:
+        # Check if encoding allows unicode
+        if hasattr(sys.stdout, "encoding") and sys.stdout.encoding:
+            encoding = sys.stdout.encoding.lower()
+            if encoding in ("cp1252", "cp437", "mbcs"):
+                return False
+
         return (
             os.environ.get("WT_SESSION") is not None
             or os.environ.get("ConEmuANSI") == "ON"

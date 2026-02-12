@@ -191,12 +191,24 @@ class ConfirmationDisplay:
         content.append(command, style="white bold")
         
         if working_dir:
-            content.append(f"\n\n📁 Directory: {working_dir}", style="dim")
+            try:
+                 from hcode.ui.icons import Icons
+                 folder_icon = Icons.FOLDER
+            except ImportError:
+                 folder_icon = "D"
+            content.append(f"\n\n{folder_icon} Directory: {working_dir}", style="dim")
         
         self.console.print()
+        # Import Icons locally to avoid circular import at top level
+        try:
+            from hcode.ui.icons import Icons
+            icon = Icons.LIGHTNING
+        except ImportError:
+            icon = "⚡"
+
         self.console.print(Panel(
             content,
-            title="[bold cyan]⚡ Run Command[/bold cyan]",
+            title=f"[bold cyan]{icon} Run Command[/bold cyan]",
             border_style="yellow",
             padding=(1, 2)
         ))

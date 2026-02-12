@@ -233,14 +233,63 @@ class ToolsConfig:
         return schemas
 
     def get_tool_documentation(self) -> str:
-        """Get formatted tool documentation for system prompt"""
+        """Get formatted tool documentation for system prompt including parameters and examples"""
         tools = self._tools_data.get("tools", {})
         docs = ["## Available Tools\n"]
+        docs.append("You have access to the following tools. Calls must be in JSON format.\n")
 
         for tool_name, tool_data in tools.items():
-            docs.append(f"### {tool_name}\n")
+            docs.append(f"### {tool_name}")
             docs.append(tool_data.get("description", "").strip())
-            docs.append("\n")
+            docs.append("\n**Parameters:**")
+            
+            params = tool_data.get("parameters", {})
+            example_args = {}
+            
+            for param_name, param_data in params.items():
+                required = " (required)" if param_data.get("required", False) else " (optional)"
+                p_type = param_data.get("type", "string")
+                desc = param_data.get("description", "")
+                docs.append(f"- `{param_name}` ({p_type}){required}: {desc}")
+                
+                # Build example args
+                if param_data.get("required", False):
+                    # Provide a sensible default for example
+                    if tool_name == "Read" and param_name == "file_path":
+                        example_args[param_name] = "src/main.py"
+                    elif tool_name == "Write" and param_name == "file_path":
+                        example_args[param_name] = "src/utils.py"
+                    elif tool_name == "Write" and param_name == "content":
+                        example_args[param_name] = "# Python code\\nprint('Hello')\\n"
+                    elif tool_name == "Edit" and param_name == "file_path":
+                        example_args[param_name] = "src/utils.py"
+                    elif tool_name == "Edit" and param_name == "old_string":
+                        example_args[param_name] = "def old_func():"
+                    elif tool_name == "Edit" and param_name == "new_string":
+                        example_args[param_name] = "def new_func():"
+                    elif tool_name == "Glob" and param_name == "pattern":
+                        example_args[param_name] = "**/*.py"
+                    elif tool_name == "Grep" and param_name == "pattern":
+                        example_args[param_name] = "class User"
+                    elif tool_name == "Grep" and param_name == "path":
+                        example_args[param_name] = "."
+                    elif tool_name == "LS" and param_name == "path":
+                        example_args[param_name] = "."
+                    elif tool_name == "Bash" and param_name == "command":
+                        example_args[param_name] = "pytest tests/"
+                    else:
+                        example_args[param_name] = "value"
+
+            # Add JSON example
+            import json
+            example_call = {
+                "tool": tool_name,
+                "arguments": example_args
+            }
+            docs.append("\n**Usage:**")
+            docs.append("```json")
+            docs.append(json.dumps(example_call))
+            docs.append("```\n")
 
         return "\n".join(docs)
 

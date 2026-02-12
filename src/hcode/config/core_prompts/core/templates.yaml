@@ -1,0 +1,62 @@
+# Artifact Templates for PEV Workflow
+# These templates define the structure of generated artifacts
+#
+# NOTE: task.md and implementation_plan.md are NOT template-based.
+# The agent generates them directly using the guidance prompts in:
+#   - src/hcode/config/core_prompts/core/task.md
+#   - src/hcode/config/core_prompts/core/implementation_plan.md
+#
+# Only walkthrough.md uses a template since it's generated programmatically.
+
+walkthrough_md:
+  # Template for walkthrough.md file
+  template: |
+    # Implementation Walkthrough
+
+    ## Task
+
+    {task}
+
+    ## What Was Implemented
+
+    [Summary of changes made]
+
+    ## Files Modified
+
+    {modified_files_section}
+
+    ## Changes Details
+
+    {changes_details}
+
+    ## Test Results
+
+    {test_section}
+
+    ## How to Verify
+
+    To verify the implementation works:
+
+    1. Review the modified files listed above
+    2. Run tests: `pytest tests/` (or appropriate test command)
+    3. Manual verification steps:
+       - [Step 1]
+       - [Step 2]
+
+    ## Known Limitations
+
+    [Any known issues or limitations]
+
+    ## Next Steps
+
+    [Optional: Suggestions for follow-up work]
+
+progress_update:
+  # Template for progress update section in task.md
+  template: |
+
+    ## Progress Update
+
+    - Modified files: {modified_files_count}
+    - Completed actions: {completed_actions_count}
+    - Iteration: {iteration}

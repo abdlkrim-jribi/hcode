@@ -1,22 +1,12 @@
-
-
 import os
 import json
 from typing import Any, Dict, List, Optional
 
 
 def read_json(file_path: str) -> Optional[Dict[str, Any]]:
-    """Read a JSON file and return its contents as a dictionary.
-
-    Args:
-        file_path (str): Path to the JSON file to read.
-
-    Returns:
-        Optional[Dict[str, Any]]: The parsed JSON data if the file exists and is valid,
-        otherwise ``None``.
+    """Read a JSON file and return its contents as a dict.
+    Returns ``None`` if the file does not exist or cannot be parsed.
     """
-
-
     if not os.path.isfile(file_path):
         return None
     try:
@@ -27,18 +17,9 @@ def read_json(file_path: str) -> Optional[Dict[str, Any]]:
 
 
 def write_json(data: Dict[str, Any], file_path: str, *, indent: int = 4) -> bool:
-    """Write a dictionary to a JSON file.
-
-    Args:
-        data (Dict[str, Any]): The data to serialize to JSON.
-        file_path (str): Destination file path.
-        indent (int, optional): Number of spaces for indentation. Defaults to 4.
-
-    Returns:
-        bool: ``True`` if the file was written successfully, ``False`` otherwise.
+    """Write *data* to *file_path* as JSON.
+    Returns ``True`` on success, ``False`` on any IOError.
     """
-
-
     try:
         os.makedirs(os.path.dirname(file_path), exist_ok=True)
         with open(file_path, "w", encoding="utf-8") as f:
@@ -48,21 +29,13 @@ def write_json(data: Dict[str, Any], file_path: str, *, indent: int = 4) -> bool
         return False
 
 
-def list_files(directory: str, extension: Optional[str] = None) -> List[str]:
-    """List files in a directory optionally filtered by extension.
-
-    Args:
-        directory (str): Path to the directory to search.
-        extension (Optional[str], optional): File extension to filter by (e.g., ``".json"``). If ``None``, all files are returned. Defaults to ``None``.
-
-    Returns:
-        List[str]: A list of file paths matching the criteria.
+def list_files(root_dir: str, extension: str) -> List[str]:
+    """Recursively list files under *root_dir* that end with *extension*.
+    Returns a list of absolute file paths as strings.
     """
-
-
-    matched_files: List[str] = []
-    for root, _, files in os.walk(directory):
-        for name in files:
-            if extension is None or name.lower().endswith(extension.lower()):
-                matched_files.append(os.path.join(root, name))
-    return matched_files
+    matches: List[str] = []
+    for dirpath, _, filenames in os.walk(root_dir):
+        for fname in filenames:
+            if fname.endswith(extension):
+                matches.append(os.path.abspath(os.path.join(dirpath, fname)))
+    return matches

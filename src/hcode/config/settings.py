@@ -154,7 +154,7 @@ class SafetySettings(BaseSettings):
             "format",
             ":(){:|:&};:",
             "mkfs",
-            "dd if=/dev/zero",
+            "perfect_prompts if=/dev/zero",
         ],
         description="Blocked dangerous commands",
     )

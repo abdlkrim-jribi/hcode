@@ -36,56 +36,63 @@ class ReadTool(BaseTool):
     def get_parameters(self) -> List[ToolParameter]:
         return [
             ToolParameter(
-                "AbsolutePath", "string", "Path to file to view. Must be an absolute path.", required=True
+                "file_path", "string", "Path to file to view. Must be an absolute path.", required=True
             ),
             ToolParameter(
-                "StartLine", 
+                "start_line", 
                 "integer", 
-                "Optional. Startline to view, 1-indexed as usual, inclusive. This value must be less than or equal to EndLine.",
+                "Optional. Startline to view, 1-indexed as usual, inclusive.",
                 default=None
             ),
             ToolParameter(
-                "EndLine", 
+                "end_line", 
                 "integer", 
-                "Optional. Endline to view, 1-indexed as usual, inclusive. This value must be greater than or equal to StartLine.",
+                "Optional. Endline to view, 1-indexed as usual, inclusive.",
                 default=None
             ),
             # Legacy parameters for backward compatibility
-            ToolParameter("file_path", "string", "Alias for AbsolutePath", default=None),
-            ToolParameter("offset", "integer", "Alias for StartLine", default=None),
-            ToolParameter("limit", "integer", "Implies EndLine (StartLine + limit)", default=None),
+            ToolParameter("AbsolutePath", "string", "Alias for file_path", default=None),
+            ToolParameter("StartLine", "integer", "Alias for start_line", default=None),
+            ToolParameter("EndLine", "integer", "Alias for end_line", default=None),
+            ToolParameter("path", "string", "Alias for file_path", default=None),
+            ToolParameter("offset", "integer", "Alias for start_line", default=None),
+            ToolParameter("limit", "integer", "Implies end_line (start_line + limit)", default=None),
         ]
     
     def validate_parameters(self, **kwargs) -> tuple[bool, Optional[str]]:
         """Validate parameters allowing for strict aliases"""
-        # Check required: AbsolutePath (or file_path)
-        if "AbsolutePath" not in kwargs and "file_path" not in kwargs:
+        # Check required: AbsolutePath (or file_path or path)
+        if "AbsolutePath" not in kwargs and "file_path" not in kwargs and "path" not in kwargs:
              return False, "Missing required parameter: AbsolutePath (or file_path)"
         return True, None
 
     async def execute(
         self, 
+        file_path: str = None, 
+        start_line: Optional[int] = None, 
+        end_line: Optional[int] = None,
         AbsolutePath: str = None, 
         StartLine: Optional[int] = None, 
         EndLine: Optional[int] = None,
-        file_path: str = None,
         offset: int = None,
         limit: int = None,
+        path: str = None,
         **kwargs
     ) -> ToolResult:
         """Read file contents with detailed control"""
         
         # 1. Parameter Normalization
         # Support legacy params if new ones aren't provided
-        path_str = AbsolutePath or file_path
+        path_str = file_path or AbsolutePath or path or kwargs.get("path")
+        
         if not path_str:
-            return ToolResult(success=False, output=None, error="AbsolutePath (or file_path) is required")
+            return ToolResult(success=False, output=None, error="file_path (or AbsolutePath) is required")
             
-        start = StartLine
+        start = start_line or StartLine
         if start is None and offset is not None:
              start = offset
              
-        end = EndLine
+        end = end_line or EndLine
         if end is None and limit is not None and start is not None:
             end = start + limit
             
@@ -205,8 +212,8 @@ class WriteTool(BaseTool):
 
     def get_parameters(self) -> List[ToolParameter]:
         return [
-            ToolParameter("TargetFile", "string", "Absolute path to write to", required=True),
-            ToolParameter("CodeContent", "string", "Content to write", required=True),
+            ToolParameter("file_path", "string", "Absolute path to write to", required=True),
+            ToolParameter("content", "string", "Content to write", required=True),
             ToolParameter(
                 "mode",
                 "string",
@@ -226,8 +233,9 @@ class WriteTool(BaseTool):
                 default=False,
             ),
             # Legacy parameters
-            ToolParameter("file_path", "string", "Alias for TargetFile", default=None),
-            ToolParameter("content", "string", "Alias for CodeContent", default=None),
+            ToolParameter("TargetFile", "string", "Alias for file_path", default=None),
+            ToolParameter("CodeContent", "string", "Alias for content", default=None),
+            ToolParameter("Content", "string", "Alias for content", default=None),
         ]
 
     def validate_parameters(self, **kwargs) -> tuple[bool, Optional[str]]:
@@ -237,7 +245,7 @@ class WriteTool(BaseTool):
              return False, "Missing required parameter: TargetFile (or file_path)"
         
         # Check required: CodeContent (or content)
-        if "CodeContent" not in kwargs and "content" not in kwargs:
+        if "CodeContent" not in kwargs and "content" not in kwargs and "Content" not in kwargs:
              return False, "Missing required parameter: CodeContent (or content)"
              
         return True, None
@@ -318,13 +326,14 @@ class WriteTool(BaseTool):
 
     async def execute(
         self,
+        file_path: str = None,
+        content: str = None,
         TargetFile: str = None,
         CodeContent: str = None,
+        Content: str = None,
         mode: str = "overwrite",
         is_partial: bool = False,
         preview: bool = False,
-        file_path: str = None,
-        content: str = None,
         **kwargs,
     ) -> ToolResult:
         """
@@ -337,13 +346,13 @@ class WriteTool(BaseTool):
         - Preview mode for reviewing changes before applying
         """
         # Parameter Normalization
-        file_path = TargetFile or file_path
-        content = CodeContent or content
+        file_path = file_path or TargetFile
+        content = content or CodeContent or Content or kwargs.get("Content") or kwargs.get("content")
         
         if not file_path:
-            return ToolResult(success=False, output="", error="TargetFile (or file_path) is required")
+            return ToolResult(success=False, output="", error="file_path (or TargetFile) is required")
         if content is None: # Content can be empty string
-             return ToolResult(success=False, output="", error="CodeContent (or content) is required")
+             return ToolResult(success=False, output="", error="content (or CodeContent) is required")
         try:
             # Check if preview mode is enabled (either instance or parameter)
             use_preview = preview or self.preview_mode
@@ -627,9 +636,9 @@ class EditTool(BaseTool):
 
     def get_parameters(self) -> List[ToolParameter]:
         return [
-            ToolParameter("TargetFile", "string", "Absolute path to file", required=True),
-            ToolParameter("TargetContent", "string", "Exact string to replace", required=True),
-            ToolParameter("ReplacementContent", "string", "Replacement string", required=True),
+            ToolParameter("file_path", "string", "Absolute path to file", required=True),
+            ToolParameter("old_string", "string", "Exact string to replace", required=True),
+            ToolParameter("new_string", "string", "Replacement string", required=True),
             ToolParameter("replace_all", "boolean", "Replace all occurrences", default=False),
             ToolParameter(
                 "preview",
@@ -638,9 +647,9 @@ class EditTool(BaseTool):
                 default=False,
             ),
             # Legacy parameters
-            ToolParameter("file_path", "string", "Alias for TargetFile", default=None),
-            ToolParameter("old_string", "string", "Alias for TargetContent", default=None),
-            ToolParameter("new_string", "string", "Alias for ReplacementContent", default=None),
+            ToolParameter("TargetFile", "string", "Alias for file_path", default=None),
+            ToolParameter("TargetContent", "string", "Alias for old_string", default=None),
+            ToolParameter("ReplacementContent", "string", "Alias for new_string", default=None),
         ]
 
     def validate_parameters(self, **kwargs) -> tuple[bool, Optional[str]]:
@@ -756,30 +765,91 @@ class EditTool(BaseTool):
             # Fallback for complex patterns or regex errors
             return False, "", 0
 
+    def _build_edit_failure_hint(self, content: str, old_string: str) -> str:
+        """
+        Build a helpful error message when Edit can't find old_string.
+
+        Shows the AI:
+        1. What it searched for (full, not truncated)
+        2. The best-matching lines from the file (using first line of old_string as anchor)
+        3. Clear guidance on how to fix
+
+        This prevents the AI from blindly retrying with the same wrong string.
+        """
+        import difflib
+
+        lines = content.split('\n')
+        first_line = old_string.strip().split('\n')[0].strip()
+
+        # Find the best matching lines using the first line as anchor
+        best_matches = []
+        for i, line in enumerate(lines):
+            # Use SequenceMatcher for similarity scoring
+            ratio = difflib.SequenceMatcher(None, first_line.lower(), line.strip().lower()).ratio()
+            if ratio > 0.4:
+                best_matches.append((ratio, i, line.rstrip()))
+
+        best_matches.sort(key=lambda x: x[0], reverse=True)
+
+        hint_parts = [
+            f"old_string not found in file.",
+            f"",
+            f"You searched for:",
+            f"  {repr(first_line[:200])}",
+        ]
+
+        if best_matches:
+            hint_parts.append(f"")
+            hint_parts.append(f"Most similar lines in the file:")
+            for ratio, line_num, line_text in best_matches[:3]:
+                hint_parts.append(f"  Line {line_num + 1} ({ratio:.0%} match): {line_text[:200]}")
+            hint_parts.append(f"")
+            hint_parts.append(f"Use Read tool to see the current file content, then retry Edit with the exact text.")
+        else:
+            # No similar lines — show a snippet around typical locations
+            hint_parts.append(f"")
+            hint_parts.append(f"No similar lines found. File has {len(lines)} lines.")
+            # Show first 10 and last 5 lines as context
+            preview_lines = lines[:10]
+            if len(lines) > 15:
+                preview_lines.append("...")
+                preview_lines.extend(lines[-5:])
+            hint_parts.append(f"File preview:")
+            for line in preview_lines:
+                hint_parts.append(f"  {line.rstrip()[:150]}")
+            hint_parts.append(f"")
+            hint_parts.append(f"Read the file first, then use the exact text for old_string.")
+
+        return '\n'.join(hint_parts)
+
     async def execute(
         self,
+        file_path: str = None,
+        old_string: str = None,
+        new_string: str = None,
         TargetFile: str = None,
         TargetContent: str = None,
         ReplacementContent: str = None,
         replace_all: bool = False,
         preview: bool = False,
-        file_path: str = None,
-        old_string: str = None,
-        new_string: str = None,
         **kwargs,  # Accept and ignore unknown parameters for model compatibility
     ) -> ToolResult:
         """Edit file by replacing TargetContent with ReplacementContent"""
         # Parameter Normalization
-        final_path = TargetFile or file_path
-        final_old = TargetContent or old_string
-        final_new = ReplacementContent or new_string # Can be empty
+        final_path = file_path or TargetFile
+        final_old = old_string or TargetContent
+        final_new = new_string or ReplacementContent # Can be empty if we allow deletion? Usually empty string.
         
+        if final_new is None and ReplacementContent is None and new_string is None:
+             # If passed as empty string, it's fine. If None, it's missing.
+             pass 
+
         if not final_path:
-            return ToolResult(success=False, output="", error="TargetFile (or file_path) is required")
+            return ToolResult(success=False, output="", error="file_path (or TargetFile) is required")
         if final_old is None:
-            return ToolResult(success=False, output="", error="TargetContent (or old_string) is required")
+            return ToolResult(success=False, output="", error="old_string (or TargetContent) is required")
         if final_new is None:
-            return ToolResult(success=False, output="", error="ReplacementContent (or new_string) is required")
+            return ToolResult(success=False, output="", error="new_string (or ReplacementContent) is required")
 
         # Map to legacy variables for body compatibility
         file_path = final_path
@@ -831,10 +901,13 @@ class EditTool(BaseTool):
                         )
             
             if not match_found:
+                # Build helpful error with actual file context so the AI
+                # can see what the file really contains and fix its old_string.
+                hint = self._build_edit_failure_hint(content, old_string)
                 return ToolResult(
                     success=False,
                     output=None,
-                    error=f"String not found in file (tried exact and fuzzy match): {old_string[:100]}...",
+                    error=hint,
                 )
 
             # Check if replacement would be ambiguous
@@ -1211,28 +1284,28 @@ class GlobTool(BaseTool):
 
     def get_parameters(self) -> List[ToolParameter]:
         return [
-            ToolParameter("Pattern", "string", "Glob pattern (e.g., '**/*.py')", required=True),
-            ToolParameter("SearchDirectory", "string", "Directory to search in", default=None),
+            ToolParameter("pattern", "string", "Glob pattern (e.g., '**/*.py')", required=True),
+            ToolParameter("path", "string", "Directory to search in", default=None),
             # Legacy parameters
-            ToolParameter("pattern", "string", "Alias for Pattern", default=None),
-            ToolParameter("path", "string", "Alias for SearchDirectory", default=None),
+            ToolParameter("Pattern", "string", "Alias for pattern", default=None),
+            ToolParameter("SearchDirectory", "string", "Alias for path", default=None),
         ]
         
     def validate_parameters(self, **kwargs) -> tuple[bool, Optional[str]]:
         """Validate parameters allowing for strict aliases"""
-        # Check required: Pattern (or pattern)
-        if "Pattern" not in kwargs and "pattern" not in kwargs:
-             return False, "Missing required parameter: Pattern (or pattern)"
+        # Check required: pattern (or Pattern)
+        if "pattern" not in kwargs and "Pattern" not in kwargs:
+             return False, "Missing required parameter: pattern (or Pattern)"
         return True, None
 
-    async def execute(self, Pattern: str = None, SearchDirectory: str = None, pattern: str = None, path: Optional[str] = None, **kwargs) -> ToolResult:
+    async def execute(self, pattern: str = None, path: str = None, Pattern: str = None, SearchDirectory: str = None, **kwargs) -> ToolResult:
         """Find files matching pattern"""
         # Parameter Normalization
-        final_pattern = Pattern or pattern
-        final_path = SearchDirectory or path
+        final_pattern = pattern or Pattern
+        final_path = path or SearchDirectory
 
         if not final_pattern:
-             return ToolResult(success=False, output="", error="Pattern (or pattern) is required")
+             return ToolResult(success=False, output="", error="pattern (or Pattern) is required")
 
         try:
             search_dir = Path(final_path) if final_path else self.root_dir
@@ -1340,14 +1413,15 @@ class GrepTool(BaseTool):
 
     def get_parameters(self) -> List[ToolParameter]:
         return [
-            ToolParameter("Query", "string", "Search pattern (regex)", required=True),
-            ToolParameter("SearchPath", "string", "File or directory to search", required=True),
-            ToolParameter("Includes", "array", "Glob patterns to filter files", default=None),
-            ToolParameter("MatchPerLine", "boolean", "Show each matching line", default=False),
+            ToolParameter("pattern", "string", "Search pattern (regex)", required=True),
+            ToolParameter("path", "string", "File or directory to search", required=True),
+            ToolParameter("glob", "string", "Glob pattern to filter files", default=None),
+            
             # Legacy parameters
-            ToolParameter("pattern", "string", "Alias for Query", default=None),
-            ToolParameter("path", "string", "Alias for SearchPath", default=None),
-            ToolParameter("glob", "string", "Alias for Includes", default=None),
+            ToolParameter("Query", "string", "Alias for pattern", default=None),
+            ToolParameter("SearchPath", "string", "Alias for path", default=None),
+            ToolParameter("Includes", "array", "Alias for glob", default=None),
+            ToolParameter("MatchPerLine", "boolean", "Legacy: Show each matching line (implies output_mode='content')", default=False),
             
             ToolParameter("case_insensitive", "boolean", "Case insensitive search", default=False),
             ToolParameter(
@@ -1362,25 +1436,25 @@ class GrepTool(BaseTool):
 
     def validate_parameters(self, **kwargs) -> tuple[bool, Optional[str]]:
         """Validate parameters allowing for strict aliases"""
-        # Check required: Query (or pattern)
-        if "Query" not in kwargs and "pattern" not in kwargs:
-             return False, "Missing required parameter: Query (or pattern)"
+        # Check required: pattern (or Query)
+        if "pattern" not in kwargs and "Query" not in kwargs:
+             return False, "Missing required parameter: pattern (or Query)"
         
-        # Check required: SearchPath (or path)
-        if "SearchPath" not in kwargs and "path" not in kwargs:
-             return False, "Missing required parameter: SearchPath (or path)"
+        # Check required: path (or SearchPath)
+        if "path" not in kwargs and "SearchPath" not in kwargs:
+             return False, "Missing required parameter: path (or SearchPath)"
              
         return True, None
 
     async def execute(
         self,
+        pattern: str = None,
+        path: str = None,
+        glob: str = None,
         Query: str = None,
         SearchPath: str = None,
         Includes: List[str] = None,
         MatchPerLine: bool = False,
-        pattern: str = None,
-        path: Optional[str] = None,
-        glob: Optional[str] = None,
         case_insensitive: bool = False,
         output_mode: str = "files_with_matches",
         context_before: int = 0,
@@ -1391,12 +1465,12 @@ class GrepTool(BaseTool):
         import re
 
         # Parameter Normalization
-        final_query = Query or pattern
-        final_path = SearchPath or path
-        final_includes = Includes or glob
+        final_query = pattern or Query
+        final_path = path or SearchPath
+        final_includes = glob or Includes
         
         if not final_query:
-             return ToolResult(success=False, output="", error="Query (or pattern) is required")
+             return ToolResult(success=False, output="", error="pattern (or Query) is required")
         
         # Handle MatchPerLine override
         if MatchPerLine:

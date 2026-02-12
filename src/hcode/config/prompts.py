@@ -1,9 +1,8 @@
 """
 Prompts and Model Configuration Loader for Hcode.
 
-This module provides centralized access to all prompts and model parameters
-from external YAML configuration files, making it easy to fine-tune
-AI behavior without modifying code.
+This module provides centralized access to prompts and model parameters.
+Core prompts are now managed by CorePromptLoader in config/core_prompts/core/.
 """
 
 import os
@@ -22,7 +21,7 @@ class GenerationParams:
     temperature: float = 0.3
     top_p: float = 1.0
     top_k: int = 0
-    max_tokens: int = 16384  # Maximum for most modern models
+    max_tokens: int = 16384
     frequency_penalty: float = 0.0
     presence_penalty: float = 0.0
     stop_sequences: List[str] = field(default_factory=list)
@@ -50,8 +49,8 @@ class GenerationParams:
 class ContextConfig:
     """Context window configuration"""
 
-    max_context_tokens: int = 200000  # Claude 3.5 Sonnet max
-    reserve_output_tokens: int = 16384  # Max output tokens
+    max_context_tokens: int = 200000
+    reserve_output_tokens: int = 16384
     summarization_threshold: float = 0.85
     max_history_turns: int = 100
 
@@ -80,10 +79,10 @@ class ReliabilityConfig:
 
 class PromptsConfig:
     """
-    Centralized prompts configuration loader.
+    Prompts configuration loader.
 
-    Loads prompts from config/prompts.yaml and provides
-    easy access to all system prompts.
+    System prompts are loaded from CorePromptLoader (config/core_prompts/core/).
+    This class provides backward compatibility and additional configuration.
     """
 
     _instance: Optional["PromptsConfig"] = None
@@ -98,12 +97,10 @@ class PromptsConfig:
 
     def _find_config_path(self) -> Optional[Path]:
         """Find the prompts configuration file"""
-        # Check environment variable first
         env_path = os.getenv("HCODE_PROMPTS_CONFIG")
         if env_path and Path(env_path).exists():
             return Path(env_path)
 
-        # Search paths in order of priority
         search_paths = [
             Path.cwd() / "config" / "prompts.yaml",
             Path.cwd() / "prompts.yaml",
@@ -125,23 +122,25 @@ class PromptsConfig:
             with open(self._config_path, "r", encoding="utf-8") as f:
                 self._prompts_data = yaml.safe_load(f) or {}
         else:
-            # Use default prompts if no config file found
             self._prompts_data = self._get_default_prompts()
 
     def _get_default_prompts(self) -> Dict[str, Any]:
-        """Return default prompts if no config file exists"""
+        """Return default prompts configuration"""
         return {
             "system_prompts": {
                 "coding_agent": self._default_coding_prompt(),
-                "openai_coding": self._default_openai_prompt(),
+                "openai_coding": self._default_coding_prompt(),
                 "agent": self._default_agent_prompt(),
                 "sub_agent": self._default_sub_agent_prompt(),
             },
             "continuation_prompts": [
                 "Continue from where you left off. Do not repeat what you've already written.",
                 "Please continue. Pick up exactly where you stopped.",
-                "Continue generating. Do not restart or repeat previous content.",
             ],
+            "tool_prompts": {
+                "continuation_readonly": "Continue exploring. Use read-only tools to gather more information.",
+                "continuation_general": "Continue with the task. Use appropriate tools to make progress.",
+            },
             "persona": {
                 "name": "Hcode",
                 "tone": "professional",
@@ -151,178 +150,43 @@ class PromptsConfig:
         }
 
     def _default_coding_prompt(self) -> str:
-        """
-        Builds the default coding prompt by loading modular components 
-        from 'config/prompts' directory.
-        """
-        # Define the base prompt directory
-        base_dir = Path.cwd() / "config" / "prompts"
-        
-        # List of modules to load in order
-        # List of modules to load in order (PRIORITY)
-        priority_modules = [
-            "identity.md",
-            "agentic_mode_overview.md",
-            "task_boundary_tool.md",
-            "modes.md",
-            "notify_user_tool.md",
-            "task.md",
-            "implementation_plan.md",
-            "walkthrough.md",
-            "artifact_formatting_guidelines.md",
-            "tool_calling.md",
-            "web_application_development.md",
-            "knowledge_items.md",
-            "knowledge_context_compaction.md",
-            "knowledge_cortex_agent.md",
-            "knowledge_ki_system.md",
-            "workflows.md",
-            "user_rules.md"
-        ]
-        
-        # 1. Load priority modules first
-        modules_to_load = list(priority_modules)
-        
-        # 2. Discover other .md files dynamically
+        """Get the default coding system prompt from CorePromptLoader."""
         try:
-            priority_set = set(priority_modules)
-            # Find all .md files in the directory
-            all_md_files = [f.name for f in base_dir.glob("*.md")]
-            
-            # Filter out ones we already have in priority list
-            extra_modules = [
-                f for f in all_md_files 
-                if f not in priority_set
-            ]
-            
-            # Sort alphabetically for deterministic behavior
-            extra_modules.sort()
-            
-            # Append to loading list
-            modules_to_load.extend(extra_modules)
-            
-        except Exception as e:
-            print(f"Warning: Failed to discover dynamic prompts: {e}")
+            from hcode.config.core_prompts.core import get_prompt_loader
+            loader = get_prompt_loader()
+            return loader.get_system_prompt("default")
+        except Exception:
+            # Fallback if CorePromptLoader not available
+            return self._fallback_system_prompt()
 
-        prompt_parts = []
-        
-        try:
-            for module_name in modules_to_load:
-                module_file = base_dir / module_name
-                if module_file.exists():
-                    prompt_parts.append(module_file.read_text(encoding="utf-8"))
-            
-            return "\n\n".join(prompt_parts)
+    def _fallback_system_prompt(self) -> str:
+        """Minimal fallback system prompt."""
+        return """You are Hcode, an AI coding assistant.
 
+Your capabilities:
+- Read, write, and edit files
+- Execute commands
+- Search and analyze code
+- Help with software development tasks
 
-        except Exception as e:
-            # Basic fallback if everything fails, but ideally we shouldn't fail if files exist
-            print(f"Error loading modular prompts: {e}")
-            return "Error loading system prompt. Please check config/prompts directory."
-
-    def _try_load_prompt_file(self, prompt_key: str) -> Optional[str]:
-        """
-        Try to load a prompt from a file in config/prompts/
-        
-        Args:
-            prompt_key: The key used to request the prompt (e.g. 'fast_prompt')
-            
-        Returns:
-            The prompt content if found, None otherwise
-        """
-        # Define the base prompt directory
-        base_dir = Path.cwd() / "config" / "prompts"
-        if not base_dir.exists():
-            return None
-            
-        # 1. Try exact match with extensions
-        for ext in [".txt", ".md"]:
-            f = base_dir / f"{prompt_key}{ext}"
-            if f.exists():
-                return f.read_text(encoding="utf-8")
-                
-        # 2. Try mapping common keys to specific files
-        # Map keys like 'fast_prompt' to 'Fast Prompt.txt'
-        special_mappings = {
-            "fast_prompt": "Fast Prompt.txt",
-            "fast_agent": "Fast Prompt.txt",
-            "planning_mode": "planning-mode.txt" 
-        }
-        
-        if prompt_key in special_mappings:
-            f = base_dir / special_mappings[prompt_key]
-            if f.exists():
-                return f.read_text(encoding="utf-8")
-                
-        # 3. Try normalizing key (replace underscores with spaces)
-        # e.g. 'fast_prompt' -> 'Fast Prompt.txt'
-        normalized = prompt_key.replace("_", " ").title() # fast_prompt -> Fast Prompt
-        for ext in [".txt", ".md"]:
-             f = base_dir / f"{normalized}{ext}"
-             if f.exists():
-                 return f.read_text(encoding="utf-8")
-                 
-        return None
-
-
-    def _default_openai_prompt(self) -> str:
-        return self._default_coding_prompt()
+Guidelines:
+1. Read files before modifying them
+2. Use appropriate tools for each task
+3. Verify changes work correctly
+4. Communicate clearly about your actions"""
 
     def _default_agent_prompt(self) -> str:
-        return """You are Hcode, an advanced AI coding assistant with comprehensive tool access.
-
-CORE CAPABILITIES:
-- File Operations: Read, write, edit, and search files
-- Code Execution: Run commands, tests, and scripts
-- Web Access: Fetch documentation and search the web
-- Task Management: Track and organize complex tasks
-- Code Analysis: Understand and improve code quality
-
-WORKING PRINCIPLES:
-1. Understand First: Read and analyze existing code before making changes
-2. Plan Carefully: Break complex tasks into manageable steps
-3. Execute Precisely: Use the right tool for each operation
-4. Verify Results: Test and validate all changes
-5. Communicate Clearly: Explain your reasoning and actions
-
-You are proactive, thorough, and quality-focused. 
-
-CRITICAL WORKFLOW RULES (ANTIGRAVITY STANDARD):
-
-1. **PLANNING PHASE**:
-   - **READ FIRST**: Users want you to understand the codebase. Read relevant files *before* planning.
-   - **THEN PLAN**: Create/update `.hcode/task.md` and `.hcode/implementation_plan.md` using the file context.
-   - **CONTEXTUALIZE**: Your plan must reference specific files you just read.
-   - Ask for USER APPROVAL before proceeding to execution.
-
-2. **EXECUTION PHASE**:
-   - **ACTION OVER CHAT**: Do not simply "show" code in the chat. YOU MUST USE TOOLS.
-   - Use `EditTool` or `WriteTool` to apply changes to the file system.
-   - **NEVER** output code blocks in chat. Call `WriteTool` or `EditTool` immediately.
-   - Update `.hcode/task.md` as you complete items (mark as [x]).
-
-3. **VERIFICATION PHASE**:
-   - Run tests or verification commands (`BashTool`) to ensure your changes work.
-   - Fix any issues immediately.
-
-4. **COMPLETION PHASE**:
-   - Create `.hcode/walkthrough.md` summarizing what you did (changes, verification results).
-   - Only then is the task complete.
-
-IMPORTANT:
-- Prefer direct file manipulation (EditTool) over creating temporary "maintenance scripts".
-- Do not rely on `task_boundary` to track your work history. Use `task.md`."""
+        """Get the agent system prompt from CorePromptLoader."""
+        try:
+            from hcode.config.core_prompts.core import get_prompt_loader
+            loader = get_prompt_loader()
+            return loader.get_system_prompt("default")
+        except Exception:
+            return self._fallback_system_prompt()
 
     def _default_sub_agent_prompt(self) -> str:
-        return """You are a specialized sub-agent of Hcode, focused on completing a specific delegated task.
-
-Your role:
-- Execute the assigned task efficiently
-- Use available tools appropriately
-- Report results clearly and concisely
-- Escalate issues if you cannot complete the task
-
-Stay focused on your assigned task and avoid scope creep."""
+        """Placeholder for sub-agent prompt - configured externally."""
+        return "[SUB_AGENT_PROMPT_PLACEHOLDER]"
 
     def reload(self):
         """Reload prompts from file"""
@@ -338,35 +202,27 @@ Stay focused on your assigned task and avoid scope creep."""
         Get a system prompt by type.
 
         Args:
-            prompt_type: Type of prompt (coding_agent, openai_coding, agent, sub_agent, planning, code_review)
+            prompt_type: Type of prompt (coding_agent, openai_coding, agent, sub_agent)
 
         Returns:
-            The system prompt string, with optional memory file content prepended for OpenAI coding prompts.
+            The system prompt string
         """
         prompts = self._prompts_data.get("system_prompts", {})
         prompt = prompts.get(prompt_type)
-        
-        # If not found in config, try to load from file
-        if not prompt:
-            prompt = self._try_load_prompt_file(prompt_type)
-            
-        # Fallback to default if still not found
+
         if not prompt:
             prompt = self._default_coding_prompt()
 
-        # If this is the OpenAI coding prompt, prepend the memory file content (e.g., CLAUDE.md)
+        # For OpenAI, prepend memory file content if available
         if prompt_type == "openai_coding":
             try:
-                # Retrieve memory configuration (defaults to CLAUDE.md)
                 mem_cfg = self.get_memory_config()
                 mem_file_name = mem_cfg.get("memory_file", "CLAUDE.md")
                 mem_path = Path.cwd() / mem_file_name
                 if mem_path.is_file():
                     mem_content = mem_path.read_text()
-                    # Ensure there is a clear separation between memory content and the prompt
                     prompt = f"{mem_content}\n\n{prompt}"
             except Exception:
-                # If any issue occurs (e.g., file not found), fall back to the original prompt
                 pass
 
         return prompt
@@ -375,9 +231,7 @@ Stay focused on your assigned task and avoid scope creep."""
         """Get list of continuation prompts"""
         return self._prompts_data.get(
             "continuation_prompts",
-            [
-                "Continue from where you left off. Do not repeat what you've already written.",
-            ],
+            ["Continue from where you left off. Do not repeat what you've already written."],
         )
 
     def get_continuation_prompt(self, index: int = 0) -> str:
@@ -388,178 +242,46 @@ Stay focused on your assigned task and avoid scope creep."""
     def get_tool_prompt(self, prompt_name: str) -> str:
         """Get a tool-specific prompt"""
         tool_prompts = self._prompts_data.get("tool_prompts", {})
-        return tool_prompts.get(prompt_name, "")
-
-    def get_git_prompt(self, prompt_name: str) -> str:
-        """Get a git-related prompt (commit_analysis, pr_analysis, etc.)"""
-        git_prompts = self._prompts_data.get("git_prompts", {})
-        return git_prompts.get(prompt_name, "")
+        default_prompts = {
+            "continuation_readonly": "Continue exploring. Use read-only tools to gather more information.",
+            "continuation_general": "Continue with the task. Use appropriate tools to make progress.",
+        }
+        return tool_prompts.get(prompt_name, default_prompts.get(prompt_name, ""))
 
     def get_security_config(self) -> Dict[str, Any]:
-        """Get security configuration (banned commands, confirm commands)"""
+        """Get security configuration"""
         return self._prompts_data.get(
             "security",
-            {
-                "banned_commands": [],
-                "confirm_commands": [],
-            },
+            {"banned_commands": [], "confirm_commands": []},
         )
 
     def get_memory_config(self) -> Dict[str, Any]:
         """Get memory/CLAUDE.md configuration"""
         return self._prompts_data.get(
             "memory",
-            {
-                "memory_file": "CLAUDE.md",
-                "memory_prompt": "",
-            },
+            {"memory_file": "CLAUDE.md", "memory_prompt": ""},
         )
 
     def get_persona(self) -> Dict[str, Any]:
         """Get persona configuration"""
         return self._prompts_data.get(
             "persona",
-            {
-                "name": "Hcode",
-                "tone": "professional",
-                "use_emojis": False,
-                "verbosity": "balanced",
-            },
+            {"name": "Hcode", "tone": "professional", "use_emojis": False, "verbosity": "balanced"},
         )
 
     def get_formatting(self) -> Dict[str, Any]:
         """Get formatting configuration"""
         return self._prompts_data.get(
             "formatting",
-            {
-                "code_block_style": "fenced",
-                "default_language": "python",
-                "show_line_numbers": True,
-                "max_output_lines": 100,
-            },
+            {"code_block_style": "fenced", "default_language": "python", "show_line_numbers": True, "max_output_lines": 100},
         )
-
-    def get_claude_prompt(self) -> str:
-        """
-        Get the Claude Code style system prompt.
-
-        Returns:
-            Claude-style system prompt
-        """
-        return self.get_system_prompt("claude_code_style")
-
-    def get_claude_reasoning_phase(self, phase_name: str) -> str:
-        """
-        Get a specific Claude reasoning phase template.
-
-        Args:
-            phase_name: Phase name (perception, comprehension, analysis, etc.)
-
-        Returns:
-            Reasoning phase template
-        """
-        phases = self._prompts_data.get("claude_reasoning_phases", {})
-        return phases.get(phase_name, "")
-
-    def get_claude_example(self, example_name: str) -> str:
-        """
-        Get a Claude-style interaction example.
-
-        Args:
-            example_name: Example identifier (simple_fix, complex_feature)
-
-        Returns:
-            Example interaction text
-        """
-        examples = self._prompts_data.get("claude_examples", {})
-        return examples.get(example_name, "")
-
-    def list_claude_reasoning_phases(self) -> List[str]:
-        """
-        List all available Claude reasoning phases.
-
-        Returns:
-            List of phase names
-        """
-        phases = self._prompts_data.get("claude_reasoning_phases", {})
-        return list(phases.keys())
-
-    def list_claude_examples(self) -> List[str]:
-        """
-        List all available Claude examples.
-
-        Returns:
-            List of example names
-        """
-        examples = self._prompts_data.get("claude_examples", {})
-        return list(examples.keys())
-
-    def get_reasoning_system_prompt(self) -> str:
-        """
-        Get the core reasoning system prompt.
-
-        Returns:
-            Reasoning system prompt string
-        """
-        return self._prompts_data.get("reasoning_prompts", {}).get("system", "")
-
-    def get_reasoning_template(self, depth: str) -> str:
-        """
-        Get a thinking template for a specific depth (quick, standard, deep).
-
-        Args:
-            depth: depth name
-
-        Returns:
-            Thinking template string
-        """
-        return self._prompts_data.get("reasoning_prompts", {}).get("templates", {}).get(depth, "")
-
-    def get_reasoning_enhancement(self, name: str) -> str:
-        """
-        Get an enhancement prompt (self_critique, uncertainty_handling, etc).
-
-        Args:
-            name: enhancement name
-
-        Returns:
-            Enhancement prompt string
-        """
-        return self._prompts_data.get("reasoning_prompts", {}).get("enhancements", {}).get(name, "")
-
-    def get_reasoning_task_specific(self, task_name: str) -> str:
-        """
-        Get a task-specific reasoning protocol.
-
-        Args:
-            task_name: Task name (debugging, refactoring, etc)
-
-        Returns:
-            Task specific protocol string
-        """
-        return self._prompts_data.get("reasoning_prompts", {}).get("task_specific", {}).get(task_name, "")
-
-    def get_phase_instruction(self, phase_name: str) -> str:
-        """
-        Get instruction for a specific reasoning phase.
-
-        Args:
-            phase_name: Name of the phase
-
-        Returns:
-            Instruction string
-        """
-        instructions = self._prompts_data.get("reasoning_prompts", {}).get("phase_instructions", {})
-        return instructions.get(phase_name, "Think about this aspect of the problem.")
-
 
 
 class ModelsConfig:
     """
-    Centralized model configuration loader.
+    Model configuration loader.
 
-    Loads model parameters from config/models.yaml and provides
-    easy access to generation settings.
+    Loads model parameters from config/models.yaml.
     """
 
     _instance: Optional["ModelsConfig"] = None
@@ -574,12 +296,10 @@ class ModelsConfig:
 
     def _find_config_path(self) -> Optional[Path]:
         """Find the models configuration file"""
-        # Check environment variable first
         env_path = os.getenv("HCODE_MODELS_CONFIG")
         if env_path and Path(env_path).exists():
             return Path(env_path)
 
-        # Search paths in order of priority
         search_paths = [
             Path.cwd() / "config" / "models.yaml",
             Path.cwd() / "models.yaml",
@@ -601,7 +321,6 @@ class ModelsConfig:
             with open(self._config_path, "r", encoding="utf-8") as f:
                 self._models_data = yaml.safe_load(f) or {}
         else:
-            # Use default config if no file found
             self._models_data = self._get_default_config()
 
     def _get_default_config(self) -> Dict[str, Any]:
@@ -645,44 +364,25 @@ class ModelsConfig:
         return self._config_path
 
     def get_generation_params(self, task_type: Optional[str] = None) -> GenerationParams:
-        """
-        Get generation parameters, optionally for a specific task type.
-
-        Args:
-            task_type: Optional task type (code_generation, bug_fixing, etc.)
-
-        Returns:
-            GenerationParams instance
-        """
-        # Start with base generation params
+        """Get generation parameters, optionally for a specific task type."""
         gen_config = self._models_data.get("generation", {})
 
         params = GenerationParams(
             temperature=gen_config.get("temperature", 0.3),
             top_p=gen_config.get("top_p", 1.0),
             top_k=gen_config.get("top_k", 0),
-            max_tokens=gen_config.get("max_tokens", 16384),  # Maximum for most models
+            max_tokens=gen_config.get("max_tokens", 16384),
             frequency_penalty=gen_config.get("frequency_penalty", 0.0),
             presence_penalty=gen_config.get("presence_penalty", 0.0),
             stop_sequences=gen_config.get("stop_sequences", []),
         )
 
-        # Apply task-specific overrides if specified
         if task_type:
             overrides = self._models_data.get("task_overrides", {}).get(task_type, {})
             if overrides:
-                if "temperature" in overrides:
-                    params.temperature = overrides["temperature"]
-                if "top_p" in overrides:
-                    params.top_p = overrides["top_p"]
-                if "top_k" in overrides:
-                    params.top_k = overrides["top_k"]
-                if "max_tokens" in overrides:
-                    params.max_tokens = overrides["max_tokens"]
-                if "frequency_penalty" in overrides:
-                    params.frequency_penalty = overrides["frequency_penalty"]
-                if "presence_penalty" in overrides:
-                    params.presence_penalty = overrides["presence_penalty"]
+                for key in ["temperature", "top_p", "top_k", "max_tokens", "frequency_penalty", "presence_penalty"]:
+                    if key in overrides:
+                        setattr(params, key, overrides[key])
 
         return params
 
@@ -731,52 +431,16 @@ class ModelsConfig:
         )
 
     def get_model_for_provider(self, provider: str, size: str = "medium") -> str:
-        """
-        Get model name for a provider and size.
-
-        Args:
-            provider: Provider name (anthropic, openai)
-            size: Size alias (small, medium, large, fast, balanced, quality)
-
-        Returns:
-            Model name string
-        """
+        """Get model name for a provider and size."""
         models = self._models_data.get("models", {})
-
-        # Check aliases first
         aliases = models.get("aliases", {})
         if size in aliases and provider in aliases[size]:
             return aliases[size][provider]
-
-        # Fall back to defaults
         defaults = models.get("defaults", {})
         return defaults.get(provider, "gpt-4o")
 
-    def get_compatible_model(self, provider_hint: str, size: str = "medium") -> str:
-        """
-        Get model for OpenAI-compatible providers.
 
-        Args:
-            provider_hint: Provider name or base URL hint
-            size: Size alias
-
-        Returns:
-            Model name string
-        """
-        models = self._models_data.get("models", {})
-        compatible = models.get("compatible", {})
-
-        # Try to match provider
-        provider_lower = provider_hint.lower()
-        for compat_name, sizes in compatible.items():
-            if compat_name in provider_lower:
-                return sizes.get(size, sizes.get("medium", ""))
-
-        # Return empty if not found
-        return ""
-
-
-# Convenience functions for easy access
+# Convenience functions
 @lru_cache(maxsize=1)
 def get_prompts_config() -> PromptsConfig:
     """Get the prompts configuration singleton"""
@@ -813,28 +477,5 @@ def reload_configs():
     """Reload all configuration files"""
     get_prompts_config().reload()
     get_models_config().reload()
-    # Clear caches
     get_prompts_config.cache_clear()
     get_models_config.cache_clear()
-
-
-def get_claude_prompt() -> str:
-    """Convenience function to get Claude Code style prompt"""
-    return get_prompts_config().get_claude_prompt()
-
-
-
-def get_claude_reasoning_phase(phase_name: str) -> str:
-    """Convenience function to get a Claude reasoning phase"""
-    return get_prompts_config().get_claude_reasoning_phase(phase_name)
-
-
-def get_reasoning_system_prompt() -> str:
-    """Convenience function to get reasoning system prompt"""
-    return get_prompts_config().get_reasoning_system_prompt()
-
-
-def get_phase_instruction(phase_name: str) -> str:
-    """Convenience function to get phase instruction"""
-    return get_prompts_config().get_phase_instruction(phase_name)
-

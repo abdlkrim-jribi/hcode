@@ -37,10 +37,10 @@ IS_WINDOWS = sys.platform == "win32"
 
 # Global output handler instance
 _output_handler = OutputHandler(
-    head_lines=15,  # Show first 15 lines
-    tail_lines=5,  # ALWAYS show last 5 lines
-    max_lines=50,  # Max lines before truncation
-    max_line_length=200,  # Max chars per line
+    head_lines=100,  # Show first 100 lines (increased for test errors)
+    tail_lines=50,  # ALWAYS show last 50 lines (increased for test errors)
+    max_lines=300,  # Max lines before truncation (increased from 50)
+    max_line_length=500,  # Max chars per line (increased from 200)
 )
 
 
@@ -531,7 +531,11 @@ class HcodeToolDisplay:
         if not self.debug_mode:
             # Show output directly without boxes (Claude Code style)
             content_lines = truncated.content.split("\n")
-            for line in content_lines[:30]:  # Limit to 30 lines in normal mode
+
+            # Show up to 200 lines to ensure agent sees full error details
+            max_display_lines = 200
+
+            for line in content_lines[:max_display_lines]:
                 # Highlight error lines
                 if any(
                     word in line.lower() for word in ["error", "exception", "failed", "traceback"]
@@ -540,9 +544,9 @@ class HcodeToolDisplay:
                 else:
                     self.console.print(f"    [{self.style.DIM}]{escape(line)}[/]")
 
-            if len(content_lines) > 30:
+            if len(content_lines) > max_display_lines:
                 self.console.print(
-                    f"    [{self.style.DIM}]... ({len(content_lines) - 30} more lines)[/]"
+                    f"    [{self.style.DIM}]... ({len(content_lines) - max_display_lines} more lines)[/]"
                 )
             return
 
