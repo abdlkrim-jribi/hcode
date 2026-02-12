@@ -185,7 +185,7 @@ class BashTool(BaseTool):
     async def execute(self, command: str = None, CommandLine: str = None, **kwargs) -> ToolResult:
         """Execute bash command"""
         raw_command = command or CommandLine
-        timeout = kwargs.get("timeout", 120000) / 1000  # Convert ms to seconds
+        timeout = kwargs.get("timeout", 120000) / 1000  # Convert ms to seconds (default 120s)
         run_in_background = kwargs.get("run_in_background", False)
         description = kwargs.get("description", raw_command[:50] if raw_command else "")
 
@@ -199,15 +199,11 @@ class BashTool(BaseTool):
         if command != raw_command and description == raw_command[:50]:
              description = f"{raw_command} (translated to {command})"
 
-        # Validate timeout with MINIMUM guard
-        MIN_TIMEOUT = 5.0  # 5 seconds minimum to prevent accidental immediate timeouts
-        max_timeout = 600000 / 1000  # 10 minutes in seconds
+        # Validate timeout - let agent decide, just enforce reasonable bounds
+        max_timeout = 600000 / 1000  # 10 minutes max to prevent runaway processes
 
-        if timeout < MIN_TIMEOUT:
-            logger.warning(f"[BASH] Timeout {timeout}s too short (< {MIN_TIMEOUT}s), using minimum")
-            timeout = MIN_TIMEOUT
         if timeout > max_timeout:
-            logger.warning(f"[BASH] Timeout {timeout}s too long (> {max_timeout}s), capping at max")
+            logger.warning(f"[BASH] Timeout {timeout}s exceeds maximum ({max_timeout}s), capping at max")
             timeout = max_timeout
 
         # DEBUG: Log timeout value

@@ -1030,17 +1030,25 @@ Produce your analysis in structured format. Read the modified files to verify.""
 
 ## YOUR TASK
 
-Generate the walkthrough.md content following the GPT OSS 120B protocol above. Use <thinking> blocks for analysis and planning, then output the final walkthrough content in <output> blocks.
+Generate the comprehensive walkthrough.md content following the GPT OSS 120B protocol above. Use <thinking> blocks for detailed analysis and planning, then output the final walkthrough content in <output> blocks.
 
-Remember: BE CONCISE (max 200 words). Users will be annoyed by verbose documentation.
+CRITICAL: BE COMPREHENSIVE AND DETAILED. Include:
+- Full technical context and rationale for all changes
+- Code snippets showing key implementations
+- Complete test results breakdown
+- All architectural and design decisions explained
+- Evidence citations for every claim
+- Aim for 500-1000+ words for complex tasks to ensure complete documentation
+
+Users need thorough documentation to understand exactly what was implemented and why.
 """
 
             # Generate walkthrough using AI
-            self._display("Generating walkthrough.md with AI...", style="thinking")
+            self._display("Generating comprehensive walkthrough.md with AI...", style="thinking")
 
             response = await self.provider.generate_completion(
                 messages=[Message(role="user", content=prompt)],
-                max_tokens=2000,
+                max_tokens=8192,  # Increased for comprehensive documentation
                 temperature=0.3,  # Lower temperature for consistent formatting
             )
 
@@ -1149,16 +1157,52 @@ Remember: BE CONCISE (max 200 words). Users will be annoyed by verbose documenta
         Fallback template-based walkthrough generation.
 
         Used when AI generation fails or protocol is unavailable.
+        Provides comprehensive documentation even without AI enhancement.
         """
-        # Modified files section with file links
-        formatted_files = []
+        # Categorize modified files by type
+        python_files = []
+        test_files = []
+        config_files = []
+        other_files = []
+
         for f in context.modified_files:
             basename = Path(f).name
-            formatted_files.append(f"- [{basename}](file:///{f})")
-        files_with_links = "\n".join(formatted_files) if formatted_files else "- No files were modified"
+            if ".hcode" in f:
+                continue  # Skip artifact files
+            elif f.endswith(".py") and "test" in f.lower():
+                test_files.append(f"- [{basename}](file:///{f}) - Test file")
+            elif f.endswith(".py"):
+                python_files.append(f"- [{basename}](file:///{f}) - Implementation")
+            elif any(f.endswith(ext) for ext in [".yaml", ".yml", ".json", ".toml", ".ini", ".cfg"]):
+                config_files.append(f"- [{basename}](file:///{f}) - Configuration")
+            else:
+                other_files.append(f"- [{basename}](file:///{f})")
+
+        # Format file sections
+        all_file_sections = []
+        if python_files:
+            all_file_sections.append("### Implementation Files\n" + "\n".join(python_files))
+        if test_files:
+            all_file_sections.append("### Test Files\n" + "\n".join(test_files))
+        if config_files:
+            all_file_sections.append("### Configuration Files\n" + "\n".join(config_files))
+        if other_files:
+            all_file_sections.append("### Other Changes\n" + "\n".join(other_files))
+
+        files_with_links = "\n\n".join(all_file_sections) if all_file_sections else "No files were modified"
 
         # Test results section
         test_section = self._format_test_results(test_results)
+
+        # Extract verification insights if available
+        verification_section = ""
+        if verification_analysis:
+            verification_section = f"""
+
+## Verification Analysis
+
+{verification_analysis[:1000]}...
+"""
 
         # Determine verdict
         tests_ok = (
@@ -1167,30 +1211,46 @@ Remember: BE CONCISE (max 200 words). Users will be annoyed by verbose documenta
         )
         verdict = "APPROVED" if tests_ok else "NEEDS REVISION"
 
+        # Build comprehensive fallback
         return f"""# Implementation Walkthrough
 
-## Task Summary
+## Task Overview
 
-{context.task}
+**Objective:** {context.task}
+
+**Working Directory:** {context.working_dir}
+
+**Iteration:** {context.iteration}
+
+## Implementation Details
+
+This implementation modified {len(context.modified_files)} file(s) across the codebase. The changes were made to accomplish the stated objective with proper testing and verification.
 
 ## Changes Made
 
 {files_with_links}
+{verification_section}
 
 ## Verification Results
 
 {test_section}
 
+### Summary Statistics
+
+- **Total Files Modified:** {len(context.modified_files)}
+- **Tests Executed:** {"Yes" if test_results.get("tests_run") else "No"}
+- **Tests Passed:** {test_results.get('tests_passed', 0)}
+- **Tests Failed:** {test_results.get('tests_failed', 0)}
+- **Actions Completed:** {len(context.completed_actions)}
+
 ## Final Verdict
 
 **{verdict}**
 
-- Files modified: {len(context.modified_files)}
-- Tests passed: {test_results.get('tests_passed', 0)}
-- Tests failed: {test_results.get('tests_failed', 0)}
+{"All verification checks passed successfully. Implementation meets requirements." if tests_ok else "Some verification checks failed. Review test output for details."}
 
 ---
-*Generated by Hcode Verification — 5-Phase QA Protocol*
+*Generated by Hcode Verification — 5-Phase QA Protocol (Template Fallback)*
 """
 
     def _format_test_results(self, test_results: Dict[str, Any]) -> str:

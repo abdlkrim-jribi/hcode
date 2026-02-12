@@ -1,6 +1,6 @@
 """
-Execution Phase Handler — 4-Phase Implementation Protocol
-==========================================================
+Execution Phase Handler — 4-Phase Implementation Protocol (GPT OSS 120B Optimized)
+====================================================================================
 
 Implements the *Execution* phase of the PEV workflow with a structured
 4-phase protocol optimized for GPT OSS 120B reasoning:
@@ -10,15 +10,21 @@ Implements the *Execution* phase of the PEV workflow with a structured
 - **Phase 2: Iterative Code Generation** — 3-pass: skeleton → logic → polish
 - **Phase 3: Self-Validation** — Verify correctness before handoff
 
-The handler loads execution_handler.md as the primary prompt template and
-uses phase-aware continuation prompts to steer the AI through each phase.
+GPT OSS 120B Optimizations:
+- Enhanced chain-of-thought with explicit state tracking
+- Stronger tool call extraction with multiple fallback patterns
+- Temperature tuned for code generation (0.2)
+- Increased max_tokens for complex reasoning (24576)
+- Multi-strategy tool call extraction
+- Improved phase detection with behavioral hints
 """
 
+import json
 import logging
 import re
 import time
 from pathlib import Path
-from typing import List, Any, Dict, Optional
+from typing import List, Any, Dict, Optional, Tuple
 
 from .base_handler import BasePhaseHandler
 from ..protocols import AgentContext, PhaseResult
@@ -32,9 +38,45 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# GPT OSS 120B OPTIMIZED CONFIGURATION
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class GPTOSSConfig:
+    """Configuration constants optimized for GPT OSS 120B model."""
+
+    # Model parameters
+    TEMPERATURE = 0.2  # Lower for more deterministic code generation
+    MAX_TOKENS = 24576  # Increased for complex reasoning chains
+    TOP_P = 0.95
+
+    # Execution limits
+    MAX_ROUNDS = 25  # Increased for complex tasks
+    TIMEOUT_SECONDS = 1200  # 20 minutes for execution phase
+
+    # Tool extraction patterns (GPT OSS specific)
+    TOOL_PATTERNS = [
+        # Standard JSON in code blocks
+        r'```json\s*(\{.*?\})\s*```',
+        r'```(?:tool)?\s*(\{.*?\})\s*```',
+        # Inline JSON
+        r'\{"tool"\s*:\s*"[^"]+"\s*,\s*"arguments"\s*:\s*\{[^}]*\}\s*\}',
+        # GPT OSS may output without code blocks
+        r'\{\s*"tool"\s*:\s*"([^"]+)"\s*,\s*"arguments"\s*:\s*(\{[^}]*\})\s*\}',
+    ]
+
+    # Phase state keywords for detection
+    PHASE_KEYWORDS = {
+        'phase0': ['task selection', 'read task.md', 'identify next', 'mark as in-progress'],
+        'phase1': ['pre-implementation', 'analysis', 'read file', 'glob', 'understand structure'],
+        'phase2': ['code generation', 'implementing', 'skeleton', 'logic', 'polish'],
+        'phase3': ['validation', 'verify', 'trace', 'deviation report', 'mark complete'],
+    }
+
+
 class ExecutionPhaseHandler(BasePhaseHandler):
     """
-    Handler for the Execution phase of PEV workflow.
+    Handler for the Execution phase of PEV workflow (GPT OSS 120B Optimized).
 
     Uses a 4-phase protocol:
     - Phase 0: Task Selection — identify next unchecked task from task.md
@@ -63,6 +105,11 @@ class ExecutionPhaseHandler(BasePhaseHandler):
 
         # Task completion tracking
         self._completed_files = set()  # Track verified file creations
+
+        # GPT OSS 120B specific tracking
+        self._current_phase_state = 'phase0'
+        self._phase_transition_history = []
+        self._reasoning_depth = 0
 
     def get_required_artifacts(self) -> List[str]:
         """Execution phase doesn't produce new artifacts."""
@@ -113,7 +160,9 @@ class ExecutionPhaseHandler(BasePhaseHandler):
             logger.debug(f"[execution] Read failed for {file_path}: {e}")
             return None
 
-    def _validate_edit_params(self, file_path: str, old_string: str, new_string: str, context: AgentContext) -> tuple[bool, str]:
+    def _validate_edit_params(
+            self, file_path: str, old_string: str, new_string: str, context: AgentContext
+    ) -> Tuple[bool, str]:
         """
         Validate Edit tool parameters before execution.
 
@@ -142,7 +191,10 @@ class ExecutionPhaseHandler(BasePhaseHandler):
 
         # Warn if multiple occurrences (suggest replace_all=True)
         if count > 1:
-            return False, f"old_string appears {count} times in {file_path}. Use replace_all=True or provide more context to make it unique."
+            return False, (
+                f"old_string appears {count} times in {file_path}. "
+                f"Use replace_all=True or provide more context to make it unique."
+            )
 
         return True, ""
 
@@ -162,7 +214,9 @@ class ExecutionPhaseHandler(BasePhaseHandler):
         self._tool_failures[tool_name] += 1
 
         if self._tool_failures[tool_name] >= self._max_retries:
-            logger.warning(f"[execution] Tool {tool_name} exceeded retry limit ({self._max_retries})")
+            logger.warning(
+                f"[execution] Tool {tool_name} exceeded retry limit ({self._max_retries})"
+            )
             return False
 
         return True
@@ -172,7 +226,9 @@ class ExecutionPhaseHandler(BasePhaseHandler):
         if tool_name in self._tool_failures:
             self._tool_failures[tool_name] = 0
 
-    def _verify_task_deliverables(self, expected_files: List[str], context: AgentContext) -> tuple[bool, List[str]]:
+    def _verify_task_deliverables(
+            self, expected_files: List[str], context: AgentContext
+    ) -> Tuple[bool, List[str]]:
         """
         Verify that expected files were created/modified.
 
@@ -190,8 +246,10 @@ class ExecutionPhaseHandler(BasePhaseHandler):
             if content is None:
                 # Try fresh read (bypass cache)
                 try:
-                    content = self.artifact_manager.load_artifact(file_path.replace("\\", "/"), context)
-                except:
+                    content = self.artifact_manager.load_artifact(
+                        file_path.replace("\\", "/"), context
+                    )
+                except Exception:
                     pass
 
             if not content:
@@ -204,12 +262,12 @@ class ExecutionPhaseHandler(BasePhaseHandler):
     # ═══════════════════════════════════════════════════════════════════════
 
     async def handle(
-        self,
-        context: AgentContext,
-        loop_controller: Any,
+            self,
+            context: AgentContext,
+            loop_controller: Any,
     ) -> PhaseResult:
         """
-        Execute implementation phase using the 4-phase protocol.
+        Execute implementation phase using the 4-phase protocol (GPT OSS 120B Optimized).
 
         The AI is given the full execution_handler.md protocol as its system
         prompt, along with the implementation plan and task.md content. It
@@ -249,9 +307,19 @@ class ExecutionPhaseHandler(BasePhaseHandler):
             step_info = ""
             if next_step:
                 # Enhanced display with task counter
-                task_counter = f"Task {task_stats['current']}/{task_stats['total']}" if task_stats['total'] > 0 else ""
-                step_name = next_step.get('name', 'Step ' + str(next_step.get('number', '?')))
-                step_info = f"{task_counter} - {step_name}" if task_counter else f"Working on: {step_name}"
+                task_counter = (
+                    f"Task {task_stats['current']}/{task_stats['total']}"
+                    if task_stats['total'] > 0
+                    else ""
+                )
+                step_name = next_step.get(
+                    'name', 'Step ' + str(next_step.get('number', '?'))
+                )
+                step_info = (
+                    f"{task_counter} - {step_name}"
+                    if task_counter
+                    else f"Working on: {step_name}"
+                )
                 logger.info(step_info)
 
             # Build the execution prompt with 4-phase protocol
@@ -275,7 +343,6 @@ class ExecutionPhaseHandler(BasePhaseHandler):
                 # Display task progress via HcodeDisplay if available
                 if self._hcode_display and task_stats['total'] > 0:
                     progress_msg = f"Executing: Task {task_stats['current']}/{task_stats['total']}"
-                    # Note: HcodeDisplay doesn't have display_phase_info, but _display works
                     self._display(progress_msg, style="info")
 
                 # Start execution thinking display
@@ -286,10 +353,10 @@ class ExecutionPhaseHandler(BasePhaseHandler):
                     prompt,
                     context,
                     system_prompt=self._get_execution_system_prompt(context),
-                    max_rounds=20,  # Increased from 12 to match planning phase capacity
-                    max_tokens=16384,
-                    temperature=0.3,  # Deterministic code generation
-                    timeout_seconds=900,  # 15 minutes for execution phase
+                    max_rounds=GPTOSSConfig.MAX_ROUNDS,
+                    max_tokens=GPTOSSConfig.MAX_TOKENS,
+                    temperature=GPTOSSConfig.TEMPERATURE,
+                    timeout_seconds=GPTOSSConfig.TIMEOUT_SECONDS,
                 )
 
                 # End thinking display
@@ -303,7 +370,11 @@ class ExecutionPhaseHandler(BasePhaseHandler):
                             tool_name = result.get('tool', '').lower()
                             file_path = result.get('file_path', '')
                             if file_path and tool_name in ['write', 'edit', 'writetool', 'edittool']:
-                                action = FileAction.CREATED if tool_name in ['write', 'writetool'] else FileAction.EDITED
+                                action = (
+                                    FileAction.CREATED
+                                    if tool_name in ['write', 'writetool']
+                                    else FileAction.EDITED
+                                )
                                 self._hcode_display.track_file(file_path, action)
 
             # Update task.md with progress after tool execution
@@ -313,7 +384,8 @@ class ExecutionPhaseHandler(BasePhaseHandler):
             # Check for critical tool failures (Bash, verification commands)
             critical_failures = [
                 r for r in tool_results
-                if not r.get("success", True) and r.get("tool", "").lower() in ("bash", "bashtool")
+                if not r.get("success", True)
+                   and r.get("tool", "").lower() in ("bash", "bashtool")
             ]
 
             # Determine success based on critical failures
@@ -326,10 +398,19 @@ class ExecutionPhaseHandler(BasePhaseHandler):
             actions_count = len(tool_results)
             files_count = len(context.modified_files)
             if critical_failures:
-                failure_details = "; ".join(f"{r['tool']}: {r.get('error', 'unknown')}" for r in critical_failures[:3])
-                output_msg = f"⚠️  Execution FAILED - {len(critical_failures)} critical failures: {failure_details}"
+                failure_details = "; ".join(
+                    f"{r['tool']}: {r.get('error', 'unknown')}"
+                    for r in critical_failures[:3]
+                )
+                output_msg = (
+                    f"⚠️  Execution FAILED - {len(critical_failures)} "
+                    f"critical failures: {failure_details}"
+                )
             else:
-                output_msg = f"Execution iteration complete. {actions_count} actions, {files_count} files modified."
+                output_msg = (
+                    f"Execution iteration complete. "
+                    f"{actions_count} actions, {files_count} files modified."
+                )
             if step_info:
                 output_msg = f"{step_info}. {output_msg}"
 
@@ -344,6 +425,7 @@ class ExecutionPhaseHandler(BasePhaseHandler):
                     "tool_results": tool_results,
                     "current_step": next_step,
                     "response": response_text[:500] if response_text else "",
+                    "phase_state": self._current_phase_state,
                 }
             )
 
@@ -358,110 +440,185 @@ class ExecutionPhaseHandler(BasePhaseHandler):
             )
 
     # ═══════════════════════════════════════════════════════════════════════
-    # THINKING INSTRUCTIONS (GPT OSS 120B OPTIMIZED)
+    # GPT OSS 120B OPTIMIZED TOOL EXTRACTION
     # ═══════════════════════════════════════════════════════════════════════
 
     def _extract_tool_calls(self, response: str) -> List[Dict[str, Any]]:
         """
-        Override to prioritize tool calls inside <output> tags for GPT OSS 120B.
+        GPT OSS 120B optimized tool call extraction with multiple strategies.
 
-        Extraction strategy:
-        1. First, try to extract from <output>...</output> tags
-        2. Fall back to parent class extraction (code blocks + inline JSON)
+        GPT OSS 120B may output tool calls in various formats. This method
+        tries multiple extraction strategies in order of preference.
 
-        This ensures that when GPT OSS 120B wraps tool calls in <output> tags,
-        we extract from there first before looking at the entire response.
+        Extraction Strategy:
+        1. Extract from <output> tags (primary for GPT OSS)
+        2. Extract from JSON code blocks
+        3. Extract inline JSON tool calls
+        4. Fall back to parent class extraction
+
+        Args:
+            response: Full AI response text
+
+        Returns:
+            List of extracted tool call dictionaries
         """
         if not response:
             return []
 
-        # Strategy 1: Extract content from <output> tags
+        all_tool_calls = []
+
+        # Strategy 1: Extract from <output> tags (GPT OSS primary format)
         output_pattern = r'<output>(.*?)</output>'
         output_matches = re.findall(output_pattern, response, re.DOTALL | re.IGNORECASE)
 
-        if output_matches:
-            # Try to extract tool calls from output tag content
-            for output_content in output_matches:
-                tool_calls = super()._extract_tool_calls(output_content.strip())
-                if tool_calls:
-                    logger.info(f"[execution] Extracted {len(tool_calls)} tool calls from <output> tags")
-                    return tool_calls
+        for output_content in output_matches:
+            tool_calls = self._extract_tools_from_text(output_content.strip())
+            if tool_calls:
+                logger.info(
+                    f"[execution] Extracted {len(tool_calls)} tool calls from <output> tags"
+                )
+                all_tool_calls.extend(tool_calls)
 
-        # Strategy 2: Fall back to standard extraction from full response
-        tool_calls = super()._extract_tool_calls(response)
-        if tool_calls:
-            logger.info(f"[execution] Extracted {len(tool_calls)} tool calls from full response")
+        # Strategy 2: Extract from <thinking> tags for embedded tool calls
+        thinking_pattern = r'<thinking>(.*?)</thinking>'
+        thinking_matches = re.findall(thinking_pattern, response, re.DOTALL | re.IGNORECASE)
+
+        for thinking_content in thinking_matches:
+            tool_calls = self._extract_tools_from_text(thinking_content.strip())
+            if tool_calls:
+                logger.info(
+                    f"[execution] Extracted {len(tool_calls)} tool calls from <thinking> tags"
+                )
+                all_tool_calls.extend(tool_calls)
+
+        # Strategy 3: Extract from full response if no tags found
+        if not all_tool_calls:
+            tool_calls = self._extract_tools_from_text(response)
+            if tool_calls:
+                logger.info(
+                    f"[execution] Extracted {len(tool_calls)} tool calls from full response"
+                )
+                all_tool_calls.extend(tool_calls)
+
+        # Deduplicate tool calls by content hash
+        seen = set()
+        unique_tool_calls = []
+        for tc in all_tool_calls:
+            tc_hash = json.dumps(tc, sort_keys=True)
+            if tc_hash not in seen:
+                seen.add(tc_hash)
+                unique_tool_calls.append(tc)
+
+        return unique_tool_calls
+
+    def _extract_tools_from_text(self, text: str) -> List[Dict[str, Any]]:
+        """
+        Extract tool calls from text using multiple patterns.
+
+        Args:
+            text: Text to search for tool calls
+
+        Returns:
+            List of extracted tool call dictionaries
+        """
+        tool_calls = []
+
+        # Pattern 1: JSON code blocks with tool
+        json_block_pattern = r'```(?:json)?\s*(\{.*?\})\s*```'
+        for match in re.finditer(json_block_pattern, text, re.DOTALL):
+            try:
+                parsed = json.loads(match.group(1))
+                if 'tool' in parsed and 'arguments' in parsed:
+                    tool_calls.append(parsed)
+            except json.JSONDecodeError:
+                pass
+
+        # Pattern 2: Inline JSON with tool and arguments
+        inline_pattern = r'\{\s*"tool"\s*:\s*"([^"]+)"\s*,\s*"arguments"\s*:\s*(\{[^}]*\})\s*\}'
+        for match in re.finditer(inline_pattern, text, re.DOTALL):
+            try:
+                tool_name = match.group(1)
+                arguments = json.loads(match.group(2))
+                tool_calls.append({"tool": tool_name, "arguments": arguments})
+            except json.JSONDecodeError:
+                pass
+
+        # Pattern 3: GPT OSS may output nested arguments
+        nested_pattern = r'\{\s*"tool"\s*:\s*"([^"]+)"\s*,\s*"arguments"\s*:\s*(\{(?:[^{}]|\{[^{}]*\})*\})\s*\}'
+        for match in re.finditer(nested_pattern, text, re.DOTALL):
+            try:
+                tool_name = match.group(1)
+                arguments = json.loads(match.group(2))
+                tool_calls.append({"tool": tool_name, "arguments": arguments})
+            except json.JSONDecodeError:
+                pass
+
         return tool_calls
 
     def _get_thinking_instructions(self) -> str:
         """
-        Override base thinking instructions with 4-phase execution protocol.
+        GPT OSS 120B optimized thinking instructions.
 
-        Uses XML-tagged reasoning, numbered steps, evidence citations, and
-        anti-hallucination checkpoints optimized for GPT OSS 120B.
+        Uses explicit state tracking and structured reasoning format
+        that aligns with GPT OSS 120B's strengths in step-by-step reasoning.
         """
-        return """### DEEP REASONING PROTOCOL (GPT-OSS-120B Optimized)
+        return """### DEEP REASONING PROTOCOL (GPT OSS 120B Optimized)
 
-    Use `<thinking>` and `<output>` tags to structure your reasoning and actions for each phase.
+Use `<thinking>` and `<output>` tags to structure your reasoning and actions.
 
-    **Critical Requirements**:
-    - Use `[Evidence: file.py:line]` to cite ALL code references
-    - Include self-validation checkpoints before proceeding to next phase
-    - Use Glob to discover files BEFORE reading them
-    - NEVER invent filenames not returned by Glob
-    - Follow the 4-phase protocol sequentially: Phase 0 → 1 → 2 → 3
-    - Complete all checkpoints in a phase before transitioning
+**CRITICAL: State Tracking in Every Thinking Block**
 
-    **Phase Structure Template**:
-    ```
-    <thinking>
-    [Phase Number]: [Phase Name]
+```
+<thinking>
+## STATE AWARENESS
+- Current Phase: [0/1/2/3]
+- Task Being Executed: [ID and description]
+- Files Modified So Far: [list or "none"]
+- Last Action Result: [success/failure]
 
-    Step 1: [Clear description of what you're analyzing]
-      → Result: [what you found]
-      → Evidence: [file:line]
+## ANALYSIS STEPS
+Step 1: [Clear description]
+  → Result: [what you found]
+  → Evidence: [file:line]
 
-    Step 2: [Next analysis step]
-      → Result: [what you found]
-      → Evidence: [file:line]
+Step 2: [Next analysis step]
+  → Result: [what you found]
+  → Evidence: [file:line]
 
-    ...
+## DECISION
+Based on analysis, I will: [clear action statement]
 
-    Self-validation checkpoint:
-    - [ ] Checkpoint 1 completed
-    - [ ] Checkpoint 2 completed
-    - [ ] All requirements met for this phase
+## CHECKPOINT VERIFICATION
+- [ ] All files have been read before modification
+- [ ] Change location is precisely identified
+- [ ] Plan alignment is verified
+</thinking>
 
-    Therefore: [Clear conclusion stating you're ready to proceed]
-    </thinking>
+<output>
+[Brief summary]
+[Tool calls in JSON format]
+</output>
+```
 
-    <output>
-    [Brief summary of what you're about to do]
-    [Tool calls in JSON format]
-    </output>
-    ```
+**Tool Call Format**:
+```json
+{"tool": "ToolName", "arguments": {"param": "value"}}
+```
 
-    **Tool Call Format**:
-    ```json
-    {"tool": "ToolName", "arguments": {"param": "value"}}
-    ```
+**Anti-Hallucination Rules**:
+1. Never reference a file you haven't read
+2. Never use a filename not returned by Glob
+3. Always cite evidence for every claim
+4. If unsure, READ the file to verify
 
-    **Anti-Hallucination Rules**:
-    1. Never reference a file you haven't read
-    2. Never use a filename not returned by Glob
-    3. Always cite evidence for every claim
-    4. If you're unsure, READ the file to verify
+**Error Recovery**:
+If a tool fails, STOP and:
+1. Read the error message
+2. Diagnose the root cause
+3. Apply the correct recovery action
+4. Re-run the tool to verify
+"""
 
-    **Error Recovery**:
-    If a tool fails, STOP and:
-    1. Read the error message
-    2. Diagnose the root cause
-    3. Apply the correct recovery action
-    4. Re-run the tool to verify
-
-    See the full execution_handler.md protocol for detailed phase-by-phase instructions.
-
-    """
     # ═══════════════════════════════════════════════════════════════════════
     # EXECUTION WRITE GATE (Security Boundary)
     # ═══════════════════════════════════════════════════════════════════════
@@ -471,8 +628,7 @@ class ExecutionPhaseHandler(BasePhaseHandler):
         Extract allowed file paths and patterns from implementation plan.
 
         Parses the plan for [MODIFY], [NEW], and [DELETE] markers to build
-        a whitelist of files that execution is allowed to modify. Also extracts
-        pattern-based allowances from plan descriptions (e.g., "tests/unit/*.py").
+        a whitelist of files that execution is allowed to modify.
 
         Args:
             plan_content: Content of implementation_plan.md
@@ -480,41 +636,48 @@ class ExecutionPhaseHandler(BasePhaseHandler):
         Returns:
             Set of file paths and patterns that are allowed to be written/edited
         """
-        import re
-
         allowed = set()
 
-        # [MODIFY] /path/to/file pattern
-        allowed.update(re.findall(r'\[MODIFY\]\s+([^\s]+)', plan_content))
+        # [MODIFY] /path/to/file pattern (strip backticks if present)
+        modify_paths = re.findall(r'\[MODIFY\]\s+([^\s]+)', plan_content)
+        allowed.update(p.strip('`') for p in modify_paths)
 
-        # [NEW] /path/to/file pattern
-        allowed.update(re.findall(r'\[NEW\]\s+([^\s]+)', plan_content))
+        # [NEW] /path/to/file pattern (strip backticks if present)
+        new_paths = re.findall(r'\[NEW\]\s+([^\s]+)', plan_content)
+        allowed.update(p.strip('`') for p in new_paths)
 
-        # file:///path markdown links (less common but valid)
+        # [DELETE] /path/to/file pattern (strip backticks if present)
+        delete_paths = re.findall(r'\[DELETE\]\s+([^\s]+)', plan_content)
+        allowed.update(p.strip('`') for p in delete_paths)
+
+        # file:///path markdown links
         allowed.update(re.findall(r'file:///([^\)]+)', plan_content))
 
-        # Extract backtick paths from plan (e.g., `tests/unit/test_utils.py`)
-        backtick_paths = re.findall(r'`([^`]+\.(py|txt|json|yaml|yml|md))`', plan_content)
+        # Extract backtick paths from plan
+        backtick_paths = re.findall(
+            r'`([^`]+\.(py|txt|json|yaml|yml|md))`', plan_content
+        )
         allowed.update(path for path, _ in backtick_paths)
 
         # Always allow task.md updates
         allowed.add(".hcode/task.md")
 
-        # Pattern-based allowances for common test/task file patterns
-        # These patterns are checked separately in _is_path_allowed()
-        allowed.add("tests/**/*.py")  # Any test file
-        allowed.add("tests/conftest.py")  # Pytest fixtures
-        allowed.add("tasks/**/*.txt")  # Intermediate task tracking files
-        allowed.add("tasks/**/*.md")  # Task documentation
+        # Pattern-based allowances
+        allowed.add("tests/**/*.py")
+        allowed.add("tests/conftest.py")
+        allowed.add("tasks/**/*.txt")
+        allowed.add("tasks/**/*.md")
 
-        logger.debug(f"Execution write gate: {len(allowed)} paths/patterns allowed from plan")
+        logger.debug(
+            f"Execution write gate: {len(allowed)} paths/patterns allowed from plan"
+        )
         return allowed
 
     def _is_path_allowed(self, target_path: str, allowed_files: set) -> bool:
         """
         Check if a target path is allowed by write gate.
 
-        Supports both exact path matching and pattern-based matching (glob-style).
+        Supports both exact path matching and pattern-based matching.
 
         Args:
             target_path: Path to check
@@ -534,27 +697,26 @@ class ExecutionPhaseHandler(BasePhaseHandler):
                 return True
 
             # Pattern matching (supports ** for recursive globs)
-            # Convert glob pattern to fnmatch pattern
             if "**" in allowed:
-                # tests/**/*.py -> tests/*/*.py, tests/*/*/*.py, etc.
-                # Simplified: just check if path starts with base and ends with suffix
                 parts = allowed.split("**/")
                 if len(parts) == 2:
                     base, suffix = parts
-                    suffix_pattern = suffix.replace("*", ".*")  # Convert glob * to regex .*
-                    if norm_target.startswith(base) and re.match(suffix_pattern, norm_target.split("/")[-1]):
+                    suffix_pattern = suffix.replace("*", ".*")
+                    if (
+                            norm_target.startswith(base)
+                            and re.match(suffix_pattern, norm_target.split("/")[-1])
+                    ):
                         return True
             elif "*" in allowed:
-                # Simple glob pattern (e.g., tests/*.py)
                 if fnmatch.fnmatch(norm_target, allowed):
                     return True
 
         return False
 
     async def _execute_tools(
-        self,
-        tool_calls: List[Dict[str, Any]],
-        context: AgentContext,
+            self,
+            tool_calls: List[Dict[str, Any]],
+            context: AgentContext,
     ) -> List[Dict[str, Any]]:
         """
         Enhanced execution-phase tool executor with validation and retry logic.
@@ -572,64 +734,85 @@ class ExecutionPhaseHandler(BasePhaseHandler):
         Returns:
             List of tool execution results
         """
-        # Load plan and extract allowed files
-        plan = self.artifact_manager.load_artifact("implementation_plan.md", context)
-        allowed_files = self._extract_planned_files(plan) if plan else set()
-
-        gated_calls = []
+        # Write gate REMOVED - agent has full autonomy
         results = []
 
         for tc in tool_calls:
             tool_name = (tc.get("tool") or "").lower()
             arguments = tc.get("arguments", {})
 
-            # ── VALIDATION FOR EDIT TOOL ──────────────────────────────────
+            # VALIDATION FOR EDIT TOOL
             if tool_name in ("edit", "edittool"):
-                target = arguments.get("file_path") or arguments.get("TargetFile") or ""
-                old_string = arguments.get("old_string") or arguments.get("OldText") or ""
-                new_string = arguments.get("new_string") or arguments.get("NewText") or ""
+                target = (
+                        arguments.get("file_path")
+                        or arguments.get("TargetFile")
+                        or ""
+                )
+                old_string = (
+                        arguments.get("old_string")
+                        or arguments.get("OldText")
+                        or ""
+                )
+                new_string = (
+                        arguments.get("new_string")
+                        or arguments.get("NewText")
+                        or ""
+                )
 
                 # CRITICAL: Validate task.md checkbox updates
-                if "task.md" in target and "- [ ]" in old_string and "- [x]" in new_string:
-                    # Attempting to mark task as complete - verify operations succeeded
-                    recent_failures = [r for r in results[-10:] if not r.get("success", True)]
+                if (
+                        "task.md" in target
+                        and "- [ ]" in old_string
+                        and "- [x]" in new_string
+                ):
+                    recent_failures = [
+                        r for r in results[-10:] if not r.get("success", True)
+                    ]
                     if recent_failures:
                         failure_list = "\n".join(
-                            f"  • {r.get('tool', 'unknown')}: {r.get('error', 'unknown error')}"
+                            f"  • {r.get('tool', 'unknown')}: "
+                            f"{r.get('error', 'unknown error')}"
                             for r in recent_failures[-3:]
                         )
                         error_msg = (
-                            f"⚠️  Cannot mark task complete - recent operations failed:\n"
-                            f"{failure_list}\n\n"
+                            f"⚠️  Cannot mark task complete - "
+                            f"recent operations failed:\n{failure_list}\n\n"
                             f"Fix these failures before marking the task as complete."
                         )
-                        self._display(f"  [>] Edit: {target}  ← BLOCKED (task not complete)", style="error")
+                        self._display(
+                            f"  [>] Edit: {target}  ← BLOCKED (task not complete)",
+                            style="error"
+                        )
                         results.append({
                             "tool": tc.get("tool"),
                             "success": False,
                             "error": error_msg,
                             "file_path": target,
                         })
-                        continue  # Skip this tool call
+                        continue
 
                 # Validate parameters
-                is_valid, error_msg = self._validate_edit_params(target, old_string, new_string, context)
+                is_valid, error_msg = self._validate_edit_params(
+                    target, old_string, new_string, context
+                )
 
                 if not is_valid:
-                    # Track failure
                     if not self._track_tool_failure("Edit"):
-                        # Retry limit exceeded - provide helpful message
                         error_msg = (
                             f"⚠️  Edit operation failed {self._max_retries} times. "
                             f"Error: {error_msg}\n\n"
                             f"Recovery suggestion:\n"
                             f"1. Re-read {target} to get fresh content\n"
-                            f"2. Verify the old_string you're trying to replace still exists\n"
-                            f"3. If old_string appears multiple times, use replace_all=True\n"
+                            f"2. Verify the old_string still exists\n"
+                            f"3. If old_string appears multiple times, "
+                            f"use replace_all=True\n"
                             f"4. Provide more context to make old_string unique"
                         )
 
-                    self._display(f"  [>] Edit: {target}  ← VALIDATION FAILED", style="error")
+                    self._display(
+                        f"  [>] Edit: {target}  ← VALIDATION FAILED",
+                        style="error"
+                    )
                     results.append({
                         "tool": tc.get("tool"),
                         "success": False,
@@ -638,75 +821,42 @@ class ExecutionPhaseHandler(BasePhaseHandler):
                         "file_path": target,
                     })
                     logger.warning(f"Edit validation failed: {error_msg}")
-                    continue  # Skip this tool call
+                    continue
 
-            # ── WRITE GATE FOR WRITE/EDIT TOOLS ───────────────────────────
-            if tool_name in ("write", "writetool", "edit", "edittool"):
-                target = (
-                    arguments.get("TargetFile")
-                    or arguments.get("file_path")
-                    or arguments.get("path")
-                    or ""
-                )
+            # WRITE GATE REMOVED - Agent has full autonomy to fix issues
+            # The plan may be incomplete or issues may require unexpected file changes
+            # Trust the agent to make correct decisions during execution
 
-                # Check if target matches any allowed file or pattern
-                is_allowed = self._is_path_allowed(target, allowed_files)
+        # Execute all calls via the parent implementation (no gate)
+        if tool_calls:
+            parent_results = await super()._execute_tools(tool_calls, context)
 
-                if not is_allowed:
-                    # Block and record with helpful error message
-                    self._display(
-                        f"  [>] {tc.get('tool')}: {target}  ← BLOCKED (not in plan)",
-                        style="error",
-                    )
-                    results.append({
-                        "tool": tc.get("tool"),
-                        "success": False,
-                        "output": None,
-                        "error": (
-                            f"⚠️  WRITE GATE VIOLATION: Cannot write to '{target}'\n\n"
-                            f"This file is not listed in .hcode/implementation_plan.md\n\n"
-                            f"Allowed patterns:\n" +
-                            "\n".join(f"  - {f}" for f in sorted(list(allowed_files)[:10])) +
-                            (f"\n  ... and {len(allowed_files) - 10} more" if len(allowed_files) > 10 else "") +
-                            "\n\nTo fix: Either update the plan to include this file, or write to an allowed path."
-                        ),
-                        "file_path": target,
-                    })
-                    logger.warning(f"Execution write gate blocked: {target}")
-                    continue  # Skip - don't add to gated_calls
-
-            gated_calls.append(tc)
-
-        # Execute the allowed calls via the parent implementation
-        if gated_calls:
-            parent_results = await super()._execute_tools(gated_calls, context)
-
-            # Post-processing: invalidate cache for modified files and reset failure counters
+            # Post-processing: invalidate cache and reset failure counters
             for result in parent_results:
                 if result.get("success"):
                     tool_name = result.get("tool", "").lower()
 
-                    # Reset failure counter on success
                     self._reset_tool_failures(tool_name)
 
-                    # Invalidate cache for modified files
                     if tool_name in ("write", "writetool", "edit", "edittool"):
                         file_path = result.get("file_path", "")
                         if file_path in self._file_cache:
                             del self._file_cache[file_path]
-                            logger.debug(f"[execution] Cache invalidated for {file_path}")
+                            logger.debug(
+                                f"[execution] Cache invalidated for {file_path}"
+                            )
 
             results.extend(parent_results)
 
         return results
 
     # ═══════════════════════════════════════════════════════════════════════
-    # SYSTEM PROMPT
+    # SYSTEM PROMPT (GPT OSS 120B Optimized)
     # ═══════════════════════════════════════════════════════════════════════
 
     def _get_execution_system_prompt(self, context: AgentContext) -> str:
         """
-        Build system prompt for execution phase.
+        Build system prompt for execution phase (GPT OSS 120B Optimized).
 
         Loads execution_handler.md as the primary protocol, then adds
         identity, tool format, plan content, and working context.
@@ -715,14 +865,11 @@ class ExecutionPhaseHandler(BasePhaseHandler):
             from hcode.config.core_prompts.core.loader import get_prompt_loader
             loader = get_prompt_loader()
 
-            # Core identity and tool format
             identity = loader.get_identity()
             tool_format = loader.get_tool_format()
 
-            # Load execution_handler.md protocol
             execution_protocol = self._load_execution_protocol()
 
-            # Load plan and task content for context
             plan_content = self.artifact_manager.load_artifact(
                 "implementation_plan.md", context
             ) or "(No plan loaded)"
@@ -731,13 +878,14 @@ class ExecutionPhaseHandler(BasePhaseHandler):
                 "task.md", context
             ) or "(No task.md found)"
 
-            # Build system prompt with full context hierarchy
+            # GPT OSS 120B specific context injection
             system_prompt = f"""{identity}
 
 {tool_format}
 
 {self._load_user_memory(context)}
 {self._load_claude_md(context)}
+{self._load_hcode_architecture(context)}
 ---
 
 {execution_protocol}
@@ -769,18 +917,23 @@ Completed actions: {len(context.completed_actions)}
             Content of execution_handler.md, or a condensed fallback.
         """
         try:
-            # Try to load from the core prompts directory (pev_prompts subdirectory)
-            prompt_dir = Path(__file__).parent.parent.parent / "config" / "core_prompts" / "core" / "pev_prompts"
+            prompt_dir = (
+                    Path(__file__).parent.parent.parent
+                    / "config" / "core_prompts" / "core" / "pev_prompts"
+            )
             protocol_path = prompt_dir / "execution_handler.md"
 
             if protocol_path.exists():
                 return protocol_path.read_text(encoding="utf-8")
 
-            logger.warning(f"execution_handler.md not found at {protocol_path}, using inline protocol")
+            logger.warning(
+                f"execution_handler.md not found at {protocol_path}, "
+                f"using inline protocol"
+            )
         except Exception as e:
             logger.warning(f"Failed to load execution_handler.md: {e}")
 
-        # Condensed inline fallback
+        # Condensed inline fallback (GPT OSS optimized)
         return """# Hcode Execution Mode — 4-Phase Implementation Protocol
 
 ## THE 4-PHASE PROTOCOL
@@ -809,19 +962,8 @@ Update task.md: [x] for completed, [/] for in-progress.
 """
 
     def _load_claude_md(self, context: AgentContext) -> str:
-        """
-        Load user's project-specific instructions from CLAUDE.md.
-
-        Checks .hcode/CLAUDE.md first, then root CLAUDE.md.
-
-        Args:
-            context: Current agent context
-
-        Returns:
-            Formatted CLAUDE.md section or empty string if unavailable
-        """
+        """Load user's project-specific instructions from CLAUDE.md."""
         try:
-            # Try .hcode/CLAUDE.md first, then root CLAUDE.md
             for path_str in [".hcode/CLAUDE.md", "CLAUDE.md"]:
                 try:
                     file_path = Path(context.working_dir) / path_str
@@ -838,42 +980,22 @@ Update task.md: [x] for completed, [/] for in-progress.
 
 ---
 """
-                except Exception as e:
-                    logger.debug(f"Could not read {path_str}: {e}")
+                except Exception:
                     continue
 
             return ""
-        except Exception as e:
-            logger.debug(f"CLAUDE.md loading failed: {e}")
+        except Exception:
             return ""
 
     def _load_user_memory(self, context: AgentContext) -> str:
-        """
-        Load user's global memory from ~/.claude/projects/.../memory/MEMORY.md.
-
-        This provides cross-session learnings and user preferences that span
-        multiple projects.
-
-        Args:
-            context: Current agent context
-
-        Returns:
-            Formatted user memory section or empty string if unavailable
-        """
+        """Load user's global memory from ~/.claude/projects/.../memory/MEMORY.md."""
         try:
-            # Try to discover memory path from context metadata or standard location
-            # Standard path: ~/.claude/projects/{project_dir_hash}/memory/MEMORY.md
             home = Path.home()
             claude_dir = home / ".claude" / "projects"
 
             if not claude_dir.exists():
                 return ""
 
-            # Get working directory to compute project ID
-            working_dir = Path(context.working_dir).resolve()
-            project_dir_name = working_dir.name or "default"
-
-            # Search for memory directory matching this project
             for project_folder in claude_dir.iterdir():
                 if project_folder.is_dir():
                     memory_file = project_folder / "memory" / "MEMORY.md"
@@ -890,12 +1012,47 @@ Update task.md: [x] for completed, [/] for in-progress.
 
 ---
 """
-                        # Found the memory file, stop searching
                         break
 
             return ""
+        except Exception:
+            return ""
+
+    def _load_hcode_architecture(self, context: AgentContext) -> str:
+        """
+        Load project architecture documentation from .hcode/hcode.md.
+
+        This file is generated by /init and contains comprehensive architecture
+        documentation including annotated repository structure, component descriptions,
+        technology stack, and design patterns.
+
+        Args:
+            context: Current agent context
+
+        Returns:
+            Formatted architecture documentation or empty string if unavailable
+        """
+        try:
+            # Load hcode.md (architecture documentation)
+            arch_content = self.artifact_manager.load_artifact(
+                "hcode.md", context
+            )
+
+            if not arch_content or not arch_content.strip():
+                return ""
+
+            logger.debug("Loaded project architecture from .hcode/hcode.md")
+            return f"""
+---
+
+## PROJECT ARCHITECTURE (.hcode/hcode.md)
+
+{arch_content.strip()}
+
+---
+"""
         except Exception as e:
-            logger.debug(f"User memory loading failed: {e}")
+            logger.debug(f"Architecture documentation loading failed: {e}")
             return ""
 
     def _get_fallback_execution_prompt(self, context: AgentContext) -> str:
@@ -925,10 +1082,10 @@ Artifacts directory: .hcode
     # ═══════════════════════════════════════════════════════════════════════
 
     def _build_execution_prompt(
-        self,
-        context: AgentContext,
-        plan_content: str,
-        task_content: str = "",
+            self,
+            context: AgentContext,
+            plan_content: str,
+            task_content: str = "",
     ) -> str:
         """
         Build the user prompt for execution phase.
@@ -936,24 +1093,31 @@ Artifacts directory: .hcode
         Embeds plan content, task content, and session state,
         then instructs the AI to begin with Phase 0: Task Selection.
         """
-        # Build modified files list
-        modified_files_list = "\n".join(
-            f"  - {f}" for f in context.modified_files
-        ) if context.modified_files else "  (none yet)"
+        modified_files_list = (
+            "\n".join(f"  - {f}" for f in context.modified_files)
+            if context.modified_files
+            else "  (none yet)"
+        )
 
-        # Build recent actions summary
-        recent_actions = context.completed_actions[-5:] if context.completed_actions else []
-        actions_summary = "\n".join(
-            f"  - {a.get('tool', 'unknown')}: {'[OK]' if a.get('success') else '[FAIL]'}"
-            for a in recent_actions
-        ) if recent_actions else "  (none yet)"
+        recent_actions = (
+            context.completed_actions[-5:]
+            if context.completed_actions
+            else []
+        )
+        actions_summary = (
+            "\n".join(
+                f"  - {a.get('tool', 'unknown')}: "
+                f"{'[OK]' if a.get('success') else '[FAIL]'}"
+                for a in recent_actions
+            )
+            if recent_actions
+            else "  (none yet)"
+        )
 
         return f"""## EXECUTION PHASE — 4-Phase Protocol
 
 You are executing the implementation plan using the 4-phase protocol.
 Follow Phases 0 → 1 → 2 → 3 for each subtask.
-
-{self._discover_codebase_structure(context)}
 
 ### Implementation Plan:
 {plan_content}
@@ -1004,7 +1168,7 @@ Remember:
 NOW BEGIN Phase 0. Read `.hcode/task.md` and identify the next task to implement."""
 
     # ═══════════════════════════════════════════════════════════════════════
-    # CONTINUATION PROMPTS (Phase-Aware Steering)
+    # CONTINUATION PROMPTS (Phase-Aware Steering - GPT OSS Optimized)
     # ═══════════════════════════════════════════════════════════════════════
 
     def _detect_current_phase(
@@ -1015,8 +1179,7 @@ NOW BEGIN Phase 0. Read `.hcode/task.md` and identify the next task to implement
         """
         Detect which phase the AI should be in based on session state.
 
-        Uses hybrid detection: combines tool call patterns with round-based hints
-        to provide more robust phase detection.
+        GPT OSS 120B Optimized: Uses both tool patterns and content analysis.
 
         Returns one of: 'phase0', 'phase1', 'phase2', 'phase3', 'complete'
         """
@@ -1031,7 +1194,7 @@ NOW BEGIN Phase 0. Read `.hcode/task.md` and identify the next task to implement
         file_reads = sum(
             1 for r in all_results
             if r.get('success')
-            and r.get('tool', '').lower() in ['read', 'readtool']
+            and r.get('tool', '').lower() in ['read', 'readtool', 'glob', 'globtool']
         )
 
         file_writes = sum(
@@ -1041,72 +1204,44 @@ NOW BEGIN Phase 0. Read `.hcode/task.md` and identify the next task to implement
             and '.hcode' not in str(r.get('file_path', ''))
         )
 
-        # Round-based phase hints (helps when tool counts are ambiguous)
-        if round_num <= 3:
-            expected_phase = 'phase0'  # Task selection
-        elif round_num <= 8:
-            expected_phase = 'phase1'  # Analysis
-        elif round_num <= 15:
-            expected_phase = 'phase2'  # Implementation
-        else:
-            expected_phase = 'phase3'  # Validation
-
-        # Tool-based phase detection (primary)
+        # Update internal phase state
         if task_md_edits == 0 and file_reads == 0 and file_writes == 0:
-            return 'phase0'  # Need to start by reading task.md
-        elif task_md_edits > 0 and file_reads == 0 and file_writes == 0:
-            return 'phase1'  # Task selected, now read target files
-        elif file_reads > 0 and file_writes == 0:
-            return 'phase1'  # Still in analysis phase
+            self._current_phase_state = 'phase0'
+        elif task_md_edits > 0 and file_writes == 0:
+            self._current_phase_state = 'phase1'
         elif file_writes > 0 and task_md_edits == 1:
-            return 'phase2'  # Started writing code, need to finish
+            self._current_phase_state = 'phase2'
         elif file_writes > 0 and task_md_edits >= 2:
-            return 'phase3'  # Code done, now validate
-        elif task_md_edits >= 2 and file_reads > 0:
-            return 'phase3'  # Re-reading for validation
+            self._current_phase_state = 'phase3'
 
-        # Fall back to round-based hint if tool counts are ambiguous
-        return expected_phase
+        return self._current_phase_state
 
     def _build_continuation_prompt(
-        self,
-        round_results: List[Dict[str, Any]],
-        all_results: List[Dict[str, Any]],
-        round_num: int,
-        context: Any = None,
+            self,
+            round_results: List[Dict[str, Any]],
+            all_results: List[Dict[str, Any]],
+            round_num: int,
+            context: Any = None,
     ) -> str:
         """
-        Build phase-aware continuation prompt with explicit steering for GPT-OSS-120B.
+        Build phase-aware continuation prompt (GPT OSS 120B Optimized).
 
         Enhanced with:
-        - Explicit phase detection
+        - Explicit phase detection and state tracking
         - Clear phase-specific instructions
         - Error recovery guidance
         - Anti-hallucination reminders
         """
-        # Detect current phase
         current_phase = self._detect_current_phase(all_results, round_num)
 
-        # Extract key metrics
-        write_count = sum(
-            1 for r in all_results
-            if r.get('success')
-            and r.get('tool', '').lower() in ['write', 'edit', 'writetool', 'edittool']
-            and '.hcode' not in str(r.get('file_path', ''))
-        )
-
-        read_count = sum(
-            1 for r in all_results
-            if r.get('success')
-            and r.get('tool', '').lower() in ['read', 'readtool']
-        )
-
-        task_edit_count = sum(
-            1 for r in all_results
-            if r.get('success')
-            and 'task.md' in str(r.get('file_path', ''))
-            and r.get('tool', '').lower() in ['edit', 'edittool']
-        )
+        # Track phase transitions
+        if self._phase_transition_history:
+            last_phase = self._phase_transition_history[-1]
+            if last_phase != current_phase:
+                logger.info(
+                    f"[execution] Phase transition: {last_phase} → {current_phase}"
+                )
+        self._phase_transition_history.append(current_phase)
 
         # Check for errors in recent rounds
         recent_errors = [
@@ -1114,34 +1249,32 @@ NOW BEGIN Phase 0. Read `.hcode/task.md` and identify the next task to implement
             if not r.get('success')
         ]
 
-        # ── ERROR RECOVERY PROMPTS ────────────────────────────────────────
         if recent_errors:
             error_msg = self._build_error_recovery_prompt(recent_errors)
             if error_msg:
                 return error_msg
 
-        # ── PHASE-SPECIFIC CONTINUATION ───────────────────────────────────
-
+        # Phase-specific continuation
         if current_phase == 'phase0':
             return self._phase0_continuation(round_num, all_results)
-
         elif current_phase == 'phase1':
-            return self._phase1_continuation(round_num, read_count, write_count)
-
+            return self._phase1_continuation(round_num, all_results)
         elif current_phase == 'phase2':
-            # Load plan content for progress tracking
             plan_content = ""
             try:
-                plan_content = self.artifact_manager.load_artifact("implementation_plan.md", context) or ""
-            except:
+                plan_content = (
+                        self.artifact_manager.load_artifact(
+                            "implementation_plan.md", context
+                        ) or ""
+                )
+            except Exception:
                 pass
-            return self._phase2_continuation(round_num, write_count, task_edit_count, context, plan_content)
-
+            return self._phase2_continuation(round_num, all_results, context, plan_content)
         elif current_phase == 'phase3':
-            return self._phase3_continuation(round_num, write_count, task_edit_count)
+            return self._phase3_continuation(round_num, all_results)
 
-        # ── ROUND LIMIT PUSH ───────────────────────────────────────────────
-        if round_num >= 15:
+        # Round limit push
+        if round_num >= 20:
             return (
                 "⚠️ You are approaching the execution round limit. "
                 "Complete your current work immediately:\n\n"
@@ -1152,7 +1285,6 @@ NOW BEGIN Phase 0. Read `.hcode/task.md` and identify the next task to implement
                 "If the task is incomplete, clearly state what remains."
             )
 
-        # ── DEFAULT CONTINUATION ───────────────────────────────────────────
         return (
             f"Continue with the 4-phase protocol (detected: {current_phase}).\n\n"
             "Remember:\n"
@@ -1163,8 +1295,10 @@ NOW BEGIN Phase 0. Read `.hcode/task.md` and identify the next task to implement
             "- One change at a time — verify before proceeding"
         )
 
-    def _build_error_recovery_prompt(self, errors: List[Dict[str, Any]]) -> Optional[str]:
-        """Build targeted error recovery prompt based on error types with retry detection."""
+    def _build_error_recovery_prompt(
+            self, errors: List[Dict[str, Any]]
+    ) -> Optional[str]:
+        """Build targeted error recovery prompt based on error types."""
         if not errors:
             return None
 
@@ -1174,7 +1308,6 @@ NOW BEGIN Phase 0. Read `.hcode/task.md` and identify the next task to implement
             tool = error.get('tool', '').lower()
             err_msg = error.get('error', error.get('output', ''))
 
-            # Count Edit failures for retry detection
             if tool in ('edit', 'edittool') and not error.get('success', True):
                 edit_failures += 1
 
@@ -1190,10 +1323,8 @@ NOW BEGIN Phase 0. Read `.hcode/task.md` and identify the next task to implement
                 error_types.append('retry_limit')
             elif 'write gate' in err_msg.lower() or 'violation' in err_msg.lower():
                 error_types.append('write_gate')
-            elif 'import' in err_msg.lower():
-                error_types.append('import_error')
 
-        # ── RETRY LIMIT EXCEEDED ───────────────────────────────────────────
+        # Retry limit exceeded
         if 'retry_limit' in error_types or edit_failures >= 3:
             return (
                 "🛑 STOP: Edit Retry Limit Exceeded\n\n"
@@ -1210,34 +1341,29 @@ NOW BEGIN Phase 0. Read `.hcode/task.md` and identify the next task to implement
                 "⚠️  Do NOT retry the same Edit without re-reading the file first!"
             )
 
-        # ── EDIT PARAMETER ERRORS ──────────────────────────────────────────
         if 'edit_params' in error_types:
             return (
                 "🔴 ERROR: Edit Tool Parameter Missing\n\n"
                 "Your Edit call is missing required parameters.\n\n"
                 "**REQUIRED PARAMETERS**:\n"
-                "```json\n"
+                '```json\n'
                 '{"tool": "Edit", "arguments": {\n'
                 '  "file_path": "path/to/file",  // REQUIRED\n'
                 '  "old_string": "text to replace",  // REQUIRED\n'
                 '  "new_string": "replacement text",  // REQUIRED\n'
-                '  "replace_all": false  // OPTIONAL (default: false)\n'
-                "}}\n"
-                "```\n\n"
+                '  "replace_all": false  // OPTIONAL\n'
+                '}}\n'
+                '```\n\n'
                 "⚠️  Both old_string AND new_string are required!"
             )
 
-        # ── EDIT DUPLICATE STRING ──────────────────────────────────────────
         if 'edit_duplicate' in error_types:
             return (
                 "🔴 ERROR: Old String Appears Multiple Times\n\n"
                 "The text you're trying to replace appears more than once.\n\n"
                 "**SOLUTIONS**:\n"
-                "1. **Add more context** to make old_string unique:\n"
-                "   Instead of: `def function():`\n"
-                "   Use: `def function():\\n    # existing comment\\n    pass`\n\n"
-                "2. **Use replace_all=True** to change all occurrences:\n"
-                '   `{"tool": "Edit", "arguments": {..., "replace_all": true}}`\n\n'
+                "1. **Add more context** to make old_string unique\n"
+                "2. **Use replace_all=True** to change all occurrences\n"
                 "3. **Re-read the file** to verify current content"
             )
 
@@ -1247,49 +1373,34 @@ NOW BEGIN Phase 0. Read `.hcode/task.md` and identify the next task to implement
                 "You tried to access a file that doesn't exist.\n\n"
                 "RECOVERY STEPS:\n"
                 "1. STOP — don't continue with incorrect paths\n"
-                "2. Use Glob tool to discover actual files in the target directory\n"
+                "2. Use Glob tool to discover actual files\n"
                 "3. Use ONLY filenames returned by Glob\n"
                 "4. Read the file first, then proceed\n\n"
-                "Example:\n"
-                '{"tool": "Glob", "arguments": {"Pattern": "src/**/*.py"}}\n\n'
                 "NEVER invent filenames like 'file1.py' or 'example.py'."
             )
 
-        elif 'edit_mismatch' in error_types:
+        if 'edit_mismatch' in error_types:
             return (
                 "🔴 ERROR RECOVERY: Edit Failed — Old Text Not Found\n\n"
                 "The content you tried to edit doesn't match the file.\n\n"
                 "RECOVERY STEPS:\n"
                 "1. Re-read the file with Read tool to get actual content\n"
                 "2. Copy the exact text you want to replace\n"
-                "3. Retry the Edit with correct OldText\n\n"
-                "Make sure to include proper indentation and surrounding context."
+                "3. Retry the Edit with correct old_string\n\n"
+                "Include proper indentation and surrounding context."
             )
 
-        elif 'write_gate' in error_types:
+        if 'write_gate' in error_types:
             return (
                 "🔴 ERROR RECOVERY: Write Gate Violation\n\n"
                 "You tried to write to a file not listed in the implementation plan.\n\n"
                 "RECOVERY STEPS:\n"
-                "1. Read `.hcode/implementation_plan.md` to find allowed files\n"
+                "1. Read `.hcode/implementation_plan.md` for allowed files\n"
                 "2. Only modify files explicitly listed in the plan\n"
                 "3. If you need to modify a file not in plan, flag it with reasoning\n\n"
                 "The write gate is a security boundary — follow the plan."
             )
 
-        elif 'import_error' in error_types:
-            return (
-                "🔴 ERROR RECOVERY: Import Error\n\n"
-                "Your code change introduced an import error.\n\n"
-                "RECOVERY STEPS:\n"
-                "1. Read similar files to see correct import patterns\n"
-                "2. Verify imported modules exist (use Glob if needed)\n"
-                "3. Fix the import statement\n"
-                "4. Re-run to verify the fix\n\n"
-                "Use [Evidence: file:line] to show where you found correct import patterns."
-            )
-
-        # Generic error recovery
         return (
             "🔴 ERROR DETECTED\n\n"
             "Recent tool calls failed. Please:\n\n"
@@ -1300,7 +1411,9 @@ NOW BEGIN Phase 0. Read `.hcode/task.md` and identify the next task to implement
             "Don't continue with broken state — fix errors first."
         )
 
-    def _phase0_continuation(self, round_num: int, all_results: List[Dict]) -> str:
+    def _phase0_continuation(
+            self, round_num: int, all_results: List[Dict]
+    ) -> str:
         """Phase 0: Task Selection continuation."""
         task_edits = sum(
             1 for r in all_results
@@ -1330,13 +1443,27 @@ NOW BEGIN Phase 0. Read `.hcode/task.md` and identify the next task to implement
             "Remember: ONLY use files discovered by Glob!"
         )
 
-    def _phase1_continuation(self, round_num: int, read_count: int, write_count: int) -> str:
+    def _phase1_continuation(
+            self, round_num: int, all_results: List[Dict]
+    ) -> str:
         """Phase 1: Pre-Implementation Analysis continuation."""
+        read_count = sum(
+            1 for r in all_results
+            if r.get('success')
+            and r.get('tool', '').lower() in ['read', 'readtool', 'glob', 'globtool']
+        )
+        write_count = sum(
+            1 for r in all_results
+            if r.get('success')
+            and r.get('tool', '').lower() in ['write', 'edit', 'writetool', 'edittool']
+            and '.hcode' not in str(r.get('file_path', ''))
+        )
+
         if read_count == 0:
             return (
                 "📍 PHASE 1: Pre-Implementation Analysis\n\n"
                 "You MUST read files before making changes:\n\n"
-                "1. Use Glob to discover actual files: `{\"tool\": \"Glob\", \"arguments\": {\"Pattern\": \"**/*.py\"}}`\n"
+                "1. Use Glob: `{\"tool\": \"Glob\", \"arguments\": {\"pattern\": \"**/*.py\"}}`\n"
                 "2. Read each file you plan to modify\n"
                 "3. Understand the existing code structure\n"
                 "4. Identify exact modification points\n"
@@ -1366,15 +1493,26 @@ NOW BEGIN Phase 0. Read `.hcode/task.md` and identify the next task to implement
         )
 
     def _phase2_continuation(
-        self,
-        round_num: int,
-        write_count: int,
-        task_edit_count: int,
-        context: Optional[AgentContext] = None,
-        plan_content: str = ""
+            self,
+            round_num: int,
+            all_results: List[Dict],
+            context: Optional[AgentContext] = None,
+            plan_content: str = ""
     ) -> str:
-        """Phase 2: Code Generation continuation with plan alignment checks and progress tracking."""
-        # Get plan progress summary if available
+        """Phase 2: Code Generation continuation with plan alignment."""
+        write_count = sum(
+            1 for r in all_results
+            if r.get('success')
+            and r.get('tool', '').lower() in ['write', 'edit', 'writetool', 'edittool']
+            and '.hcode' not in str(r.get('file_path', ''))
+        )
+        task_edit_count = sum(
+            1 for r in all_results
+            if r.get('success')
+            and 'task.md' in str(r.get('file_path', ''))
+            and r.get('tool', '').lower() in ['edit', 'edittool']
+        )
+
         progress_summary = ""
         if context and plan_content:
             progress_summary = self._get_plan_progress_summary(context, plan_content)
@@ -1382,7 +1520,8 @@ NOW BEGIN Phase 0. Read `.hcode/task.md` and identify the next task to implement
         if write_count == 0:
             return (
                 "📍 PHASE 2: Code Generation (3-Pass Strategy) + Plan Verification\n\n"
-                "**CRITICAL**: At each pass, VERIFY your changes align with `.hcode/implementation_plan.md`\n\n"
+                "**CRITICAL**: At each pass, VERIFY your changes align with "
+                "`.hcode/implementation_plan.md`\n\n"
                 f"{progress_summary}\n"
                 "**3-Pass Implementation**:\n\n"
                 "Pass 1: Structure + Plan Alignment Check\n"
@@ -1397,8 +1536,6 @@ NOW BEGIN Phase 0. Read `.hcode/task.md` and identify the next task to implement
                 "- [ ] Add error handling, edge cases\n"
                 "- [ ] VERIFY: Are all relevant plan requirements satisfied?\n"
                 "- [ ] Document any intentional deviations\n\n"
-                "**If you deviate from the plan**: Explicitly state WHAT changed and WHY.\n"
-                "**If the plan is incomplete/wrong**: Describe the issue; don't silently work around it.\n\n"
                 "Remember: Use Write/Edit tools, never raw code text!"
             )
 
@@ -1425,8 +1562,17 @@ NOW BEGIN Phase 0. Read `.hcode/task.md` and identify the next task to implement
             "Validate thoroughly before marking complete!"
         )
 
-    def _phase3_continuation(self, round_num: int, write_count: int, task_edit_count: int) -> str:
-        """Phase 3: Self-Validation continuation with deviation report and file verification."""
+    def _phase3_continuation(
+            self, round_num: int, all_results: List[Dict]
+    ) -> str:
+        """Phase 3: Self-Validation continuation."""
+        task_edit_count = sum(
+            1 for r in all_results
+            if r.get('success')
+            and 'task.md' in str(r.get('file_path', ''))
+            and r.get('tool', '').lower() in ['edit', 'edittool']
+        )
+
         if task_edit_count == 1:
             return (
                 "📍 PHASE 3: Self-Validation + Deviation Report + File Verification\n\n"
@@ -1437,24 +1583,15 @@ NOW BEGIN Phase 0. Read `.hcode/task.md` and identify the next task to implement
                 "- [ ] If any files are missing, do NOT mark task [x]\n\n"
                 "**Step 2: Logic Validation**\n"
                 "- [ ] Re-read all modified files\n"
-                "- [ ] Walk through execution mentally:\n"
-                "   - Test case 1 (happy path): [input] → [expected output]\n"
-                "   - Test case 2 (edge case): [input] → [expected behavior]\n"
-                "   - Test case 3 (error case): [input] → [expected handling]\n\n"
+                "- [ ] Walk through execution mentally with test cases\n\n"
                 "**Step 3: Plan Compliance**\n"
                 "- [ ] Verify against `.hcode/implementation_plan.md`\n"
-                "- [ ] Cross-check: did you complete ALL plan steps for this task?\n\n"
-                "**Step 4: Deviation Report** (REQUIRED):\n"
-                "- [ ] Did you deviate from any plan steps? If YES:\n"
-                "  - Which plan steps were modified/skipped?\n"
-                "  - Why was deviation necessary?\n"
-                "  - What was implemented instead?\n"
-                "- [ ] If NO deviations, confirm: \"Implementation matches plan exactly\"\n\n"
+                "- [ ] Did you complete ALL plan steps for this task?\n\n"
+                "**Step 4: Deviation Report** (REQUIRED)\n"
+                "- [ ] Document any deviations from plan\n\n"
                 "**Step 5: Task Completion Decision**\n"
-                "- [ ] If ALL files verified AND logic validated AND no critical issues:\n"
-                "      → Mark task as [x] in `.hcode/task.md`\n"
-                "- [ ] If ANY file is missing OR logic has issues:\n"
-                "      → Keep task as [/] and document what remains\n\n"
+                "- [ ] If ALL verified: Mark task as [x] in `.hcode/task.md`\n"
+                "- [ ] If incomplete: Keep task as [/] and document what remains\n\n"
                 "⚠️  CRITICAL: Only mark [x] if task is truly complete!"
             )
 
@@ -1481,29 +1618,22 @@ NOW BEGIN Phase 0. Read `.hcode/task.md` and identify the next task to implement
         return self._check_execution_complete(context)
 
     def _check_execution_complete(self, context: AgentContext) -> bool:
-        """
-        Check if execution is complete.
-
-        Execution is complete when at least one NON-ARTIFACT file has
-        been modified (actual code, not .hcode files).
-        """
-        # Filter out artifact files
+        """Check if execution is complete."""
         non_artifact_files = [
             f for f in context.modified_files
             if ".hcode" not in f and not f.endswith("task.md")
-            and not f.endswith("implementation_plan.md")
-            and not f.endswith("walkthrough.md")
+               and not f.endswith("implementation_plan.md")
+               and not f.endswith("walkthrough.md")
         ]
 
-        # Also check completed actions for non-artifact file writes
         non_artifact_actions = []
         for a in context.completed_actions:
             if a.get("tool", "").lower() in ["write", "edit", "writetool", "edittool"]:
                 args = a.get("arguments", {})
                 target_file = (
-                    args.get("TargetFile", "")
-                    or args.get("file_path", "")
-                    or a.get("file_path", "")
+                        args.get("TargetFile", "")
+                        or args.get("file_path", "")
+                        or a.get("file_path", "")
                 )
                 if target_file and ".hcode" not in str(target_file):
                     non_artifact_actions.append(a)
@@ -1515,31 +1645,29 @@ NOW BEGIN Phase 0. Read `.hcode/task.md` and identify the next task to implement
     # ═══════════════════════════════════════════════════════════════════════
 
     def _get_task_statistics(self, task_content: str) -> Dict[str, int]:
-        """
-        Count total, completed, and current task from task.md.
-
-        Parses task.md checkboxes to provide visibility into multi-task progress.
-
-        Args:
-            task_content: Content of task.md
-
-        Returns:
-            Dictionary with keys: total, completed, in_progress, pending, current
-        """
+        """Count total, completed, and current task from task.md."""
         try:
             if not task_content:
-                return {'total': 0, 'completed': 0, 'in_progress': 0, 'pending': 0, 'current': 1}
+                return {
+                    'total': 0, 'completed': 0,
+                    'in_progress': 0, 'pending': 0, 'current': 1
+                }
 
             lines = task_content.split('\n')
 
-            # Count tasks by checkbox state
-            total = sum(1 for line in lines if re.match(r'^\s*-\s*\[[ x/]\]', line))
+            total = sum(
+                1 for line in lines
+                if re.match(r'^\s*-\s*\[[ x/]\]', line)
+            )
             completed = sum(1 for line in lines if '- [x]' in line)
             in_progress = sum(1 for line in lines if '- [/]' in line)
             pending = total - completed - in_progress
 
-            # Current task is the first in-progress or pending task
-            current_num = completed + 1 if (pending > 0 or in_progress > 0) else total
+            current_num = (
+                completed + 1
+                if (pending > 0 or in_progress > 0)
+                else total
+            )
 
             return {
                 'total': total,
@@ -1550,17 +1678,13 @@ NOW BEGIN Phase 0. Read `.hcode/task.md` and identify the next task to implement
             }
         except Exception as e:
             logger.debug(f"Task statistics calculation failed: {e}")
-            return {'total': 0, 'completed': 0, 'in_progress': 0, 'pending': 0, 'current': 1}
+            return {
+                'total': 0, 'completed': 0,
+                'in_progress': 0, 'pending': 0, 'current': 1
+            }
 
     def _parse_plan_steps(self, plan_content: str) -> List[Dict[str, Any]]:
-        """
-        Parse steps from implementation plan with enhanced pattern matching.
-
-        Supports multiple plan formats:
-        - Numbered steps: "1. **Step Name**: Description"
-        - Bullet lists: "- [ ] Task description"
-        - Section headers: "## Section Name"
-        """
+        """Parse steps from implementation plan with enhanced pattern matching."""
         steps = []
         if not plan_content:
             return steps
@@ -1595,22 +1719,6 @@ NOW BEGIN Phase 0. Read `.hcode/task.md` and identify the next task to implement
                 "id": int(task_id) if task_id else None,
             })
 
-        # Pattern 3: Section headers as step markers
-        section_pattern = r'^##\s+(\d+\.?\s*)?(.+)$'
-        section_matches = re.findall(section_pattern, plan_content, re.MULTILINE)
-
-        for i, (_, name) in enumerate(section_matches):
-            if name.lower() not in ['summary', 'notes', 'metadata']:
-                steps.append({
-                    "number": len(step_matches) + len(task_matches) + i + 1,
-                    "name": name.strip(),
-                    "description": f"Section: {name.strip()}",
-                    "files": [],
-                    "actions": [],
-                    "completed": False,
-                    "is_section": True,
-                })
-
         logger.debug(f"Parsed {len(steps)} steps from implementation plan")
         return steps
 
@@ -1631,7 +1739,6 @@ NOW BEGIN Phase 0. Read `.hcode/task.md` and identify the next task to implement
             "completed": False,
         }
 
-        # Find content between this step and next step
         step_marker = f"{step_num}."
         step_start = plan_content.find(step_marker)
         next_step_marker = f"{step_num + 1}."
@@ -1639,7 +1746,6 @@ NOW BEGIN Phase 0. Read `.hcode/task.md` and identify the next task to implement
         step_end = next_step_pos if next_step_pos != -1 else len(plan_content)
         step_content = plan_content[step_start:step_end]
 
-        # Extract file paths from various formats
         file_patterns = [
             r'(?:File|file|Path|path):\s*`([^`]+)`',
             r'(?:\[NEW\]|\[MODIFY\]|\[DELETE\])\s*`([^`]+)`',
@@ -1651,42 +1757,19 @@ NOW BEGIN Phase 0. Read `.hcode/task.md` and identify the next task to implement
             for path in file_matches:
                 normalized = path.strip().strip('`').strip()
                 if normalized and normalized not in step["files"]:
-                    # Check if it looks like a file path
                     if '/' in normalized or '\\' in normalized or '.' in normalized.split('/')[-1]:
                         step["files"].append(normalized)
-
-        # Extract action descriptions
-        action_patterns = [
-            r'(?:Action|action):\s*([^\n]+)',
-            r'(?:Do|do):\s*([^\n]+)',
-            r'^\s*[-*]\s+(.+)$',  # Bullet points
-        ]
-
-        for pattern in action_patterns:
-            action_matches = re.findall(pattern, step_content, re.MULTILINE)
-            for action in action_matches:
-                action = action.strip()
-                if action and action not in step["actions"]:
-                    step["actions"].append(action)
 
         return step
 
     def _update_task_progress(self, context: AgentContext) -> None:
-        """
-        Update task.md with current progress.
-
-        Marks subtasks as complete based on modified files and completed actions.
-        """
+        """Update task.md with current progress."""
         task_content = self.artifact_manager.load_artifact("task.md", context)
         if not task_content:
             logger.warning("task.md not found, cannot update progress")
             return
 
-        plan_content = self.artifact_manager.load_artifact("implementation_plan.md", context)
-
         completed_files = set(context.modified_files)
-
-        # Update checkbox items
         lines = task_content.split('\n')
         updated_lines = []
 
@@ -1720,7 +1803,6 @@ NOW BEGIN Phase 0. Read `.hcode/task.md` and identify the next task to implement
 
         updated_content = '\n'.join(updated_lines)
 
-        # Add progress summary
         if updated_content != task_content:
             progress_section = f"""
 
@@ -1737,9 +1819,9 @@ NOW BEGIN Phase 0. Read `.hcode/task.md` and identify the next task to implement
             logger.debug("Updated task.md with progress")
 
     def _check_step_completion(
-        self,
-        step: Dict[str, Any],
-        context: AgentContext
+            self,
+            step: Dict[str, Any],
+            context: AgentContext
     ) -> bool:
         """Check if a specific step is completed."""
         for file_path in step.get("files", []):
@@ -1754,9 +1836,9 @@ NOW BEGIN Phase 0. Read `.hcode/task.md` and identify the next task to implement
         return False
 
     def _get_next_incomplete_step(
-        self,
-        plan_content: str,
-        context: AgentContext
+            self,
+            plan_content: str,
+            context: AgentContext
     ) -> Optional[Dict[str, Any]]:
         """Get the next step that hasn't been completed."""
         steps = self._parse_plan_steps(plan_content)
@@ -1768,22 +1850,10 @@ NOW BEGIN Phase 0. Read `.hcode/task.md` and identify the next task to implement
         return None
 
     def _discover_codebase_structure(self, context: AgentContext) -> str:
-        """
-        Pre-discover codebase structure before execution starts.
-
-        Provides AI with a map of the project structure, reducing need for
-        exploratory Glob calls during execution.
-
-        Args:
-            context: Current agent context
-
-        Returns:
-            Formatted codebase structure summary or empty string
-        """
+        """Pre-discover codebase structure before execution starts."""
         try:
             cwd = Path(context.working_dir)
 
-            # Discover directory structure (max 20)
             dirs = []
             for d in cwd.rglob("*"):
                 if d.is_dir() and not any(part.startswith(".") for part in d.parts):
@@ -1795,7 +1865,6 @@ NOW BEGIN Phase 0. Read `.hcode/task.md` and identify the next task to implement
                     except ValueError:
                         continue
 
-            # Discover Python files (max 30)
             py_files = []
             for f in cwd.rglob("*.py"):
                 if not any(part.startswith(".") for part in f.parts):
@@ -1807,7 +1876,6 @@ NOW BEGIN Phase 0. Read `.hcode/task.md` and identify the next task to implement
                     except ValueError:
                         continue
 
-            # Discover key config files (max 15)
             config_extensions = ['json', 'yaml', 'yml', 'toml', 'ini', 'cfg', 'md']
             config_files = []
             for ext in config_extensions:
@@ -1819,7 +1887,6 @@ NOW BEGIN Phase 0. Read `.hcode/task.md` and identify the next task to implement
                 if len(config_files) >= 15:
                     break
 
-            # Build summary
             dir_list = ', '.join(dirs[:20]) if dirs else 'None'
             py_list = ', '.join(py_files[:10]) if py_files else 'None'
             py_more = f'... and {len(py_files) - 10} more' if len(py_files) > 10 else ''
@@ -1844,31 +1911,23 @@ NOW BEGIN Phase 0. Read `.hcode/task.md` and identify the next task to implement
             logger.debug(f"Codebase discovery failed: {e}")
             return ""
 
-    def _get_plan_progress_summary(self, context: AgentContext, plan_content: str) -> str:
-        """
-        Generate summary of plan step completion for AI awareness.
-
-        Shows which implementation plan steps are complete/pending, helping AI
-        maintain continuous plan alignment during Phase 2.
-
-        Args:
-            context: Current agent context
-            plan_content: Content of implementation_plan.md
-
-        Returns:
-            Formatted plan progress summary or empty string
-        """
+    def _get_plan_progress_summary(
+            self, context: AgentContext, plan_content: str
+    ) -> str:
+        """Generate summary of plan step completion for AI awareness."""
         try:
             steps = self._parse_plan_steps(plan_content)
             if not steps:
                 return ""
 
             total = len(steps)
-            completed = sum(1 for step in steps if self._check_step_completion(step, context))
+            completed = sum(
+                1 for step in steps
+                if self._check_step_completion(step, context)
+            )
 
-            # Show which steps are done/pending
             status_lines = []
-            for i, step in enumerate(steps[:5], 1):  # Show first 5 steps
+            for i, step in enumerate(steps[:5], 1):
                 status = "✓" if self._check_step_completion(step, context) else "○"
                 step_name = step.get('name', 'Unnamed')
                 status_lines.append(f"{status} Step {i}: {step_name}")

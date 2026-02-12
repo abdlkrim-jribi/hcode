@@ -848,19 +848,46 @@ CRITICAL RULES:
         """
         import re
 
+        # Tool-specific output limits for AI feedback (in characters)
+        # Different tools need different context windows:
+        # - Bash/execution: Large limit to see full error traces and test outputs
+        # - Read: Moderate limit for file content
+        # - Search tools: Smaller limits for results
+        # - Listing tools: Small limits for file lists
+        TOOL_OUTPUT_LIMITS = {
+            'bash': 15000,           # Execution tools - full test outputs with stack traces
+            'bashtool': 15000,
+            'bashexecutor': 15000,
+            'read': 5000,            # File reading - moderate file content
+            'readtool': 5000,
+            'grep': 3000,            # Search results - compact
+            'greptool': 3000,
+            'smartgreptool': 3000,
+            'glob': 2000,            # File listings - small
+            'globtool': 2000,
+            'smartglobtool': 2000,
+            'default': 2000          # Fallback for other tools (backward compatible)
+        }
+
         parts = []
         for r in results:
             tool = r.get('tool', 'unknown')
+            tool_lower = tool.lower()
             success = r.get('success', False)
             output = str(r.get('output', ''))
             error = r.get('error', '')
 
             if success:
+                # Get tool-specific character limit
+                max_chars = TOOL_OUTPUT_LIMITS.get(tool_lower, TOOL_OUTPUT_LIMITS['default'])
+
                 # Apply signature preservation for Read tool in planning phase
-                if preserve_signatures and tool.lower() == 'read':
-                    output = self._extract_signatures_and_truncate(output, max_chars=3000)
+                if preserve_signatures and tool_lower in ['read', 'readtool']:
+                    output = self._extract_signatures_and_truncate(output, max_chars=5000)
                 else:
-                    output = output[:2000]  # Standard truncation
+                    # Truncate with tool-specific limit
+                    if len(output) > max_chars:
+                        output = output[:max_chars] + f"\n\n... [output truncated at {max_chars} chars, {len(output) - max_chars} chars omitted]"
 
                 parts.append(f"[{tool}] Success:\n{output}")
             else:
