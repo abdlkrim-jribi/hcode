@@ -209,6 +209,25 @@ class AgentOrchestrator(AgentOrchestratorProtocol):
                         logger.info(f"Transitioned from {current_phase} to {new_phase}")
 
                     elif current_phase == "verification":
+                        # Check if verification found incomplete tasks (NEEDS REVISION)
+                        verdict = (phase_result.metadata or {}).get("verdict", "")
+                        needs_revision = "NEEDS REVISION" in verdict or "REJECTED" in verdict
+
+                        if needs_revision and context.iteration < self.max_iterations - 5:
+                            # Recovery: go back to execution for remaining tasks
+                            logger.info(
+                                f"Verification verdict: {verdict} — "
+                                f"looping back to execution for remaining tasks"
+                            )
+                            if self.console:
+                                self.console.print(
+                                    "\n[bold yellow]⟳ Verification found incomplete tasks — "
+                                    "returning to execution[/bold yellow]"
+                                )
+                            self.phase_manager.force_phase("execution")
+                            self._sync_loop_phase("execution")
+                            continue
+
                         # Verification complete means task is done
                         if self.console:
                             self.console.print("\n[bold green]✓ Task completed successfully![/bold green]")

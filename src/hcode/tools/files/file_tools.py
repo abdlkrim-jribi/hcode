@@ -765,6 +765,63 @@ class EditTool(BaseTool):
             # Fallback for complex patterns or regex errors
             return False, "", 0
 
+    def _build_edit_failure_hint(self, content: str, old_string: str) -> str:
+        """
+        Build a helpful error message when Edit can't find old_string.
+
+        Shows the AI:
+        1. What it searched for (full, not truncated)
+        2. The best-matching lines from the file (using first line of old_string as anchor)
+        3. Clear guidance on how to fix
+
+        This prevents the AI from blindly retrying with the same wrong string.
+        """
+        import difflib
+
+        lines = content.split('\n')
+        first_line = old_string.strip().split('\n')[0].strip()
+
+        # Find the best matching lines using the first line as anchor
+        best_matches = []
+        for i, line in enumerate(lines):
+            # Use SequenceMatcher for similarity scoring
+            ratio = difflib.SequenceMatcher(None, first_line.lower(), line.strip().lower()).ratio()
+            if ratio > 0.4:
+                best_matches.append((ratio, i, line.rstrip()))
+
+        best_matches.sort(key=lambda x: x[0], reverse=True)
+
+        hint_parts = [
+            f"old_string not found in file.",
+            f"",
+            f"You searched for:",
+            f"  {repr(first_line[:200])}",
+        ]
+
+        if best_matches:
+            hint_parts.append(f"")
+            hint_parts.append(f"Most similar lines in the file:")
+            for ratio, line_num, line_text in best_matches[:3]:
+                hint_parts.append(f"  Line {line_num + 1} ({ratio:.0%} match): {line_text[:200]}")
+            hint_parts.append(f"")
+            hint_parts.append(f"Use Read tool to see the current file content, then retry Edit with the exact text.")
+        else:
+            # No similar lines — show a snippet around typical locations
+            hint_parts.append(f"")
+            hint_parts.append(f"No similar lines found. File has {len(lines)} lines.")
+            # Show first 10 and last 5 lines as context
+            preview_lines = lines[:10]
+            if len(lines) > 15:
+                preview_lines.append("...")
+                preview_lines.extend(lines[-5:])
+            hint_parts.append(f"File preview:")
+            for line in preview_lines:
+                hint_parts.append(f"  {line.rstrip()[:150]}")
+            hint_parts.append(f"")
+            hint_parts.append(f"Read the file first, then use the exact text for old_string.")
+
+        return '\n'.join(hint_parts)
+
     async def execute(
         self,
         file_path: str = None,
@@ -844,10 +901,13 @@ class EditTool(BaseTool):
                         )
             
             if not match_found:
+                # Build helpful error with actual file context so the AI
+                # can see what the file really contains and fix its old_string.
+                hint = self._build_edit_failure_hint(content, old_string)
                 return ToolResult(
                     success=False,
                     output=None,
-                    error=f"String not found in file (tried exact and fuzzy match): {old_string[:100]}...",
+                    error=hint,
                 )
 
             # Check if replacement would be ambiguous

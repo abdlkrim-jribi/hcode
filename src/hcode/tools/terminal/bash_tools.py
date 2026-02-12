@@ -185,7 +185,13 @@ class BashTool(BaseTool):
     async def execute(self, command: str = None, CommandLine: str = None, **kwargs) -> ToolResult:
         """Execute bash command"""
         raw_command = command or CommandLine
-        timeout = kwargs.get("timeout", 120000) / 1000  # Convert ms to seconds (default 120s)
+        raw_timeout = kwargs.get("timeout", 120000)
+        # Smart unit detection: if value < 1000, assume seconds; otherwise milliseconds
+        # This handles both AI sending seconds (30) and milliseconds (30000) correctly
+        if raw_timeout < 1000:
+            timeout = float(raw_timeout)  # Already in seconds
+        else:
+            timeout = raw_timeout / 1000  # Convert ms to seconds
         run_in_background = kwargs.get("run_in_background", False)
         description = kwargs.get("description", raw_command[:50] if raw_command else "")
 

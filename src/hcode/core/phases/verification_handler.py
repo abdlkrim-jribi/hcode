@@ -59,6 +59,58 @@ class VerificationPhaseHandler(BasePhaseHandler):
         """Get artifacts this phase should produce."""
         return ["walkthrough.md"]
 
+    async def _execute_tools(
+        self,
+        tool_calls: List[Dict[str, Any]],
+        context: AgentContext,
+    ) -> List[Dict[str, Any]]:
+        """
+        Verification-phase tool executor that blocks Edit on task.md.
+
+        task.md updates are handled programmatically by _update_task_status()
+        after the AI verdict. Allowing AI to edit task.md causes repeated
+        failures (wrong old_string, truncated strings, state conflicts).
+        """
+        filtered_calls = []
+        results = []
+
+        for tc in tool_calls:
+            tool_name = (tc.get("tool") or "").lower()
+            arguments = tc.get("arguments", {})
+
+            # Block Edit/Write on task.md — system handles this
+            if tool_name in ("edit", "edittool"):
+                target = (
+                    arguments.get("file_path")
+                    or arguments.get("TargetFile")
+                    or ""
+                )
+                if "task.md" in target:
+                    logger.info(
+                        f"[verification] Blocked Edit on task.md — "
+                        f"system handles task.md updates automatically"
+                    )
+                    results.append({
+                        "tool": tc.get("tool"),
+                        "success": True,
+                        "output": (
+                            "task.md updates are handled automatically by the system "
+                            "based on your verdict. Focus on writing walkthrough.md "
+                            "and stating your final verdict."
+                        ),
+                        "file_path": target,
+                    })
+                    continue
+
+            filtered_calls.append(tc)
+
+        # Execute remaining calls via parent
+        if filtered_calls:
+            parent_results = await super()._execute_tools(filtered_calls, context)
+            results.extend(parent_results)
+
+        return results
+
     # ═══════════════════════════════════════════════════════════════════════
     # MAIN HANDLER
     # ═══════════════════════════════════════════════════════════════════════
@@ -173,12 +225,31 @@ class VerificationPhaseHandler(BasePhaseHandler):
                     error=error,
                 )
 
-            # Determine verdict from test results
+            # Determine verdict from test results AND task.md completion
             tests_ok = (
                 not test_results.get("tests_run")
                 or test_results.get("tests_failed", 0) == 0
             )
-            verdict = "APPROVED" if tests_ok else "APPROVED WITH NOTES"
+
+            # Check task.md for remaining unchecked items
+            tasks_complete = True
+            fresh_task_content = self.artifact_manager.load_artifact("task.md", context)
+            if fresh_task_content:
+                unchecked = re.findall(r'^\s*-\s*\[ \]', fresh_task_content, re.MULTILINE)
+                in_progress = re.findall(r'^\s*-\s*\[/\]', fresh_task_content, re.MULTILINE)
+                if unchecked or in_progress:
+                    tasks_complete = False
+                    logger.info(
+                        f"[verification] task.md has {len(unchecked)} unchecked "
+                        f"and {len(in_progress)} in-progress tasks"
+                    )
+
+            if tests_ok and tasks_complete:
+                verdict = "APPROVED"
+            elif tests_ok and not tasks_complete:
+                verdict = "NEEDS REVISION"
+            else:
+                verdict = "APPROVED WITH NOTES"
 
             # Update task memory with learnings from this successful task
             self._update_hcode_memory(
@@ -216,16 +287,20 @@ class VerificationPhaseHandler(BasePhaseHandler):
 
     def _get_thinking_instructions(self) -> str:
         """
-        Override base thinking instructions with 5-phase QA protocol.
-        """
-        return """### 5-PHASE VERIFICATION THINKING PROTOCOL
+        Override base thinking instructions with 4-phase QA protocol.
 
-You MUST think through each verification phase using structured reasoning:
+        Note: Phase 5 (task.md update) is handled programmatically by
+        _update_task_status(), NOT by the AI. This prevents Edit failures.
+        """
+        return """### 4-PHASE VERIFICATION THINKING PROTOCOL
+
+You MUST think through each verification phase using structured reasoning.
+**IMPORTANT: DO NOT Edit task.md — the system updates it automatically based on your verdict.**
 
 **Phase 1 — COMPLIANCE VERIFICATION:**
 <thinking>
-Step 1: Load task.md — What was supposed to be done?
-Step 2: Load implementation_plan.md — How was it supposed to be done?
+Step 1: Read task.md — What was supposed to be done?
+Step 2: Read implementation_plan.md — How was it supposed to be done?
 Step 3: For each plan step: Was it implemented? Correctly? Completely?
 Step 4: Identify DEVIATIONS — changes not in plan, or plan steps not done.
 Therefore: Compliance is [PASS/CONDITIONAL PASS/FAIL] because [evidence].
@@ -272,7 +347,7 @@ Therefore: Final verdict is [verdict] because [justification].
 </thinking>
 
 <output>
-[Final verdict with evidence-based justification]
+[Write walkthrough.md with verdict and evidence. DO NOT edit task.md.]
 </output>
 
 """
@@ -349,6 +424,16 @@ Working directory: {context.working_dir}
 Artifacts directory: .hcode
 Modified files: {len(context.modified_files)}
 Completed actions: {len(context.completed_actions)}
+
+### CRITICAL PATH REQUIREMENTS
+
+**All artifact paths are RELATIVE to the working directory:**
+- Task list: `.hcode/task.md` (NOT `/home/sandbox/.hcode/task.md` or any absolute path)
+- Implementation plan: `.hcode/implementation_plan.md`
+- Modified files: Use paths as listed in the "Modified Files" section below
+
+**NEVER use absolute paths like `/home/sandbox/...` or `D:/workshops/...`**
+**ALWAYS use relative paths like `.hcode/task.md` or `src/module/file.py`**
 
 ### TOOL CALL FORMAT
 
@@ -484,7 +569,12 @@ Aggregate all findings into:
 - NEEDS REVISION: Critical issues found
 - REJECTED: Fundamental errors
 
-Produce your analysis in structured format. Read the modified files to verify."""
+Produce your analysis in structured format. Read the modified files to verify.
+
+**CRITICAL: Use RELATIVE paths for all tool calls:**
+- `.hcode/task.md` (NOT `/home/sandbox/.hcode/task.md`)
+- `.hcode/implementation_plan.md` (NOT absolute paths)
+- File paths as listed above in the "Modified Files" section"""
 
     def _build_continuation_prompt(
         self,
