@@ -134,8 +134,8 @@ Next: Read implementation_plan.md to map expected file changes.
 ## THE 4-PHASE QA PROTOCOL
 
 1. **Phase 1: Compliance Verification** — Read task.md, implementation_plan.md, and ALL modified files. Check: was every plan step implemented correctly and completely?
-2. **Phase 2: Quality Gates Assessment** — Score code quality (complexity, docs, error handling, imports, style, security)
-3. **Phase 3: Integration Testing** — Trace execution paths (happy path, edge cases, error handling)
+2. **Phase 2: Execute Verification Plan** — Read the `## Verification Plan` section from `implementation_plan.md`. Automated commands have already been run by the system (results provided). Perform any manual verification steps the plan specifies. Check success criteria.
+3. **Phase 3: Agent-Decided Additional Checks** — Based on the nature of the changes, decide if additional checks are needed beyond what the plan specified. You have full authority to check imports, error handling, regressions, etc.
 4. **Phase 4: Final Decision** — Aggregate results into verdict (APPROVED / APPROVED WITH NOTES / NEEDS REVISION / REJECTED)
 
 **Each phase requires MINIMUM 100 WORDS of reasoning before conclusions.**
@@ -230,94 +230,65 @@ WORD COUNT CHECK: [Must be 100+]
 </thinking>
 ```
 
-### Phase 2: Quality Gates Assessment
+### Phase 2: Execute Verification Plan
 
 **Thinking Protocol**:
 ```
 <thinking>
 [MINIMUM 100 WORDS OF DEEP REASONING]
 
-## Code Quality Scoring
+## Reading Verification Plan from implementation_plan.md
 
-Complexity:
-- Cyclomatic complexity: [Low/Medium/High based on branches]
-- Function length: [Lines, is it reasonable?]
-- Evidence: [Specific examples of complex areas]
+Automated Tests (already executed by system):
+- Command 1: [From plan] → Result: [From test results above]
+- Command 2: [From plan] → Result: [From test results above]
 
-Documentation:
-- Docstrings present: [YES/NO]
-- Type hints: [YES/NO]
-- Inline comments for complex logic: [YES/NO]
-- Evidence: [Examples]
+Manual Verification Steps (from plan):
+- Step 1: [What the plan says to check]
+  → Evidence: [file.py:line — what I found]
+  → Result: [PASS/FAIL]
+- Step 2: [What the plan says to check]
+  → Evidence: [file.py:line — what I found]
+  → Result: [PASS/FAIL]
 
-Error Handling:
-- Try/except blocks: [Present/Absent]
-- Input validation: [Present/Absent]
-- Error messages: [Helpful/Generic]
-- Evidence: [file.py:line]
+Success Criteria (from plan):
+- Criterion 1: [From plan] → Met? [YES/NO — evidence]
+- Criterion 2: [From plan] → Met? [YES/NO — evidence]
 
-Import Quality:
-- Unused imports: [List any found]
-- Circular dependencies: [Risk assessment]
-- Standard lib vs third-party: [Appropriate choices?]
+If plan has no verification steps:
+→ I will decide what to check based on the nature of changes.
 
-Style & Conventions:
-- Naming: [Consistent with codebase? Evidence]
-- Formatting: [PEP 8 / project standard?]
-- Patterns: [Match existing code? Evidence: file.py:line]
-
-Security Concerns:
-- SQL injection risk: [YES/NO - evidence]
-- XSS risk: [YES/NO - evidence]
-- Secrets hardcoded: [YES/NO - evidence]
-
-## Aggregate Quality Score
-[PASS / PASS WITH NOTES / FAIL]
+## Decision
+Verification Plan Status: [PASS / PASS WITH NOTES / FAIL]
 
 WORD COUNT CHECK: [Must be 100+]
 </thinking>
 ```
 
-### Phase 3: Integration Testing
+### Phase 3: Agent-Decided Additional Checks
 
 **Thinking Protocol**:
 ```
 <thinking>
 [MINIMUM 100 WORDS OF DEEP REASONING]
 
-## Mental Execution Trace
+## Additional Checks I Decided to Perform
 
-Happy Path:
-1. User action: [Entry point]
-2. Function A called: [What it does - Evidence: file.py:line]
-3. Function B called: [What it does - Evidence: file.py:line]
-4. Expected result: [What should happen]
-5. Actual implementation: [Does code match? Evidence]
+Based on the nature of these changes, I need to additionally verify:
 
-Edge Cases:
-- Empty input: [How handled? Evidence: file.py:line]
-- Null/None: [How handled? Evidence: file.py:line]
-- Max values: [How handled? Evidence: file.py:line]
-- Concurrent access: [Thread-safe? Evidence]
+Check 1: [What I'm checking and WHY it matters for this change]
+- Evidence: [file.py:line — what I found]
+- Result: [PASS/FAIL]
 
-Error Cases:
-- Invalid input: [Error message shown? Evidence: file.py:line]
-- External failure (DB, API): [Graceful degradation? Evidence]
-- Resource exhaustion: [Handled? Evidence]
+Check 2: [What I'm checking and WHY]
+- Evidence: [file.py:line]
+- Result: [PASS/FAIL]
 
-## Test Coverage Analysis
-Existing tests found: [List test files read]
-- Coverage of happy path: [YES/NO - evidence: test_file.py:line]
-- Coverage of edge cases: [YES/NO - which ones missing?]
-- Coverage of error cases: [YES/NO - which ones missing?]
-
-## Integration Points
-Dependencies: [What external modules/services?]
-- Verified compatibility: [YES/NO - evidence]
-- Mocking strategy: [Appropriate?]
+Areas I considered but deemed unnecessary to check:
+- [Area]: Not relevant because [reason]
 
 ## Decision
-Integration Status: [PASS / PASS WITH NOTES / FAIL]
+Additional Checks Status: [PASS / PASS WITH NOTES / FAIL]
 
 WORD COUNT CHECK: [Must be 100+]
 </thinking>

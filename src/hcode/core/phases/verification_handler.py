@@ -310,37 +310,39 @@ Therefore: Compliance is [PASS/CONDITIONAL PASS/FAIL] because [evidence].
 [Tool calls to read task.md, plan, and modified files, then compliance verification matrix]
 </output>
 
-**Phase 2 — QUALITY GATES:**
+**Phase 2 — EXECUTE VERIFICATION PLAN:**
 <thinking>
-Step 1: Complexity — Are functions reasonable length (≤50 lines)?
-Step 2: Documentation — Do public APIs have docstrings?
-Step 3: Error handling — Are exceptions caught? Descriptive messages?
-Step 4: Imports — All used? No circular deps?
-Step 5: Style — Matches project conventions?
-Step 6: Security — No obvious vulnerabilities?
-Therefore: Quality gates [X/6 passed].
+Step 1: Read the "## Verification Plan" section from implementation_plan.md.
+Step 2: For each verification step the planning agent specified:
+  - Was the automated command already run by the system? Check test results above.
+  - For manual verification steps: perform them now (read files, trace logic, etc.).
+Step 3: For each "Success Criteria" the plan defines: is it met? Cite evidence.
+Step 4: If the plan specified no verification steps, assess code quality based on
+        what the changes actually do — you decide what to check.
+Therefore: Verification Plan execution [PASS/FAIL] because [evidence].
 </thinking>
 
 <output>
-[Quality assessment with scores for each gate: X/6 passed]
+[Tool calls to perform manual verification steps from the plan, assess results]
 </output>
 
-**Phase 3 — INTEGRATION TESTING:**
+**Phase 3 — AGENT-DECIDED ADDITIONAL CHECKS:**
 <thinking>
-Step 1: HAPPY PATH — Trace primary use case through code.
-Step 2: EDGE CASES — Check boundary conditions.
-Step 3: ERROR PATHS — Verify failure handling.
-Step 4: REGRESSION — Could changes break existing functionality?
-Therefore: Integration testing [PASS/FAIL] with [N] scenarios verified.
+Step 1: Based on the nature of the changes, decide if additional checks are needed
+        beyond what the plan specified.
+Step 2: Consider: Does this change affect imports? Error handling? Public APIs?
+Step 3: Perform any additional checks YOU deem necessary for this specific change.
+Step 4: Document what you checked and why.
+Therefore: Additional checks [PASS/PASS WITH NOTES/FAIL] with [justification].
 </thinking>
 
 <output>
-[Tool calls to run tests if applicable, then integration test results summary]
+[Any additional tool calls the agent decides are needed, then results summary]
 </output>
 
 **Phase 4 — FINAL DECISION:**
 <thinking>
-Step 1: Aggregate — Phase 1 [result], Phase 2 [score], Phase 3 [result].
+Step 1: Aggregate — Phase 1 [result], Phase 2 [result], Phase 3 [result].
 Step 2: Categorize issues — CRITICAL/HIGH/MEDIUM/LOW.
 Step 3: Verdict — APPROVED / APPROVED WITH NOTES / NEEDS REVISION / REJECTED.
 Therefore: Final verdict is [verdict] because [justification].
@@ -544,7 +546,7 @@ Code files (excluding artifacts):
 
 ### INSTRUCTIONS:
 
-Execute the 5-Phase QA Protocol:
+Execute the 4-Phase QA Protocol:
 
 **Phase 1: Compliance Verification**
 Read each modified code file. For each plan step, verify:
@@ -552,15 +554,20 @@ Read each modified code file. For each plan step, verify:
 - Was it implemented correctly?
 - Are there unauthorized changes?
 
-**Phase 2: Quality Gates**
-Score each modified file on: complexity, documentation, error handling,
-imports, style consistency, security. Report X/6 gates passed.
+**Phase 2: Execute Verification Plan**
+Read the "## Verification Plan" section from implementation_plan.md.
+- Automated test commands have already been executed (results above).
+- For each manual verification step in the plan: perform it now.
+- Check each "Success Criteria" the plan defines — is it met? Cite evidence.
+- If the plan has no verification steps, decide what to check yourself.
 
-**Phase 3: Integration Testing (Mental Execution)**
-Trace at least:
-- 1 happy path scenario
-- 1 edge case
-- 1 error scenario
+**Phase 3: Agent-Decided Additional Checks**
+Based on the nature of the changes, decide if you need additional checks
+beyond what the plan specified. You have full authority to:
+- Read related files to check for regressions
+- Trace execution paths
+- Verify error handling, imports, or style consistency
+- Document what you checked and why
 
 **Phase 4: Final Decision**
 Aggregate all findings into:
@@ -628,11 +635,14 @@ Produce your analysis in structured format. Read the modified files to verify.
         plan_content: Optional[str]
     ) -> Dict[str, Any]:
         """
-        Run verification commands with scope-aware strategy.
+        Run verification commands extracted from the implementation plan.
 
-        Strategy:
-        - 1-2 modified files: compile-check + run each .py file
-        - 3+ modified files: full test suite (pytest / npm test etc.)
+        All verification steps are agent-decided: the planning agent specifies
+        exact verification commands in the plan's ``## Verification Plan``
+        section, and this method executes ONLY those commands.
+
+        This makes the handler language-agnostic (polyglot). The plan takes
+        responsibility for syntax checks, build steps, and tests.
         """
         results = {
             "tests_run": False,
@@ -642,42 +652,31 @@ Produce your analysis in structured format. Read the modified files to verify.
             "commands_executed": [],
         }
 
-        non_artifact_files = self._get_non_artifact_files(context)
-        python_files = [f for f in non_artifact_files if f.endswith(".py")]
+        # ── Step 1: Extract plan-specified verification commands ──────────
+        plan_commands = self._extract_verification_commands(plan_content)
 
-        # Narrow scope: 1-2 files → compile + run only
-        if len(non_artifact_files) <= 2:
-            test_commands = []
-            for py_file in python_files:
-                test_commands.append(f'python -m py_compile "{py_file}"')
-                test_commands.append(f'python "{py_file}"')
+        # Deduplicate while preserving order
+        seen = set()
+        test_commands = []
+        for cmd in plan_commands:
+            if cmd not in seen:
+                seen.add(cmd)
+                test_commands.append(cmd)
 
-            if not test_commands and non_artifact_files:
-                results["output"] = (
-                    "Verification: non-Python files modified, no automated check.\n"
-                    "Files: " + ", ".join(non_artifact_files)
-                )
-                return results
+        if not test_commands:
+            results["output"] = (
+                "No verification commands specified in implementation_plan.md.\n"
+                "The AI verification analysis will handle review."
+            )
+            return results
 
-            if not test_commands:
-                results["output"] = "No files to verify."
-                return results
-
-        # Wide scope: 3+ files → full test suite
-        else:
-            test_commands = self._extract_test_commands(plan_content)
-            if not test_commands:
-                test_commands = self._detect_test_commands(context)
-            if not test_commands:
-                test_commands = [f'python -m py_compile "{f}"' for f in python_files]
-
-        # Execute each command
+        # Execute each plan-specified command
         all_output = []
         total_passed = 0
         total_failed = 0
 
         for command in test_commands:
-            logger.info(f"Running verification command: {command}")
+            logger.info(f"Running plan-specified verification command: {command}")
             results["commands_executed"].append(command)
             self._display(f"  $ {command}", style="thinking")
 
@@ -713,58 +712,94 @@ Produce your analysis in structured format. Read the modified files to verify.
 
         return results
 
-    def _extract_test_commands(self, plan_content: Optional[str]) -> List[str]:
-        """Extract test commands from implementation plan."""
+    def _extract_verification_commands(self, plan_content: Optional[str]) -> List[str]:
+        """
+        Extract verification commands exclusively from the implementation plan.
+
+        This is the single source of truth for verification commands.  It parses
+        the ``## Verification Plan`` section (and common variants) looking for:
+        - Commands inside code blocks (``` delimited)
+        - Commands on bullet lines prefixed with ``$`` or wrapped in backticks
+        - Explicit ``Run:`` / ``Execute:`` / ``Test:`` directives
+
+        Args:
+            plan_content: Raw text of implementation_plan.md
+
+        Returns:
+            Deduplicated list of shell commands to execute
+        """
         if not plan_content:
             return []
 
-        commands = []
+        commands: List[str] = []
 
-        # Look in testing sections
-        test_section_pattern = r'(?:## Test|## Verification|## Testing)[^\n]*\n((?:.*\n)*?)(?:##|$)'
-        test_sections = re.findall(test_section_pattern, plan_content, re.IGNORECASE)
+        # ── Step 1: Isolate verification / testing sections ──────────────
+        section_pattern = (
+            r'(?:^##\s*(?:Verification\s*Plan|Test(?:ing)?|Automated\s*Tests|Verification))'
+            r'[^\n]*\n((?:.*\n)*?)(?=^##\s|\Z)'
+        )
+        sections = re.findall(section_pattern, plan_content, re.IGNORECASE | re.MULTILINE)
 
-        for section in test_sections:
-            cmd_pattern = r'`([^`]+(?:pytest|npm test|python|jest|cargo test|go test|mvn test)[^`]*)`'
-            cmds = re.findall(cmd_pattern, section, re.IGNORECASE)
-            commands.extend(cmds)
+        # If we couldn't isolate a section, fall back to scanning the whole plan
+        search_text = "\n".join(sections) if sections else plan_content
 
-        # Also look for explicit "Run:" patterns
-        run_pattern = r'(?:Run|Execute|Test|Verify):\s*`([^`]+)`'
-        run_cmds = re.findall(run_pattern, plan_content, re.IGNORECASE)
-        commands.extend(run_cmds)
+        # ── Step 2: Extract commands from fenced code blocks ─────────────
+        # Matches ```bash, ```shell, ```sh, ``` (plain), or ```text blocks
+        code_block_pattern = r'```(?:bash|shell|sh|text)?\s*\n(.*?)```'
+        code_blocks = re.findall(code_block_pattern, search_text, re.DOTALL | re.IGNORECASE)
 
-        # Deduplicate
-        seen = set()
-        unique = []
-        for cmd in commands:
+        for block in code_blocks:
+            for line in block.strip().split("\n"):
+                line = line.strip()
+                # Strip leading $ prompt character
+                if line.startswith("$ "):
+                    line = line[2:].strip()
+                # Skip comments and empty lines
+                if not line or line.startswith("#"):
+                    continue
+                # Skip lines that are just cd commands (path context, not a verification step)
+                if re.match(r'^cd\s+', line):
+                    continue
+                commands.append(line)
+
+        # ── Step 3: Extract inline backtick commands ─────────────────────
+        # Matches backtick-wrapped commands that look like shell invocations
+        inline_cmd_pattern = r'`(\$?\s*(?:pytest|python|npm\s+(?:test|run)|jest|cargo\s+test|go\s+test|mvn\s+test|make\s+test|tox)[^`]*)`'
+        inline_cmds = re.findall(inline_cmd_pattern, search_text, re.IGNORECASE)
+        for cmd in inline_cmds:
             cmd = cmd.strip()
-            if cmd and cmd not in seen:
+            if cmd.startswith("$ "):
+                cmd = cmd[2:].strip()
+            if cmd:
+                commands.append(cmd)
+
+        # ── Step 4: Extract "Run:" / "Execute:" directives ───────────────
+        run_pattern = r'(?:Run|Execute|Test|Verify):\s*`([^`]+)`'
+        run_cmds = re.findall(run_pattern, search_text, re.IGNORECASE)
+        for cmd in run_cmds:
+            cmd = cmd.strip()
+            if cmd.startswith("$ "):
+                cmd = cmd[2:].strip()
+            if cmd:
+                commands.append(cmd)
+
+        # ── Step 5: Extract bullet-point commands with $ prefix ──────────
+        bullet_cmd_pattern = r'^\s*[-*]\s+\$\s+(.+)$'
+        bullet_cmds = re.findall(bullet_cmd_pattern, search_text, re.MULTILINE)
+        for cmd in bullet_cmds:
+            cmd = cmd.strip()
+            if cmd:
+                commands.append(cmd)
+
+        # ── Step 6: Deduplicate while preserving order ───────────────────
+        seen: set = set()
+        unique: List[str] = []
+        for cmd in commands:
+            if cmd not in seen:
                 seen.add(cmd)
                 unique.append(cmd)
 
         return unique
-
-    def _detect_test_commands(self, context: AgentContext) -> List[str]:
-        """Auto-detect test commands based on project structure."""
-        commands = []
-        working_dir = Path(context.working_dir)
-
-        if (working_dir / "pytest.ini").exists() or \
-           (working_dir / "pyproject.toml").exists() or \
-           (working_dir / "tests").is_dir():
-            commands.append("pytest --no-cov -v")
-
-        if (working_dir / "package.json").exists():
-            commands.append("npm test")
-
-        if (working_dir / "Cargo.toml").exists():
-            commands.append("cargo test")
-
-        if (working_dir / "go.mod").exists():
-            commands.append("go test ./...")
-
-        return commands
 
     def _sanitize_command(self, command: str) -> Optional[str]:
         """

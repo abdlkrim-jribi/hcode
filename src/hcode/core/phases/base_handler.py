@@ -999,7 +999,23 @@ CRITICAL RULES:
 
                 parts.append(f"[{tool}] Success:\n{output}")
             else:
-                parts.append(f"[{tool}] Failed: {error}")
+                # Enrich bash/command failures with prominent warnings
+                if tool_lower in ('bash', 'bashtool'):
+                    error_str = str(error or '')[:2000]
+                    output_str = str(output or '')[:2000]
+                    failure_msg = (
+                        f"[{tool}] ⚠️ COMMAND FAILED (exit code non-zero)\n"
+                        f"Error: {error_str}"
+                    )
+                    if output_str.strip():
+                        failure_msg += f"\nOutput: {output_str}"
+                    failure_msg += (
+                        "\n\nYou MUST fix the failure and re-run the command "
+                        "before marking any related task as complete."
+                    )
+                    parts.append(failure_msg)
+                else:
+                    parts.append(f"[{tool}] Failed: {error}")
 
         return "\n\n".join(parts) if parts else "No tool results."
 

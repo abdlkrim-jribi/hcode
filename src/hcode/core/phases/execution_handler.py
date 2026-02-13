@@ -21,6 +21,7 @@ GPT OSS 120B Optimizations:
 
 import json
 import logging
+import os
 import re
 import time
 from pathlib import Path
@@ -107,6 +108,10 @@ class ExecutionPhaseHandler(BasePhaseHandler):
         self._current_phase_state = 'phase0'
         self._phase_transition_history = []
         self._reasoning_depth = 0
+
+        # Track unresolved bash/command failures across rounds
+        # Each entry: {"command": str, "exit_code": int, "error": str}
+        self._failed_commands = []
 
     def get_required_artifacts(self) -> List[str]:
         """Execution phase doesn't produce new artifacts."""
@@ -291,21 +296,35 @@ class ExecutionPhaseHandler(BasePhaseHandler):
                     timeout_seconds=GPTOSSConfig.TIMEOUT_SECONDS,
                 )
 
+                # ── Track failed commands from this execution round ──
+                self._track_command_failures(tool_results)
+
+                # ── Track files read to prevent redundant re-reads ──
+                self._track_read_files(tool_results)
+
                 # ── RETRY LOOP: Re-enter if tasks remain unchecked ──
                 # When the AI stops producing tool calls (summary mode),
                 # check task.md. If unchecked tasks remain, re-invoke with
                 # a focused prompt to continue the next task.
                 for retry in range(GPTOSSConfig.MAX_RETRIES):
                     remaining = self._count_remaining_tasks(context)
-                    if remaining == 0:
+                    has_unresolved = len(self._failed_commands) > 0
+                    if remaining == 0 and not has_unresolved:
                         break
+
+                    issue_parts = []
+                    if remaining > 0:
+                        issue_parts.append(f"{remaining} unchecked task(s)")
+                    if has_unresolved:
+                        issue_parts.append(f"{len(self._failed_commands)} failed command(s)")
+                    issue_summary = " and ".join(issue_parts)
 
                     logger.info(
                         f"[execution] Retry {retry + 1}/{GPTOSSConfig.MAX_RETRIES}: "
-                        f"{remaining} unchecked task(s) remain — re-entering"
+                        f"{issue_summary} remain — re-entering"
                     )
                     self._display(
-                        f"  {remaining} task(s) remaining — continuing execution",
+                        f"  {issue_summary} remaining — continuing execution",
                         style="info"
                     )
 
@@ -314,9 +333,26 @@ class ExecutionPhaseHandler(BasePhaseHandler):
                         "task.md", context
                     ) or ""
 
-                    retry_prompt = (
-                        f"You stopped but there are still {remaining} unchecked "
-                        f"task(s) in `.hcode/task.md`. You MUST complete them all.\n\n"
+                    # Build retry prompt with failed-command context
+                    retry_prompt = ""
+                    if has_unresolved:
+                        failure_details = "\n".join(
+                            f"- `{fc['command']}` failed (exit code {fc.get('exit_code', '?')}): "
+                            f"{fc.get('error', 'unknown error')[:200]}"
+                            for fc in self._failed_commands
+                        )
+                        retry_prompt += (
+                            f"⚠️ CRITICAL: The following command(s) FAILED and you MUST fix them "
+                            f"before marking any task as complete:\n{failure_details}\n\n"
+                            f"DO NOT mark a task as `[x]` if its verification command failed. "
+                            f"Investigate the failure, fix the root cause, and re-run the command.\n\n"
+                        )
+                    if remaining > 0:
+                        retry_prompt += (
+                            f"You stopped but there are still {remaining} unchecked "
+                            f"task(s) in `.hcode/task.md`. You MUST complete them all.\n\n"
+                        )
+                    retry_prompt += (
                         f"Current task.md:\n{fresh_task}\n\n"
                         f"Continue with Phase 0: find the next unchecked `- [ ]` task, "
                         f"mark it `[/]`, implement it (Phases 1-2-3), then check for more."
@@ -334,6 +370,10 @@ class ExecutionPhaseHandler(BasePhaseHandler):
 
                     response_text = retry_text
                     tool_results.extend(retry_results)
+
+                    # Update failure tracking after retry round
+                    self._track_command_failures(retry_results)
+                    self._track_read_files(retry_results)
 
                 # End thinking display
                 if self._hcode_display:
@@ -353,9 +393,9 @@ class ExecutionPhaseHandler(BasePhaseHandler):
                                 )
                                 self._hcode_display.track_file(file_path, action)
 
-            # Update task.md with progress after tool execution
-            if tool_results:
-                self._update_task_progress(context)
+            # NOTE: Do NOT call _update_task_progress here.
+            # The AI manages task markers via its own Edit calls on task.md.
+            # Auto-updating behind its back causes state desync and Edit failures.
 
             # Check for critical tool failures (Bash, verification commands)
             critical_failures = [
@@ -782,6 +822,28 @@ Completed actions: {len(context.completed_actions)}
             logger.warning(f"Failed to load core prompts: {e}")
             return self._get_fallback_execution_prompt(context)
 
+    def _get_fallback_execution_prompt(self, context: AgentContext) -> str:
+        """Fallback execution prompt when core prompts are unavailable."""
+        return f"""## EXECUTION MODE
+
+You are Hcode in EXECUTION mode. Implement changes from the implementation plan.
+
+Working directory: {context.working_dir}
+Artifacts directory: .hcode
+
+### Rules:
+1. Follow implementation_plan.md exactly
+2. READ files before editing — no exceptions
+3. Use Write/Edit tools for all changes
+4. Update task.md: [x] completed, [/] in progress
+5. Keep task IDs — don't renumber
+
+### Anti-Hallucination:
+- NEVER show code without using Write/Edit tool
+- ALWAYS read files before editing
+- VERIFY all assumptions by reading actual code
+"""
+
     def _load_execution_protocol(self) -> str:
         """
         Load execution_handler.md prompt file.
@@ -790,6 +852,16 @@ Completed actions: {len(context.completed_actions)}
             Content of execution_handler.md, or a condensed fallback.
         """
         try:
+            # We assume config is available at proper location
+            # If prompt loader fails, we fallback to inline
+            from hcode.config.core_prompts.core.loader import get_prompt_loader
+            # This is just a helper, actual loading done in _get_execution_system_prompt
+            pass
+        except:
+             pass
+
+        try:
+             # Basic file read attempt if module import fails
             prompt_dir = (
                     Path(__file__).parent.parent.parent
                     / "config" / "core_prompts" / "core" / "pev_prompts"
@@ -798,15 +870,9 @@ Completed actions: {len(context.completed_actions)}
 
             if protocol_path.exists():
                 return protocol_path.read_text(encoding="utf-8")
+        except Exception:
+            pass
 
-            logger.warning(
-                f"execution_handler.md not found at {protocol_path}, "
-                f"using inline protocol"
-            )
-        except Exception as e:
-            logger.warning(f"Failed to load execution_handler.md: {e}")
-
-        # Condensed inline fallback (GPT OSS optimized)
         return """# Hcode Execution Mode — 4-Phase Implementation Protocol
 
 ## THE 4-PHASE PROTOCOL
@@ -828,7 +894,7 @@ RE-READ modified files. Trace execution mentally. Check plan coverage.
 Update task.md: [x] for completed, [/] for in-progress.
 
 ## RULES
-- READ BEFORE WRITE — always
+- READ BEFORE Edit — always
 - ONE CHANGE AT A TIME — verify each
 - NO CODE IN RESPONSE TEXT — use Write/Edit tools
 - TRACK PROGRESS — update task.md checkboxes
@@ -1064,12 +1130,12 @@ BEGIN Phase 0:
 
     def _build_task_progress_message(self, context: Any) -> str:
         """
-        Build a task progress message by reading current task.md state.
+        Build a task progress message showing the EXACT state of every task.
 
-        Returns a string like:
-          "📋 TASK PROGRESS: 2/5 completed, 3 remaining. Next: [ ] Write test_config.py..."
-        or:
-          "✅ ALL TASKS COMPLETED (5/5). Summarize your work and stop."
+        Enhanced with:
+        - Exact per-task state listing ([x], [/], [ ])
+        - File-existence verification for completed tasks (ghost completion guard)
+        - "Already read" file list to prevent redundant re-reads
         """
         if context is None:
             return ""
@@ -1079,41 +1145,125 @@ BEGIN Phase 0:
             if not task_content:
                 return ""
 
-            # Parse task states
-            completed = re.findall(r'^\s*-\s*\[x\](.+?)(?:<!--.*?-->)?$', task_content, re.MULTILINE)
-            in_progress = re.findall(r'^\s*-\s*\[/\](.+?)(?:<!--.*?-->)?$', task_content, re.MULTILINE)
-            unchecked = re.findall(r'^\s*-\s*\[ \](.+?)(?:<!--.*?-->)?$', task_content, re.MULTILINE)
-            failed = re.findall(r'^\s*-\s*\[!\](.+?)(?:<!--.*?-->)?$', task_content, re.MULTILINE)
+            # Parse task lines with their exact markers
+            task_lines = re.findall(
+                r'^\s*-\s*\[([ x/!])\]\s*(.+?)\s*$',
+                task_content, re.MULTILINE
+            )
 
-            total = len(completed) + len(in_progress) + len(unchecked) + len(failed)
-            done = len(completed)
-            remaining = len(unchecked)
-
-            if total == 0:
+            if not task_lines:
                 return ""
 
-            if remaining == 0 and len(in_progress) == 0:
+            # ── Verify completed tasks actually delivered their files ──
+            ghost_warnings = []
+            verified_task_lines = []
+            for marker, text in task_lines:
+                clean_text = re.sub(r'\s*<!--.*?-->\s*$', '', text).strip()
+                if marker == 'x':
+                    # Extract backtick-quoted file paths from the task description
+                    mentioned_files = re.findall(r'`([^`]+\.[a-z]{1,4})`', clean_text)
+                    missing = []
+                    for mf in mentioned_files:
+                        # Resolve relative to project root
+                        if context and hasattr(context, 'project_root') and context.project_root:
+                            full_path = os.path.join(context.project_root, mf)
+                        else:
+                            full_path = mf
+                        if not os.path.exists(full_path):
+                            missing.append(mf)
+                    if missing:
+                        # Ghost completion detected — file marked done but never created
+                        ghost_warnings.append(clean_text)
+                        verified_task_lines.append(('!', text))  # Downgrade to failed
+                        logger.warning(
+                            f"[execution] Ghost completion: task marked [x] but file(s) "
+                            f"not found: {missing}"
+                        )
+                    else:
+                        verified_task_lines.append((marker, text))
+                else:
+                    verified_task_lines.append((marker, text))
+
+            total = len(verified_task_lines)
+            done = sum(1 for m, _ in verified_task_lines if m == 'x')
+            in_progress = sum(1 for m, _ in verified_task_lines if m == '/')
+            unchecked = sum(1 for m, _ in verified_task_lines if m == ' ')
+            failed = sum(1 for m, _ in verified_task_lines if m == '!')
+
+            if unchecked == 0 and in_progress == 0 and failed == 0:
                 return (
-                    f"\n\n✅ ALL TASKS COMPLETED ({done}/{total}). "
+                    f"\n\nALL TASKS COMPLETED ({done}/{total}). "
                     f"All subtasks in `.hcode/task.md` are marked `[x]`. "
                     f"Provide a brief summary of what was accomplished and stop."
                 )
 
-            # Build progress message with next task
-            next_task = unchecked[0].strip() if unchecked else (
-                in_progress[0].strip() if in_progress else "unknown"
-            )
+            # Build detailed task state listing
+            state_lines = []
+            for marker, text in verified_task_lines:
+                text = text.strip()
+                text = re.sub(r'\s*<!--.*?-->\s*$', '', text).strip()
+                if marker == 'x':
+                    state_lines.append(f"  [x] {text}")
+                elif marker == '/':
+                    state_lines.append(f"  [/] {text}  ← IN PROGRESS")
+                elif marker == '!':
+                    state_lines.append(f"  [!] {text}  ← FILE NOT CREATED")
+                else:
+                    state_lines.append(f"  [ ] {text}")
+            task_listing = "\n".join(state_lines)
+
             progress = (
                 f"\n\n📋 TASK PROGRESS: {done}/{total} completed, "
-                f"{remaining} remaining"
+                f"{unchecked} remaining"
             )
             if in_progress:
-                progress += f", {len(in_progress)} in-progress"
-            progress += f".\nNext task: {next_task}"
+                progress += f", {in_progress} in-progress"
+            if failed:
+                progress += f", {failed} FAILED (file not created)"
+            progress += f".\nCurrent task states:\n{task_listing}"
+
+            # ── Ghost completion warnings ──
+            if ghost_warnings:
+                progress += (
+                    f"\n\n🚨 GHOST COMPLETION DETECTED: {len(ghost_warnings)} task(s) were "
+                    f"marked [x] but the output file was NEVER CREATED. "
+                    f"You MUST actually create the file using the Write tool before "
+                    f"marking the task complete. Fix these tasks FIRST."
+                )
+
+            # Add specific guidance based on state
+            if in_progress > 0:
+                progress += (
+                    f"\n\n⚠️ You have {in_progress} task(s) marked [/]. "
+                    "Complete the in-progress task first (mark [x]) before starting a new one."
+                )
+            elif failed == 0:
+                progress += (
+                    "\n\nContinue to the next unchecked `- [ ]` task "
+                    "— mark it `[/]`, implement it, then mark `[x]`."
+                )
+
             progress += (
-                "\n\nDo NOT stop or summarize. Continue to the next unchecked `- [ ]` task "
-                "in `.hcode/task.md` — mark it `[/]`, implement it, then mark `[x]`."
+                "\n⚠️ ALWAYS Read `.hcode/task.md` BEFORE editing it "
+                "— the file state may differ from what you expect."
             )
+
+            # ── Already-read files (prevent redundant re-reads) ──
+            if self._files_read_this_session:
+                # Only show non-artifact files to keep it relevant
+                non_artifact_reads = [
+                    p for p in sorted(self._files_read_this_session)
+                    if '.hcode' not in p
+                    and 'task.md' not in p
+                    and 'implementation_plan.md' not in p
+                ]
+                if non_artifact_reads:
+                    read_list = "\n".join(f"  - {p}" for p in non_artifact_reads[:15])
+                    progress += (
+                        f"\n\n📂 Files already read this session (do NOT re-read unless modified):\n"
+                        f"{read_list}"
+                    )
+
             return progress
 
         except Exception as e:
@@ -1199,7 +1349,7 @@ BEGIN Phase 0:
         return (
             f"Continue (phase: {current_phase}). "
             "THINK about what you learned so far and what's next. "
-            "Read before write. Cite evidence. Update `.hcode/task.md` when done."
+            "Read before Edit. Cite evidence. Update `.hcode/task.md` when done."
         ) + task_progress
 
     def _build_error_recovery_prompt(
@@ -1211,12 +1361,18 @@ BEGIN Phase 0:
 
         error_types = []
         edit_failures = 0
+        bash_failures = []
         for error in errors:
             tool = error.get('tool', '').lower()
-            err_msg = error.get('error', error.get('output', ''))
+            err_msg = str(error.get('error', error.get('output', '')) or '')
 
             if tool in ('edit', 'edittool') and not error.get('success', True):
                 edit_failures += 1
+
+            # Detect bash/command execution failures
+            if tool in ('bash', 'bashtool') and not error.get('success', True):
+                error_types.append('command_failed')
+                bash_failures.append(error)
 
             if 'file not found' in err_msg.lower():
                 error_types.append('file_not_found')
@@ -1228,6 +1384,29 @@ BEGIN Phase 0:
                 error_types.append('edit_params')
             elif 'retry limit' in err_msg.lower() or 'exceeded' in err_msg.lower():
                 error_types.append('retry_limit')
+
+        # ── COMMAND FAILURE (highest priority) ──
+        # A bash command failed — the AI MUST NOT mark the related task done.
+        if 'command_failed' in error_types and bash_failures:
+            failure_details = []
+            for bf in bash_failures:
+                cmd_err = str(bf.get('error', 'unknown error'))[:300]
+                cmd_out = str(bf.get('output', ''))[:300]
+                failure_details.append(
+                    f"  Error: {cmd_err}"
+                    + (f"\n  Output: {cmd_out}" if cmd_out.strip() else "")
+                )
+            details_str = "\n".join(failure_details)
+            return (
+                f"⚠️ COMMAND FAILED — A bash command exited with a non-zero status.\n"
+                f"{details_str}\n\n"
+                f"You MUST:\n"
+                f"1. Investigate WHY the command failed (read error output carefully)\n"
+                f"2. Fix the root cause (edit code, fix imports, resolve errors)\n"
+                f"3. Re-run the command to verify the fix\n"
+                f"4. Do NOT mark any task as `[x]` until the command passes successfully\n"
+                f"5. If the task says the command should pass, it MUST pass before completion"
+            )
 
         # Retry limit exceeded
         if 'retry_limit' in error_types or edit_failures >= 3:
@@ -1389,7 +1568,7 @@ BEGIN Phase 0:
             "2. Mental trace — walk through with a test input\n"
             "3. Plan check — did you cover everything the plan asked for?\n"
             "4. Mark `[x]` in `.hcode/task.md` only if confident\n\n"
-            "⚠️  Do NOT re-read files you already read — review from memory."
+            "WARNING: Do NOT re-read files you already read — review from memory."
         )
 
     def _phase3_continuation(
@@ -1403,7 +1582,24 @@ BEGIN Phase 0:
             and r.get('tool', '').lower() in ['edit', 'edittool']
         )
 
+        # Check if any actual files were modified (not just task.md)
+        file_modifications = sum(
+            1 for r in all_results
+            if r.get('success')
+            and '.hcode' not in str(r.get('file_path', ''))
+            and r.get('tool', '').lower() in ['write', 'edit', 'writetool', 'edittool']
+        )
+
         if task_edit_count == 1:
+            if file_modifications == 0:
+                return (
+                    "ERROR: You marked a task in-progress but haven't modified any files!\n\n"
+                    "You CANNOT mark a task as complete without using Write or Edit tools.\n"
+                    "You've only read files. Now you must:\n"
+                    "1. Use Write or Edit to create/modify the required files\n"
+                    "2. THEN mark the task [x] in task.md\n\n"
+                    "DO NOT mark [x] again until you've actually written code."
+                )
             return (
                 "Validate before marking complete:\n\n"
                 "1. **Review** the code you wrote (mentally, from memory) — is it correct?\n"
@@ -1434,8 +1630,17 @@ BEGIN Phase 0:
 
         Returns True only when:
         1. At least one non-artifact file was modified, AND
-        2. No unchecked tasks remain in task.md (all are [x] or [/])
+        2. No unchecked tasks remain in task.md (all are [x] or [/]), AND
+        3. No unresolved command failures exist
         """
+        # Block completion if there are unresolved command failures
+        if self._failed_commands:
+            logger.info(
+                f"[execution] {len(self._failed_commands)} unresolved command failure(s) "
+                f"— execution NOT complete"
+            )
+            return False
+
         # Must have modified at least one real file
         non_artifact_files = [
             f for f in context.modified_files
@@ -1484,6 +1689,74 @@ BEGIN Phase 0:
         unchecked = re.findall(r'^\s*-\s*\[ \]', task_content, re.MULTILINE)
         in_progress = re.findall(r'^\s*-\s*\[/\]', task_content, re.MULTILINE)
         return len(unchecked) + len(in_progress)
+
+    def _track_command_failures(self, tool_results: List[Dict[str, Any]]) -> None:
+        """Track and resolve bash/command failures across rounds.
+
+        - Adds new failures when a bash command returns success=False.
+        - Removes (resolves) a previously-failed command when a subsequent
+          execution of a similar command succeeds.
+        """
+        for result in tool_results:
+            tool = result.get("tool", "").lower()
+            if tool not in ("bash", "bashtool"):
+                continue
+
+            cmd = str(result.get("arguments", {}).get("command", "")
+                      or result.get("arguments", {}).get("CommandLine", "")
+                      or "")
+
+            if result.get("success", True):
+                # Command succeeded — clear matching failures
+                self._failed_commands = [
+                    fc for fc in self._failed_commands
+                    if fc.get("command", "") != cmd
+                ]
+            else:
+                # Command failed — record if not already tracked
+                already_tracked = any(
+                    fc.get("command", "") == cmd
+                    for fc in self._failed_commands
+                )
+                if not already_tracked:
+                    exit_code = None
+                    metadata = result.get("metadata", {})
+                    if isinstance(metadata, dict):
+                        exit_code = metadata.get("exit_code")
+                    self._failed_commands.append({
+                        "command": cmd,
+                        "exit_code": exit_code,
+                        "error": str(result.get("error", ""))[:500],
+                    })
+                    logger.warning(
+                        f"[execution] Tracked command failure: {cmd[:100]} "
+                        f"(exit code {exit_code})"
+                    )
+
+    def _track_read_files(self, tool_results: List[Dict[str, Any]]) -> None:
+        """Track files that the AI has read to prevent redundant re-reads.
+
+        Scans tool results for Read/Glob operations and adds their file paths
+        to _files_read_this_session. The progress message then includes this
+        list so the AI knows not to re-read files it already processed.
+        """
+        read_tools = {'read', 'readtool'}
+        for result in tool_results:
+            tool = result.get("tool", "").lower()
+            if tool not in read_tools:
+                continue
+            if not result.get("success", False):
+                continue
+
+            file_path = result.get("file_path", "")
+            if file_path:
+                # Normalize to relative path for cleaner display
+                try:
+                    rel = os.path.relpath(file_path)
+                    self._files_read_this_session.add(rel)
+                except ValueError:
+                    # On Windows, relpath fails across drives
+                    self._files_read_this_session.add(file_path)
 
     # ═══════════════════════════════════════════════════════════════════════
     # PLAN PARSING & STEP TRACKING
@@ -1608,10 +1881,24 @@ BEGIN Phase 0:
         return step
 
     def _update_task_progress(self, context: AgentContext) -> None:
-        """Update task.md with current progress."""
+        """Update task.md with current progress.
+
+        Does NOT auto-complete tasks if there are unresolved command failures,
+        since a task should only be marked done when all its deliverables
+        (including passing verification commands) are confirmed.
+        """
         task_content = self.artifact_manager.load_artifact("task.md", context)
         if not task_content:
             logger.warning("task.md not found, cannot update progress")
+            return
+
+        # If there are unresolved command failures, skip auto-completion
+        # to avoid falsely marking tasks as done.
+        if self._failed_commands:
+            logger.info(
+                f"[execution] Skipping task auto-completion: "
+                f"{len(self._failed_commands)} unresolved command failure(s)"
+            )
             return
 
         completed_files = set(context.modified_files)

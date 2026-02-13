@@ -423,9 +423,23 @@ WORD COUNT CHECK: [Count your words - must be 100+. If less, expand with more de
         *   **Purpose:** "Why this file exists"
         *   **Structure:** "Class A, Function B"
         *   **Why:** "Separation of concerns"
-5.  **## Verification Plan**:
-    *   **Commands:** `pytest tests/unit/test_new_feature.py -v` (Be specific)
-    *   **Manual Steps:** "Start server, visit /endpoint, expect 200"
+5.  **## Verification Plan** (MANDATORY — the verification agent executes ONLY what you specify here):
+    *   **### Automated Tests**
+        *   **Requirement 1 (Global):** ALWAYS include a syntax/build check for modified files (e.g., `python -m py_compile`, `go build`, `node -c`, `rustc`).
+        *   **Requirement 2 (Conditional):** ONLY include full unit tests (e.g., `pytest`, `npm test`) if you made **significant logic changes** or added **new features**. For minor fixes, syntax check + manual verification is sufficient.
+        *   List exact commands to run inside fenced code blocks:
+            ```bash
+            $ python -m py_compile src/module.py  # Syntax check (Always)
+            $ go build ./pkg/...                  # Build check (Always)
+            $ pytest tests/unit/test_feature.py   # Unit test (Only for big changes)
+            ```
+        *   Include expected outcomes for each command
+    *   **### Manual Verification** (if applicable)
+        *   Step-by-step verification the agent should perform mentally or via file reads
+        *   Include: what to check, where to check it, what success looks like
+    *   **### Success Criteria**
+        *   Specific, measurable criteria for an APPROVED verdict
+        *   Example: "All 3 test commands pass", "No hardcoded paths remain in handler"
 
 ---
 
