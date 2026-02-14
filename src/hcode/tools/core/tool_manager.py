@@ -299,9 +299,14 @@ class ToolManager:
 
 
     def set_agent_orchestrator(self, agent_orchestrator):
-        """Set the agent orchestrator for the Task tool"""
+        """Set the agent orchestrator for tools that need it"""
         if hasattr(self, "task_tool"):
             self.task_tool.agent_orchestrator = agent_orchestrator
+            
+        # Also set for SkillTool
+        skill_tool = self.get_tool("skilltool")
+        if skill_tool:
+            skill_tool.agent_orchestrator = agent_orchestrator
 
     async def web_fetch(self, url: str, prompt: str) -> ToolResult:
         """Convenience method for fetching web content"""

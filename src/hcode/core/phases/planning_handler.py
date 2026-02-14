@@ -867,17 +867,11 @@ Status: Reads: {read_count}, Globs: {glob_count}, Greps: {grep_count}"""
         Execute planning phase — 5-Phase Reasoning Protocol.
         """
         try:
-            # IDEMPOTENCY CHECK: If artifacts already exist and are valid, skip planning
-            # This handles cases where the loop retries but the work was actually done
-            if self.can_transition_to_next(context):
-                logger.info("Planning artifacts already exist and are valid. Skipping planning phase.")
-                return PhaseResult(
-                    phase_name=self.phase_name,
-                    success=True,
-                    output="Planning skipped (artifacts already exist and are valid).",
-                    can_transition=True,
-                    artifacts_created=["task.md", "implementation_plan.md"]
-                )
+            # Clean slate
+            for _art in ("task.md", "implementation_plan.md", "walkthrough.md"):
+                _path = self.artifact_manager._get_artifact_path(_art, context)
+                if _path.exists():
+                    _path.unlink()
 
             self._reset_trackers()
             logger.info("Starting 5-Phase Planning Protocol...")
@@ -990,6 +984,14 @@ Status: Reads: {read_count}, Globs: {glob_count}, Greps: {grep_count}"""
             # 1. Identity & Tool Format
             identity = loader.get_identity()
             tool_format = loader.get_tool_format()
+
+            # Inject dynamic tool documentation (includes Skills)
+            try:
+                if hasattr(self.tool_executor, "tool_manager"):
+                    tool_docs = self.tool_executor.tool_manager.get_tool_documentation()
+                    tool_format += f"\n\n## Available Tools\n\n{tool_docs}"
+            except Exception as e:
+                logger.warning(f"Failed to inject tool docs: {e}")
 
             # 2. Planning Mode Protocol (The 5-Phase Protocol)
             planning_mode = loader.get_planning_mode()

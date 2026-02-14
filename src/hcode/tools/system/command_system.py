@@ -57,8 +57,28 @@ class Skill:
         prompt = self.prompt
 
         if context:
-            for key, value in context.items():
-                prompt = prompt.replace(f"{{{key}}}", str(value))
+            # Handle string context (autofill if single placeholder or common keys)
+            if isinstance(context, str):
+                import re
+                # Find all placeholders
+                matches = re.findall(r"\{(\w+)\}", prompt)
+                unique_placeholders = list(set(matches))
+                
+                if len(unique_placeholders) == 1:
+                    # Single placeholder - assign string to it
+                    context = {unique_placeholders[0]: context}
+                else:
+                    # Fallback context wrapper
+                    context = {
+                        "input": context, 
+                        "text": context, 
+                        "content": context,
+                        "file_content": context
+                    }
+
+            if isinstance(context, dict):
+                for key, value in context.items():
+                    prompt = prompt.replace(f"{{{key}}}", str(value))
 
         return prompt
 
@@ -228,16 +248,32 @@ class SkillTool(BaseTool):
     Invoke skills within the conversation.
     """
 
-    def __init__(self, command_registry: CommandRegistry):
+    def __init__(self, command_registry: CommandRegistry, agent_orchestrator=None):
         super().__init__()
         self.category = ToolCategory.CUSTOM
         self.command_registry = command_registry
+        self.agent_orchestrator = agent_orchestrator
 
     def get_parameters(self) -> List[ToolParameter]:
         return [
             ToolParameter("skill", "string", "Skill name to invoke", required=True),
             ToolParameter("context", "object", "Context variables for skill", default=None),
         ]
+
+    def get_description(self) -> str:
+        """Get description with list of available skills"""
+        base_desc = super().get_description()
+        skills = self.command_registry.list_skills()
+        
+        if not skills:
+            return base_desc
+            
+        skill_list = "\n\nAvailable Skills:"
+        for skill in skills:
+            desc = f" - {skill.description}" if skill.description else ""
+            skill_list += f"\n- {skill.name}{desc}"
+            
+        return base_desc + skill_list
 
     async def execute(self, skill: str, context: Optional[Dict] = None) -> ToolResult:
         """Execute skill"""
@@ -253,16 +289,33 @@ class SkillTool(BaseTool):
                     error=f"Skill not found: {skill}. Available: {available}",
                 )
 
-            # Execute skill
+            # Expand prompt
             expanded_prompt = skill_obj.execute(context)
+            
+            # Execute with LLM if orchestrator is available
+            if self.agent_orchestrator:
+                from hcode.providers import Message
+                
+                # Select provider
+                provider = self.agent_orchestrator.provider_selector.select_provider()
+                
+                # Execute
+                messages = [Message(role="user", content=expanded_prompt)]
+                response = await provider.generate_completion(messages=messages, stream=False)
+                
+                output = response.content
+            else:
+                # Fallback to returning prompt (for tests/legacy)
+                output = expanded_prompt
 
             return ToolResult(
                 success=True,
-                output=expanded_prompt,
+                output=output,
                 metadata={
                     "skill": skill,
                     "category": skill_obj.category,
                     "description": skill_obj.description,
+                    "executed_prompt": expanded_prompt if self.agent_orchestrator else None
                 },
             )
 
