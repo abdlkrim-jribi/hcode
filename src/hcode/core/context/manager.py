@@ -288,7 +288,7 @@ class ContextManager:
             truncated_context = self.context
 
         # Convert to Message objects
-        from hcode.providers import ToolCall
+        from hcode.providers.base import ToolCall
 
         for entry in truncated_context:
             # Reconstruct ToolCall objects if present

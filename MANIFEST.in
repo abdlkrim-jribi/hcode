@@ -12,6 +12,9 @@ include src/hcode/examples/.hcoderc.example
 recursive-include src/hcode/examples *.py
 recursive-include src/hcode/examples *.example
 
+# Include configuration and prompt files
+recursive-include src/hcode/config *.yaml *.json *.md *.prompt
+
 # Include documentation files
 include TOOLS.md
 include SHORTCUTS.md

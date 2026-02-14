@@ -15,6 +15,7 @@ from rich.table import Table
 from rich.text import Text
 
 from hcode.ui.theme import get_palette
+from hcode.ui.icons import Icons
 
 # ═══════════════════════════════════════════════════════════════════════
 # CUSTOM BOX STYLES
@@ -50,16 +51,16 @@ class StatusIndicator:
     icon: str
 
     PRESETS = {
-        "online": ("ONLINE", "#00FF00", "◉"),
-        "offline": ("OFFLINE", "#FF0000", "○"),
-        "loading": ("LOADING", "#FFFF00", "◐"),
-        "error": ("ERROR", "#FF0055", "✖"),
-        "success": ("SUCCESS", "#00FF88", "✔"),
-        "warning": ("WARNING", "#FFB800", "⚠"),
-        "processing": ("PROCESSING", "#00FFFF", "⟳"),
-        "ready": ("READY", "#00FFFF", "▶"),
-        "thinking": ("THINKING", "#FFB800", "◊"),
-        "paused": ("PAUSED", "#888888", "⏸"),
+        "online": ("ONLINE", "#00FF00", Icons.ONLINE),
+        "offline": ("OFFLINE", "#FF0000", Icons.OFFLINE),
+        "loading": ("LOADING", "#FFFF00", Icons.LOADING),
+        "error": ("ERROR", "#FF0055", Icons.ERROR),
+        "success": ("SUCCESS", "#00FF88", Icons.SUCCESS),
+        "warning": ("WARNING", "#FFB800", Icons.WARNING),
+        "processing": ("PROCESSING", "#00FFFF", Icons.REFRESH),
+        "ready": ("READY", "#00FFFF", Icons.PLAY),
+        "thinking": ("THINKING", "#FFB800", Icons.THINKING),
+        "paused": ("PAUSED", "#888888", Icons.PAUSE),
     }
 
     @classmethod
@@ -120,9 +121,9 @@ class CyberPanel:
         title_text = None
         if self.title:
             title_text = Text()
-            title_text.append("◢", style=f"bold {glow_color}")
+            title_text.append(Icons.DECO_LEFT, style=f"bold {glow_color}")
             title_text.append(f" {self.title} ", style=f"bold {border_color}")
-            title_text.append("◣", style=f"bold {glow_color}")
+            title_text.append(Icons.DECO_RIGHT, style=f"bold {glow_color}")
 
             if self.status:
                 indicator = StatusIndicator.create(self.status)

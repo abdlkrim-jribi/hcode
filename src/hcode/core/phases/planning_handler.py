@@ -759,149 +759,7 @@ Status: Reads: {read_count}, Globs: {glob_count}, Greps: {grep_count}"""
 
         return result
 
-    async def _run_planning_loop(
-            self,
-            unified_prompt: str,
-            context: AgentContext,
-            system_prompt: str,
-            max_rounds: int,
-            max_tokens: int,
-            timeout_seconds: int = 600,
-    ) -> Tuple[str, List[Dict[str, Any]]]:
-        """
-        Custom execution loop with Loop Prevention.
-        """
-        from datetime import datetime
 
-        all_results = []
-        last_response = ""
-        start_time = datetime.now()
-
-        messages = [Message(role="user", content=system_prompt + "\n\n" + unified_prompt)]
-
-        # Track tool signatures to detect loops
-        last_tool_signature = None
-        duplicate_count = 0
-
-        for round_num in range(max_rounds):
-            elapsed = (datetime.now() - start_time).total_seconds()
-            if elapsed > timeout_seconds:
-                logger.warning(f"Planning timeout after {elapsed:.1f}s")
-                break
-
-            logger.info(f"Planning round {round_num + 1}/{max_rounds}...")
-
-            try:
-                response = await self.provider.generate_completion(
-                    messages=messages,
-                    system_prompt=system_prompt,
-                    temperature=0.7,
-                    max_tokens=max_tokens,
-                )
-
-                if hasattr(response, 'content'):
-                    last_response = response.content
-                elif isinstance(response, dict):
-                    last_response = response.get('content', '')
-                else:
-                    last_response = str(response)
-
-            except Exception as e:
-                logger.error(f"Provider call failed: {e}")
-                break
-
-            text_portion = self._extract_text_response(last_response)
-            if text_portion:
-                self._display(text_portion, style="default")
-
-            tool_calls = self._extract_tool_calls(last_response)
-
-            # ─────────────────────────────────────────────────────────────
-            # LOOP BREAKER: Detect if agent is calling the EXACT same tool
-            # ─────────────────────────────────────────────────────────────
-            if tool_calls:
-                current_sig = self._create_tool_signature(tool_calls[0])
-
-                if current_sig == last_tool_signature:
-                    duplicate_count += 1
-                    logger.warning(f"Duplicate tool call detected (Count: {duplicate_count}): {current_sig}")
-
-                    if duplicate_count >= 2:
-                        # Force break the loop
-                        self._display(
-                            f"\n⚠ INFINITE LOOP DETECTED: You have called `{tool_calls[0].get('tool')}` "
-                            f"3 times with identical arguments. STOPPING.\n",
-                            style="error"
-                        )
-
-                        # Inject a hard stop into results
-                        loop_break_result = {
-                            "tool": tool_calls[0].get("tool"),
-                            "success": False,
-                            "output": None,
-                            "error": (
-                                "INFINITE LOOP: You are repeating the exact same tool call. "
-                                "Stop calling this tool. Analyze previous results and proceed differently "
-                                "or write the artifacts now."
-                            ),
-                            "file_path": tool_calls[0].get("arguments", {}).get("TargetFile", ""),
-                        }
-                        all_results.append(loop_break_result)
-                        messages.append(Message(role="assistant", content=last_response))
-
-                        # Force continuation to break the cycle
-                        messages.append(Message(role="user", content="STOP. Do not call tools anymore. Write task.md and implementation_plan.md immediately."))
-                        duplicate_count = 0
-                        last_tool_signature = None
-                        continue
-                else:
-                    duplicate_count = 0
-                    last_tool_signature = current_sig
-            # ─────────────────────────────────────────────────────────────
-
-            round_results = await self._execute_tools(tool_calls, context)
-            all_results.extend(round_results)
-
-            messages.append(Message(role="assistant", content=last_response))
-
-            if self._is_planning_complete(all_results, context, round_num):
-                break
-
-            # Format tool outputs for context
-            tool_outputs_str = ""
-            if round_results:
-                tool_outputs_str = "## Tool Results\n\n"
-                for res in round_results:
-                    status = "✅ Success" if res.get('success') else "❌ Failed"
-                    tool_outputs_str += f"### {res.get('tool')} ({status})\n"
-                    if res.get('file_path'):
-                         tool_outputs_str += f"Target: {res.get('file_path')}\n"
-
-                    output_content = str(res.get('output')) if res.get('output') else ""
-                    if output_content:
-                        # Truncate very long outputs to save context
-                        if len(output_content) > 5000:
-                            output_content = output_content[:5000] + "\n... (truncated)"
-                        tool_outputs_str += f"```\n{output_content}\n```\n"
-
-                    if res.get('error'):
-                         tool_outputs_str += f"Error: {res.get('error')}\n"
-                    tool_outputs_str += "\n"
-
-            continuation = self._build_continuation_prompt(
-                round_results, all_results, round_num, context
-            )
-
-            # combine
-            full_content = tool_outputs_str + "\n" + continuation
-            messages.append(Message(role="user", content=full_content))
-
-        return last_response, all_results
-
-    def _create_tool_signature(self, tool_call: Dict[str, Any]) -> str:
-        """Create a unique hash for a tool call to detect duplicates."""
-        import json
-        return f"{tool_call.get('tool')}:{json.dumps(tool_call.get('arguments'), sort_keys=True)}"
 
     def _build_planning_error_recovery(self, errors: List[Dict[str, Any]]) -> Optional[str]:
         """
@@ -1009,11 +867,17 @@ Status: Reads: {read_count}, Globs: {glob_count}, Greps: {grep_count}"""
         Execute planning phase — 5-Phase Reasoning Protocol.
         """
         try:
-            # Clean slate
-            for _art in ("task.md", "implementation_plan.md", "walkthrough.md"):
-                _path = self.artifact_manager._get_artifact_path(_art, context)
-                if _path.exists():
-                    _path.unlink()
+            # IDEMPOTENCY CHECK: If artifacts already exist and are valid, skip planning
+            # This handles cases where the loop retries but the work was actually done
+            if self.can_transition_to_next(context):
+                logger.info("Planning artifacts already exist and are valid. Skipping planning phase.")
+                return PhaseResult(
+                    phase_name=self.phase_name,
+                    success=True,
+                    output="Planning skipped (artifacts already exist and are valid).",
+                    can_transition=True,
+                    artifacts_created=["task.md", "implementation_plan.md"]
+                )
 
             self._reset_trackers()
             logger.info("Starting 5-Phase Planning Protocol...")
@@ -1031,14 +895,15 @@ Status: Reads: {read_count}, Globs: {glob_count}, Greps: {grep_count}"""
                 if self._hcode_display:
                     self._hcode_display.start_thinking()
 
-                # Use planning-specific loop with completion check
-                response, tool_results = await self._run_planning_loop(
-                    unified_prompt=unified_prompt,
+                # Use standard execution loop with history injection
+                response, tool_results = await self._generate_and_execute(
+                    prompt=unified_prompt,
                     context=context,
                     system_prompt=self._get_planning_system_prompt(context),
                     max_rounds=self.MAX_ROUNDS,
                     max_tokens=8192,
                     timeout_seconds=900,
+                    include_history=True,
                 )
 
                 if self._hcode_display:

@@ -294,6 +294,7 @@ class ExecutionPhaseHandler(BasePhaseHandler):
                     max_tokens=GPTOSSConfig.MAX_TOKENS,
                     temperature=GPTOSSConfig.TEMPERATURE,
                     timeout_seconds=GPTOSSConfig.TIMEOUT_SECONDS,
+                    include_history=True,
                 )
 
                 # ── Track failed commands from this execution round ──
@@ -571,75 +572,6 @@ class ExecutionPhaseHandler(BasePhaseHandler):
 
         return tool_calls
 
-    def _get_thinking_instructions(self) -> str:
-        """
-        Deep reasoning instructions optimized for GPT OSS 120B.
-
-        Focuses on reasoning QUALITY and bridge thinking between steps,
-        not template filling. The agent must explain WHY at every step.
-        MINIMUM 50 WORDS per thinking block.
-        """
-        return """### DEEP REASONING PROTOCOL
-
-You MUST produce substantial, genuine reasoning between every tool call.
-Use `<thinking>` for reasoning and `<output>` for tool calls.
-
-**CRITICAL REQUIREMENT: MINIMUM 50 WORDS PER THINKING BLOCK**
-
-Each `<thinking>` block MUST contain AT LEAST 50 words of deep reasoning.
-Count your words - if under 50, you MUST expand your reasoning.
-
-**MANDATORY: Bridge Reasoning After Every Tool Result**
-
-After receiving tool results, BEFORE your next action, you MUST:
-1. **Synthesize**: What did you learn? What was surprising or confirming?
-2. **Connect**: How does this relate to your current task and the plan?
-3. **Decide**: What's the next action and WHY? What question does it answer?
-4. **Anticipate**: What do you expect to see? What could go wrong?
-5. **Trace**: How does this fit into the overall implementation flow?
-
-**SHALLOW THINKING IS FORBIDDEN.** Do not write:
-- "Reading file X" → tool call (too shallow, < 50 words)
-- "Now I will edit the file" → tool call (no reasoning)
-- Template checklists filled with "yes/no" (no genuine analysis)
-
-**DEEP THINKING IS REQUIRED (50+ words).** Write:
-- What you expect to find and why (multiple sentences)
-- What you actually found (with evidence citations)
-- How this changes or confirms your approach (detailed analysis)
-- What risks or side effects you've identified (thorough consideration)
-- Alternative approaches you considered and rejected (with reasoning)
-- How this step connects to previous and future steps (context)
-
-**Format:**
-```
-<thinking>
-[MINIMUM 50 WORDS of genuine reasoning about current state, what you learned,
- why you're taking the next action, what you expect, what could go wrong,
- how this fits the overall plan. Cite evidence: [Evidence: file:line]]
-
-Example length: "I need to read the configuration file because [reason].
-I expect to find [expectation] based on [evidence]. This will inform my next
-decision about [future action]. The plan specifies [plan requirement], which
-means I should look for [specific details]. If I find [scenario A], I will
-[action A] because [reasoning]. If instead [scenario B], then [action B]
-makes more sense because [reasoning]. This step is critical because
-[importance]. Related files might include [related files] which could
-affect [potential impact]." <- This is ~50 words.
-</thinking>
-
-<output>
-[BRIEF 1-sentence description - NO JSON shown to user]
-{"tool": "ToolName", "arguments": {"param": "value"}}
-</output>
-```
-
-**Anti-Hallucination**: Never reference a file you haven't read. Never use a filename not returned by Glob. Cite [Evidence: file:line] for every claim.
-
-**Tool Format**: `{"tool": "Name", "arguments": {"param": "value"}}` — always lowercase params.
-
-**Bash timeout**: Value is in MILLISECONDS (30000 = 30s, 120000 = 2min, 300000 = 5min).
-"""
 
     # ═══════════════════════════════════════════════════════════════════════
     # EXECUTION WRITE GATE (Security Boundary)

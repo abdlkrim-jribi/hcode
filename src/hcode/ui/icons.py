@@ -139,6 +139,10 @@ class Icons:
     ICON_DIR_CIRCLE = "●" if USE_UNICODE else "[D]"
     PROMPT_LAMBDA = "λ" if USE_UNICODE else ">"
 
+    # CyberPanel Decorations
+    DECO_LEFT = "◢" if USE_UNICODE else "["
+    DECO_RIGHT = "◣" if USE_UNICODE else "]"
+
 
     # ═══════════════════════════════════════════════════════════════
     # DECORATIVE

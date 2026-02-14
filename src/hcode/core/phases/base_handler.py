@@ -752,6 +752,7 @@ CRITICAL RULES:
         max_tokens: int = 8192,
         temperature: float = 0.7,
         timeout_seconds: int = 600,  # 10 minutes default
+        include_history: bool = False,
     ) -> Tuple[str, List[Dict[str, Any]]]:
         """
         Generate response and execute tool calls in a multi-turn loop.
@@ -787,7 +788,12 @@ CRITICAL RULES:
 
         # Build initial messages with thinking instructions
         thinking_instructions = self._get_thinking_instructions()
-        messages = [Message(role="user", content=thinking_instructions + prompt)]
+        
+        messages = []
+        if include_history and self.context_manager:
+            messages = self.context_manager.get_messages(include_system=False)
+
+        messages.append(Message(role="user", content=thinking_instructions + prompt))
 
         for round_num in range(max_rounds):
             # Check wall-clock timeout

@@ -11,6 +11,8 @@ if TYPE_CHECKING:
     pass
 
 from hcode.tools.base.base_tool import BaseTool, ToolResult, ToolParameter, ToolCategory
+from hcode.core.session_manager import get_session_manager
+from hcode.ui.confirmation_display import get_confirmation_display, ConfirmationResult
 
 
 class ReadTool(BaseTool):
@@ -345,6 +347,9 @@ class WriteTool(BaseTool):
         - Partial content detection and recovery
         - Preview mode for reviewing changes before applying
         """
+        # Session & Confirmation Logic
+        session_manager = get_session_manager()
+        confirmation = get_confirmation_display()
         # Parameter Normalization
         file_path = file_path or TargetFile
         content = content or CodeContent or Content or kwargs.get("Content") or kwargs.get("content")
@@ -406,8 +411,37 @@ class WriteTool(BaseTool):
                 # Store partial content for potential continuation
                 self._partial_writes[file_key] = content
 
+
             # Create parent directories
             path.parent.mkdir(parents=True, exist_ok=True)
+
+            # --- Confirmation Loop ---
+            if not session_manager.check_permission("Write", str(path.absolute())):
+                # Prepare description
+                desc = f"Writing to {path.name}"
+                if is_partial:
+                    desc += " (Partial/Chunked Write)"
+                if mode == "append":
+                    desc += " (Append Mode)"
+                
+                # Show confirmation
+                result, feedback = confirmation.show_file_create_confirmation(
+                    file_path=str(path.absolute()),
+                    content=content,
+                    description=desc
+                )
+                
+                if result == ConfirmationResult.REJECT:
+                    return ToolResult(
+                        success=False,
+                        output=None,
+                        error=f"Write rejected by user. Feedback: {feedback or 'No feedback provided.'}"
+                    )
+                elif result == ConfirmationResult.SESSION_ALLOW:
+                    session_manager.grant_permission("Write", str(path.absolute()))
+                # If ALLOW, just proceed once
+            
+            # --- End Confirmation Loop ---
 
             # Write file
             with open(path, "w", encoding="utf-8") as f:
@@ -835,6 +869,11 @@ class EditTool(BaseTool):
         **kwargs,  # Accept and ignore unknown parameters for model compatibility
     ) -> ToolResult:
         """Edit file by replacing TargetContent with ReplacementContent"""
+        
+        # Session & Confirmation Logic
+        session_manager = get_session_manager()
+        confirmation = get_confirmation_display()
+
         # Parameter Normalization
         final_path = file_path or TargetFile
         final_old = old_string or TargetContent
@@ -933,6 +972,28 @@ class EditTool(BaseTool):
             else:
                 new_content = content.replace(actual_old_string, new_string, 1)
                 replacements = 1
+
+            # --- Confirmation Loop ---
+            if not session_manager.check_permission("Edit", str(path.absolute())):
+                # Show confirmation
+                result, feedback = confirmation.show_file_edit_confirmation(
+                    file_path=str(path.absolute()),
+                    old_content=original_content,
+                    new_content=new_content,
+                    description=f"Replacing '{actual_old_string[:50]}...'"
+                )
+                
+                if result == ConfirmationResult.REJECT:
+                    return ToolResult(
+                        success=False,
+                        output=None,
+                        error=f"Edit rejected by user. Feedback: {feedback or 'No feedback provided.'}"
+                    )
+                elif result == ConfirmationResult.SESSION_ALLOW:
+                    session_manager.grant_permission("Edit", str(path.absolute()))
+                # If ALLOW, just proceed once
+            
+            # --- End Confirmation Loop ---
 
             # Write back
             with open(path, "w", encoding="utf-8") as f:

@@ -389,6 +389,7 @@ Therefore: Final verdict is [verdict] because [justification].
                 max_tokens=16384,
                 temperature=0.3,  # Deterministic analysis
                 timeout_seconds=300,  # 5 minutes for verification phase
+                include_history=True,
             )
             return response_text
         except Exception as e:

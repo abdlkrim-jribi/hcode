@@ -14,7 +14,21 @@ from rich.syntax import Syntax
 from rich.text import Text
 from rich.prompt import Confirm
 from rich.table import Table
+from rich import box
 
+from hcode.ui.theme import get_palette
+from hcode.ui.icons import Icons
+from hcode.ui.components import CyberPanel, StatusIndicator
+
+
+
+from enum import Enum, auto
+
+class ConfirmationResult(Enum):
+    ALLOW = auto()
+    SESSION_ALLOW = auto()
+    REJECT = auto()
+    COUNTER = auto() # For internal use if we want to distinguish, but user sees [C]ounter
 
 class ConfirmationDisplay:
     """
@@ -101,13 +115,56 @@ class ConfirmationDisplay:
         deletions = sum(1 for line in diff_lines if line.startswith('-') and not line.startswith('---'))
         return additions, deletions
     
+    def _prompt_loop(self, prompt_text: str = "Select an option") -> Tuple[ConfirmationResult, Optional[str]]:
+        """
+        Display the 3-option prompt loop and get user choice.
+        """
+        while True:
+            self.console.print()
+            palette = get_palette()
+            
+            self.console.print(f"[{palette.warning} bold]{prompt_text}[/]")
+            self.console.print(f"  [{palette.success} bold][A]ccept[/]          - Authorize this action once")
+            self.console.print(f"  [{palette.info} bold][S]ession-Accept[/]  - Authorize for this session")
+            self.console.print(f"  [{palette.error} bold][C]ounter[/]         - Reject and provide feedback")
+            
+            response = self.console.input("[bold] > [/bold]").strip().lower()
+            
+            if response == 'a':
+                return ConfirmationResult.ALLOW, None
+            elif response == 's':
+                return ConfirmationResult.SESSION_ALLOW, None
+            elif response == 'c':
+                feedback = self.console.input("[bold red]Enter feedback:[/bold red] ")
+                return ConfirmationResult.REJECT, feedback
+            else:
+                self.console.print("[red]Invalid option. Please choose A, S, or C.[/red]")
+
+
+        # Import Icons locally to avoid circular import at top level
+        try:
+            from hcode.ui.icons import Icons
+            icon_edit = Icons.CODE
+            icon_create = Icons.SPARKLE
+            icon_delete = Icons.DELETE
+            icon_warning = Icons.WARNING
+            icon_folder = Icons.FOLDER
+            icon_lightning = Icons.LIGHTNING
+        except ImportError:
+            icon_edit = "[E]"
+            icon_create = "[*]"
+            icon_delete = "[D]"
+            icon_warning = "[!]"
+            icon_folder = "[DIR]"
+            icon_lightning = "[!]"
+
     def show_file_edit_confirmation(
         self,
         file_path: str,
         old_content: str,
         new_content: str,
         description: str = ""
-    ) -> bool:
+    ) -> Tuple[ConfirmationResult, Optional[str]]:
         """Show file edit confirmation with diff preview.
         
         Args:
@@ -117,21 +174,28 @@ class ConfirmationDisplay:
             description: Optional description of the change
             
         Returns:
-            True if user approved, False otherwise
+            Tuple of (ConfirmationResult, optional feedback string)
         """
+        # Import icons
+        try:
+            from hcode.ui.icons import Icons
+            icon_edit = Icons.CODE
+        except ImportError:
+            icon_edit = "[E]"
+
         # Generate diff
         diff_lines = self.generate_diff(old_content, new_content, file_path)
         
         if not diff_lines:
             self.console.print("[yellow]No changes detected.[/yellow]")
-            return True
+            return ConfirmationResult.ALLOW, None
         
         # Count changes
         additions, deletions = self.count_changes(diff_lines)
         
         # Create header
         file_name = Path(file_path).name
-        header = f"[bold cyan]📝 Edit: {file_name}[/bold cyan]"
+        header = f"[bold cyan]{icon_edit} Edit: {file_name}[/bold cyan]"
         
         # Create stats line
         stats = Text()
@@ -150,21 +214,43 @@ class ConfirmationDisplay:
         panel_content.append(diff_text)
         
         self.console.print()
-        self.console.print(Panel(
-            panel_content,
-            title=header,
-            subtitle=stats,
-            border_style="blue",
-            padding=(1, 2)
-        ))
         
-        # Ask for confirmation
-        return Confirm.ask(
-            "[bold yellow]Apply this change?[/bold yellow]",
-            console=self.console,
-            default=True
+        palette = get_palette()
+        panel = CyberPanel(
+            panel_content,
+            title=f"EDIT: {file_name}",
+            subtitle=stats.plain, # CyberPanel expects string for subtitle, we might need to adjust or pass Text if supported 
+            # Actually CyberPanel.render takes subtitle as str usually, checking implementation...
+            # It takes str. Let's provide a formatted string or modify CyberPanel if needed.
+            # Looking at CyberPanel code in previous step: subtitle: Optional[str] = None
+            # But line 135: subtitle_text = Text(self.subtitle, style=f"italic {palette.text_muted}")
+            # So passing a rich Text object might fail if it expects str.
+            # Let's pass a string representation for now or simple string.
+            # Stats line was: +5 / -2 lines.
+            
+            border_color=palette.info,
+            glow_color=palette.info,
+            status="processing"
         )
-    
+        # We can manually inject the stats into the panel content or title if needed, 
+        # or just pass the string.
+        # Let's verify CyberPanel again. It creates a Text object from the string.
+        # So we should pass a string.
+        
+        panel_obj = panel.render()
+        # Override subtitle to support colored stats if possible, or just print stats inside.
+        # Actually, let's just append stats to content or print above/below?
+        # Better: CyberPanel is flexible.
+        
+        self.console.print(panel_obj)
+        
+        # We want the stats to show up nicely. 
+        # Let's print stats below the header in the content?
+        # Or just use the subtitle string: "+5 / -2 lines"
+        
+        
+        return self._prompt_loop("Apply this change?")
+
     def show_command_confirmation(
         self,
         command: str,
@@ -181,6 +267,15 @@ class ConfirmationDisplay:
         Returns:
             True if user approved, False otherwise
         """
+        # Icons
+        try:
+            from hcode.ui.icons import Icons
+            icon_folder = Icons.FOLDER
+            icon_lightning = Icons.LIGHTNING
+        except ImportError:
+            icon_folder = "[DIR]"
+            icon_lightning = "[!]"
+
         # Create content
         content = Text()
         
@@ -191,38 +286,34 @@ class ConfirmationDisplay:
         content.append(command, style="white bold")
         
         if working_dir:
-            try:
-                 from hcode.ui.icons import Icons
-                 folder_icon = Icons.FOLDER
-            except ImportError:
-                 folder_icon = "📁"
-            content.append(f"\n\n{folder_icon} ", style="dim grey")
+            content.append(f"\n\n{icon_folder} ", style="dim grey")
             content.append(f"Directory: ", style="dim white")
             content.append(working_dir, style="dim grey italic")
         
         self.console.print()
-        # Import Icons locally to avoid circular import at top level
-        try:
-            from hcode.ui.icons import Icons
-            icon = Icons.LIGHTNING
-        except ImportError:
-            icon = "⚡"
 
         # Truncate command for title
         display_cmd = command if len(command) <= 50 else command[:47] + "..."
         
         from rich import box
         
-        self.console.print(Panel(
-            content,
-            title=f"[bold white]{icon} Bash[/bold white] [dim white]{display_cmd}[/]",
-            title_align="left",
-            border_style="dim white",
-            box=box.ROUNDED,
-            padding=(1, 2)
-        ))
+        self.console.print()
         
-        # Ask for confirmation
+        palette = get_palette()
+        
+        # Use CyberPanel for command
+        panel = CyberPanel(
+            content,
+            title=f"BASH EXECUTION",
+            subtitle=working_dir if working_dir else None,
+            border_color=palette.warning,
+            glow_color=palette.warning,
+            status="ready"
+        )
+        
+        self.console.print(panel.render())
+        
+        # Legacy confirmation for bash
         return Confirm.ask(
             "[bold yellow]Execute this command?[/bold yellow]",
             console=self.console,
@@ -234,8 +325,8 @@ class ConfirmationDisplay:
         file_path: str,
         content: str,
         description: str = ""
-    ) -> bool:
-        """Show file creation confirmation with content preview.
+    ) -> Tuple[ConfirmationResult, Optional[str]]:
+        """Show file creation/write confirmation with content preview.
         
         Args:
             file_path: Path where file will be created
@@ -243,8 +334,17 @@ class ConfirmationDisplay:
             description: Optional description
             
         Returns:
-            True if user approved, False otherwise
+            Tuple of (ConfirmationResult, optional feedback string)
         """
+        # Icons
+        try:
+            from hcode.ui.icons import Icons
+            icon_create = Icons.SPARKLE
+            icon_file = Icons.FILE
+        except ImportError:
+            icon_create = "[*]"
+            icon_file = "[F]"
+
         file_name = Path(file_path).name
         
         # Create preview (first 20 lines max)
@@ -266,16 +366,23 @@ class ConfirmationDisplay:
         panel_content = Text()
         if description:
             panel_content.append(f"{description}\n\n", style="italic dim")
-        panel_content.append(f"📄 {file_path}\n", style="bold")
-        panel_content.append(f"📊 {len(lines)} lines\n\n", style="dim")
+        panel_content.append(f"{icon_file} {file_path}\n", style="bold")
+        panel_content.append(f"Lines: {len(lines)}\n\n", style="dim")
         
         self.console.print()
-        self.console.print(Panel(
+        self.console.print()
+        
+        palette = get_palette()
+        
+        panel = CyberPanel(
             panel_content,
-            title=f"[bold green]✨ Create: {file_name}[/bold green]",
-            border_style="green",
-            padding=(1, 2)
-        ))
+            title=f"WRITE: {file_name}",
+            border_color=palette.success,
+            glow_color=palette.success,
+            status="processing" 
+        )
+        
+        self.console.print(panel.render())
         
         # Show content preview
         try:
@@ -284,12 +391,7 @@ class ConfirmationDisplay:
         except Exception:
             self.console.print(preview)
         
-        # Ask for confirmation
-        return Confirm.ask(
-            "[bold yellow]Create this file?[/bold yellow]",
-            console=self.console,
-            default=True
-        )
+        return self._prompt_loop("Write this file?")
     
     def show_file_delete_confirmation(self, file_path: str) -> bool:
         """Show file deletion confirmation.
@@ -300,12 +402,23 @@ class ConfirmationDisplay:
         Returns:
             True if user approved, False otherwise
         """
+        # Icons
+        try:
+            from hcode.ui.icons import Icons
+            icon_delete = Icons.DELETE
+            icon_warning = Icons.WARNING
+            icon_file = Icons.FILE
+        except ImportError:
+            icon_delete = "[D]"
+            icon_warning = "[!]"
+            icon_file = "[F]"
+
         file_name = Path(file_path).name
         
         self.console.print()
         self.console.print(Panel(
-            f"[bold red]⚠️  This will permanently delete:[/bold red]\n\n📄 {file_path}",
-            title=f"[bold red]🗑️  Delete: {file_name}[/bold red]",
+            f"[bold red]{icon_warning}  This will permanently delete:[/bold red]\n\n{icon_file} {file_path}",
+            title=f"[bold red]{icon_delete}  Delete: {file_name}[/bold red]",
             border_style="red",
             padding=(1, 2)
         ))
@@ -315,6 +428,7 @@ class ConfirmationDisplay:
             console=self.console,
             default=False  # Default to NO for deletions
         )
+
 
 
 # Global instance for easy access

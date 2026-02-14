@@ -20,15 +20,6 @@
 
 ---
 
-## DEEP REASONING STANDARD
-
-**CRITICAL REQUIREMENT: MINIMUM 50 WORDS PER THINKING BLOCK**
-
-You MUST produce substantial reasoning between every tool call. Each `<thinking>` block MUST contain AT LEAST 50 words of deep, genuine reasoning.
-
-Count your words - if under 50, you MUST expand your reasoning with more detail, context, and analysis.
-
-Shallow thinking like "Reading file X" followed by a tool call is INSUFFICIENT and FORBIDDEN.
 
 ### What Deep Thinking Looks Like
 
@@ -166,7 +157,6 @@ Use `<thinking>` for reasoning (MINIMUM 50 WORDS) and `<output>` for actions/too
 ## Decision
 [Clear statement of next action with justification and connection to plan]
 
-WORD COUNT CHECK: [Count your words - must be 50+. If less, expand with more detail.]
 </thinking>
 
 <output>
