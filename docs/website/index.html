@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hcode - Meta-Cognitive AI Agent</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Inter:wght@400;500;700;900&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+    <script src="script.js" defer></script>
+</head>
+
+<body>
+
+    <!-- Header -->
+    <header>
+        <div class="container">
+            <div class="logo">
+                <span>H</span>code
+            </div>
+            <nav>
+                <ul>
+                    <li><a href="#features">Features</a></li>
+                    <li><a href="architecture.html">Architecture</a></li>
+                    <li><a href="cognition.html">Cognition</a></li>
+                    <li><a href="#workflow">Workflow</a></li>
+                    <li><a href="tools.html">Tools</a></li>
+                    <li><a href="https://github.com/hcode-dev/hcode" target="_blank" class="btn btn-primary">Get
+                            Started</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="container">
+            <div class="hero-content">
+                <div class="hero-text">
+                    <h1>The Autonomous Engineer that <span class="text-gradient">Actually Works.</span></h1>
+                    <p>Stop babysitting hallucinations. Hcode plans, tests, and verifies its own code, so you can ship
+                        features—not just debug them.</p>
+                    <div class="cta-group">
+                        <a href="#pricing" class="btn btn-primary">Install Now</a>
+                        <a href="#demo" class="btn btn-outline">Watch Demo</a>
+                    </div>
+                </div>
+            </div>
+            <div class="hero-visual">
+                <div class="terminal-window">
+                    <div class="terminal-header">
+                        <span class="dot red"></span>
+                        <span class="dot yellow"></span>
+                        <span class="dot green"></span>
+                    </div>
+                    <div class="terminal-body" id="terminal-body">
+                        <!-- Content injected via JS -->
+                    </div>
+                </div>
+            </div>
+        </div>
+        </div>
+    </section>
+
+    <!-- Problem vs Solution Section -->
+    <section id="comparison" class="comparison">
+        <div class="container">
+            <div class="section-header">
+                <h2>Stop Building on <span class="text-gradient">Quicksand</span></h2>
+                <p>Standard LLMs guess. Hcode knows.</p>
+            </div>
+
+            <div class="comparison-grid">
+                <!-- Standard LLM Card -->
+                <div class="comparison-card bad">
+                    <div class="card-icon">❌</div>
+                    <h3>The "Chatbot" Way</h3>
+                    <ul>
+                        <li><strong>Hallucinates</strong> files that don't exist</li>
+                        <li><strong>Guesses</strong> APIs without reading docs</li>
+                        <li><strong>Breaks</strong> the build with every edit</li>
+                        <li>Requires constant human supervision</li>
+                    </ul>
+                </div>
+
+                <!-- Hcode Card -->
+                <div class="comparison-card good">
+                    <div class="card-icon">✅</div>
+                    <h3>The Hcode Way</h3>
+                    <ul>
+                        <li><strong>Scans</strong> your entire repo first</li>
+                        <li><strong>Plans</strong> execution before touching files</li>
+                        <li><strong>Verifies</strong> changes with linter/tests</li>
+                        <li><strong>Self-Heals</strong> if verification fails</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Grid -->
+    <section id="features" class="features">
+        <div class="container">
+            <div class="section-header">
+                <h2>Built for <span class="text-gradient">Deep Reasoning</span></h2>
+                <p>Most AI agents just execute. Hcode plans, critiques, and verifies.</p>
+            </div>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">🧠</div>
+                    <h3>Zero Hallucinations</h3>
+                    <p>Powered by a dedicated Thinking Manager. Hcode double-checks its own logic before writing a
+                        single line of code.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">💾</div>
+                    <h3>Infinite Context</h3>
+                    <p>Forget token limits. Hcode uses a local vector store to understand your entire repository, not
+                        just the open files.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🔄</div>
+                    <h3>Self-Healing</h3>
+                    <p>If a test fails, Hcode reads the error, analyzes the stack trace, and fixes the bug
+                        automatically. No human needed.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🎨</div>
+                    <h3>Rich UI</h3>
+                    <p>A beautiful terminal interface with live progress bars, syntax highlighting, and glassmorphism
+                        panels.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">⚡</div>
+                    <h3>Runs Locally</h3>
+                    <p>Optimized for privacy. Your code never leaves your machine unless you want it to. Support for
+                        local LLMs.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🛡️</div>
+                    <h3>Safety First</h3>
+                    <p>Strict "Write Gates" prevent the agent from touching files outside the agreed-upon plan. You are
+                        always in control.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Use Cases / Social Proof -->
+    <section id="use-cases" class="use-cases">
+        <div class="container">
+            <div class="section-header">
+                <h2>Built for <span class="text-gradient">Heavy Lifting</span></h2>
+                <p>Don't just chat. Ship.</p>
+            </div>
+
+            <div class="use-case-grid">
+                <div class="use-case-card">
+                    <div class="use-case-number">01</div>
+                    <h3>Massive Refactors</h3>
+                    <p>Upgrade 50+ files in a single pass. Hcode understands dependencies and ensures no breaking
+                        changes.</p>
+                </div>
+                <div class="use-case-card">
+                    <div class="use-case-number">02</div>
+                    <h3>Autonomous Bug Fixing</h3>
+                    <p>Paste the stack trace. Hcode reproduces the issue, writes a failing test, fixes it, and verifies
+                        the solution.</p>
+                </div>
+                <div class="use-case-card">
+                    <div class="use-case-number">03</div>
+                    <h3>Feature Implementation</h3>
+                    <p>Give it a high-level goal. Hcode breaks it down, plans the architecture, and implements the
+                        entire vertical slice.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Architecture Section -->
+    <section id="architecture" class="architecture">
+        <div class="container">
+            <div class="section-header">
+                <h2>The <span class="text-gradient">Architecture</span></h2>
+                <p>A modular 3-layer system designed for autonomy.</p>
+            </div>
+
+            <div class="arch-visual">
+                <div class="layer layer-cognitive">
+                    Cognitive Layer
+                    <span>Thinking Manager</span>
+                </div>
+                <div class="layer layer-memory">
+                    Memory Layer
+                    <span>Semantic Store</span>
+                </div>
+                <div class="layer layer-interface">
+                    Interface Layer
+                    <span>CLI & Rich UI</span>
+                </div>
+            </div>
+
+            <div style="text-align: center; margin-top: 4rem;">
+                <a href="architecture.html" class="btn btn-outline">View Architecture Deep Dive &rarr;</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Workflow Section -->
+    <section id="workflow" class="workflow">
+        <div class="container">
+            <div class="section-header">
+                <h2>How <span class="text-gradient">Hcode Works</span></h2>
+            </div>
+
+            <div class="step">
+                <div class="step-num">01</div>
+                <div class="step-content">
+                    <h3>Reads Your Repo</h3>
+                    <p>Hcode analyzes your entire codebase to understand project conventions, dependencies, and
+                        architecture before writing a single line.</p>
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-num">02</div>
+                <div class="step-content">
+                    <h3>Drafts a Blueprint</h3>
+                    <p>It creates a detailed <code>implementation_plan.md</code> with atomic tasks, risks, and
+                        verification steps. You review the plan, not the code.</p>
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-num">03</div>
+                <div class="step-content">
+                    <h3>Writes & Refines</h3>
+                    <p>Hcode "thinks out loud" in structured blocks, self-correcting if it encounters errors. It's like
+                        pair programming with a senior dev.</p>
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-num">04</div>
+                <div class="step-content">
+                    <h3>Tests Its Homework</h3>
+                    <p>The agent verifies its own work against the plan, running tests and checking deliverables before
+                        marking the task as complete.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <div class="container">
+            <div class="footer-links">
+                <a href="#">Documentation</a>
+                <a href="https://github.com/hcode-dev/hcode">GitHub</a>
+                <a href="#">Twitter</a>
+                <a href="#">Discord</a>
+            </div>
+            <p>&copy; 2026 Hcode Team. Open Source & Proud.</p>
+        </div>
+    </footer>
+
+</body>
+
+</html>

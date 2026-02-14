@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hcode Cognition Engine</title>
+    <link rel="stylesheet" href="style.css">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Inter:wght@400;500;700;900&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+    <style>
+        .diagram-container {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 2rem;
+            margin: 2rem 0;
+            overflow-x: auto;
+            text-align: center;
+            position: relative;
+        }
+
+        .diagram-caption {
+            margin-top: 1rem;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            font-style: italic;
+        }
+
+        .deep-dive-section {
+            padding: 6rem 0;
+            border-bottom: 1px solid var(--glass-border);
+        }
+
+        .concept-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .concept-card h3 {
+            color: var(--secondary);
+            margin-bottom: 1rem;
+        }
+    </style>
+</head>
+
+<body>
+
+    <header>
+        <div class="container">
+            <div class="logo">
+                <span>H</span>code <span style="font-size: 0.8em; opacity: 0.7; margin-left: 0.5rem;">//
+                    Cognition</span>
+            </div>
+            <nav>
+                <ul>
+                    <li><a href="index.html">Home</a></li>
+                    <li><a href="architecture.html">Architecture</a></li>
+                    <li><a href="cognition.html" class="active">Cognition</a></li>
+                    <li><a href="tools.html">Tools</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <div class="container" style="padding-top: 120px;">
+
+        <!-- Intro -->
+        <section id="intro" style="text-align: center; margin-bottom: 6rem;">
+            <h1>The Artificial <span class="text-gradient">Prefrontal Cortex</span></h1>
+            <p style="font-size: 1.2rem; max-width: 800px; margin: 1.5rem auto; color: var(--text-muted);">
+                Standard agents use System 1 thinking (fast, reactive). Hcode uses System 2 (slow, deliberative).
+            </p>
+
+            <!-- Terminal Screenshot -->
+            <div class="terminal-frame">
+                <div class="terminal-header">
+                    <div class="terminal-dot red"></div>
+                    <div class="terminal-dot yellow"></div>
+                    <div class="terminal-dot green"></div>
+                </div>
+                <div class="terminal-content">
+                    <img src="assets/hcode_cli.png" alt="Hcode CLI Interface">
+                </div>
+            </div>
+        </section>
+
+        <!-- 1. Tree of Thoughts -->
+        <section id="tree" class="deep-dive-section">
+            <div class="section-header">
+                <h2>Tree of <span class="text-gradient">Thoughts</span></h2>
+                <p>Simulating futures before committing to one.</p>
+            </div>
+
+            <div class="diagram-container">
+                <!-- SVG: Tree of Thoughts -->
+                <svg width="800" height="400" viewBox="0 0 800 400" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <marker id="arrow-tree" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+                            <path d="M0,0 L0,6 L9,3 z" fill="#e0e6ed" />
+                        </marker>
+                    </defs>
+
+                    <!-- Root: The Problem -->
+                    <circle cx="50" cy="200" r="10" fill="#fff" />
+                    <text x="50" y="230" fill="#fff" text-anchor="middle" font-size="12">Problem</text>
+
+                    <!-- Branch 1 (Failure) -->
+                    <path d="M60,200 C150,200 150,100 250,100" fill="none" stroke="#ff007a" stroke-width="2"
+                        opacity="0.5" />
+                    <circle cx="250" cy="100" r="5" fill="#ff007a" />
+                    <path d="M250,100 C350,100 350,50 450,50" fill="none" stroke="#ff007a" stroke-width="2"
+                        opacity="0.3" />
+                    <text x="460" y="55" fill="#ff007a" font-size="12">× Dead End</text>
+
+                    <!-- Branch 2 (Success) -->
+                    <path d="M60,200 C150,200 150,200 250,200" fill="none" stroke="#00ff94" stroke-width="3" />
+                    <circle cx="250" cy="200" r="8" fill="#00ff94" />
+                    <text x="250" y="230" fill="#00ff94" text-anchor="middle" font-size="12">Hypothesis A</text>
+
+                    <path d="M250,200 C350,200 350,150 450,150" fill="none" stroke="#00ff94" stroke-width="3" />
+                    <circle cx="450" cy="150" r="8" fill="#00ff94" />
+                    <text x="450" y="180" fill="#00ff94" text-anchor="middle" font-size="12">Valid Plan</text>
+
+                    <path d="M450,150 C550,150 550,150 650,150" fill="none" stroke="#00ff94" stroke-width="3"
+                        marker-end="url(#arrow-tree)" />
+                    <text x="670" y="155" fill="#fff" font-weight="bold">SOLUTION</text>
+
+                    <!-- Branch 3 (Failure) -->
+                    <path d="M60,200 C150,200 150,300 250,300" fill="none" stroke="#ff007a" stroke-width="2"
+                        opacity="0.5" />
+                    <circle cx="250" cy="300" r="5" fill="#ff007a" />
+                    <path d="M250,300 C350,300 350,350 450,350" fill="none" stroke="#ff007a" stroke-width="2"
+                        opacity="0.3" />
+                    <text x="460" y="355" fill="#ff007a" font-size="12">× Infinite Loop</text>
+                </svg>
+                <div class="diagram-caption">Fig 1. Branching Logic allows Hcode to "backtrack" mentally without
+                    breaking your code.</div>
+            </div>
+
+            <div class="row" style="display: flex; gap: 2rem;">
+                <div class="concept-card" style="flex: 1;">
+                    <h3>Look-Ahead Simulation</h3>
+                    <p>Before writing a file, Hcode simulates the import implications. "If I change valid_utils.py, will
+                        user_auth.py break?" It traverses the dependency graph to answer this.</p>
+                </div>
+                <div class="concept-card" style="flex: 1;">
+                    <h3>Self-Pruning</h3>
+                    <p>When a thought branch leads to a logical contradiction or high uncertainty, Hcode "prunes" it and
+                        returns to the parent node, trying a different strategy.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- 2. The Internal Critic -->
+        <section id="critic" class="deep-dive-section">
+            <div class="section-header">
+                <h2>The Internal <span class="text-gradient">Critic</span></h2>
+                <p>Generative models are enthusiastic liars. The Critic is the buzzkill.</p>
+            </div>
+
+            <div class="diagram-container">
+                <!-- SVG: Critic Loop -->
+                <svg width="600" height="300" viewBox="0 0 600 300" xmlns="http://www.w3.org/2000/svg">
+                    <!-- Generator Head -->
+                    <circle cx="150" cy="150" r="60" fill="none" stroke="#00d4ff" stroke-width="2" />
+                    <text x="150" y="155" fill="#00d4ff" text-anchor="middle" font-weight="bold">GENERATOR</text>
+                    <text x="150" y="175" fill="#666" text-anchor="middle" font-size="10">"Let's try X!"</text>
+
+                    <!-- Critic Head -->
+                    <circle cx="450" cy="150" r="60" fill="none" stroke="#ff007a" stroke-width="2" />
+                    <text x="450" y="155" fill="#ff007a" text-anchor="middle" font-weight="bold">CRITIC</text>
+                    <text x="450" y="175" fill="#666" text-anchor="middle" font-size="10">"X breaks Y."</text>
+
+                    <!-- Arrows -->
+                    <path d="M210,120 Q300,50 390,120" fill="none" stroke="#e0e6ed" stroke-width="2"
+                        marker-end="url(#arrow-tree)" />
+                    <text x="300" y="80" fill="#e0e6ed" text-anchor="middle" font-size="12">Proposal</text>
+
+                    <path d="M390,180 Q300,250 210,180" fill="none" stroke="#ff007a" stroke-width="2"
+                        marker-end="url(#arrow-tree)" />
+                    <text x="300" y="230" fill="#ff007a" text-anchor="middle" font-size="12">Rejection (Feedback)</text>
+                </svg>
+                <div class="diagram-caption">Fig 2. The Adversarial Loop. Code only passes if the Critic fails to find a
+                    flaw.</div>
+            </div>
+
+            <div class="concept-card">
+                <h3>Role-Based Prompting</h3>
+                <p>Hcode switches roles internally. One prompt generates the solution, another prompt (with "Senior
+                    Architect" persona) ruthlessly critiques it for security, performance, and best practices.</p>
+            </div>
+        </section>
+
+        <!-- 3. Comparison -->
+        <section id="comparison" class="deep-dive-section">
+            <div class="section-header">
+                <h2>Chain vs <span class="text-gradient">Loop</span></h2>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
+                <div class="concept-card" style="border-color: rgba(255, 0, 122, 0.3);">
+                    <h3>Standard "Chain" Agent</h3>
+                    <ul style="list-style: none; color: var(--text-muted); padding-left: 0;">
+                        <li style="margin-bottom: 0.8rem; display: flex; align-items: center;">
+                            <svg class="icon danger" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                                <line x1="18" y1="6" x2="6" y2="18"></line>
+                                <line x1="6" y1="6" x2="18" y2="18"></line>
+                            </svg>
+                            <strong>Linear:</strong> Input -> Think -> Code.
+                        </li>
+                        <li style="margin-bottom: 0.8rem; display: flex; align-items: center;">
+                            <svg class="icon danger" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                                <line x1="18" y1="6" x2="6" y2="18"></line>
+                                <line x1="6" y1="6" x2="18" y2="18"></line>
+                            </svg>
+                            <strong>Fragile:</strong> One error breaks the whole chain.
+                        </li>
+                        <li style="margin-bottom: 0.8rem; display: flex; align-items: center;">
+                            <svg class="icon danger" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                                <line x1="18" y1="6" x2="6" y2="18"></line>
+                                <line x1="6" y1="6" x2="18" y2="18"></line>
+                            </svg>
+                            <strong>Blind:</strong> Doesn't check if the code actually works.
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="concept-card"
+                    style="border-color: rgba(0, 255, 148, 0.3); background: rgba(0, 255, 148, 0.03);">
+                    <h3>Hcode "Cognitive Loop"</h3>
+                    <ul style="list-style: none; color: var(--text-muted); padding-left: 0;">
+                        <li style="margin-bottom: 0.8rem; display: flex; align-items: center;">
+                            <svg class="icon success" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                                <polyline points="20 6 9 17 4 12"></polyline>
+                            </svg>
+                            <strong>Cyclic:</strong> Think -> Test -> Refine -> Code.
+                        </li>
+                        <li style="margin-bottom: 0.8rem; display: flex; align-items: center;">
+                            <svg class="icon success" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                                <polyline points="20 6 9 17 4 12"></polyline>
+                            </svg>
+                            <strong>Resilient:</strong> Errors trigger self-correction.
+                        </li>
+                        <li style="margin-bottom: 0.8rem; display: flex; align-items: center;">
+                            <svg class="icon success" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                                <polyline points="20 6 9 17 4 12"></polyline>
+                            </svg>
+                            <strong>Verified:</strong> Runs linter/tests before showing you.
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+    </div>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2026 Hcode Team. <a href="index.html">Back to Home</a></p>
+        </div>
+    </footer>
+
+</body>
+
+</html>

@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hcode Tools & Capabilities</title>
+    <link rel="stylesheet" href="style.css">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Inter:wght@400;500;700;900&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+    <style>
+        .tool-category {
+            margin-bottom: 4rem;
+        }
+
+        .category-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--glass-border);
+        }
+
+        .category-icon {
+            font-size: 1.5rem;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            border: 1px solid var(--glass-border);
+        }
+
+        .tool-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 2rem;
+        }
+
+        .tool-card {
+            background: rgba(15, 17, 26, 0.6);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .tool-card:hover {
+            transform: translateY(-5px);
+            border-color: var(--primary);
+            box-shadow: 0 10px 30px -10px rgba(0, 212, 255, 0.15);
+        }
+
+        .tool-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(90deg, var(--primary), transparent);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .tool-card:hover::before {
+            opacity: 1;
+        }
+
+        .tool-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 1rem;
+        }
+
+        .tool-name {
+            font-family: var(--font-mono);
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: var(--text-main);
+        }
+
+        .tool-badge {
+            font-size: 0.7rem;
+            padding: 0.2rem 0.6rem;
+            border-radius: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--text-muted);
+            border: 1px solid var(--glass-border);
+        }
+
+        .tool-description {
+            color: var(--text-muted);
+            font-size: 0.95rem;
+            line-height: 1.6;
+            margin-bottom: 1.5rem;
+        }
+
+        .param-list {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            padding: 1rem;
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+        }
+
+        .param-item {
+            display: flex;
+            margin-bottom: 0.5rem;
+        }
+
+        .param-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .param-name {
+            color: var(--secondary);
+            min-width: 100px;
+        }
+
+        .param-type {
+            color: #565f89;
+            margin-right: 1rem;
+        }
+
+        .param-desc {
+            color: var(--text-muted);
+        }
+    </style>
+</head>
+
+<body>
+
+    <header>
+        <div class="container">
+            <div class="logo">
+                <span>H</span>code <span style="font-size: 0.8em; opacity: 0.7; margin-left: 0.5rem;">//
+                    Tools</span>
+            </div>
+            <nav>
+                <ul>
+                    <li><a href="index.html">Home</a></li>
+                    <li><a href="architecture.html">Architecture</a></li>
+                    <li><a href="cognition.html">Cognition</a></li>
+                    <li><a href="tools.html" class="active">Tools</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <div class="container" style="padding-top: 120px;">
+
+        <section id="intro">
+            <div class="section-header">
+                <h2>Registered <span class="text-gradient">Capabilities</span></h2>
+                <p>A complete registry of the 11 core tools that power the Hcode agent.</p>
+            </div>
+        </section>
+
+        <!-- File Operations -->
+        <section class="tool-category">
+            <div class="category-header">
+                <div class="category-icon" style="color: var(--primary); border-color: var(--primary);">📄</div>
+                <h3>File Operations</h3>
+            </div>
+            <div class="tool-grid">
+                <!-- ReadTool -->
+                <div class="tool-card">
+                    <div class="tool-header">
+                        <div class="tool-name">Read</div>
+                        <span class="tool-badge">Core</span>
+                    </div>
+                    <p class="tool-description">
+                        Reads file contents with intelligent chunking. Enforces an 800-line limit per read to protect
+                        context window. Supports partial views via start/end line arguments.
+                    </p>
+                    <div class="param-list">
+                        <div class="param-item">
+                            <span class="param-name">file_path</span>
+                            <span class="param-type">str</span>
+                            <span class="param-desc">Absolute path to file</span>
+                        </div>
+                        <div class="param-item">
+                            <span class="param-name">start_line</span>
+                            <span class="param-type">int?</span>
+                            <span class="param-desc">1-indexed start line</span>
+                        </div>
+                        <div class="param-item">
+                            <span class="param-name">end_line</span>
+                            <span class="param-type">int?</span>
+                            <span class="param-desc">1-indexed end line</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- WriteTool -->
+                <div class="tool-card">
+                    <div class="tool-header">
+                        <div class="tool-name">Write</div>
+                        <span class="tool-badge">Core</span>
+                    </div>
+                    <p class="tool-description">
+                        Writes content to files. Includes safety features like syntax checking for Python files and
+                        "preview mode" to verify changes before applying them.
+                    </p>
+                    <div class="param-list">
+                        <div class="param-item">
+                            <span class="param-name">file_path</span>
+                            <span class="param-type">str</span>
+                            <span class="param-desc">Absolute path</span>
+                        </div>
+                        <div class="param-item">
+                            <span class="param-name">content</span>
+                            <span class="param-type">str</span>
+                            <span class="param-desc">Full file content</span>
+                        </div>
+                        <div class="param-item">
+                            <span class="param-name">mode</span>
+                            <span class="param-type">str</span>
+                            <span class="param-desc">'overwrite' | 'append'</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- EditTool -->
+                <div class="tool-card">
+                    <div class="tool-header">
+                        <div class="tool-name">Edit</div>
+                        <span class="tool-badge">Precision</span>
+                    </div>
+                    <p class="tool-description">
+                        Performs precise string replacement. Requires unique match of `old_string`. Returns a unified
+                        diff of the change to confirm correctness.
+                    </p>
+                    <div class="param-list">
+                        <div class="param-item">
+                            <span class="param-name">file_path</span>
+                            <span class="param-type">str</span>
+                            <span class="param-desc">Absolute path</span>
+                        </div>
+                        <div class="param-item">
+                            <span class="param-name">old_string</span>
+                            <span class="param-type">str</span>
+                            <span class="param-desc">Exact text to replace</span>
+                        </div>
+                        <div class="param-item">
+                            <span class="param-name">new_string</span>
+                            <span class="param-type">str</span>
+                            <span class="param-desc">New text content</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- LSTool -->
+                <div class="tool-card">
+                    <div class="tool-header">
+                        <div class="tool-name">LS</div>
+                        <span class="tool-badge">Discovery</span>
+                    </div>
+                    <p class="tool-description">
+                        Lists directory contents with type indicators (file vs dir) and size information. Supports
+                        ignore patterns to filter output.
+                    </p>
+                    <div class="param-list">
+                        <div class="param-item">
+                            <span class="param-name">path</span>
+                            <span class="param-type">str</span>
+                            <span class="param-desc">Directory path</span>
+                        </div>
+                        <div class="param-item">
+                            <span class="param-name">ignore</span>
+                            <span class="param-type">str?</span>
+                            <span class="param-desc">Comma-separated globs</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Execution -->
+        <section class="tool-category">
+            <div class="category-header">
+                <div class="category-icon" style="color: var(--secondary); border-color: var(--secondary);">⚡</div>
+                <h3>Execution Engine</h3>
+            </div>
+            <div class="tool-grid">
+                <!-- BashTool -->
+                <div class="tool-card">
+                    <div class="tool-header">
+                        <div class="tool-name">Bash</div>
+                        <span class="tool-badge">RTE</span>
+                    </div>
+                    <p class="tool-description">
+                        Executes shell commands with cross-platform compatibility (Windows/Linux translation). Supports
+                        background execution and configurable timeouts.
+                    </p>
+                    <div class="param-list">
+                        <div class="param-item">
+                            <span class="param-name">command</span>
+                            <span class="param-type">str</span>
+                            <span class="param-desc">Shell command</span>
+                        </div>
+                        <div class="param-item">
+                            <span class="param-name">timeout</span>
+                            <span class="param-type">int</span>
+                            <span class="param-desc">Max duration (ms)</span>
+                        </div>
+                        <div class="param-item">
+                            <span class="param-name">background</span>
+                            <span class="param-type">bool</span>
+                            <span class="param-desc">Run async?</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- BashOutput -->
+                <div class="tool-card">
+                    <div class="tool-header">
+                        <div class="tool-name">BashOutput</div>
+                        <span class="tool-badge">Async</span>
+                    </div>
+                    <p class="tool-description">
+                        Retrieves stdout/stderr from background processes. Supports regex filtering and tail/head
+                        limiting to manage output size.
+                    </p>
+                    <div class="param-list">
+                        <div class="param-item">
+                            <span class="param-name">bash_id</span>
+                            <span class="param-type">str</span>
+                            <span class="param-desc">Shell ID</span>
+                        </div>
+                        <div class="param-item">
+                            <span class="param-name">filter</span>
+                            <span class="param-type">str?</span>
+                            <span class="param-desc">Regex filter</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Navigation & Safety -->
+        <section class="tool-category">
+            <div class="category-header">
+                <div class="category-icon" style="color: #ff007a; border-color: #ff007a;">🛡️</div>
+                <h3>Navigation & Safety</h3>
+            </div>
+            <div class="tool-grid">
+                <!-- SmartGlob -->
+                <div class="tool-card">
+                    <div class="tool-header">
+                        <div class="tool-name">Glob</div>
+                        <span class="tool-badge">Context-Aware</span>
+                    </div>
+                    <p class="tool-description">
+                        Searches for files matching patterns. Automatically excludes noise (like `node_modules`, `.git`)
+                        and limits results to prevent context overflow.
+                    </p>
+                    <div class="param-list">
+                        <div class="param-item">
+                            <span class="param-name">pattern</span>
+                            <span class="param-type">str</span>
+                            <span class="param-desc">e.g., "**/*.py"</span>
+                        </div>
+                        <div class="param-item">
+                            <span class="param-name">path</span>
+                            <span class="param-type">str</span>
+                            <span class="param-desc">Search root</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- DiffPreview -->
+                <div class="tool-card">
+                    <div class="tool-header">
+                        <div class="tool-name">DiffPreview</div>
+                        <span class="tool-badge">Review</span>
+                    </div>
+                    <p class="tool-description">
+                        Generates a prospective diff for a change WITHOUT applying it. Performs safety checks for syntax
+                        errors, breaking changes, and security risks.
+                    </p>
+                </div>
+
+                <!-- ApplyChange -->
+                <div class="tool-card">
+                    <div class="tool-header">
+                        <div class="tool-name">ApplyChange</div>
+                        <span class="tool-badge">Action</span>
+                    </div>
+                    <p class="tool-description">
+                        Commits a change that was previously approved via `DiffPreview`. Ensures that only reviewed code
+                        touches the filesystem.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+    </div>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2026 Hcode Team. <a href="index.html">Back to Home</a></p>
+        </div>
+    </footer>
+
+</body>
+
+</html>
