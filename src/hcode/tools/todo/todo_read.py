@@ -3,13 +3,13 @@ Todo reading tool for Hcode.
 Strictly aligns with Antigravity standards by reading from task.md.
 """
 
-from typing import List, Dict, Any, Optional
-from pathlib import Path
 import os
 import re
+from pathlib import Path
+from typing import List, Dict, Any, Optional
 
 from hcode.tools.base.base_tool import BaseTool, ToolResult, ToolParameter, ToolCategory
-from hcode.core.todo import TodoStatus
+
 
 class TodoReadTool(BaseTool):
     """

@@ -18,7 +18,7 @@ from rich.progress import (
     TextColumn,
     BarColumn,
     TaskProgressColumn,
-    TimeElapsedColumn,
+
 )
 from rich.text import Text
 
@@ -160,48 +160,7 @@ class AnimatedMessage:
 # ═══════════════════════════════════════════════════════════════════════
 
 
-class CyberProgress:
-    """Futuristic progress bar with custom styling."""
 
-    def __init__(
-        self,
-        console: Console,
-        description: str = "Processing",
-        spinner_name: str = "neural",
-        bar_color: Optional[str] = None,
-        complete_color: Optional[str] = None,
-    ):
-        self.console = console
-        self.description = description
-        self.spinner_name = spinner_name
-        self.bar_color = bar_color
-        self.complete_color = complete_color
-
-    @contextmanager
-    def track(self, total: int):
-        """Context manager for tracking progress."""
-        palette = get_palette()
-        bar_color = self.bar_color or palette.primary
-        complete_color = self.complete_color or palette.success
-
-        progress = Progress(
-            SpinnerColumn(spinner_name="dots"),
-            TextColumn(f"[bold {bar_color}]{self.description}"),
-            BarColumn(
-                bar_width=40,
-                style=f"{bar_color}",
-                complete_style=f"bold {complete_color}",
-                finished_style=f"bold {complete_color}",
-            ),
-            TaskProgressColumn(),
-            TimeElapsedColumn(),
-            console=self.console,
-            transient=True,
-        )
-
-        with progress:
-            task = progress.add_task(self.description, total=total)
-            yield lambda advance=1: progress.update(task, advance=advance)
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -232,28 +191,7 @@ class StreamingText:
             await asyncio.sleep(self.speed)
         self.console.print()
 
-    def stream_sync(self, text: str) -> None:
-        """Synchronous version of stream."""
-        palette = get_palette()
-        color = self.color or palette.text_primary
 
-        for char in text:
-            self.console.print(char, end="", style=color)
-            time.sleep(self.speed)
-        self.console.print()
-
-    def stream_words(self, text: str, word_delay: float = 0.05) -> None:
-        """Stream text word by word."""
-        palette = get_palette()
-        color = self.color or palette.text_primary
-
-        words = text.split()
-        for i, word in enumerate(words):
-            if i > 0:
-                self.console.print(" ", end="")
-            self.console.print(word, end="", style=color)
-            time.sleep(word_delay)
-        self.console.print()
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -266,62 +204,9 @@ class GlitchEffect:
 
     GLITCH_CHARS = "!@#$%^&*()_+-=[]{}|;:',.<>?/~`░▒▓█"
 
-    @classmethod
-    def glitch_text(cls, text: str, intensity: float = 0.1) -> str:
-        """Apply random glitch characters to text."""
-        import random
 
-        result = []
-        for char in text:
-            if random.random() < intensity and char != " ":
-                result.append(random.choice(cls.GLITCH_CHARS))
-            else:
-                result.append(char)
-        return "".join(result)
 
-    @classmethod
-    def animated_glitch(
-        cls,
-        console: Console,
-        text: str,
-        duration: float = 1.0,
-        frames: int = 10,
-    ) -> None:
-        """Display text with animated glitch effect (sync)."""
-        palette = get_palette()
-        frame_duration = duration / frames
 
-        with Live(console=console, refresh_per_second=20, transient=True) as live:
-            # Glitch in
-            for i in range(frames):
-                intensity = 1.0 - (i / frames)
-                glitched = cls.glitch_text(text, intensity)
-                live.update(Text(glitched, style=f"bold {palette.primary}"))
-                time.sleep(frame_duration)
-
-            # Show clean text
-            live.update(Text(text, style=f"bold {palette.primary}"))
-
-    @classmethod
-    async def animated_glitch_async(
-        cls,
-        console: Console,
-        text: str,
-        duration: float = 1.0,
-        frames: int = 10,
-    ) -> None:
-        """Display text with animated glitch effect (async)."""
-        palette = get_palette()
-        frame_duration = duration / frames
-
-        with Live(console=console, refresh_per_second=20, transient=True) as live:
-            for i in range(frames):
-                intensity = 1.0 - (i / frames)
-                glitched = cls.glitch_text(text, intensity)
-                live.update(Text(glitched, style=f"bold {palette.primary}"))
-                await asyncio.sleep(frame_duration)
-
-            live.update(Text(text, style=f"bold {palette.primary}"))
 
 
 # ═══════════════════════════════════════════════════════════════════════

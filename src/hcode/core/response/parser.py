@@ -7,7 +7,6 @@ both native API tool calls and text-based JSON tool calls.
 
 import json
 import re
-from pathlib import Path
 from typing import Dict, Any, List, Optional, Set
 
 from ..protocols import ParsedToolCall

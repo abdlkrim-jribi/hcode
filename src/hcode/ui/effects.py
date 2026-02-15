@@ -48,7 +48,7 @@ class MatrixRain:
 
     def _render_frame(self) -> Text:
         """Render a single frame of the matrix."""
-        palette = get_palette()
+        get_palette()
         lines = []
 
         for row in range(self.height):

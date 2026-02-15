@@ -10,24 +10,23 @@ Provides Claude Code/Hcode style reasoning display with:
 - Phase-by-phase reasoning display
 """
 
-import time
 import threading
-from datetime import datetime
-from typing import Optional, List, Dict, Any, Set
+import time
 from collections import deque
 from contextlib import contextmanager
 from dataclasses import dataclass, field
+from datetime import datetime
 from enum import Enum
+from typing import Optional, List, Dict
 
+from rich import box
 from rich.console import Console, Group
 from rich.live import Live
+# from rich.rule import Rule
+from rich.markdown import Markdown
 from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
-from rich.padding import Padding
-from rich.rule import Rule
-from rich.markdown import Markdown
-from rich import box
 
 # Import theme system
 try:
@@ -97,10 +96,8 @@ class HcodeDisplay:
         self.task_start_time: Optional[float] = None
         
         # Thinking state
+        # Thinking state
         self.thinking_start_time: Optional[float] = None
-        self._thinking_live: Optional[Live] = None
-        self._thinking_stop_event = threading.Event()
-        self._thinking_thread: Optional[threading.Thread] = None
         
         # Progress tracking
         self.progress_updates: List[ProgressUpdate] = []
@@ -108,7 +105,10 @@ class HcodeDisplay:
         self._progress_counter = 0
         
         # Display state
-        self._task_displayed = False
+        self._thinking_stop_event = threading.Event()
+        self._thinking_thread: Optional[threading.Thread] = None
+        self._thinking_live: Optional[Live] = None
+
         
     def reset(self):
         """Reset all state for a new task."""
@@ -119,7 +119,6 @@ class HcodeDisplay:
         self.progress_updates = []
         self.tracked_files = {}
         self._progress_counter = 0
-        self._task_displayed = False
         
     # =========================================================================
     # TASK BOUNDARY DISPLAY
@@ -162,7 +161,7 @@ class HcodeDisplay:
         mode_text.append(mode.value, style=f"bold {color}")
         self.console.print(mode_text)
         
-        self._task_displayed = True
+
         
     def update_mode(self, mode: TaskMode) -> None:
         """Update the current task mode."""
@@ -251,14 +250,6 @@ class HcodeDisplay:
         self.thinking_start_time = None
         return duration
         
-    @contextmanager
-    def thinking_context(self):
-        """Context manager for thinking display."""
-        self.start_thinking()
-        try:
-            yield
-        finally:
-            self.end_thinking()
             
     # =========================================================================
     # PROGRESS UPDATES
@@ -289,25 +280,7 @@ class HcodeDisplay:
         
         return self._progress_counter
         
-    def complete_progress(self, number: int) -> None:
-        """Mark a progress update as completed."""
-        for update in self.progress_updates:
-            if update.number == number:
-                update.completed = True
-                break
                 
-    def show_progress_summary(self) -> None:
-        """Show summary of all progress updates."""
-        if not self.progress_updates:
-            return
-            
-        self.console.print()
-        self.console.print("Progress Updates", style=f"bold {self._palette.info}")
-        
-        for update in self.progress_updates:
-            icon = "✓" if update.completed else "○"
-            style = self._palette.success if update.completed else self._palette.text_muted
-            self.console.print(f"  {icon} {update.number}. {update.message}", style=style)
             
     # =========================================================================
     # FILE TRACKING
@@ -326,70 +299,12 @@ class HcodeDisplay:
             action=action,
         )
         
-    def show_files_edited(self) -> None:
-        """Display list of edited files."""
-        edited = [f for f in self.tracked_files.values() 
-                  if f.action in (FileAction.EDITED, FileAction.CREATED)]
-        
-        if not edited:
-            return
             
-        self.console.print()
-        header = Text()
-        header.append("Files Edited", style=f"bold {self._palette.warning}")
-        self.console.print(header)
-        
-        for file in edited:
-            file_text = Text()
-            file_text.append(f"  • ", style=self._palette.warning)
-            file_text.append(file.filename, style=self._palette.text_primary)
-            self.console.print(file_text)
-            
-    def show_files_explored(self) -> None:
-        """Display list of viewed/explored files."""
-        viewed = [f for f in self.tracked_files.values() 
-                  if f.action == FileAction.VIEWED]
-        
-        if not viewed:
-            return
-            
-        self.console.print()
-        header = Text()
-        header.append("Files Explored", style=f"bold {self._palette.info}")
-        self.console.print(header)
-        
-        for file in viewed:
-            file_text = Text()
-            file_text.append(f"  • ", style=self._palette.info)
-            file_text.append(file.filename, style=self._palette.text_muted)
-            self.console.print(file_text)
             
     # =========================================================================
     # INTEGRATED DISPLAY
     # =========================================================================
-    
-    def show_task_summary(self) -> None:
-        """
-        Show complete task summary with all tracked information.
-        
-        Displays:
-        - Files edited
-        - Progress updates
-        - Duration
-        """
-        self.console.print()
-        self.console.print(Rule(style=self._palette.border_default))
-        
-        # Show files
-        self.show_files_edited()
-        self.show_files_explored()
-        
-        # Show progress summary
-        if self.progress_updates:
-            self.show_progress_summary()
-            
-        self.console.print()
-        
+
     def display_thinking_block(
         self,
         content: str,
@@ -451,7 +366,6 @@ class HcodeDisplay:
         grid.add_column(style="thinking.content")
         
         # Determine Icon
-        icon = "◈"  # Diamond for active thinking
         
         # Row 1: Header
         grid.add_row("▍", title)

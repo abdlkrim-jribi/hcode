@@ -3,12 +3,12 @@ Intelligent provider selection and routing logic.
 Chooses the best AI provider based on task requirements, cost, and availability.
 """
 
-from enum import Enum
-from typing import Optional, List, Dict, Any
 from dataclasses import dataclass
+from enum import Enum
+from typing import Optional, List, Dict
 
-from hcode.providers.base import AIProvider, ModelType
 from hcode.providers.anthropic_provider import AnthropicProvider
+from hcode.providers.base import AIProvider
 from hcode.providers.openai_provider import OpenAIProvider
 
 
@@ -24,13 +24,9 @@ class TaskType(Enum):
     """Types of coding tasks"""
 
     CODE_GENERATION = "code_generation"
-    CODE_ANALYSIS = "code_analysis"
     REFACTORING = "refactoring"
-    DEBUGGING = "debugging"
-    DOCUMENTATION = "documentation"
-    TESTING = "testing"
     ARCHITECTURE = "architecture"
-    CODE_REVIEW = "reviewing"
+
 
 
 @dataclass
@@ -259,58 +255,10 @@ class ProviderSelector:
             return False
         return True
 
-    def get_fallback_provider(self, current_provider: AIProvider) -> Optional[AIProvider]:
-        """
-        Get fallback provider when current one fails.
 
-        Args:
-            current_provider: Current provider that failed
-
-        Returns:
-            Fallback provider or None
-        """
-        if not self.preferences.fallback_enabled:
-            return None
-
-        current_name = current_provider.get_provider_name().lower()
-
-        # Try to find a different provider
-        for name, provider in self.providers.items():
-            if name != current_name:
-                return provider
-
-        return None
-
-    def switch_provider(self, from_provider: str, to_provider: str) -> bool:
-        """
-        Switch from one provider to another.
-
-        Args:
-            from_provider: Current provider name
-            to_provider: Target provider name
-
-        Returns:
-            True if switch successful
-        """
-        if to_provider in self.providers:
-            return True
-        return False
 
     def get_available_providers(self) -> List[str]:
         """Get list of available provider names"""
         return list(self.providers.keys())
 
-    def get_provider_by_name(self, name: str) -> Optional[AIProvider]:
-        """Get provider by name"""
-        return self.providers.get(name.lower())
 
-    def update_model(self, provider_name: str, model: str):
-        """
-        Update the model for a specific provider.
-
-        Args:
-            provider_name: Provider to update
-            model: New model name
-        """
-        if provider_name in self.providers:
-            self.providers[provider_name].model = model

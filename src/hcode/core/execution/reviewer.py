@@ -290,7 +290,9 @@ class ChangeReviewer:
             return
 
         try:
-            from rich.panel import Panel
+            from rich.console import Console
+            from rich.markdown import Markdown
+            # from rich.panel import Panel
             from rich.text import Text
             from rich.table import Table
             from ..ui import DiffDisplay
@@ -473,7 +475,7 @@ class ChangeReviewContext:
     async def __aenter__(self) -> "ChangeReviewContext":
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+    async def __aexit__(self, exc_type, _exc_val, _exc_tb) -> None:
         if exc_type is not None:
             # Exception occurred, don't apply changes
             self.reviewer.clear_session()
@@ -483,7 +485,7 @@ class ChangeReviewContext:
         self.reviewer.start_session()
 
         # Review all changes
-        results = await self.reviewer.review_all()
+        await self.reviewer.review_all()
 
         # Apply if requested
         if self.auto_apply:

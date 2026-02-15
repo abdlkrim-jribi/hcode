@@ -310,7 +310,7 @@ def get_embedding_model_safe() -> Union[EmbeddingModel, FallbackEmbedding]:
     Get embedding model with fallback if sentence-transformers unavailable.
     """
     try:
-        import sentence_transformers
+        import sentence_transformers  # noqa: F401
 
         return EmbeddingModel()
     except ImportError:

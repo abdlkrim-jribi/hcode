@@ -7,9 +7,9 @@ Manages phase artifacts:
 - walkthrough.md: Implementation walkthrough with test results
 """
 
-import os
 from pathlib import Path
 from typing import Optional, Tuple
+
 from ..protocols import ArtifactManagerProtocol, AgentContext
 
 
@@ -157,7 +157,7 @@ class ArtifactManager(ArtifactManagerProtocol):
         - Some understanding/context
         - Subtasks (optional but recommended)
         """
-        content_lower = content.lower()
+        content.lower()
 
         # Should have a heading
         if not any(marker in content for marker in ["# ", "## "]):

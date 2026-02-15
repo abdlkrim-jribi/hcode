@@ -4,8 +4,8 @@ Handles session-level permissions and state for tools.
 """
 
 import logging
-from typing import Set, Tuple, Optional
 from pathlib import Path
+from typing import Set, Tuple
 
 logger = logging.getLogger(__name__)
 

@@ -715,7 +715,7 @@ class ExecutionPhaseHandler(BasePhaseHandler):
 
             execution_protocol = self._load_execution_protocol()
 
-            plan_content = self.artifact_manager.load_artifact(
+            self.artifact_manager.load_artifact(
                 "implementation_plan.md", context
             ) or "(No plan loaded)"
 
@@ -786,7 +786,6 @@ Artifacts directory: .hcode
         try:
             # We assume config is available at proper location
             # If prompt loader fails, we fallback to inline
-            from hcode.config.core_prompts.core.loader import get_prompt_loader
             # This is just a helper, actual loading done in _get_execution_system_prompt
             pass
         except:

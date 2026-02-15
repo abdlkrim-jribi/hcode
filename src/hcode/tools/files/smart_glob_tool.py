@@ -12,8 +12,8 @@ import os
 from pathlib import Path
 from typing import List, Optional
 
-from hcode.tools.base.base_tool import BaseTool, ToolResult, ToolParameter, ToolCategory
 from hcode.core.context.budget_manager import ContextBudgetManager
+from hcode.tools.base.base_tool import BaseTool, ToolResult, ToolParameter, ToolCategory
 
 
 class SmartGlobTool(BaseTool):
@@ -99,7 +99,7 @@ Note: Automatically excludes .git, .venv, node_modules, __pycache__, etc.
                 try:
                     pattern_matches = list(search_dir.glob(pattern))
                     matches.extend(pattern_matches)
-                except Exception as e:
+                except Exception:
                     # If a pattern fails, log it but continue with others
                     pass
             

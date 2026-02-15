@@ -4,7 +4,8 @@ Phase manager for PEV workflow.
 Manages transitions between Planning → Execution → Verification phases.
 """
 
-from typing import Dict, Any, Optional
+from typing import Dict, Any
+
 from ..protocols import (
     PhaseManagerProtocol,
     PhaseHandlerProtocol,

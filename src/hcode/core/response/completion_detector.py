@@ -7,10 +7,10 @@ detection, todo status, and action counts.
 """
 
 import re
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List
 
-from ..protocols import CompletionState
 from hcode.core.todo import TodoManager
+from ..protocols import CompletionState
 
 
 class TaskCompletionDetector:

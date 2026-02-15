@@ -41,7 +41,7 @@ class ContextManager:
         self,
         root_dir: Optional[str] = None,
         session_id: Optional[str] = None,
-        fresh_session: bool = True,
+            _fresh_session: bool = True,
     ):
         """
         Initialize ContextManager.

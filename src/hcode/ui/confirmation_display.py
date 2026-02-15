@@ -5,24 +5,19 @@ Shows diff previews before file edits and command confirmations.
 """
 
 import difflib
+from enum import Enum, auto
 from pathlib import Path
 from typing import Optional, List, Tuple
 
 from rich.console import Console
-from rich.panel import Panel
+from rich.prompt import Confirm
+# from rich.panel import Panel
 from rich.syntax import Syntax
 from rich.text import Text
-from rich.prompt import Confirm
-from rich.table import Table
-from rich import box
 
+from hcode.ui.components import CyberPanel
 from hcode.ui.theme import get_palette
-from hcode.ui.icons import Icons
-from hcode.ui.components import CyberPanel, StatusIndicator
 
-
-
-from enum import Enum, auto
 
 class ConfirmationResult(Enum):
     ALLOW = auto()
@@ -144,19 +139,8 @@ class ConfirmationDisplay:
         # Import Icons locally to avoid circular import at top level
         try:
             from hcode.ui.icons import Icons
-            icon_edit = Icons.CODE
-            icon_create = Icons.SPARKLE
-            icon_delete = Icons.DELETE
-            icon_warning = Icons.WARNING
-            icon_folder = Icons.FOLDER
-            icon_lightning = Icons.LIGHTNING
         except ImportError:
-            icon_edit = "[E]"
-            icon_create = "[*]"
-            icon_delete = "[D]"
-            icon_warning = "[!]"
-            icon_folder = "[DIR]"
-            icon_lightning = "[!]"
+            pass
 
     def show_file_edit_confirmation(
         self,
@@ -179,9 +163,8 @@ class ConfirmationDisplay:
         # Import icons
         try:
             from hcode.ui.icons import Icons
-            icon_edit = Icons.CODE
         except ImportError:
-            icon_edit = "[E]"
+            pass
 
         # Generate diff
         diff_lines = self.generate_diff(old_content, new_content, file_path)
@@ -195,7 +178,6 @@ class ConfirmationDisplay:
         
         # Create header
         file_name = Path(file_path).name
-        header = f"[bold cyan]{icon_edit} Edit: {file_name}[/bold cyan]"
         
         # Create stats line
         stats = Text()
@@ -271,10 +253,8 @@ class ConfirmationDisplay:
         try:
             from hcode.ui.icons import Icons
             icon_folder = Icons.FOLDER
-            icon_lightning = Icons.LIGHTNING
         except ImportError:
             icon_folder = "[DIR]"
-            icon_lightning = "[!]"
 
         # Create content
         content = Text()
@@ -293,9 +273,8 @@ class ConfirmationDisplay:
         self.console.print()
 
         # Truncate command for title
-        display_cmd = command if len(command) <= 50 else command[:47] + "..."
+        command if len(command) <= 50 else command[:47] + "..."
         
-        from rich import box
         
         self.console.print()
         
@@ -339,10 +318,8 @@ class ConfirmationDisplay:
         # Icons
         try:
             from hcode.ui.icons import Icons
-            icon_create = Icons.SPARKLE
             icon_file = Icons.FILE
         except ImportError:
-            icon_create = "[*]"
             icon_file = "[F]"
 
         file_name = Path(file_path).name
@@ -392,43 +369,6 @@ class ConfirmationDisplay:
             self.console.print(preview)
         
         return self._prompt_loop("Write this file?")
-    
-    def show_file_delete_confirmation(self, file_path: str) -> bool:
-        """Show file deletion confirmation.
-        
-        Args:
-            file_path: Path to file being deleted
-            
-        Returns:
-            True if user approved, False otherwise
-        """
-        # Icons
-        try:
-            from hcode.ui.icons import Icons
-            icon_delete = Icons.DELETE
-            icon_warning = Icons.WARNING
-            icon_file = Icons.FILE
-        except ImportError:
-            icon_delete = "[D]"
-            icon_warning = "[!]"
-            icon_file = "[F]"
-
-        file_name = Path(file_path).name
-        
-        self.console.print()
-        self.console.print(Panel(
-            f"[bold red]{icon_warning}  This will permanently delete:[/bold red]\n\n{icon_file} {file_path}",
-            title=f"[bold red]{icon_delete}  Delete: {file_name}[/bold red]",
-            border_style="red",
-            padding=(1, 2)
-        ))
-        
-        return Confirm.ask(
-            "[bold red]Delete this file?[/bold red]",
-            console=self.console,
-            default=False  # Default to NO for deletions
-        )
-
 
 
 # Global instance for easy access

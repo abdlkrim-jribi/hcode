@@ -56,9 +56,6 @@ class BashShellManager:
         """Get a shell by ID"""
         return self.shells.get(shell_id)
 
-    def list_shells(self) -> List[BackgroundShell]:
-        """List all active shells"""
-        return list(self.shells.values())
 
     def remove_shell(self, shell_id: str) -> bool:
         """Remove a shell from registry"""
@@ -253,13 +250,11 @@ class BashTool(BaseTool):
         self, command: str, timeout: float, description: str
     ) -> ToolResult:
         """Execute command in foreground with timeout"""
-        import sys
 
         start_time = time.time()
         logger.info(f"[BASH] _execute_foreground started with timeout={timeout}s at t=0.000s")
 
         # Platform-specific shell handling
-        is_windows = sys.platform == "win32"
 
         # Handle simple commands like 'pwd' in a cross‑platform way
         if command.strip() == "pwd":

@@ -1,13 +1,14 @@
 import time
 from typing import List, Optional
 
-from hcode.ui.theme import get_palette, ColorUtils
 from rich.align import Align
 from rich.box import ROUNDED, DOUBLE
 from rich.console import Console, Group, RenderableType
 from rich.panel import Panel
 from rich.style import Style
 from rich.text import Text
+
+from hcode.ui.theme import get_palette, ColorUtils
 
 # ═══════════════════════════════════════════════════════════════════════
 # MAIN LOGO VARIANTS
@@ -218,7 +219,6 @@ def create_banner(
 ) -> RenderableType:
     """Create a styled banner with logo and optional info, centered in the terminal."""
     palette = get_palette()
-    from rich.table import Table
 
     # Select logo
     logos = {
@@ -275,7 +275,7 @@ def create_animated_banner(
     console: Console, style: str = "cyber", animation_frames: int = 5, frame_delay: float = 0.1
 ) -> None:
     """Display animated startup banner with glow effect."""
-    palette = get_palette()
+    get_palette()
 
     logos = {
         "cyber": LOGO_CYBER,
@@ -448,9 +448,7 @@ def display_welcome_help(console: Console) -> None:
     """Display modern frameless welcome help with tips and shortcuts (V2)."""
     from rich.columns import Columns
     from rich.padding import Padding
-    from rich.panel import Panel
     from rich.table import Table
-    from rich import box
     from typing import List, Tuple
     
     palette = get_palette()

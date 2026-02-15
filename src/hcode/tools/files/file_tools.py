@@ -108,7 +108,6 @@ class ReadTool(BaseTool):
                 return ToolResult(success=False, output=None, error=f"Not a file: {path_str}")
 
             # Check for binary file (simple heuristic)
-            is_binary = False
             try:
                 with open(path, "r", encoding="utf-8", errors="ignore") as f:
                      # Read first chunk to check for null bytes or encoding issues?
@@ -151,10 +150,8 @@ class ReadTool(BaseTool):
                 # Enforce limit
                 end = start + self.MAX_LINES - 1
                 truncated = True
-                truncation_msg = f" (Request > {self.MAX_LINES} lines, truncated)"
             else:
                 truncated = False
-                truncation_msg = ""
             
             selected_lines = all_lines[start-1 : end]
             
@@ -559,7 +556,7 @@ class WriteTool(BaseTool):
 
         try:
             from ..ui import DiffDisplay
-            from rich.panel import Panel
+            # from rich.panel import Panel
             from rich.text import Text
 
             # Show diff
@@ -585,65 +582,9 @@ class WriteTool(BaseTool):
         except ImportError:
             pass
 
-    def get_pending_proposal(self, proposal_id: str):
-        """Get a pending proposal by ID"""
-        return self._pending_proposals.get(proposal_id)
 
-    async def apply_proposal(self, proposal_id: str, force: bool = False) -> ToolResult:
-        """Apply a pending proposal"""
-        proposal = self._pending_proposals.get(proposal_id)
-        if not proposal:
-            return ToolResult(
-                success=False, output=None, error=f"No pending proposal with ID: {proposal_id}"
-            )
 
-        if proposal.has_critical_warnings() and not force:
-            return ToolResult(
-                success=False,
-                output=None,
-                error="Critical warnings present. Use force=True to override.",
-            )
 
-        # Apply the change
-        path = Path(proposal.file_path)
-        path.parent.mkdir(parents=True, exist_ok=True)
-
-        with open(path, "w", encoding="utf-8") as f:
-            f.write(proposal.new_content)
-
-        # Clean up
-        del self._pending_proposals[proposal_id]
-
-        return ToolResult(
-            success=True,
-            output=f"Change applied: {proposal.file_path} (+{proposal.additions}/-{proposal.deletions})",
-            metadata={"applied": True, "proposal_id": proposal_id},
-        )
-
-    @classmethod
-    def get_partial_content(cls, file_path: str) -> Optional[str]:
-        """
-        Get any partial content stored for a file path.
-
-        This allows recovery of truncated writes.
-        """
-        file_key = str(Path(file_path).absolute())
-        return cls._partial_writes.get(file_key)
-
-    @classmethod
-    def clear_partial_content(cls, file_path: str = None):
-        """
-        Clear partial content buffer.
-
-        Args:
-            file_path: Specific file to clear, or None to clear all
-        """
-        if file_path:
-            file_key = str(Path(file_path).absolute())
-            if file_key in cls._partial_writes:
-                del cls._partial_writes[file_key]
-        else:
-            cls._partial_writes.clear()
 
 
 class EditTool(BaseTool):
@@ -663,7 +604,8 @@ class EditTool(BaseTool):
         super().__init__()
         self.category = ToolCategory.FILE_OPERATION
         self.root_dir = Path(root_dir or os.getcwd())
-        self._file_read_cache = {}
+        self.root_dir = Path(root_dir or os.getcwd())
+
         self._console = console
         self.preview_mode = preview_mode
         self._pending_proposals: Dict[str, Any] = {}
@@ -1491,8 +1433,6 @@ class GrepTool(BaseTool):
                 "Output mode: content, files_with_matches, count",
                 default="files_with_matches",
             ),
-            ToolParameter("context_before", "integer", "Lines of context before match", default=0),
-            ToolParameter("context_after", "integer", "Lines of context after match", default=0),
         ]
 
     def validate_parameters(self, **kwargs) -> tuple[bool, Optional[str]]:
@@ -1518,8 +1458,6 @@ class GrepTool(BaseTool):
         MatchPerLine: bool = False,
         case_insensitive: bool = False,
         output_mode: str = "files_with_matches",
-        context_before: int = 0,
-        context_after: int = 0,
         **kwargs,  # Accept and ignore unknown parameters for model compatibility
     ) -> ToolResult:
         """Search for pattern in files"""

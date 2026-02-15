@@ -19,19 +19,14 @@ import os
 import sys
 from typing import Optional, Dict, Any, List, Tuple
 
-from rich.console import Console, Group
+from rich.console import Console
 from rich.markup import escape
-from rich.panel import Panel
 from rich.syntax import Syntax
 from rich.text import Text
-from rich.align import Align
-from rich import box
 
 # Import output handler for smart truncation
 from hcode.core.response.output_handler import (
     OutputHandler,
-    ErrorSeverity,
-    OutputType,
 )
 # Import new UI system
 from hcode.ui import Icons, console as styled_console
@@ -121,20 +116,11 @@ class HcodeStyle:
         
         # Dim colors from theme
         self.TEXT_DIM = "text.dim"
-        self.BORDER_DIM = "border.dim"
 
         # Icons from UI system
-        self.ICON_READ = self._icons.FILE
-        self.ICON_WRITE = self._icons.EDIT
-        self.ICON_EDIT = self._icons.EDIT
-        self.ICON_BASH = self._icons.LIGHTNING
-        self.ICON_GLOB = self._icons.SEARCH
-        self.ICON_GREP = self._icons.SEARCH
+        # Icons from UI system
         self.ICON_SUCCESS = self._icons.SUCCESS
         self.ICON_ERROR = self._icons.ERROR
-        self.ICON_ARROW = self._icons.ARROW_RIGHT
-        self.ICON_DIFF_ADD = "+"
-        self.ICON_DIFF_DEL = "-"
         
         # HCode Design: Gutter & Tree-Lite
         self.GUTTER = self._icons.GUTTER_BAR
@@ -148,15 +134,7 @@ class HcodeStyle:
         self.COLOR_EDIT = palette.code_number    # Purple
         self.COLOR_BASH = palette.warning        # Orange
 
-        # Box characters from UI system (using Borders class)
-        from ..ui.icons import Borders
 
-        self.BOX_H = Borders.HORIZONTAL
-        self.BOX_V = Borders.VERTICAL
-        self.BOX_TL = Borders.CORNER_TL
-        self.BOX_TR = Borders.CORNER_TR
-        self.BOX_BL = Borders.CORNER_BL
-        self.BOX_BR = Borders.CORNER_BR
 
 
 # ============================================================
@@ -331,56 +309,7 @@ class HcodeToolDisplay:
             )
             self.console.print(f"  [red]{escape(str(result.error))}[/red]")
 
-    def _show_file_preview_enhanced(
-        self, content: str, file_path: str, lang: str = "", max_preview_lines: int = 25
-    ):
-        """
-        Show file preview - Claude Code style with full-width lines.
 
-        Features:
-        - Full terminal width (no truncation)
-        - Syntax-aware display
-        - Smart preview for large files
-        - Line numbers for context
-        """
-
-        lines = content.split("\n") if content else []
-        total_lines = len(lines)
-
-        # Determine how many lines to show
-        if total_lines <= max_preview_lines:
-            # Small file - show all
-            preview_lines = lines
-            show_all = True
-        else:
-            # Large file - show first 15 and last 5
-            first_lines = lines[:15]
-            last_lines = lines[-5:]
-            preview_lines = first_lines
-            show_all = False
-
-        # Display the content with line numbers
-        self.console.print()  # spacing
-
-        for i, line in enumerate(preview_lines, 1):
-            # Line number + content (full width, no truncation)
-            line_num = f"[dim]{i:4}[/dim]"
-            # Escape any Rich markup in the line (only [ needs escaping)
-            safe_line = line.replace("[", "\\[")
-            self.console.print(f"  {line_num} │ {safe_line}")
-
-        # Show truncation indicator and last lines for large files
-        if not show_all:
-            omitted = total_lines - 20
-            self.console.print(f"  [dim]{'─' * 4} │ ... {omitted} lines omitted ...[/dim]")
-
-            # Show last 5 lines
-            for i, line in enumerate(last_lines, total_lines - 4):
-                line_num = f"[dim]{i:4}[/dim]"
-                safe_line = line.replace("[", "\\[")
-                self.console.print(f"  {line_num} │ {safe_line}")
-
-        self.console.print()  # spacing after
 
     # ─────────────────────────────────────────────────────────
     # WRITE TOOL DISPLAY - Claude Code Style
@@ -418,7 +347,6 @@ class HcodeToolDisplay:
             self.console.print(f"{gutter}")
 
             # 3. Content
-            bg_green = "green"  # or self.style.ADDED_BG? Let's use simple green for now or theme ID
             # self.style.ADDED_BG is hex, Rich text style needs careful handling. 
             # Reverting to explicit styling
             
@@ -907,19 +835,7 @@ class HcodeToolDisplay:
     # SPINNER / PROGRESS DISPLAY
     # ─────────────────────────────────────────────────────────
 
-    def show_executing(self, tool_name: str, description: str = ""):
-        """Show tool is executing (spinner style)"""
-        tool_name_clean = tool_name.replace("Tool", "").replace("tool", "")
-        desc = description or f"Executing {tool_name_clean}..."
-        self.console.print(
-            f"  [{self.style.TOOL_EXECUTING}]⋯[/] [bold]{tool_name_clean}[/bold] "
-            f"[{self.style.DIM}]{desc}[/]",
-            end="\r",
-        )
 
-    def clear_executing(self):
-        """Clear the executing line"""
-        self.console.print(" " * 80, end="\r")
 
 
 # ============================================================
@@ -927,48 +843,7 @@ class HcodeToolDisplay:
 # ============================================================
 
 
-class StreamingDisplay:
-    """
-    Hcode-style streaming text display.
 
-    Shows AI response streaming character by character
-    with thinking indicator.
-
-    Now uses the modern UI theme system for consistent styling.
-    """
-
-    def __init__(self, console: Optional[Console] = None):
-        self.console = console or styled_console
-        self.buffer = ""
-        self.is_thinking = False
-        self._palette = get_theme_palette()
-        self._icons = Icons()
-
-    def start_thinking(self, message: str = "Thinking"):
-        """Show thinking indicator"""
-        self.is_thinking = True
-        self.console.print(
-            f"[{self._palette.text_muted}]{self._icons.THINKING} {message}...[/]", end="\r"
-        )
-
-    def stop_thinking(self):
-        """Clear thinking indicator"""
-        if self.is_thinking:
-            self.console.print(" " * 40, end="\r")
-            self.is_thinking = False
-
-    def stream_text(self, text: str):
-        """Stream text to console"""
-        self.stop_thinking()
-        self.console.print(text, end="")
-        self.buffer += text
-
-    def end_stream(self):
-        """End streaming and add newline"""
-        self.console.print()
-        result = self.buffer
-        self.buffer = ""
-        return result
 
 
 # ============================================================
@@ -1044,5 +919,5 @@ class StatusLineDisplay:
 
 # Global tool display instance
 tool_display = HcodeToolDisplay()
-streaming_display = StreamingDisplay()
+
 status_line = StatusLineDisplay()

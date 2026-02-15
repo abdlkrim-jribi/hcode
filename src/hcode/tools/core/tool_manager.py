@@ -7,14 +7,12 @@ import os
 from pathlib import Path
 from typing import Optional, Dict, Any, List
 
-from hcode.tools.system.agent_tools import TaskTool, ExitPlanModeTool
-from hcode.tools.base.base_tool import ToolRegistry, BaseTool, ToolResult
-from hcode.tools.terminal.bash_tools import BashTool, BashOutputTool, KillShellTool, LSTool, SearchOutputTool
-from hcode.tools.system.command_system import SlashCommandTool, SkillTool, CommandRegistry
-from hcode.tools.files.diff_tools import DiffPreviewTool, ApplyChangeTool, RejectChangeTool
-from hcode.tools.files.file_tools import ReadTool, WriteTool, EditTool, MultiEditTool, GlobTool, GrepTool
-from hcode.tools.files.smart_glob_tool import SmartGlobTool
 from hcode.tools.analysis.outline_tool import ViewFileOutlineTool
+from hcode.tools.base.base_tool import ToolRegistry, BaseTool, ToolResult
+from hcode.tools.files.diff_tools import DiffPreviewTool, ApplyChangeTool, RejectChangeTool
+from hcode.tools.files.file_tools import ReadTool, WriteTool, EditTool, MultiEditTool, GrepTool
+from hcode.tools.files.fuzzy_edit_tool import FuzzyEditTool
+from hcode.tools.files.smart_glob_tool import SmartGlobTool
 from hcode.tools.git.git_tools import (
     GitStatusTool,
     GitDiffTool,
@@ -24,7 +22,6 @@ from hcode.tools.git.git_tools import (
     GitCheckoutTool,
     GitBranchTool,
 )
-from hcode.tools.files.fuzzy_edit_tool import FuzzyEditTool
 from hcode.tools.notebook.interactive_tools import (
     AskUserQuestionTool,
     ConfirmTool,
@@ -32,10 +29,13 @@ from hcode.tools.notebook.interactive_tools import (
     ProgressTool,
 )
 from hcode.tools.notebook.notebook_tools import NotebookEditTool, NotebookReadTool, NotebookExecuteTool
-from hcode.tools.web.web_tools import WebFetchTool, WebSearchTool, WebScrapeTool
+from hcode.tools.system.agent_tools import TaskTool, ExitPlanModeTool
+from hcode.tools.system.command_system import SlashCommandTool, SkillTool, CommandRegistry
 from hcode.tools.system.hcode_tools import TaskBoundaryTool, NotifyUserTool
-from hcode.tools.todo.todo_write import TodoWriteTool
+from hcode.tools.terminal.bash_tools import BashTool, BashOutputTool, KillShellTool, LSTool, SearchOutputTool
 from hcode.tools.todo.todo_read import TodoReadTool
+from hcode.tools.todo.todo_write import TodoWriteTool
+from hcode.tools.web.web_tools import WebFetchTool, WebSearchTool, WebScrapeTool
 
 
 class ToolManager:
@@ -194,22 +194,7 @@ class ToolManager:
             return self.tool_registry.list_tools(category=cat_enum)
         return self.tool_registry.list_tools()
 
-    def get_tool_schemas_for_provider(self, provider: str) -> List[Dict[str, Any]]:
-        """
-        Get tool schemas for a specific AI provider.
 
-        Args:
-            provider: Provider name (anthropic or openai)
-
-        Returns:
-            List of tool schemas
-        """
-        if provider.lower() == "anthropic":
-            return self.tool_registry.get_anthropic_schemas()
-        elif provider.lower() == "openai":
-            return self.tool_registry.get_function_schemas()
-        else:
-            return []
 
     def get_tool_documentation(self) -> str:
         """
@@ -268,33 +253,6 @@ class ToolManager:
 
 
 
-    async def read_file(self, file_path: str, **kwargs) -> ToolResult:
-        """Convenience method for reading files"""
-        return await self.execute_tool("readtool", file_path=file_path, **kwargs)
-
-    async def write_file(self, file_path: str, content: str) -> ToolResult:
-        """Convenience method for writing files"""
-        return await self.execute_tool("writetool", file_path=file_path, content=content)
-
-    async def edit_file(
-        self, file_path: str, old_string: str, new_string: str, **kwargs
-    ) -> ToolResult:
-        """Convenience method for editing files"""
-        return await self.execute_tool(
-            "edittool", file_path=file_path, old_string=old_string, new_string=new_string, **kwargs
-        )
-
-    async def search_files(self, pattern: str, **kwargs) -> ToolResult:
-        """Convenience method for searching files"""
-        return await self.execute_tool("greptool", pattern=pattern, **kwargs)
-
-    async def find_files(self, pattern: str, **kwargs) -> ToolResult:
-        """Convenience method for finding files"""
-        return await self.execute_tool("globtool", pattern=pattern, **kwargs)
-
-    async def ask_user(self, questions: List[Dict[str, Any]]) -> ToolResult:
-        """Convenience method for asking user questions"""
-        return await self.execute_tool("askuserquestiontool", questions=questions)
 
 
 
@@ -308,210 +266,11 @@ class ToolManager:
         if skill_tool:
             skill_tool.agent_orchestrator = agent_orchestrator
 
-    async def web_fetch(self, url: str, prompt: str) -> ToolResult:
-        """Convenience method for fetching web content"""
-        return await self.execute_tool("webfetchtool", url=url, prompt=prompt)
-
-    async def web_search(self, query: str, **kwargs) -> ToolResult:
-        """Convenience method for web search"""
-        return await self.execute_tool("websearchtool", query=query, **kwargs)
 
     # =========================================================================
     # CHANGE PREVIEW METHODS (NEW)
     # =========================================================================
 
-    async def preview_edit(
-        self, file_path: str, old_string: str, new_string: str, replace_all: bool = False
-    ) -> ToolResult:
-        """Preview an edit without applying it"""
-        return await self.execute_tool(
-            "diffpreviewtool",
-            file_path=file_path,
-            old_string=old_string,
-            new_string=new_string,
-            replace_all=replace_all,
-        )
-
-    async def preview_write(self, file_path: str, new_content: str) -> ToolResult:
-        """Preview a file write without applying it"""
-        return await self.execute_tool(
-            "diffpreviewtool", file_path=file_path, new_content=new_content
-        )
-
-    async def apply_change(self, proposal_id: str, force: bool = False) -> ToolResult:
-        """Apply a previously previewed change"""
-        return await self.execute_tool("applychangetool", proposal_id=proposal_id, force=force)
-
-    async def reject_change(self, proposal_id: str, reason: str = None) -> ToolResult:
-        """Reject a previously previewed change"""
-        return await self.execute_tool("rejectchangetool", proposal_id=proposal_id, reason=reason)
-
-    def get_pending_proposals(self) -> Dict[str, Any]:
-        """Get all pending change proposals"""
-        if hasattr(self, "diff_preview_tool"):
-            return self.diff_preview_tool._pending_proposals
-        return {}
-
-    def set_preview_mode(self, enabled: bool = True):
-        """Enable or disable preview mode for edit/write operations"""
-        edit_tool = self.get_tool("edittool")
-        write_tool = self.get_tool("writetool")
-
-        if edit_tool:
-            edit_tool.preview_mode = enabled
-        if write_tool:
-            write_tool.preview_mode = enabled
 
 
-class ToolExecutionContext:
-    """
-    Context manager for tool execution with safety checks.
-    """
 
-    def __init__(
-        self,
-        tool_manager: ToolManager,
-        safety_enabled: bool = True,
-        require_confirmation: bool = False,
-        console=None,
-    ):
-        """
-        Initialize execution context.
-
-        Args:
-            tool_manager: Tool manager instance
-            safety_enabled: Enable safety checks
-            require_confirmation: Require user confirmation for write operations
-            console: Rich console for user interaction
-        """
-        self.tool_manager = tool_manager
-        self.safety_enabled = safety_enabled
-        self.require_confirmation = require_confirmation
-        self.console = console
-        self.execution_log: List[Dict[str, Any]] = []
-        self.pending_operations: List[Dict[str, Any]] = []
-
-    def add_pending_operation(self, tool_name: str, **kwargs):
-        """Add operation to pending queue for batch confirmation"""
-        self.pending_operations.append({"tool": tool_name, "params": kwargs})
-
-    async def confirm_and_execute_pending(self) -> List[ToolResult]:
-        """Show pending operations to user, get confirmation, and execute"""
-        if not self.pending_operations:
-            return []
-
-        # Display pending operations
-        if self.console:
-            from rich.panel import Panel
-            from rich.text import Text
-
-            ops_text = Text()
-            ops_text.append("📋 Pending Operations:\n\n", style="bold yellow")
-
-            for i, op in enumerate(self.pending_operations, 1):
-                tool = op["tool"]
-                params = op["params"]
-
-                ops_text.append(f"  {i}. ", style="bold")
-                ops_text.append(f"{tool}\n", style="bold cyan")
-
-                if tool.lower() == "writetool":
-                    file_path = params.get("file_path", "unknown")
-                    content_preview = params.get("content", "")[:100]
-                    ops_text.append(f"     File: {file_path}\n", style="dim")
-                    ops_text.append(f"     Content preview: {content_preview}...\n", style="dim")
-                elif tool.lower() == "edittool":
-                    file_path = params.get("file_path", "unknown")
-                    old_preview = params.get("old_string", "")[:50]
-                    new_preview = params.get("new_string", "")[:50]
-                    ops_text.append(f"     File: {file_path}\n", style="dim")
-                    ops_text.append(f"     Replace: {old_preview}...\n", style="red dim")
-                    ops_text.append(f"     With: {new_preview}...\n", style="green dim")
-                else:
-                    for k, v in params.items():
-                        preview = str(v)[:50]
-                        ops_text.append(f"     {k}: {preview}\n", style="dim")
-
-                ops_text.append("\n")
-
-            self.console.print(
-                Panel(ops_text, title="[bold]Confirm Operations[/bold]", border_style="yellow")
-            )
-
-            # Ask for confirmation (default is Yes - press Enter to accept)
-            self.console.print(
-                "[bold yellow]Execute these operations?[/bold yellow] [[green]Ok[/green]/n]: ",
-                end="",
-            )
-            try:
-                response = input().strip().lower()
-            except (EOFError, KeyboardInterrupt):
-                response = "n"
-
-            # Default to "yes" if user just presses Enter
-            if response == "":
-                response = "y"
-
-            if response not in ["y", "yes", "ok"]:
-                self.console.print("[bold red]❌ Operations cancelled by user[/bold red]")
-                self.pending_operations = []
-                return []
-
-        # Execute all pending operations
-        results = []
-        for op in self.pending_operations:
-            result = await self.execute(op["tool"], skip_confirmation=True, **op["params"])
-            results.append(result)
-
-        self.pending_operations = []
-        return results
-
-    async def execute(
-        self, tool_name: str, skip_confirmation: bool = False, **kwargs
-    ) -> ToolResult:
-        """Execute tool with logging and optional confirmation"""
-        import time
-
-        start_time = time.time()
-
-        # Safety checks and confirmation for write operations
-        if self.safety_enabled and self.require_confirmation and not skip_confirmation:
-            if tool_name.lower() in ["writetool", "edittool", "multiedittool"]:
-                # Add to pending operations instead of executing immediately
-                self.add_pending_operation(tool_name, **kwargs)
-                return ToolResult(
-                    success=True,
-                    output=f"Operation queued for confirmation: {tool_name}",
-                    metadata={"queued": True, "tool": tool_name},
-                )
-
-        # Execute tool
-        result = await self.tool_manager.execute_tool(tool_name, **kwargs)
-
-        # Log execution
-        self.execution_log.append(
-            {
-                "tool": tool_name,
-                "params": kwargs,
-                "success": result.success,
-                "duration": time.time() - start_time,
-                "error": result.error,
-            }
-        )
-
-        return result
-
-    def get_execution_log(self) -> List[Dict[str, Any]]:
-        """Get execution log"""
-        return self.execution_log.copy()
-
-    def get_summary(self) -> Dict[str, Any]:
-        """Get execution summary"""
-        return {
-            "total_executions": len(self.execution_log),
-            "successful": sum(1 for log in self.execution_log if log["success"]),
-            "failed": sum(1 for log in self.execution_log if not log["success"]),
-            "total_duration": sum(log["duration"] for log in self.execution_log),
-            "tools_used": list(set(log["tool"] for log in self.execution_log)),
-            "pending_operations": len(self.pending_operations),
-        }

@@ -44,7 +44,6 @@ from hcode.ui.animations import (
     CYBER_SPINNERS,
     # Classes
     AnimatedMessage,
-    CyberProgress,
     StreamingText,
     GlitchEffect,
     ThinkingAnimation,
@@ -226,8 +225,6 @@ from hcode.ui.chat_ui import (
     # Classes
     ChatInterface,
     ThinkingContext,
-    InteractivePrompt,
-    ChatSession,
     # Functions
     create_chat,
     display_message,
@@ -346,7 +343,6 @@ __all__ = [
     # Animations
     "CYBER_SPINNERS",
     "AnimatedMessage",
-    "CyberProgress",
     "StreamingText",
     "GlitchEffect",
     "ThinkingAnimation",
@@ -411,8 +407,7 @@ __all__ = [
     # Chat UI
     "ChatInterface",
     "ThinkingContext",
-    "InteractivePrompt",
-    "ChatSession",
+    "ThinkingContext",
     "create_chat",
     "display_message",
     "display_thinking",
@@ -447,23 +442,8 @@ __all__ = [
 # ═══════════════════════════════════════════════════════════════════════
 
 from .compat import (
-    # Colors
-    Colors,
-    # Borders
-    Lines,
-    get_default_box,
-    # Status
-    get_status_icon,
-    # Components
-    StyledPanel,
-    TodoItem,
-    TodoDisplay,
-    Header,
-    Footer,
-    StatusLine,
-    Prompt,
-    Separator,
-    progress_bar,
+
+
     # Animations (compatible wrappers)
     spinner,
     thinking,
@@ -472,19 +452,8 @@ from .compat import (
 # Update __all__ with compat exports
 __all__.extend(
     [
-        "Colors",
-        "Lines",
-        "get_default_box",
-        "get_status_icon",
-        "StyledPanel",
-        "TodoItem",
-        "TodoDisplay",
-        "Header",
-        "Footer",
-        "StatusLine",
-        "Prompt",
-        "Separator",
-        "progress_bar",
+
+
         "spinner",
         "thinking",
     ]

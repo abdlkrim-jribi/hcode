@@ -4,26 +4,10 @@ Support for editing and executing notebook cells.
 """
 
 import json
-from enum import Enum
 from pathlib import Path
 from typing import List, Optional
 
 from hcode.tools.base.base_tool import BaseTool, ToolResult, ToolParameter, ToolCategory
-
-
-class CellType(Enum):
-    """Jupyter cell types"""
-
-    CODE = "code"
-    MARKDOWN = "markdown"
-
-
-class EditMode(Enum):
-    """Edit modes for notebook cells"""
-
-    REPLACE = "replace"
-    INSERT = "insert"
-    DELETE = "delete"
 
 
 class NotebookEditTool(BaseTool):
@@ -113,7 +97,7 @@ class NotebookEditTool(BaseTool):
 
             elif edit_mode == "delete":
                 # Delete cell
-                deleted_cell = notebook["cells"].pop(cell_idx)
+                notebook["cells"].pop(cell_idx)
                 operation = "deleted"
 
             else:

@@ -217,108 +217,9 @@ class ToolExecutor:
 
         return await self.execute(command, **exec_params)
 
-    async def run_tests(
-        self, test_framework: str = "auto", test_path: Optional[str] = None
-    ) -> ExecutionResult:
-        """
-        Run tests with automatic framework detection.
 
-        Args:
-            test_framework: Test framework (auto, pytest, jest, etc.)
-            test_path: Specific test path
 
-        Returns:
-            ExecutionResult
-        """
-        if test_framework == "auto":
-            test_framework = self._detect_test_framework()
 
-        args = []
-        if test_path:
-            args.append(test_path)
-
-        if test_framework == "pytest":
-            args.extend(["-v", "--tb=short"])
-        elif test_framework == "jest":
-            args.extend(["--verbose"])
-
-        return await self.run_tool(test_framework, args)
-
-    async def run_linter(
-        self, linter: str = "auto", files: Optional[List[str]] = None
-    ) -> ExecutionResult:
-        """
-        Run linter with automatic detection.
-
-        Args:
-            linter: Linter name (auto, pylint, eslint, etc.)
-            files: Specific files to lint
-
-        Returns:
-            ExecutionResult
-        """
-        if linter == "auto":
-            linter = self._detect_linter()
-
-        args = files or ["."]
-
-        return await self.run_tool(linter, args)
-
-    async def run_formatter(
-        self, formatter: str = "auto", files: Optional[List[str]] = None, check_only: bool = False
-    ) -> ExecutionResult:
-        """
-        Run code formatter.
-
-        Args:
-            formatter: Formatter name (auto, black, prettier, etc.)
-            files: Specific files to format
-            check_only: Only check formatting without modifying
-
-        Returns:
-            ExecutionResult
-        """
-        if formatter == "auto":
-            formatter = self._detect_formatter()
-
-        args = []
-
-        if formatter == "black":
-            if check_only:
-                args.append("--check")
-            args.extend(files or ["."])
-        elif formatter == "prettier":
-            if check_only:
-                args.append("--check")
-            else:
-                args.append("--write")
-            args.extend(files or ["**/*"])
-
-        return await self.run_tool(formatter, args)
-
-    async def run_build(self, build_tool: str = "auto") -> ExecutionResult:
-        """
-        Run build process.
-
-        Args:
-            build_tool: Build tool (auto, make, npm, cargo, etc.)
-
-        Returns:
-            ExecutionResult
-        """
-        if build_tool == "auto":
-            build_tool = self._detect_build_tool()
-
-        if build_tool == "npm":
-            args = ["run", "build"]
-        elif build_tool == "cargo":
-            args = ["build"]
-        elif build_tool == "make":
-            args = []
-        else:
-            args = ["build"]
-
-        return await self.run_tool(build_tool, args)
 
     def _detect_test_framework(self) -> str:
         """Detect test framework from project"""
@@ -395,50 +296,6 @@ class ToolExecutor:
 
         return "make"
 
-    def interpret_output(self, result: ExecutionResult) -> Dict:
-        """
-        Interpret command output to extract useful information.
-
-        Args:
-            result: Execution result
-
-        Returns:
-            Interpreted information
-        """
-        interpretation = {"success": result.success, "errors": [], "warnings": [], "summary": ""}
-
-        # Parse common error patterns
-        error_patterns = [
-            r"Error:?\s+(.+)",
-            r"ERROR:?\s+(.+)",
-            r"FAILED\s+(.+)",
-            r"Exception:?\s+(.+)",
-        ]
-
-        warning_patterns = [
-            r"Warning:?\s+(.+)",
-            r"WARN:?\s+(.+)",
-        ]
-
-        output = result.stdout + "\n" + result.stderr
-
-        for pattern in error_patterns:
-            matches = re.findall(pattern, output, re.IGNORECASE)
-            interpretation["errors"].extend(matches)
-
-        for pattern in warning_patterns:
-            matches = re.findall(pattern, output, re.IGNORECASE)
-            interpretation["warnings"].extend(matches)
-
-        # Create summary
-        if result.success:
-            interpretation["summary"] = f"Command succeeded in {result.duration:.2f}s"
-        elif result.timed_out:
-            interpretation["summary"] = f"Command timed out after {result.duration:.2f}s"
-        else:
-            interpretation["summary"] = f"Command failed with exit code {result.exit_code}"
-
-        return interpretation
 
 
 # Import os at module level

@@ -19,12 +19,13 @@ from datetime import datetime
 from enum import Enum
 from typing import Optional, List, Dict, Any, Callable
 
-from hcode.ui.theme import get_palette
 from rich.box import ROUNDED
 from rich.console import Console, Group, RenderableType
 from rich.live import Live
 from rich.panel import Panel
 from rich.text import Text
+
+from hcode.ui.theme import get_palette
 
 # ═══════════════════════════════════════════════════════════════════════
 # CLAUDE CODE STYLE CONSTANTS
@@ -38,7 +39,6 @@ CHECKBOX_IN_PROGRESS = "☐"  # In-progress shown with sparkle header instead
 # Icons
 ICON_SPARKLE = "✶"
 ICON_BRANCH = "⎿"
-ICON_BULLET = "●"
 
 
 class TodoDisplayStatus(Enum):
@@ -138,7 +138,7 @@ class TodoDisplayRenderer:
 
         # Count by status
         completed = sum(1 for t in todos if t.status == TodoDisplayStatus.COMPLETED)
-        in_progress = sum(1 for t in todos if t.status == TodoDisplayStatus.IN_PROGRESS)
+        sum(1 for t in todos if t.status == TodoDisplayStatus.IN_PROGRESS)
         total = len(todos)
 
         # Progress indicator
@@ -744,30 +744,6 @@ class ClaudeCodeTodoDisplay:
         self.console.print(rendered)
 
 
-def render_claude_code_todos(
-    todos: List[Dict[str, Any]],
-    console: Optional[Console] = None,
-    elapsed_seconds: float = 0,
-    token_count: int = 0,
-    show_shortcuts: bool = True,
-) -> Text:
-    """
-    Render todos in Claude Code style.
-
-    Convenience function for rendering without creating a display instance.
-
-    Args:
-        todos: List of todo dictionaries
-        console: Optional console instance
-        elapsed_seconds: Time elapsed
-        token_count: Tokens used
-        show_shortcuts: Show keyboard hints
-
-    Returns:
-        Rich Text object
-    """
-    display = ClaudeCodeTodoDisplay(console)
-    return display.render(todos, elapsed_seconds, token_count, show_shortcuts)
 
 
 def print_claude_code_todos(
@@ -816,9 +792,6 @@ class PersistentStatusBar:
     RESTORE_CURSOR = "\033[u"
     MOVE_TO_BOTTOM = "\033[{row}H"  # Move to specific row
     CLEAR_LINE = "\033[2K"
-    SCROLL_UP = "\033[S"
-    MOVE_UP = "\033[{n}A"
-    MOVE_DOWN = "\033[{n}B"
     HIDE_CURSOR = "\033[?25l"
     SHOW_CURSOR = "\033[?25h"
 
@@ -965,9 +938,6 @@ class PersistentStatusBar:
         with self._lock:
             self.token_count = token_count
 
-    def reset_timer(self):
-        """Reset the elapsed time."""
-        self.start_time = datetime.now()
 
 
 class LiveTodoBar:
@@ -991,7 +961,7 @@ class LiveTodoBar:
         self.start()
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, _exc_type, _exc_val, _exc_tb):
         """Context manager exit."""
         self.stop()
 

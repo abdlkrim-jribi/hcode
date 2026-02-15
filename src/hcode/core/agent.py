@@ -9,6 +9,7 @@ from typing import Dict, Any, List
 
 from rich.markup import escape
 
+from .adapters import AgentAdapter  # New SOLID PEV adapter
 from .context import ContextManager
 from .observability import (
     get_analytics,
@@ -20,7 +21,6 @@ from .optimization import (
 )
 from .safety import SafetyGuard
 from ..agents import HcodeAgentOrchestrator  # Legacy orchestrator for sub-agents
-from .adapters import AgentAdapter  # New SOLID PEV adapter
 from ..providers import (
     ProviderSelector,
     ProviderPreferences,
@@ -38,7 +38,7 @@ from ..ui import (
 
 # Import memory system
 try:
-    from hcode.memory import MemoryManager, get_memory_manager
+    from hcode.memory import get_memory_manager
 
     MEMORY_AVAILABLE = True
 except ImportError:
@@ -345,7 +345,6 @@ class HcodeAgent:
         if anthropic_key and openai_key:
             try:
                 from ..providers.resilient_provider import (
-                    ResilientProvider,
                     create_resilient_provider,
                 )
 
@@ -431,7 +430,7 @@ class HcodeAgent:
             Task result
         """
         # Start safety transaction
-        tx_id = self.safety_guard.start_transaction(description=task)
+        self.safety_guard.start_transaction(description=task)
 
         # Track execution with analytics
         import time
@@ -495,7 +494,6 @@ class HcodeAgent:
                     else:
                         self.safety_guard.rollback_transaction()
 
-                    hcode_display.end_task()
                     return pev_result.get("output", "Task completed")
 
             # Start logging session
@@ -566,7 +564,7 @@ class HcodeAgent:
 
             # Track completion with analytics
             self._loop_controller.stop(StopReason.TASK_COMPLETE)
-            task_duration = time.time() - task_start_time
+            time.time() - task_start_time
             self.analytics.end_conversation(
                 self.context_manager.session_id,
                 success=True,
@@ -648,10 +646,9 @@ class HcodeAgent:
                 )
                 raise
 
-
-            
-            # End Hcode Task
-            hcode_display.end_task()
+        finally:
+            if 'hcode_display' in locals():
+                hcode_display.end_task()
 
     def _build_system_prompt(self, query: Optional[str] = None) -> str:
         """Build system prompt with tool documentation and memory context """
@@ -814,9 +811,6 @@ When the user says things like "yes", "proceed", "continue", "do it", "ok", or s
         # Helper variables
         all_response_parts = []
         accumulated_results = []
-        partial_file_content = {}
-        failed_commands = {}
-        used_read_tool_this_session = False
         last_successful_response = ""
 
         # Main execution loop
@@ -1037,7 +1031,7 @@ Then repeat your tool call.""",
                     self._debug_print(
                         f"[bold {self._palette.success}]{self._icons.SUCCESS} Task completed: {completion_state.reason}[/bold {self._palette.success}]"
                     )
-                    summary = self._generate_task_summary(self._loop_controller.state.actions, response_text)
+                    summary = self._generate_task_summary(self._loop_controller.state.actions)
                     if summary and self._is_debug_mode():
                         self.console.print(summary)
                     break
@@ -1097,7 +1091,7 @@ Then repeat your tool call.""",
                 f"[bold yellow][!] Reached maximum iterations ({self._loop_controller.state.max_iterations}). Stopping.[/bold yellow]"
             )
             # Use state.actions instead of missing local variable
-            summary = self._generate_task_summary(self._loop_controller.state.actions, response_text)
+            summary = self._generate_task_summary(self._loop_controller.state.actions)
             if summary and self._is_debug_mode():
                 self.console.print(summary)
 
@@ -1107,17 +1101,13 @@ Then repeat your tool call.""",
             return "Task completed but no output was generated. Please try again."
         return result
 
-        """
-        Automatically update todo list when a tool action completes successfully.
-        Delegates to TodoAutoUpdater.
-        """
-        return self._todo_auto_updater.auto_update(completed_action)
+
 
 
 
 
     def _generate_task_summary(
-        self, completed_actions: List[Dict[str, Any]], final_response: str
+            self, completed_actions: List[Dict[str, Any]]
     ) -> str:
         """
         Generate a clean summary of the completed task.

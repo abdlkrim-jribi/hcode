@@ -21,7 +21,7 @@ from typing import List, Dict, Any, Optional
 
 from rich.console import Console, ConsoleOptions, RenderResult
 from rich.control import Control
-from rich.segment import ControlType, Segment
+from rich.segment import ControlType
 
 # Global write lock to coordinate streaming output and todo bar updates
 _stdout_write_lock = threading.RLock()
@@ -42,7 +42,7 @@ class RawControl:
     """Wrapper for raw ANSI control codes."""
     def __init__(self, code: str):
         self.code = code
-        self.segment = Segment(code)
+        self.code = code
 
     def __rich_console__(self, console: Console, options: ConsoleOptions) -> RenderResult:
         yield Segment(self.code, is_control=True)
@@ -100,8 +100,6 @@ class LiveTodoBar:
 
         # Track last render state to avoid unnecessary updates
         self._last_render_hash: Optional[int] = None
-        self._last_render_time: float = 0
-        self._min_update_interval: float = 1.0  # Minimum 1 second between updates
 
         # Pause rendering during streaming to prevent ANSI code interference
         self._paused: bool = False
@@ -118,7 +116,6 @@ class LiveTodoBar:
         if event.todos is not None:
             with self._lock:
                 # Check if todos actually changed
-                todos_changed = str(self.todos) != str(event.todos)
                 self.todos = list(event.todos)
 
             # DISABLED: Printing on each todo update causes duplication on Windows
@@ -177,30 +174,6 @@ class LiveTodoBar:
 
         # NOTE: Don't clear status area here - it would erase the final status we just printed
 
-    def _print_simple_status(self) -> None:
-        """Print todos as simple output (no ANSI positioning)."""
-        with self._lock:
-            if not self.todos:
-                return
-
-            # Calculate elapsed time
-            elapsed = 0.0
-            if self.start_time:
-                elapsed = (datetime.now() - self.start_time).total_seconds()
-
-            try:
-                # Render todos
-                rendered = self.todo_display.render(
-                    self.todos,
-                    elapsed_seconds=elapsed,
-                    token_count=self.token_count,
-                    show_shortcuts=True,
-                )
-
-                # Simple print without complex positioning
-                self.console.print(rendered)
-            except Exception:
-                pass  # Silently fail if rendering has issues
 
     def print_final_status(self) -> None:
         """Print the final todo status (called when task completes)."""
@@ -230,7 +203,7 @@ class LiveTodoBar:
                 self.console.print("\n" + "─" * 70)
                 self.console.print(rendered)
                 self.console.print("─" * 70 + "\n")
-            except Exception as e:
+            except Exception:
                 # Fallback: simple print if rendering fails
                 self.console.print(f"\n[dim]Task completed with {len(self.todos)} todos[/dim]\n")
 
@@ -300,7 +273,7 @@ class LiveTodoBar:
                 return
 
             self._last_render_hash = state_hash
-            self._last_render_time = time.time()
+            self._last_render_hash = state_hash
 
             # Render to string
             from io import StringIO
@@ -387,9 +360,6 @@ class LiveTodoBar:
         with self._lock:
             self.token_count = token_count
 
-    def reset_timer(self) -> None:
-        """Reset the elapsed time to zero."""
-        self.start_time = datetime.now()
 
     @property
     def is_active(self) -> bool:
@@ -456,7 +426,7 @@ class StreamingTodoIntegration:
         self.todo_bar.start()
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, _exc_type, _exc_val, _exc_tb):
         """Stop the todo bar when exiting context."""
         self.todo_bar.stop()
         return False

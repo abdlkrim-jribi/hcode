@@ -55,7 +55,7 @@ class BatchContextWriter:
         if self._callback:
             try:
                 self._callback(messages)
-            except Exception as e:
+            except Exception:
                 self._buffer = messages + self._buffer
 
     def flush(self):

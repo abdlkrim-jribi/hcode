@@ -21,7 +21,6 @@ import re
 from pathlib import Path
 from typing import List, Any, Dict, Tuple, Optional
 
-from hcode.providers.base import Message
 from .base_handler import BasePhaseHandler
 from ..protocols import AgentContext, PhaseResult
 
@@ -879,7 +878,7 @@ Status: Reads: {read_count}, Globs: {glob_count}, Greps: {grep_count}"""
             artifacts_created = []
 
             # Build prompt
-            unified_prompt = self._build_unified_planning_prompt(context, "")
+            unified_prompt = self._build_unified_planning_prompt(context)
 
             response = ""
             tool_results: List[Dict[str, Any]] = []
@@ -1074,9 +1073,7 @@ Working Directory: {context.working_dir}
 Use format: {{"tool": "ToolName", "arguments": {{...}}}}
 """
 
-
-
-    def _build_unified_planning_prompt(self, context: AgentContext, exploration_context: str) -> str:
+    def _build_unified_planning_prompt(self, context: AgentContext) -> str:
         """
         Build a simplified user prompt for the planning phase.
         

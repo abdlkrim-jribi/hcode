@@ -17,13 +17,14 @@ from datetime import datetime
 from enum import Enum
 from typing import Optional, List, Dict, Any, Callable, AsyncGenerator, Tuple
 
-from .feedback import (
-    ThinkingExecutionFeedbackLoop,
-    ExecutionResult,
-    ExecutionStatus,
-    FeedbackEntry,
-    ReasoningRevision,
+from hcode.config.reasoning_prompts import (
+    ReasoningPromptBuilder,
+    ReasoningDepth,
+    get_reasoning_system_prompt,
+    detect_task_type,
+    determine_reasoning_depth,
 )
+from hcode.config.thinking import ThinkingConfig
 from hcode.core.reasoning import (
     StructuredReasoning,
     ReasoningParser,
@@ -37,14 +38,13 @@ from hcode.core.reasoning import (
 )
 from hcode.core.reasoning import ThinkingBlock, ThinkingSession, ThinkingPhase
 from hcode.core.todo import TodoManager
-from hcode.config.reasoning_prompts import (
-    ReasoningPromptBuilder,
-    ReasoningDepth,
-    get_reasoning_system_prompt,
-    detect_task_type,
-    determine_reasoning_depth,
+from .feedback import (
+    ThinkingExecutionFeedbackLoop,
+    ExecutionResult,
+    ExecutionStatus,
+    FeedbackEntry,
+    ReasoningRevision,
 )
-from hcode.config.thinking import ThinkingConfig
 
 
 class EnhancedThinkingMode(Enum):
@@ -592,7 +592,7 @@ Respond with your {phase.value} analysis:"""
 
     def _update_todos_from_reasoning(self, reasoning: StructuredReasoning) -> List[Dict[str, Any]]:
         """Update todos based on reasoning output"""
-        new_todos = self.todo_integrator.extract_todos_from_reasoning(reasoning)
+        self.todo_integrator.extract_todos_from_reasoning(reasoning)
 
         # Get current todos if manager exists
         current_todos = []

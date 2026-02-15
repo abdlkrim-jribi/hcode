@@ -260,7 +260,7 @@ class ThinkingBlockProcessor:
         elif len(sections) == 0:
              sections.append("_Processing..._")
 
-        primary_phase = self._determine_primary_phase(block)
+        self._determine_primary_phase(block)
         return "\n\n".join(sections)
 
     def _update_task_mode(self, hcode_display, primary_phase: str) -> None:

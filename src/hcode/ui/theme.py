@@ -45,7 +45,7 @@ class ColorPalette:
     bg_medium: str = "#1A1A2E"  # Dark blue-black
     bg_light: str = "#16213E"  # Navy accent
     bg_elevated: str = "#1F1F3D"  # Elevated surfaces
-    bg_hover: str = "#2A2A4A"  # Hover states
+
 
     # ═══════════════════════════════════════════════════════════════
     # SEMANTIC COLORS
@@ -110,8 +110,6 @@ class ColorPalette:
 
     border_default: str = "#333344"
     border_focus: str = "#00FFFF"
-    border_error: str = "#FF0055"
-    border_success: str = "#00FF88"
     border_dim: str = "#666666"  # Visible dim border
 
 
@@ -266,7 +264,6 @@ THEMES: Dict[ThemeMode, ColorPalette] = {
         bg_medium="#252526",     # Slightly Lighter Charcoal
         bg_light="#2D2D30",      # Lightest Charcoal
         bg_elevated="#333333",   # Elevated Surface
-        bg_hover="#3E3E42",      # Hover State
         text_primary="#FFFFFF",  # Pure White
         text_secondary="#B0BEC5", # Light Blue-Grey
         text_muted="#708090",    # Muted Slate
@@ -296,7 +293,6 @@ THEMES: Dict[ThemeMode, ColorPalette] = {
         diff_removed_bg="#2E0A1A", # Dark Red BG
         border_default="#708090", # Slate Border
         border_focus="#00E5FF",   # Cyan Focus
-        border_success="#39FF14", # Green Success
         text_dim="#606060",       # Dim Grey
         border_dim="#404040",     # Dim Border
         # Special HCode Palette extras
@@ -320,23 +316,6 @@ class ColorUtils:
         """Convert RGB to hex color."""
         return f"#{r:02x}{g:02x}{b:02x}"
 
-    @staticmethod
-    def lighten(hex_color: str, factor: float = 0.2) -> str:
-        """Lighten a color by factor (0-1)."""
-        r, g, b = ColorUtils.hex_to_rgb(hex_color)
-        r = int(min(255, r + (255 - r) * factor))
-        g = int(min(255, g + (255 - g) * factor))
-        b = int(min(255, b + (255 - b) * factor))
-        return ColorUtils.rgb_to_hex(r, g, b)
-
-    @staticmethod
-    def darken(hex_color: str, factor: float = 0.2) -> str:
-        """Darken a color by factor (0-1)."""
-        r, g, b = ColorUtils.hex_to_rgb(hex_color)
-        r = int(r * (1 - factor))
-        g = int(g * (1 - factor))
-        b = int(b * (1 - factor))
-        return ColorUtils.rgb_to_hex(r, g, b)
 
     @staticmethod
     def blend(color1: str, color2: str, factor: float = 0.5) -> str:
@@ -485,34 +464,8 @@ class ThemeEngine:
         self.palette = THEMES[mode]
         self._console = None  # Reset console with new theme
 
-    def get_gradient_colors(self, steps: int = 10) -> List[str]:
-        """Get gradient colors from current palette."""
-        return ColorUtils.create_gradient(
-            self.palette.gradient_start, self.palette.gradient_end, steps
-        )
 
-    def get_rainbow_gradient(self, steps: int = 20) -> List[str]:
-        """Create a rainbow gradient for special effects."""
-        colors = [
-            "#FF0000",  # Red
-            "#FF7F00",  # Orange
-            "#FFFF00",  # Yellow
-            "#00FF00",  # Green
-            "#00FFFF",  # Cyan
-            "#0000FF",  # Blue
-            "#8B00FF",  # Violet
-            "#FF00FF",  # Magenta
-        ]
 
-        result = []
-        segment_size = steps // len(colors)
-
-        for i in range(len(colors)):
-            next_color = colors[(i + 1) % len(colors)]
-            segment = ColorUtils.create_gradient(colors[i], next_color, segment_size)
-            result.extend(segment)
-
-        return result[:steps]
 
 
 # ═══════════════════════════════════════════════════════════════════════

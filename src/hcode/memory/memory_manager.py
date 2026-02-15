@@ -85,7 +85,7 @@ class MemoryManager:
             extract_memories: Auto-extract facts to semantic memory
         """
         # Add to session memory
-        message = self.session_memory.add_message(
+        self.session_memory.add_message(
             role=role,
             content=content,
             is_anchor=is_anchor,
@@ -480,7 +480,7 @@ class MemoryManager:
         """Context manager entry."""
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc_type, _exc_val, _exc_tb):
         """Context manager exit - save session."""
         self.session_memory.save_session()
 

@@ -195,23 +195,6 @@ class CyberSyntax:
             expand=True,
         )
 
-    def highlight_inline(
-        self,
-        code: str,
-        language: str = "python",
-    ) -> Syntax:
-        """Highlight code without panel wrapper."""
-        palette = get_palette()
-
-        return Syntax(
-            code,
-            language,
-            theme=self.theme,
-            line_numbers=self.line_numbers,
-            word_wrap=self.word_wrap,
-            tab_size=self.tab_size,
-            background_color=self.background_color or palette.bg_dark,
-        )
 
     def inline_code(self, code: str) -> Text:
         """Format inline code snippet."""
@@ -237,27 +220,9 @@ class DiffHighlighter:
         palette = get_palette()
         self.added_style = f"bold {palette.diff_added} on {palette.diff_added_bg}"
         self.removed_style = f"bold {palette.diff_removed} on {palette.diff_removed_bg}"
-        self.changed_style = f"bold {palette.diff_changed} on {palette.diff_changed_bg}"
         self.context_style = palette.text_muted
         self.header_style = f"bold {palette.secondary}"
 
-    def highlight_diff(self, diff: str) -> Text:
-        """Highlight a diff string."""
-        result = Text()
-
-        for line in diff.split("\n"):
-            if line.startswith("+") and not line.startswith("+++"):
-                result.append(f"  {line}\n", style=self.added_style)
-            elif line.startswith("-") and not line.startswith("---"):
-                result.append(f"  {line}\n", style=self.removed_style)
-            elif line.startswith("@@"):
-                result.append(f"  {line}\n", style=self.header_style)
-            elif line.startswith("+++") or line.startswith("---"):
-                result.append(f"  {line}\n", style=self.header_style)
-            else:
-                result.append(f"  {line}\n", style=self.context_style)
-
-        return result
 
     def highlight_inline_diff(
         self,
@@ -295,53 +260,6 @@ class CodeBlock:
         highlighter = CyberSyntax(theme=theme, line_numbers=line_numbers)
         return highlighter.highlight(code, language, title=title)
 
-    @staticmethod
-    def create_simple(
-        code: str,
-        language: str = "python",
-    ) -> Syntax:
-        """Create a simple syntax-highlighted code block."""
-        palette = get_palette()
-
-        return Syntax(
-            code,
-            language,
-            theme="dracula",
-            line_numbers=False,
-            word_wrap=True,
-            background_color=palette.bg_dark,
-        )
-
-    @staticmethod
-    def create_snippet(
-        code: str,
-        language: str = "python",
-        max_lines: int = 10,
-    ) -> Panel:
-        """Create a truncated code snippet."""
-        palette = get_palette()
-        lines = code.split("\n")
-
-        if len(lines) > max_lines:
-            truncated = "\n".join(lines[:max_lines])
-            truncated += f"\n... ({len(lines) - max_lines} more lines)"
-        else:
-            truncated = code
-
-        syntax = Syntax(
-            truncated,
-            language,
-            theme="dracula",
-            line_numbers=True,
-            word_wrap=True,
-            background_color=palette.bg_dark,
-        )
-
-        return Panel(
-            syntax,
-            border_style=palette.border_default,
-            padding=(0, 1),
-        )
 
 
 # ═══════════════════════════════════════════════════════════════════════

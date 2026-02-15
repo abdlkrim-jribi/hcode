@@ -237,7 +237,7 @@ class FileMemory:
         for line in lines:
             # Check if this is the target section
             if line.strip().startswith("#"):
-                heading_match = line.lstrip("#")
+                line.lstrip("#")
                 level = len(line) - len(line.lstrip("#"))
 
                 if section.lower() in line.lower():

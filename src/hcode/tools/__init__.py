@@ -24,7 +24,7 @@ from hcode.tools.files.diff_tools import (
     DiffLine,
     DiffHunk,
     SafetyWarning,
-    ChangeSet,
+
 )
 from hcode.tools.core.executor import ToolExecutor, ExecutionResult
 from hcode.tools.files.file_tools import ReadTool, WriteTool, EditTool, MultiEditTool, GlobTool, GrepTool
@@ -40,20 +40,10 @@ from hcode.tools.core.tool_callbacks import (
     ToolEvent,
     ToolEventType,
     ToolCallback,
-    CallbackContext,
     get_callback_manager,
 )
-from hcode.tools.core.tool_manager import ToolManager, ToolExecutionContext
-from hcode.tools.core.tool_selector import (
-    ToolSelectionEngine,
-    ToolSuccessTracker,
-    ToolSelectionRules,
-    ToolSelection,
-    ToolContext,
-    TaskCategory,
-    get_tool_selector,
-    select_tools_for_task,
-)
+from hcode.tools.core.tool_manager import ToolManager
+
 from hcode.tools.web.web_tools import WebFetchTool, WebSearchTool, WebScrapeTool
 from hcode.tools.core.validator import ToolCallValidator, ValidationResult
 
@@ -107,7 +97,8 @@ __all__ = [
     "HookSystem",
     # Manager
     "ToolManager",
-    "ToolExecutionContext",
+    # Manager
+    "ToolManager",
     # Diff/Preview Tools
     "DiffPreviewTool",
     "ApplyChangeTool",
@@ -118,21 +109,12 @@ __all__ = [
     "DiffLine",
     "DiffHunk",
     "SafetyWarning",
-    "ChangeSet",
-    # Tool Selection
-    "ToolSelectionEngine",
-    "ToolSuccessTracker",
-    "ToolSelectionRules",
-    "ToolSelection",
-    "ToolContext",
-    "TaskCategory",
-    "get_tool_selector",
-    "select_tools_for_task",
+
+
     # Tool Callbacks (for real-time UI updates)
     "ToolCallbackManager",
     "ToolEvent",
     "ToolEventType",
     "ToolCallback",
-    "CallbackContext",
     "get_callback_manager",
 ]

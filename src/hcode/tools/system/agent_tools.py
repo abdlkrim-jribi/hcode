@@ -3,7 +3,7 @@ Agent-related tools for Hcode.
 Includes Task (agent launcher), ExitPlanMode, and TodoRead tools.
 """
 
-from typing import List, Dict
+from typing import List
 
 from hcode.tools.base.base_tool import BaseTool, ToolResult, ToolParameter, ToolCategory
 

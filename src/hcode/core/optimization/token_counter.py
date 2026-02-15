@@ -1,14 +1,7 @@
-import asyncio
 import hashlib
-import json
 import threading
-import time
 from collections import OrderedDict
-from dataclasses import dataclass, field
-from datetime import datetime
-from enum import Enum
-from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional
 
 
 # =============================================================================
@@ -49,7 +42,7 @@ class CachedTokenCounter:
             pass
 
     def _hash_text(self, text: str) -> str:
-        prefix = text[:100] if len(text) > 100 else text
+        text[:100] if len(text) > 100 else text
         return f"{len(text)}:{hashlib.md5(text.encode()).hexdigest()[:16]}"
 
     def count(self, text: str) -> int:

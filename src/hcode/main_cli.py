@@ -194,12 +194,6 @@ def cli(ctx, version):
 )
 @click.option("-m", "--model", help="Specific model name")
 @click.option(
-    "--model-size",
-    "--size",
-    type=click.Choice(["small", "mid", "big"]),
-    help="Model size (small/mid/big)",
-)
-@click.option(
     "-c",
     "--complexity",
     type=click.Choice(["simple", "moderate", "complex", "s", "m", "c"]),
@@ -212,7 +206,7 @@ def cli(ctx, version):
 @click.option("--agents/--no-agents", default=False, help="Use specialized sub-agents")
 @click.option("--autonomous/--no-autonomous", default=False, help="Run in autonomous mode (skip confirmation)")
 @click.option("-v", "--verbose", is_flag=True, help="Verbose output")
-def run_task(task, provider, model, model_size, complexity, cost, session, stream, agents, autonomous, verbose):
+def run_task(task, provider, model, complexity, cost, session, stream, agents, autonomous, verbose):
     """
     🚀 Execute a coding task with AI assistance
 
@@ -476,11 +470,9 @@ def chat_mode(provider, session, show_todos, debug, autonomous):
     hcode_prompt.create_session()
 
     message_count = 0
-    todo_bar_just_shown = False  # Track to avoid duplicate displays
-    task_start_time = None  # Track when task started for elapsed time
 
     # Create Claude Code style todo display
-    claude_todo_display = ClaudeCodeTodoDisplay(console=console)
+    ClaudeCodeTodoDisplay(console=console)
 
     # Create LIVE todo bar for REAL-TIME updates via callback system
     # This bar receives updates automatically when TodoWrite is called during execution
@@ -490,7 +482,7 @@ def chat_mode(provider, session, show_todos, debug, autonomous):
     live_todo_bar.start()
 
     # Legacy persistent bar (kept for fallback)
-    persistent_bar = PersistentStatusBar(console=console, height=6)
+    PersistentStatusBar(console=console, height=6)
 
     # Function to display todo status bar - Claude Code style at bottom
     def display_todo_bar(
@@ -544,7 +536,6 @@ def chat_mode(provider, session, show_todos, debug, autonomous):
         try:
             # LiveTodoBar now handles persistent display - no need to show before prompt
             # Just reset the flag
-            todo_bar_just_shown = False
 
             # Smart prompt with autocomplete (no extra spacing - todo bar already adds separator)
             user_input = hcode_prompt.prompt(message_count=message_count)
@@ -1065,9 +1056,6 @@ def chat_mode(provider, session, show_todos, debug, autonomous):
 
             # Import Hcode display for Claude Code style output
             from hcode.ui.hcode_display import (
-                HcodeDisplay,
-                TaskMode,
-                FileAction,
                 get_hcode_display,
             )
             
@@ -1167,7 +1155,6 @@ def chat_mode(provider, session, show_todos, debug, autonomous):
             # Update LiveTodoBar with latest todos (it will display persistently)
             if reasoning_runner.todos:
                 live_todo_bar.update_todos(reasoning_runner.todos)
-                todo_bar_just_shown = True  # Mark as shown to avoid duplicates
 
             message_count += 1
 
@@ -1209,7 +1196,6 @@ def chat_mode(provider, session, show_todos, debug, autonomous):
                 # Update LiveTodoBar after interrupt (it shows persistently)
                 if reasoning_runner.todos:
                     live_todo_bar.update_todos(reasoning_runner.todos)
-                    todo_bar_just_shown = True  # Prevent duplicate
             except Exception:
                 pass
             continue
@@ -1859,7 +1845,7 @@ def debug_issue(error_description, provider):
 
     console.print("\n[bold cyan]Analysis:[/bold cyan]\n")
 
-    result = asyncio.run(
+    asyncio.run(
         agent.execute_task(
             f"Debug this issue: {error_description}\n\n"
             "Please:\n"

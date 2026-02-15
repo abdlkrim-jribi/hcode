@@ -4,32 +4,13 @@ Includes AskUserQuestion, TodoWrite for user interaction.
 """
 
 from typing import List, Optional, Dict, Any
-from dataclasses import dataclass
+
 from rich.console import Console
-from rich.prompt import Prompt, Confirm
 from rich.panel import Panel
+from rich.prompt import Prompt, Confirm
 from rich.table import Table
 
 from hcode.tools.base.base_tool import BaseTool, ToolResult, ToolParameter, ToolCategory
-
-
-@dataclass
-class Question:
-    """Question specification"""
-
-    question: str
-    header: str
-    options: List[Dict[str, str]]
-    multi_select: bool = False
-
-
-@dataclass
-class Todo:
-    """Todo item"""
-
-    content: str
-    status: str  # pending, in_progress, completed
-    active_form: str
 
 
 class AskUserQuestionTool(BaseTool):

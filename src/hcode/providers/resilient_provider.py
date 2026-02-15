@@ -332,9 +332,6 @@ class ResilientProvider:
 
         return ProviderHealth.HEALTHY
 
-    def get_all_health(self) -> Dict[str, ProviderHealth]:
-        """Get health status of all providers"""
-        return {name: self.get_health(name) for name in self.providers}
 
     def get_stats(self, provider_name: str) -> Optional[ProviderStats]:
         """Get statistics for a provider"""
@@ -412,7 +409,6 @@ class ResilientProvider:
         if provider_name == self._primary_name and provider_name != self._current_name:
             if self.get_health(provider_name) == ProviderHealth.HEALTHY:
                 # Primary recovered, switch back
-                old_provider = self._current_name
                 self._current_name = self._primary_name
                 if self._on_recovery:
                     self._on_recovery(provider_name)
@@ -507,34 +503,7 @@ class ResilientProvider:
         # All providers failed
         raise last_error or RuntimeError("All providers failed")
 
-    async def hot_swap(self, to_provider: str) -> bool:
-        """
-        Hot-swap to a different provider.
 
-        Args:
-            to_provider: Target provider name
-
-        Returns:
-            True if swap successful
-        """
-        if to_provider not in self.providers:
-            return False
-
-        health = self.get_health(to_provider)
-        if health == ProviderHealth.CIRCUIT_OPEN:
-            return False
-
-        old_provider = self._current_name
-        self._current_name = to_provider
-
-        return True
-
-    def reset_provider(self, provider_name: str):
-        """Reset a provider's circuit breaker and stats"""
-        if provider_name in self._circuit_breakers:
-            self._circuit_breakers[provider_name].reset()
-        if provider_name in self._stats:
-            self._stats[provider_name] = ProviderStats()
 
     def get_summary(self) -> Dict[str, Any]:
         """Get summary of all providers"""
@@ -594,7 +563,7 @@ class ResilientStreamWrapper:
             self._completed = True
             raise
 
-        except Exception as e:
+        except Exception:
             # Mid-stream failure, attempt recovery
             self._current_stream = None
 

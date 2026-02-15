@@ -4,17 +4,18 @@ Base class for phase handlers.
 Provides common functionality for all PEV phase handlers.
 """
 
-import re
 import json
 import logging
+import re
 from typing import List, Optional, Tuple, Any, Dict
+
+from hcode.providers.base import Message
 from ..protocols import (
     PhaseHandlerProtocol,
     AgentContext,
     PhaseResult,
     ArtifactManagerProtocol,
 )
-from hcode.providers.base import Message
 
 # FileAction enum for HcodeDisplay tracking
 try:
@@ -960,7 +961,6 @@ CRITICAL RULES:
         Returns:
             Formatted string describing each tool's output
         """
-        import re
 
         # Tool-specific output limits for AI feedback (in characters)
         # Different tools need different context windows:

@@ -3,15 +3,16 @@ OpenAI GPT API provider implementation.
 Supports GPT-4, GPT-4-Turbo, and GPT-3.5 models with function calling.
 """
 
+import json
 import os
 from typing import List, AsyncIterator, Dict, Any, Optional
 
 import httpx
 import tiktoken
-from hcode.providers.base import AIProvider, Message, Usage, CompletionResponse, ToolCall
-import json
 from openai import AsyncOpenAI, APIConnectionError, APITimeoutError, RateLimitError, APIStatusError
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+
+from hcode.providers.base import AIProvider, Message, Usage, CompletionResponse, ToolCall
 
 
 class LLMConnectionError(Exception):
@@ -477,7 +478,6 @@ class OpenAIProvider(AIProvider):
         """Streaming completion"""
         params["stream"] = True
 
-        total_tokens = 0
         content_tokens = []
 
         try:
@@ -584,66 +584,7 @@ class OpenAIProvider(AIProvider):
 
         return False
 
-    async def use_function_calling(
-        self, messages: List[Message], functions: List[Dict[str, Any]]
-    ) -> CompletionResponse:
-        """
-        Use function calling with OpenAI models.
 
-        Args:
-            messages: Conversation messages
-            functions: Function definitions
-
-        Returns:
-            CompletionResponse with function call information
-        """
-        return await self.generate_completion(messages, stream=False, functions=functions)
-
-    async def test_connection(self) -> tuple[bool, str]:
-        """
-        Test the connection to the LLM API.
-
-        Returns:
-            Tuple of (success: bool, message: str)
-        """
-        endpoint_info = f" at {self.base_url}" if self.base_url else ""
-
-        try:
-            # Make a minimal API call to test connectivity
-            response = await self.client.chat.completions.create(
-                model=self.model, messages=[{"role": "user", "content": "Hi"}], max_tokens=5
-            )
-            return True, f"Connected to {self.model}{endpoint_info}"
-
-        except APIConnectionError as e:
-            return False, f"Connection failed{endpoint_info}: {str(e)}"
-
-        except APITimeoutError as e:
-            return False, f"Connection timeout{endpoint_info}: {str(e)}"
-
-        except APIStatusError as e:
-            if e.status_code == 401:
-                return False, f"Invalid API key{endpoint_info}"
-            elif e.status_code == 404:
-                return False, f"Model '{self.model}' not found{endpoint_info}"
-            else:
-                return False, f"API error ({e.status_code}){endpoint_info}: {str(e)}"
-
-        except httpx.ConnectError as e:
-            return False, f"Failed to connect{endpoint_info}: {str(e)}"
-
-        except httpx.TimeoutException as e:
-            return False, f"Connection timeout{endpoint_info}: {str(e)}"
-
-        except Exception as e:
-            error_str = str(e).lower()
-            # Check for connection-related errors in generic exceptions
-            if any(
-                kw in error_str
-                for kw in ["connect", "timeout", "network", "refused", "unreachable"]
-            ):
-                return False, f"Connection error{endpoint_info}: {str(e)}"
-            return False, f"Unexpected error: {str(e)}"
 
     def get_system_prompt_for_coding(self) -> str:
         """Get optimized system prompt for coding tasks from external config"""

@@ -1,5 +1,4 @@
 import json
-import os
 import pathlib
 from typing import Any, Dict, Optional
 
@@ -72,16 +71,6 @@ def get_model_for_size(size: str) -> str:
     return mapping.get(size.lower(), "gpt-3.5-turbo")
 
 
-def apply_env_overrides(cfg: Dict[str, Any]) -> Dict[str, Any]:
-    """Override top‑level config keys with ``HCODE_<KEY>`` environment variables.
-    Only keys present in *cfg* are considered.
-    """
-    result = cfg.copy()
-    for key in cfg:
-        env_key = f"HCODE_{key.upper()}"
-        if env_key in os.environ:
-            result[key] = os.environ[env_key]
-    return result
 
 
 def save_config(path: str, data: Dict[str, Any]) -> bool:
@@ -102,23 +91,5 @@ def create_default_config() -> Dict[str, Any]:
     return {"model": "gpt-3.5-turbo", "api_key": ""}
 
 
-def get_project_instructions() -> str:
-    """Return the contents of the first README‑style file found in the repo root.
-    Looks for ``README.md``, ``README.txt`` or ``INSTRUCTIONS.md``.
-    """
-    root = pathlib.Path.cwd()
-    for name in ("README.md", "README.txt", "INSTRUCTIONS.md"):
-        candidate = root / name
-        if candidate.is_file():
-            return candidate.read_text()
-    return ""
 
 
-def validate_config(cfg: Dict[str, Any]) -> bool:
-    """Very simple validation – ensure required keys are present and non‑empty.
-    Required keys for the test suite: ``model`` and ``api_key``.
-    """
-    for key in ("model", "api_key"):
-        if not cfg.get(key):
-            return False
-    return True

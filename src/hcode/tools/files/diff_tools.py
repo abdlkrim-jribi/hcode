@@ -22,9 +22,7 @@ class ChangeOperation(Enum):
 
     EDIT = "edit"
     WRITE = "write"
-    DELETE = "delete"
     CREATE = "create"
-    MULTI_EDIT = "multi_edit"
 
 
 class ChangeStatus(Enum):
@@ -134,7 +132,7 @@ class ChangeProposal:
     # Safety & Analysis
     safety_warnings: List[SafetyWarning] = field(default_factory=list)
     impact_analysis: str = ""
-    reasoning_context: str = ""
+
     confidence_level: float = 0.0
 
     # Status
@@ -434,48 +432,7 @@ class ChangeProposal:
         }
 
 
-@dataclass
-class ChangeSet:
-    """A collection of related changes to be reviewed together"""
 
-    id: str = field(
-        default_factory=lambda: hashlib.md5(str(datetime.now().timestamp()).encode()).hexdigest()[
-            :12
-        ]
-    )
-    name: str = ""
-    description: str = ""
-    proposals: List[ChangeProposal] = field(default_factory=list)
-    created_at: datetime = field(default_factory=datetime.now)
-
-    def add_proposal(self, proposal: ChangeProposal) -> None:
-        """Add a change proposal to the set"""
-        self.proposals.append(proposal)
-
-    def get_total_stats(self) -> Dict[str, int]:
-        """Get aggregate statistics for all changes"""
-        return {
-            "files": len(self.proposals),
-            "additions": sum(p.additions for p in self.proposals),
-            "deletions": sum(p.deletions for p in self.proposals),
-            "warnings": sum(len(p.safety_warnings) for p in self.proposals),
-            "critical_warnings": sum(1 for p in self.proposals if p.has_critical_warnings()),
-        }
-
-    def all_approved(self) -> bool:
-        """Check if all proposals are approved"""
-        return all(p.status == ChangeStatus.APPROVED for p in self.proposals)
-
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary"""
-        return {
-            "id": self.id,
-            "name": self.name,
-            "description": self.description,
-            "proposals": [p.to_dict() for p in self.proposals],
-            "stats": self.get_total_stats(),
-            "created_at": self.created_at.isoformat(),
-        }
 
 
 class DiffPreviewTool(BaseTool):
