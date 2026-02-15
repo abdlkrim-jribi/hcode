@@ -237,15 +237,7 @@ from hcode.ui.chat_ui import (
 
 from hcode.ui.todo_display import (
     # Classes
-    TodoDisplayStatus,
-    DisplayTodoItem,
-    TodoDisplayRenderer,
-    PersistentTodoDisplay,
-    TodoStatusBar,
-    # Functions
-    create_todo_display,
-    render_todo_panel,
-    render_todo_status_line,
+    ClaudeCodeTodoDisplay,
 )
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -412,14 +404,7 @@ __all__ = [
     "display_message",
     "display_thinking",
     # Todo Display (Enhanced)
-    "TodoDisplayStatus",
-    "DisplayTodoItem",
-    "TodoDisplayRenderer",
-    "PersistentTodoDisplay",
-    "TodoStatusBar",
-    "create_todo_display",
-    "render_todo_panel",
-    "render_todo_status_line",
+    "ClaudeCodeTodoDisplay",
     # Live Todo Bar (Real-time updates)
     "LiveTodoBar",
     "StreamingTodoIntegration",

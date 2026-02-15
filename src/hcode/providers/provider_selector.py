@@ -34,10 +34,7 @@ class ProviderPreferences:
     """User preferences for provider selection"""
 
     primary_provider: str = "auto"  # "auto", "anthropic", "openai"
-    fallback_enabled: bool = True
     cost_optimization: str = "balanced"  # "aggressive", "balanced", "quality"
-    prefer_streaming: bool = True
-    max_cost_per_request: float = 1.0  # USD
 
 
 class ProviderSelector:

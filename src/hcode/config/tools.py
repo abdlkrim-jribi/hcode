@@ -206,9 +206,7 @@ class ToolsConfig:
 
         return definitions
 
-    def get_tool_names(self) -> List[str]:
-        """Get list of all tool names"""
-        return list(self._tools_data.get("tools", {}).keys())
+
 
     def get_openai_schemas(self, tool_names: Optional[List[str]] = None) -> List[Dict[str, Any]]:
         """Get OpenAI function calling schemas for specified tools (or all)"""
@@ -293,15 +291,7 @@ class ToolsConfig:
 
         return "\n".join(docs)
 
-    def get_banned_commands(self) -> List[str]:
-        """Get list of banned bash commands"""
-        policy = self._tools_data.get("policy", {})
-        return policy.get("banned_commands", [])
 
-    def get_prefer_tools_over_bash(self) -> Dict[str, str]:
-        """Get mapping of bash commands that should use tools instead"""
-        policy = self._tools_data.get("policy", {})
-        return policy.get("prefer_tools_over_bash", {})
 
 
 # Convenience functions

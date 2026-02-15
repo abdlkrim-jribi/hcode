@@ -381,10 +381,6 @@ class MemoryManager:
         """
         return self.file_memory.update_memory(content=content, scope=scope, section=section)
 
-    def mark_important(self, message_id: str) -> None:
-        """Mark a message as important (anchor)."""
-        self.session_memory.mark_anchor(message_id)
-
     def compact_session(self, target_messages: Optional[int] = None) -> None:
         """Manually trigger session compaction."""
         target = target_messages or self.config.max_recent_messages
@@ -398,25 +394,6 @@ class MemoryManager:
     def list_sessions(self, limit: int = 10) -> List[Dict[str, Any]]:
         """List recent sessions."""
         return self.session_memory.list_sessions(limit=limit)
-
-    def switch_session(self, session_id: str) -> Session:
-        """Switch to a different session."""
-        self.session = self.session_memory.load_session(session_id)
-        return self.session
-
-    def get_stats(self) -> Dict[str, Any]:
-        """Get statistics about all memory layers."""
-        return {
-            "project": {"root": str(self.project_root), "id": self.project_id},
-            "file_memory": self.file_memory.get_memory_stats(),
-            "session": {
-                "id": self.session.session_id,
-                "message_count": len(self.session.messages),
-                "summary_count": len(self.session.summaries),
-                "anchor_count": sum(1 for m in self.session.messages if m.is_anchor),
-            },
-            "semantic_memory": self.semantic_memory.get_stats(),
-        }
 
     def cleanup(
         self, prune_semantic: bool = True, compact_session: bool = True, apply_decay: bool = True
@@ -451,30 +428,6 @@ class MemoryManager:
 
         return stats
 
-    def export_all(self, output_dir: Path) -> Dict[str, Path]:
-        """
-        Export all memory data.
-
-        Args:
-            output_dir: Directory to export to
-
-        Returns:
-            Paths to exported files
-        """
-        output_dir.mkdir(parents=True, exist_ok=True)
-        paths = {}
-
-        # Export semantic memories
-        semantic_path = output_dir / "semantic_memories.json"
-        self.semantic_memory.export_memories(semantic_path, self.project_id)
-        paths["semantic"] = semantic_path
-
-        # Export session
-        session_path = output_dir / f"session_{self.session.session_id}.json"
-        self.session_memory.export_session(self.session.session_id, session_path)
-        paths["session"] = session_path
-
-        return paths
 
     def __enter__(self):
         """Context manager entry."""

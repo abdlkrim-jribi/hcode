@@ -69,9 +69,6 @@ class ToolCallParser:
         # Strategy 2: JSON extraction from text
         return self._from_text(response_text)
     
-    def parse_json_from_text(self, text: str) -> List[Dict[str, Any]]:
-        """Parse tool calls from text (alias for _from_text)."""
-        return self._from_text(text)
     
     def normalize_arguments(self, tool_name: str, arguments: dict) -> dict:
         """

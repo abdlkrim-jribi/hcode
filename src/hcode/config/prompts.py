@@ -227,6 +227,10 @@ Guidelines:
 
         return prompt
 
+    def get_memory_config(self) -> Dict[str, Any]:
+        """Get memory configuration"""
+        return self._prompts_data.get("memory", {"memory_file": "CLAUDE.md", "enabled": True})
+
     def get_continuation_prompts(self) -> List[str]:
         """Get list of continuation prompts"""
         return self._prompts_data.get(
@@ -248,33 +252,7 @@ Guidelines:
         }
         return tool_prompts.get(prompt_name, default_prompts.get(prompt_name, ""))
 
-    def get_security_config(self) -> Dict[str, Any]:
-        """Get security configuration"""
-        return self._prompts_data.get(
-            "security",
-            {"banned_commands": [], "confirm_commands": []},
-        )
 
-    def get_memory_config(self) -> Dict[str, Any]:
-        """Get memory/CLAUDE.md configuration"""
-        return self._prompts_data.get(
-            "memory",
-            {"memory_file": "CLAUDE.md", "memory_prompt": ""},
-        )
-
-    def get_persona(self) -> Dict[str, Any]:
-        """Get persona configuration"""
-        return self._prompts_data.get(
-            "persona",
-            {"name": "Hcode", "tone": "professional", "use_emojis": False, "verbosity": "balanced"},
-        )
-
-    def get_formatting(self) -> Dict[str, Any]:
-        """Get formatting configuration"""
-        return self._prompts_data.get(
-            "formatting",
-            {"code_block_style": "fenced", "default_language": "python", "show_line_numbers": True, "max_output_lines": 100},
-        )
 
 
 class ModelsConfig:
@@ -390,54 +368,40 @@ class ModelsConfig:
         """Get temperature setting"""
         return self.get_generation_params(task_type).temperature
 
-    def get_top_p(self, task_type: Optional[str] = None) -> float:
-        """Get top_p setting"""
-        return self.get_generation_params(task_type).top_p
-
     def get_max_tokens(self, task_type: Optional[str] = None) -> int:
-        """Get max_tokens setting"""
+        """Get max tokens setting"""
         return self.get_generation_params(task_type).max_tokens
 
     def get_context_config(self) -> ContextConfig:
         """Get context window configuration"""
-        ctx = self._models_data.get("context", {})
+        ctx_data = self._models_data.get("context", {})
         return ContextConfig(
-            max_context_tokens=ctx.get("max_context_tokens", 128000),
-            reserve_output_tokens=ctx.get("reserve_output_tokens", 8192),
-            summarization_threshold=ctx.get("summarization_threshold", 0.8),
-            max_history_turns=ctx.get("max_history_turns", 50),
+            max_context_tokens=ctx_data.get("max_context_tokens", 200000),
+            reserve_output_tokens=ctx_data.get("reserve_output_tokens", 16384),
+            summarization_threshold=ctx_data.get("summarization_threshold", 0.85),
+            max_history_turns=ctx_data.get("max_history_turns", 100),
         )
 
     def get_continuation_config(self) -> ContinuationConfig:
-        """Get continuation configuration"""
-        cont = self._models_data.get("continuation", {})
+        """Get continuation settings"""
+        cont_data = self._models_data.get("continuation", {})
         return ContinuationConfig(
-            enabled=cont.get("enabled", True),
-            max_continuations=cont.get("max_continuations", 10),
-            max_total_tokens=cont.get("max_total_tokens", 100000),
-            truncation_patterns=cont.get("truncation_patterns", []),
+            enabled=cont_data.get("enabled", True),
+            max_continuations=cont_data.get("max_continuations", 20),
+            max_total_tokens=cont_data.get("max_total_tokens", 200000),
+            truncation_patterns=cont_data.get("truncation_patterns", []),
         )
 
     def get_reliability_config(self) -> ReliabilityConfig:
-        """Get reliability/retry configuration"""
-        rel = self._models_data.get("reliability", {})
+        """Get reliability settings"""
+        rel_data = self._models_data.get("reliability", {})
         return ReliabilityConfig(
-            timeout=rel.get("timeout", 120.0),
-            connect_timeout=rel.get("connect_timeout", 30.0),
-            max_retries=rel.get("max_retries", 5),
-            retry_multiplier=rel.get("retry_multiplier", 2.0),
-            retry_min=rel.get("retry_min", 2.0),
-            retry_max=rel.get("retry_max", 30.0),
+            timeout=rel_data.get("timeout", 120.0),
+            connect_timeout=rel_data.get("connect_timeout", 30.0),
+            max_retries=rel_data.get("max_retries", 5),
         )
 
-    def get_model_for_provider(self, provider: str, size: str = "medium") -> str:
-        """Get model name for a provider and size."""
-        models = self._models_data.get("models", {})
-        aliases = models.get("aliases", {})
-        if size in aliases and provider in aliases[size]:
-            return aliases[size][provider]
-        defaults = models.get("defaults", {})
-        return defaults.get(provider, "gpt-4o")
+
 
 
 # Convenience functions

@@ -9,14 +9,6 @@ from dataclasses import dataclass
 from enum import Enum
 
 
-class ModelType(Enum):
-    """Types of models available across providers"""
-
-    FLAGSHIP = "flagship"  # Most capable (Opus, GPT-4)
-    BALANCED = "balanced"  # Good balance (Sonnet, GPT-4-Turbo)
-    FAST = "fast"  # Quick and economical (Haiku, GPT-3.5-Turbo)
-
-
 @dataclass
 class Message:
     """Represents a chat message"""
@@ -93,7 +85,6 @@ class AIProvider(ABC):
         self.model = model
         self.max_tokens = max_tokens
         self.temperature = temperature
-        self._total_usage = Usage(0, 0, 0)
 
     @abstractmethod
     async def generate_completion(
@@ -126,19 +117,6 @@ class AIProvider(ABC):
         pass
 
     @abstractmethod
-    def get_cost(self, usage: Usage) -> float:
-        """
-        Calculate the cost for a given usage.
-
-        Args:
-            usage: Token usage information
-
-        Returns:
-            Cost in USD
-        """
-        pass
-
-    @abstractmethod
     def get_context_window(self) -> int:
         """
         Get the maximum context window size for the current model.
@@ -167,20 +145,6 @@ class AIProvider(ABC):
             True if function calling is supported
         """
         pass
-
-    @property
-    def total_usage(self) -> Usage:
-        """Get total usage across all requests"""
-        return self._total_usage
-
-    @property
-    def total_cost(self) -> float:
-        """Get total cost across all requests"""
-        return self.get_cost(self._total_usage)
-
-    def _update_usage(self, usage: Usage):
-        """Update the total usage tracker"""
-        self._total_usage = self._total_usage + usage
 
     def get_provider_name(self) -> str:
         """Get the name of this provider"""

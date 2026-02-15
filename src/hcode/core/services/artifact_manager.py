@@ -221,25 +221,3 @@ class ArtifactManager(ArtifactManagerProtocol):
 
         return True, None
 
-    def get_artifacts_dir(self, context: AgentContext) -> Path:
-        """
-        Get path to artifacts directory.
-
-        Args:
-            context: Current agent context
-
-        Returns:
-            Path to artifacts directory
-        """
-        return Path(context.working_dir) / self.artifacts_dir
-
-    def cleanup_artifacts(self, context: AgentContext) -> None:
-        """
-        Clean up old artifacts (optional).
-
-        Args:
-            context: Current agent context
-        """
-        # For now, we keep artifacts for debugging
-        # Could implement cleanup logic here if needed
-        pass

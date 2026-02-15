@@ -75,21 +75,6 @@ class TodoAutoUpdater:
             return False
         return any(self._get_info(t)[1] in ["pending", "in_progress"] for t in todos)
     
-    def format_pending_todos(self) -> str:
-        """Format pending todos for LLM context."""
-        todos = self._get_todos()
-        if not todos:
-            return "No todos."
-        
-        lines = []
-        for i, todo in enumerate(todos, 1):
-            content, status = self._get_info(todo)
-            if status != "completed":
-                icon = "⏳" if status == "in_progress" else "○"
-                lines.append(f"  {icon} {content}")
-        
-        return "\n".join(lines) if lines else "All todos completed."
-    
     def auto_update(self, action: Dict[str, Any]) -> bool:
         """
         Update todos based on a completed action.
@@ -126,10 +111,6 @@ class TodoAutoUpdater:
             if self.console:
                 self.console.print(f"[dim red]Todo update error: {e}[/dim red]")
             return False
-    
-    # =========================================================================
-    # Intelligent Matching (no hardcoded keywords)
-    # =========================================================================
     
     def _extract_action_words(self, tool_name: str, args: dict) -> set:
         """Extract meaningful words from tool action."""
@@ -195,64 +176,3 @@ class TodoAutoUpdater:
         self.console.print(
             f"[dim cyan][{icon}] Todo {idx+1}/{total}: completed ({completed}/{total})[/dim cyan]"
         )
-    
-    # =========================================================================
-    # Thinking Block Extraction (simplified)
-    # =========================================================================
-    
-    def extract_todos_from_thinking(self, content: str) -> List[Dict[str, Any]]:
-        """Extract todo items from thinking content."""
-        if not content:
-            return []
-        
-        items = []
-        
-        # Pattern: numbered list items
-        for match in re.finditer(r"^\s*\d+[\.\)]\s*(.{10,150})$", content, re.MULTILINE):
-            item = match.group(1).strip()
-            if self._is_valid_todo(item):
-                items.append(item)
-        
-        # Pattern: bullet points
-        if not items:
-            for match in re.finditer(r"^\s*[-*•]\s*(.{10,150})$", content, re.MULTILINE):
-                item = match.group(1).strip()
-                if self._is_valid_todo(item):
-                    items.append(item)
-        
-        # Limit to 5 items
-        items = items[:5]
-        
-        return [
-            {
-                "content": item,
-                "status": "in_progress" if i == 0 else "pending",
-                "activeForm": self._to_active_form(item),
-            }
-            for i, item in enumerate(items)
-        ]
-    
-    def _is_valid_todo(self, text: str) -> bool:
-        """Check if text is a valid todo item."""
-        if not text or len(text) < 10:
-            return False
-        # Skip section headers, questions, etc.
-        if text.endswith(":") or text.endswith("?"):
-            return False
-        if text.startswith("[") and "]" in text[:20]:
-            return False
-        return True
-    
-    def _to_active_form(self, text: str) -> str:
-        """Convert imperative to present continuous form."""
-        words = text.split()
-        if not words:
-            return "Working..."
-        
-        verb = words[0].lower()
-        rest = " ".join(words[1:])
-        
-        # Simple -ing conversion
-        if verb.endswith("e"):
-            verb = verb[:-1]
-        return f"{verb.capitalize()}ing {rest}".strip()

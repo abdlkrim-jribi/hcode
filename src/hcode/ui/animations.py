@@ -202,8 +202,6 @@ class StreamingText:
 class GlitchEffect:
     """Apply glitch effect to text."""
 
-    GLITCH_CHARS = "!@#$%^&*()_+-=[]{}|;:',.<>?/~`░▒▓█"
-
 
 
 
@@ -320,7 +318,7 @@ class ThinkingAnimation:
 class WaveAnimation:
     """Wave animation for processing state."""
 
-    WAVE_CHARS = ["▁", "▂", "▃", "▄", "▅", "▆", "▇", "█", "▇", "▆", "▅", "▄", "▃", "▂"]
+    pass
 
     def __init__(
         self,

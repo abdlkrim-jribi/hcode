@@ -435,8 +435,6 @@ class OpenAIProvider(AIProvider):
                     total_tokens=input_tokens + output_tokens,
                 )
 
-            self._update_usage(usage)
-
             content = response.choices[0].message.content or ""
             
             # Parse native function calls into ToolCall objects
@@ -478,8 +476,6 @@ class OpenAIProvider(AIProvider):
         """Streaming completion"""
         params["stream"] = True
 
-        content_tokens = []
-
         try:
             stream = await self.client.chat.completions.create(**params)
 
@@ -487,23 +483,8 @@ class OpenAIProvider(AIProvider):
                 if chunk.choices and len(chunk.choices) > 0:
                     delta = chunk.choices[0].delta
                     if delta.content:
-                        content_tokens.append(delta.content)
                         yield delta.content
 
-            # Estimate usage for streaming (OpenAI doesn't always provide it)
-            full_content = "".join(content_tokens)
-            output_tokens = len(self.encoding.encode(full_content))
-
-            # Estimate input tokens from messages in params
-            input_text = " ".join([msg["content"] for msg in params["messages"]])
-            input_tokens = len(self.encoding.encode(input_text))
-
-            usage = Usage(
-                input_tokens=input_tokens,
-                output_tokens=output_tokens,
-                total_tokens=input_tokens + output_tokens,
-            )
-            self._update_usage(usage)
         except Exception as e:
             # Re-raise with better error message for connection errors
             self._handle_api_error(e)
@@ -519,27 +500,6 @@ class OpenAIProvider(AIProvider):
             Exact token count
         """
         return len(self.encoding.encode(text))
-
-    def get_cost(self, usage: Usage) -> float:
-        """
-        Calculate cost for token usage.
-
-        Args:
-            usage: Token usage
-
-        Returns:
-            Cost in USD
-        """
-        if self.model not in self.MODEL_PRICING:
-            # Default to GPT-4-Turbo pricing for unknown models
-            input_price, output_price = self.MODEL_PRICING["gpt-4-turbo"]
-        else:
-            input_price, output_price = self.MODEL_PRICING[self.model]
-
-        input_cost = (usage.input_tokens / 1_000_000) * input_price
-        output_cost = (usage.output_tokens / 1_000_000) * output_price
-
-        return input_cost + output_cost
 
     def _is_large_model(self) -> bool:
         """Check if model appears to be a large/capable model based on name patterns."""

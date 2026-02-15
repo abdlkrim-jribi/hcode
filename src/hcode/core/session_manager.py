@@ -6,11 +6,11 @@ Handles session-level permissions and state for tools.
 import logging
 from pathlib import Path
 from typing import Set, Tuple
+import json
+import os
 
 logger = logging.getLogger(__name__)
 
-import json
-import os
 
 class SessionConfirmationManager:
     """
@@ -108,28 +108,11 @@ class SessionConfirmationManager:
             
         return (tool_name, abs_path) in self._allowed_actions
 
-    def revoke_permission(self, tool_name: str, target_path: str) -> None:
-        """
-        Revoke a previously granted permission.
-        """
-        try:
-            abs_path = str(Path(target_path).resolve())
-        except Exception:
-            abs_path = target_path
-            
-        if (tool_name, abs_path) in self._allowed_actions:
-            self._allowed_actions.remove((tool_name, abs_path))
-            logger.info(f"Revoked session permission for {tool_name} on {abs_path}")
-            self._save_state()
-
-    def clear_all(self) -> None:
-        """Clear all session permissions."""
-        self._allowed_actions.clear()
-        self._save_state()
 
 
 # Global instance
 _session_confirmation_manager = SessionConfirmationManager()
+
 
 def get_session_manager() -> SessionConfirmationManager:
     """Get the global session confirmation manager instance."""

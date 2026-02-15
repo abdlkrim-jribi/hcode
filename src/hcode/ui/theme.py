@@ -98,11 +98,8 @@ class ColorPalette:
     # ═══════════════════════════════════════════════════════════════
 
     diff_added: str = "#00FF88"
-    diff_added_bg: str = "#0A2E18"
     diff_removed: str = "#FF0055"
-    diff_removed_bg: str = "#2E0A1A"
     diff_changed: str = "#FFB800"
-    diff_changed_bg: str = "#2E2508"
 
     # ═══════════════════════════════════════════════════════════════
     # BORDER COLORS
@@ -288,9 +285,7 @@ THEMES: Dict[ThemeMode, ColorPalette] = {
         code_class="#00E5FF",     # Cyan Classes
         code_variable="#B0BEC5",  # Blue-Grey Vars
         diff_added="#39FF14",     # Neon Green Added
-        diff_added_bg="#0A2E18",  # Dark Green BG
         diff_removed="#FF3355",   # Red Removed
-        diff_removed_bg="#2E0A1A", # Dark Red BG
         border_default="#708090", # Slate Border
         border_focus="#00E5FF",   # Cyan Focus
         text_dim="#606060",       # Dim Grey
@@ -327,14 +322,7 @@ class ColorUtils:
         b = int(b1 * (1 - factor) + b2 * factor)
         return ColorUtils.rgb_to_hex(r, g, b)
 
-    @staticmethod
-    def create_gradient(start: str, end: str, steps: int = 10) -> List[str]:
-        """Create a gradient between two colors."""
-        colors = []
-        for i in range(steps):
-            factor = i / (steps - 1)
-            colors.append(ColorUtils.blend(start, end, factor))
-        return colors
+
 
 
 class ThemeEngine:

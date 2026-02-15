@@ -97,41 +97,4 @@ class ThinkingConfig:
     # Tool count threshold to trigger thinking
     tool_threshold: int = 3
 
-    def should_think(self, message: str, estimated_tools: int = 0) -> bool:
-        """
-        Determine if extended thinking should be used.
 
-        Args:
-            message: User message
-            estimated_tools: Estimated number of tool calls needed
-
-        Returns:
-            True if should use extended thinking
-        """
-        if self.mode == ThinkingMode.DISABLED:
-            return False
-
-        if self.mode == ThinkingMode.ALWAYS:
-            return True
-
-        message_lower = message.lower()
-
-        # Check trigger phrases
-        for phrase in self.trigger_phrases:
-            if phrase in message_lower:
-                return True
-
-        # Check complexity indicators
-        for indicator in self.complexity_indicators:
-            if indicator in message_lower:
-                return True
-
-        # Check tool threshold
-        if estimated_tools >= self.tool_threshold:
-            return True
-
-        # Check message length (long messages often need more thought)
-        if len(message) > 500:
-            return True
-
-        return False

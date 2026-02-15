@@ -12,18 +12,7 @@ from .thinking_processor import ThinkingBlockProcessor
 from .parser import ResponseParser
 from .completion_detector import TaskCompletionDetector
 from .cleaner import ResponseCleaner
-from .output_handler import (
-    OutputHandler,
-    TruncatedOutput,
-    ExtractedError,
-    SearchMatch,
-    ErrorSeverity,
-    OutputType,
-    truncate_output,
-    extract_errors,
-    search_in_output,
-    get_latest_lines,
-)
+# from .output_handler import ... (Removed)
 from .continuation import ContinuationManager
 
 __all__ = [
@@ -31,15 +20,5 @@ __all__ = [
     "ResponseParser",
     "TaskCompletionDetector",
     "ResponseCleaner",
-    "OutputHandler",
-    "TruncatedOutput",
-    "ExtractedError",
-    "SearchMatch",
-    "ErrorSeverity",
-    "OutputType",
-    "truncate_output",
-    "extract_errors",
-    "search_in_output",
-    "get_latest_lines",
     "ContinuationManager",
 ]

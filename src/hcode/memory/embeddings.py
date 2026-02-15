@@ -187,66 +187,6 @@ class EmbeddingModel:
 
         return float(np.dot(embedding1, embedding2) / (norm1 * norm2))
 
-    def find_similar(
-        self,
-        query_embedding: np.ndarray,
-        candidate_embeddings: np.ndarray,
-        top_k: int = 10,
-        threshold: float = 0.0,
-    ) -> List[tuple]:
-        """
-        Find most similar embeddings from candidates.
-
-        Args:
-            query_embedding: Query embedding
-            candidate_embeddings: Matrix of candidate embeddings
-            top_k: Number of results to return
-            threshold: Minimum similarity threshold
-
-        Returns:
-            List of (index, similarity) tuples, sorted by similarity
-        """
-        if len(candidate_embeddings) == 0:
-            return []
-
-        # Normalize query
-        query_norm = np.linalg.norm(query_embedding)
-        if query_norm == 0:
-            return []
-        query_normalized = query_embedding / query_norm
-
-        # Normalize candidates
-        candidate_norms = np.linalg.norm(candidate_embeddings, axis=1, keepdims=True)
-        # Avoid division by zero
-        candidate_norms = np.where(candidate_norms == 0, 1, candidate_norms)
-        candidates_normalized = candidate_embeddings / candidate_norms
-
-        # Compute similarities
-        similarities = np.dot(candidates_normalized, query_normalized)
-
-        # Get top-k above threshold
-        results = []
-        for idx in np.argsort(similarities)[::-1][:top_k]:
-            sim = float(similarities[idx])
-            if sim >= threshold:
-                results.append((int(idx), sim))
-
-        return results
-
-    def clear_cache(self):
-        """Clear the embedding cache."""
-        self._cache = {}
-        if self._cache_file.exists():
-            self._cache_file.unlink()
-
-    def get_cache_stats(self) -> dict:
-        """Get cache statistics."""
-        return {
-            "cached_embeddings": len(self._cache),
-            "cache_file": str(self._cache_file),
-            "cache_file_exists": self._cache_file.exists(),
-        }
-
 
 # Convenience functions
 def get_embedding_model() -> EmbeddingModel:

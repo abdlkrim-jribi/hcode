@@ -23,11 +23,6 @@ class MemoryConfig:
         embedding_model: Local embedding model name
         embedding_dim: Dimension of embeddings
         max_retrieval_results: Max results for semantic search
-        max_context_tokens: Maximum tokens for context
-        target_context_tokens: Target after compression
-        file_memory_budget: Token budget for file memory
-        session_memory_budget: Token budget for session memory
-        semantic_memory_budget: Token budget for semantic memory
     """
 
     # Base directories
@@ -44,8 +39,6 @@ class MemoryConfig:
     compression_threshold: int = 100  # Compress when exceeding this
     anchor_keywords: tuple = field(
         default_factory=lambda: (
-            "important",
-            "remember",
             "always",
             "never",
             "critical",
@@ -60,25 +53,9 @@ class MemoryConfig:
     embedding_model: str = "all-MiniLM-L6-v2"  # Local model
     embedding_dim: int = 384
     max_retrieval_results: int = 10
-    min_similarity_threshold: float = 0.3
-
-    # Memory extraction settings
-    extract_facts: bool = True
-    extract_preferences: bool = True
-    extract_code_patterns: bool = True
-    extraction_interval: int = 10  # Extract every N messages
-
-    # Token limits (adjust based on your model)
-    max_context_tokens: int = 128000
-    target_context_tokens: int = 80000  # After compression
-    file_memory_budget: int = 8000
-    session_memory_budget: int = 40000
-    semantic_memory_budget: int = 10000
 
     # Pruning settings
     max_memories: int = 10000
-    min_importance_for_retention: float = 0.2
-    importance_decay_rate: float = 0.01  # Per day
 
     def __post_init__(self):
         """Ensure directories exist."""

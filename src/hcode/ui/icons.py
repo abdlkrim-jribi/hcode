@@ -138,11 +138,7 @@ class Icons:
     CYBER_DOT = "●" if USE_UNICODE else "*"
 
 
-    # ═══════════════════════════════════════════════════════════════
-    # ARROWS
-    # ═══════════════════════════════════════════════════════════════
 
-    ARROW_RIGHT = "→" if USE_UNICODE else "->"
 
     # ═══════════════════════════════════════════════════════════════
     # BOX DRAWING
@@ -255,10 +251,6 @@ class Icons:
 
 
 
-    @classmethod
-    def get_directory_icon(cls) -> str:
-        """Get directory icon for file listings."""
-        return cls.FOLDER if USE_UNICODE else "[DIR]"
 
 
 
@@ -314,25 +306,7 @@ class Emoji:
 class Borders:
     """Decorative border characters."""
 
-    # Single line
-    SINGLE_H = "─" if USE_UNICODE else "-"
-    SINGLE_V = "│" if USE_UNICODE else "|"
-    SINGLE_TL = "┌" if USE_UNICODE else "+"
-    SINGLE_TR = "┐" if USE_UNICODE else "+"
-    SINGLE_BL = "└" if USE_UNICODE else "+"
-    SINGLE_BR = "┘" if USE_UNICODE else "+"
+    pass
 
-    # Standard aliases (for compatibility)
-    HORIZONTAL = SINGLE_H
-    VERTICAL = SINGLE_V
-    CORNER_TL = SINGLE_TL
-    CORNER_TR = SINGLE_TR
-    CORNER_BL = SINGLE_BL
-    CORNER_BR = SINGLE_BR
-
-    # Double line
-
-
-    # Rounded
 
 

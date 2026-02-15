@@ -83,8 +83,6 @@ class WebFetchTool(BaseTool):
 
                 # Convert HTML to markdown
                 h = html2text.HTML2Text()
-                h.ignore_links = False
-                h.ignore_images = False
                 markdown_content = h.handle(response.text)
 
                 # Process with prompt (simplified - in production you'd use AI here)

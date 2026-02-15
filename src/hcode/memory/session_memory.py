@@ -46,12 +46,8 @@ class SessionSummary:
     """Compressed representation of older conversation segments."""
 
     summary: str
-    message_range: tuple  # (start_id, end_id)
     original_count: int
     created_at: str = field(default_factory=lambda: datetime.now().isoformat())
-    key_decisions: List[str] = field(default_factory=list)
-    code_changes: List[str] = field(default_factory=list)
-    topics: List[str] = field(default_factory=list)
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for serialization."""
@@ -60,10 +56,11 @@ class SessionSummary:
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "SessionSummary":
         """Create from dictionary."""
-        # Handle tuple conversion
-        if isinstance(data.get("message_range"), list):
-            data["message_range"] = tuple(data["message_range"])
-        return cls(**data)
+        return cls(
+            summary=data["summary"],
+            original_count=data["original_count"],
+            created_at=data.get("created_at", datetime.now().isoformat()),
+        )
 
 
 @dataclass
@@ -255,26 +252,6 @@ class SessionMemory:
         content_lower = content.lower()
         return any(kw in content_lower for kw in config.anchor_keywords)
 
-    def mark_anchor(self, message_id: str):
-        """Mark a message as an anchor (preserved during compression)."""
-        if message_id not in self.session.anchors:
-            self.session.anchors.append(message_id)
-            for msg in self.session.messages:
-                if msg.message_id == message_id:
-                    msg.is_anchor = True
-                    break
-            self.save()
-
-    def unmark_anchor(self, message_id: str):
-        """Remove anchor status from a message."""
-        if message_id in self.session.anchors:
-            self.session.anchors.remove(message_id)
-            for msg in self.session.messages:
-                if msg.message_id == message_id:
-                    msg.is_anchor = False
-                    break
-            self.save()
-
     def _trigger_compression(self):
         """
         Compress older messages into summaries.
@@ -313,8 +290,6 @@ class SessionMemory:
             message_range=(messages[0].message_id, messages[-1].message_id),
             original_count=len(messages),
             key_decisions=self._extract_decisions(messages),
-            code_changes=self._extract_code_changes(messages),
-            topics=self._extract_topics(messages),
         )
 
     def _default_summarizer(self, messages: List[Message]) -> str:
@@ -371,50 +346,6 @@ class SessionMemory:
 
         return decisions[:5]  # Limit to 5 decisions
 
-    def _extract_code_changes(self, messages: List[Message]) -> List[str]:
-        """Extract code changes from messages."""
-        changes = []
-
-        for m in messages:
-            if m.role == "assistant" and "```" in m.content:
-                # Look for file paths or descriptions
-                lines = m.content.split("\n")
-                for i, line in enumerate(lines):
-                    if "```" in line and i > 0:
-                        prev_line = lines[i - 1].strip()
-                        if prev_line:
-                            changes.append(prev_line[:100])
-
-        return changes[:5]
-
-    def _extract_topics(self, messages: List[Message]) -> List[str]:
-        """Extract main topics discussed."""
-        # Simple keyword extraction
-        all_content = " ".join([m.content for m in messages])
-        words = all_content.lower().split()
-
-        # Count significant words (length > 5, not common)
-        common_words = {
-            "about",
-            "would",
-            "could",
-            "should",
-            "there",
-            "their",
-            "these",
-            "those",
-            "which",
-            "where",
-        }
-        word_counts = {}
-        for word in words:
-            if len(word) > 5 and word.isalpha() and word not in common_words:
-                word_counts[word] = word_counts.get(word, 0) + 1
-
-        # Return top topics
-        sorted_words = sorted(word_counts.items(), key=lambda x: x[1], reverse=True)
-        return [w for w, c in sorted_words[:5]]
-
     def get_context_messages(self) -> List[Dict[str, str]]:
         """
         Get messages formatted for the LLM context.
@@ -442,43 +373,6 @@ class SessionMemory:
             context.append({"role": msg.role, "content": msg.content})
 
         return context
-
-    def get_recent_sessions(self, limit: int = 10) -> List[Dict[str, Any]]:
-        """
-        List recent sessions for this project.
-
-        Args:
-            limit: Maximum sessions to return
-
-        Returns:
-            List of session metadata dictionaries
-        """
-        sessions = []
-
-        for file in self.sessions_dir.glob("*.json"):
-            try:
-                with open(file, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-
-                # Filter by project if specified
-                if self.project_path and data.get("project_path") != str(self.project_path):
-                    continue
-
-                sessions.append(
-                    {
-                        "session_id": data["session_id"],
-                        "created_at": data["created_at"],
-                        "updated_at": data["updated_at"],
-                        "message_count": len(data.get("messages", [])),
-                        "summary_count": len(data.get("summaries", [])),
-                        "anchor_count": len(data.get("anchors", [])),
-                    }
-                )
-            except (json.JSONDecodeError, KeyError):
-                continue
-
-        sessions.sort(key=lambda x: x["updated_at"], reverse=True)
-        return sessions[:limit]
 
     def compact(self, target_messages: int = 20):
         """
@@ -510,13 +404,6 @@ class SessionMemory:
         """Clear the current session (keep summaries)."""
         self.session.messages = []
         self.save()
-
-    def delete_session(self, session_id: Optional[str] = None):
-        """Delete a session file."""
-        sid = session_id or self.session.session_id
-        file_path = self._session_file(sid)
-        if file_path.exists():
-            file_path.unlink()
 
     def get_stats(self) -> Dict[str, Any]:
         """Get session statistics."""

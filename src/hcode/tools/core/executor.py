@@ -4,6 +4,7 @@ Executes external tools and commands with timeout and output handling.
 """
 
 import asyncio
+import os
 import re
 import shlex
 from dataclasses import dataclass
@@ -34,63 +35,6 @@ class ExecutionResult:
 
 class ToolExecutor:
     """Executes external tools and commands"""
-
-    # Common tool configurations
-    TOOL_CONFIGS = {
-        # Python tools
-        "pytest": {
-            "command": "pytest",
-            "timeout": 300,
-            "env": {},
-        },
-        "pylint": {
-            "command": "pylint",
-            "timeout": 60,
-        },
-        "black": {
-            "command": "black",
-            "timeout": 60,
-        },
-        "mypy": {
-            "command": "mypy",
-            "timeout": 120,
-        },
-        # JavaScript tools
-        "npm": {
-            "command": "npm",
-            "timeout": 300,
-        },
-        "jest": {
-            "command": "jest",
-            "timeout": 300,
-        },
-        "eslint": {
-            "command": "eslint",
-            "timeout": 60,
-        },
-        "prettier": {
-            "command": "prettier",
-            "timeout": 60,
-        },
-        # Build tools
-        "make": {
-            "command": "make",
-            "timeout": 600,
-        },
-        "cargo": {
-            "command": "cargo",
-            "timeout": 600,
-        },
-        "gradle": {
-            "command": "gradle",
-            "timeout": 600,
-        },
-        # Version control
-        "git": {
-            "command": "git",
-            "timeout": 60,
-        },
-    }
 
     def __init__(self, root_dir: Optional[str] = None):
         """
@@ -189,113 +133,6 @@ class ToolExecutor:
                 duration=duration,
                 timed_out=False,
             )
-
-    async def run_tool(self, tool_name: str, args: List[str], **kwargs) -> ExecutionResult:
-        """
-        Run a configured tool.
-
-        Args:
-            tool_name: Tool name from TOOL_CONFIGS
-            args: Tool arguments
-            **kwargs: Additional execution parameters
-
-        Returns:
-            ExecutionResult
-        """
-        if tool_name not in self.TOOL_CONFIGS:
-            raise ValueError(f"Unknown tool: {tool_name}")
-
-        config = self.TOOL_CONFIGS[tool_name]
-        command = f"{config['command']} {' '.join(args)}"
-
-        # Merge config with kwargs
-        exec_params = {
-            "timeout": config.get("timeout", 120),
-            "env": config.get("env", {}),
-        }
-        exec_params.update(kwargs)
-
-        return await self.execute(command, **exec_params)
-
-
-
-
-
-    def _detect_test_framework(self) -> str:
-        """Detect test framework from project"""
-        # Check for Python
-        if (self.root_dir / "pytest.ini").exists() or (self.root_dir / "setup.cfg").exists():
-            return "pytest"
-
-        # Check for JavaScript
-        package_json = self.root_dir / "package.json"
-        if package_json.exists():
-            try:
-                import json
-
-                with open(package_json) as f:
-                    data = json.load(f)
-                    deps = {**data.get("dependencies", {}), **data.get("devDependencies", {})}
-                    if "jest" in deps:
-                        return "jest"
-                    if "mocha" in deps:
-                        return "mocha"
-            except:
-                pass
-
-        return "pytest"  # Default
-
-    def _detect_linter(self) -> str:
-        """Detect linter from project"""
-        # Check for Python
-        if (self.root_dir / ".pylintrc").exists():
-            return "pylint"
-
-        # Check for JavaScript
-        if (self.root_dir / ".eslintrc.js").exists() or (self.root_dir / ".eslintrc.json").exists():
-            return "eslint"
-
-        # Default based on files
-        if list(self.root_dir.glob("**/*.py")):
-            return "pylint"
-
-        if list(self.root_dir.glob("**/*.js")) or list(self.root_dir.glob("**/*.ts")):
-            return "eslint"
-
-        return "pylint"
-
-    def _detect_formatter(self) -> str:
-        """Detect formatter from project"""
-        # Check for Python
-        if (self.root_dir / "pyproject.toml").exists():
-            return "black"
-
-        # Check for JavaScript
-        if (self.root_dir / ".prettierrc").exists():
-            return "prettier"
-
-        # Default based on files
-        if list(self.root_dir.glob("**/*.py")):
-            return "black"
-
-        return "prettier"
-
-    def _detect_build_tool(self) -> str:
-        """Detect build tool from project"""
-        if (self.root_dir / "Makefile").exists():
-            return "make"
-
-        if (self.root_dir / "package.json").exists():
-            return "npm"
-
-        if (self.root_dir / "Cargo.toml").exists():
-            return "cargo"
-
-        if (self.root_dir / "build.gradle").exists():
-            return "gradle"
-
-        return "make"
-
 
 
 # Import os at module level

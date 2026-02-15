@@ -85,6 +85,7 @@ class LiveTodoBar:
         self.start_time: Optional[datetime] = None
         self.token_count: int = 0
         self._active = False
+        self._paused = False
         self._lock = threading.Lock()
 
         # Display components
@@ -97,12 +98,6 @@ class LiveTodoBar:
         # Update thread for elapsed time
         self._stop_event = threading.Event()
         self._update_thread: Optional[threading.Thread] = None
-
-        # Track last render state to avoid unnecessary updates
-        self._last_render_hash: Optional[int] = None
-
-        # Pause rendering during streaming to prevent ANSI code interference
-        self._paused: bool = False
 
     def _on_todo_update(self, event: ToolEvent) -> None:
         """
@@ -238,104 +233,6 @@ class LiveTodoBar:
             
             self.console.control(*controls)
 
-    def _update_loop(self) -> None:
-        """Background thread to update the elapsed time display."""
-        while not self._stop_event.is_set():
-            time.sleep(1.0)
-            # DISABLED: ANSI cursor positioning causes duplication on Windows
-            # Todos are shown only on completion via print_final_status()
-            # if not self._paused and self._active:
-            #     self._render_status_bar()
-
-    def _render_status_bar(self) -> None:
-        """Render the status bar at the bottom of the terminal."""
-        if not self._active or self._paused:
-            return
-
-        with self._lock:
-            if not self.todos:
-                return
-
-            # Calculate elapsed time
-            elapsed = 0.0
-            if self.start_time:
-                elapsed = (datetime.now() - self.start_time).total_seconds()
-
-            # Create a hash of current state to detect changes
-            state_hash = hash((
-                str(self.todos),
-                int(elapsed),  # Round to avoid updating every millisecond
-                self.token_count
-            ))
-
-            # Skip render if nothing changed
-            if state_hash == self._last_render_hash:
-                return
-
-            self._last_render_hash = state_hash
-            self._last_render_hash = state_hash
-
-            # Render to string
-            from io import StringIO
-
-            string_buffer = StringIO()
-            temp_console = Console(
-                file=string_buffer,
-                force_terminal=True,
-                width=self.console.width or 120,
-                no_color=False,
-            )
-
-            rendered = self.todo_display.render(
-                self.todos,
-                elapsed_seconds=elapsed,
-                token_count=self.token_count,
-                show_shortcuts=self.show_shortcuts,
-            )
-            temp_console.print(rendered)
-
-            # Get lines
-            output = string_buffer.getvalue()
-            lines = output.split("\n")[: self.height]
-
-            # Position and render using Rich controls
-            with _stdout_write_lock:
-                try:
-                    terminal_height = self.console.height
-                    
-                    controls = [
-                        RawControl("\033[s"),  # Save cursor
-                        Control(ControlType.HIDE_CURSOR),
-                    ]
-                    
-                    # Execute setup controls first
-                    self.console.control(*controls)
-                    
-                    # Now print lines at specific positions
-                    for i, line in enumerate(lines):
-                        row = terminal_height - self.height + i
-                        # Move to specific row
-                        self.console.control(Control.move_to(0, row))
-                        # Clear line first to ensure no artifacts
-                        self.console.control(Control((ControlType.ERASE_IN_LINE, 2)))
-                        # Write ANSI-formatted line directly to stdout
-                        sys.stdout.write(line)
-                        sys.stdout.flush()
-                        
-                    # Restore cursor
-                    self.console.control(
-                        RawControl("\033[u"),  # Restore cursor
-                        Control(ControlType.SHOW_CURSOR)
-                    )
-
-                except Exception:
-                    # Fallback if something goes wrong
-                    # Ensure cursor is shown at least
-                    try:
-                        self.console.control(Control(ControlType.SHOW_CURSOR))
-                    except:
-                        pass
-
     def update_todos(self, todos: List[Dict[str, Any]]) -> None:
         """
         Manually update todos (in addition to callback updates).
@@ -350,15 +247,46 @@ class LiveTodoBar:
         # if self._active:
         #     self._render_status_bar()
 
-    def update_tokens(self, token_count: int) -> None:
-        """
-        Update the token count display.
-
-        Args:
-            token_count: Number of tokens used
-        """
         with self._lock:
             self.token_count = token_count
+
+    def _update_loop(self) -> None:
+        """Background loop for time-based animation (seconds elapsed)."""
+        while not self._stop_event.is_set():
+            if self._active:
+                # We can trigger a re-render here if we want live clock
+                # but for Windows stability we keep it minimal
+                pass
+            time.sleep(1.0)
+
+    def _render_status_bar(self) -> None:
+        """Render the status bar area."""
+        if not self._active or self._paused:
+            return
+
+        with self._lock:
+            try:
+                # Calculate elapsed
+                elapsed = 0.0
+                if self.start_time:
+                    elapsed = (datetime.now() - self.start_time).total_seconds()
+
+                # Render todos
+                rendered = self.todo_display.render(
+                    self.todos,
+                    elapsed_seconds=elapsed,
+                    token_count=self.token_count,
+                    show_shortcuts=self.show_shortcuts,
+                )
+
+                # Clear and print
+                self._clear_status_area()
+                with _stdout_write_lock:
+                    terminal_height = self.console.height
+                    self.console.control(Control.move_to(0, terminal_height - self.height))
+                    self.console.print(rendered, end="")
+            except Exception:
+                pass
 
 
     @property
@@ -366,31 +294,20 @@ class LiveTodoBar:
         """Check if the bar is currently active."""
         return self._active
 
-    def pause(self) -> None:
-        """
-        Pause todo bar rendering.
-
-        Use this during streaming output to prevent ANSI codes
-        from interfering with the streamed content.
-        """
-        self._paused = True
-
-    def resume(self) -> None:
-        """
-        Resume todo bar rendering.
-
-        Call this after streaming completes to restore
-        the todo bar display.
-        """
-        self._paused = False
-        # DISABLED: Causes duplication on Windows
-        # if self._active:
-        #     self._render_status_bar()
-
     def get_todos(self) -> List[Dict[str, Any]]:
         """Get the current todo list."""
         with self._lock:
             return list(self.todos)
+
+    def pause(self) -> None:
+        """Pause todo updates (e.g. during streaming)."""
+        self._paused = True
+
+    def resume(self) -> None:
+        """Resume todo updates."""
+        self._paused = False
+        if self._active:
+            self._render_status_bar()
 
 
 class StreamingTodoIntegration:
@@ -429,7 +346,6 @@ class StreamingTodoIntegration:
     def __exit__(self, _exc_type, _exc_val, _exc_tb):
         """Stop the todo bar when exiting context."""
         self.todo_bar.stop()
-        return False
 
     def start(self) -> None:
         """Start the integration (alternative to context manager)."""

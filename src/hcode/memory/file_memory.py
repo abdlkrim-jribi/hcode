@@ -18,10 +18,6 @@ class MemoryFile:
     content: str
     priority: int  # Lower = loaded first
     scope: str  # "global", "project", "local", "subdirectory"
-    size_bytes: int = 0
-
-    def __post_init__(self):
-        self.size_bytes = len(self.content.encode("utf-8"))
 
 
 class FileMemory:
@@ -182,7 +178,6 @@ class FileMemory:
         content: str,
         scope: str = "project",
         append: bool = False,
-        section: Optional[str] = None,
     ) -> Path:
         """
         Update or create a memory file.
@@ -191,7 +186,6 @@ class FileMemory:
             content: The content to write
             scope: "global", "project", or "local"
             append: If True, append to existing content
-            section: If provided, update only this section (markdown heading)
 
         Returns:
             Path to the updated file
@@ -281,87 +275,3 @@ class FileMemory:
         else:
             gitignore.write_text(f"# HCODE agent local memory\n{pattern}\n", encoding="utf-8")
 
-    def create_template(self, scope: str = "project") -> str:
-        """
-        Generate a template for a new memory file.
-
-        Args:
-            scope: "global" or "project"
-
-        Returns:
-            Template string
-        """
-        if scope == "global":
-            return """# Global HCODE Agent Memory
-
-## User Preferences
-<!-- Your preferences that apply across all projects -->
-- Preferred programming language:
-- Code style preferences:
-- Communication style:
-- Timezone:
-
-## Common Patterns
-<!-- Patterns and conventions you use across projects -->
-
-## Shortcuts & Aliases
-<!-- Custom shortcuts or command preferences -->
-
-## Notes
-<!-- Persistent notes for the agent -->
-"""
-        else:
-            return """# Project HCODE Agent Memory
-
-## Project Overview
-<!-- Brief description of this project -->
-
-## Tech Stack
-- Language:
-- Framework:
-- Key dependencies:
-- Build system:
-
-## Architecture
-<!-- Key architectural decisions and patterns -->
-
-## Code Conventions
-<!-- Project-specific coding conventions -->
-- Naming conventions:
-- File organization:
-- Testing approach:
-
-## Important Files
-<!-- Key files the agent should know about -->
-
-## Current Focus
-<!-- What you're currently working on -->
-
-## Known Issues
-<!-- Current bugs or technical debt -->
-
-## Notes
-<!-- Important context for the agent -->
-"""
-
-    def get_memory_stats(self) -> Dict[str, any]:
-        """Get statistics about loaded memory files."""
-        files = self.get_memory_files()
-        return {
-            "file_count": len(files),
-            "total_bytes": sum(f.size_bytes for f in files),
-            "files": [
-                {"path": str(f.path), "scope": f.scope, "size_bytes": f.size_bytes} for f in files
-            ],
-        }
-
-    def search_memory(self, query: str, current_dir: Optional[Path] = None) -> List[Dict]:
-        """
-        Search memory files for a query string.
-
-        """
-        results = []
-        for mem in self.get_memory_files(current_dir):
-            if query.lower() in mem.content.lower():
-                results.append({"path": str(mem.path), "snippet": mem.content[:200]})
-        return results

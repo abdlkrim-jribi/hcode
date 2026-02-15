@@ -115,8 +115,6 @@ class AnthropicProvider(AIProvider):
             total_tokens=response.usage.input_tokens + response.usage.output_tokens,
         )
 
-        self._update_usage(usage)
-
         # Parse content blocks - may include text and tool_use blocks
         text_content = ""
         tool_calls = []
@@ -143,27 +141,12 @@ class AnthropicProvider(AIProvider):
 
     async def _stream_completion(self, params: Dict[str, Any]) -> AsyncIterator[str]:
         """Streaming completion"""
-        input_tokens = 0
-        output_tokens = 0
-
         async with self.client.messages.stream(**params) as stream:
             async for event in stream:
                 if hasattr(event, "type"):
-                    if event.type == "message_start":
-                        input_tokens = event.message.usage.input_tokens
-                    elif event.type == "content_block_delta":
+                    if event.type == "content_block_delta":
                         if hasattr(event.delta, "text"):
                             yield event.delta.text
-                    elif event.type == "message_delta":
-                        output_tokens = event.usage.output_tokens
-
-        # Update usage after streaming completes
-        usage = Usage(
-            input_tokens=input_tokens,
-            output_tokens=output_tokens,
-            total_tokens=input_tokens + output_tokens,
-        )
-        self._update_usage(usage)
 
     def count_tokens(self, text: str) -> int:
         """
@@ -179,27 +162,6 @@ class AnthropicProvider(AIProvider):
         # Anthropic doesn't provide a direct tokenizer, so we approximate
         # Claude uses roughly 3.5 characters per token on average
         return int(len(text) / 3.5)
-
-    def get_cost(self, usage: Usage) -> float:
-        """
-        Calculate cost for token usage.
-
-        Args:
-            usage: Token usage
-
-        Returns:
-            Cost in USD
-        """
-        if self.model not in self.MODEL_PRICING:
-            # Default to Sonnet pricing for unknown models
-            input_price, output_price = self.MODEL_PRICING["claude-3-5-sonnet-20241022"]
-        else:
-            input_price, output_price = self.MODEL_PRICING[self.model]
-
-        input_cost = (usage.input_tokens / 1_000_000) * input_price
-        output_cost = (usage.output_tokens / 1_000_000) * output_price
-
-        return input_cost + output_cost
 
     def get_context_window(self) -> int:
         """Get context window size"""

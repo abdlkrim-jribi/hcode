@@ -304,14 +304,7 @@ def get_reasoning_system_prompt(task_type: Optional[str] = None) -> str:
     return builder.build_system_prompt(task_type=task_type)
 
 
-def get_thinking_prompt(
-    task: str,
-    depth: ReasoningDepth = ReasoningDepth.STANDARD,
-    context: Optional[Dict[str, Any]] = None,
-) -> str:
-    """Get a thinking trigger prompt for a task"""
-    builder = ReasoningPromptBuilder()
-    return builder.build_thinking_prompt(task=task, context=context, depth=depth)
+
 
 
 def detect_task_type(message: str) -> Optional[str]:

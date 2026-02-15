@@ -137,13 +137,6 @@ class ChangeProposal:
 
     # Status
     status: ChangeStatus = ChangeStatus.PENDING
-    created_at: datetime = field(default_factory=datetime.now)
-    reviewed_at: Optional[datetime] = None
-    applied_at: Optional[datetime] = None
-
-    # Review info
-    approval_reason: Optional[str] = None
-    rejection_reason: Optional[str] = None
 
     def compute_diff(self) -> None:
         """Compute diff between old and new content"""
@@ -787,9 +780,6 @@ class RejectChangeTool(BaseTool):
                 )
 
             proposal.status = ChangeStatus.REJECTED
-            proposal.rejection_reason = reason
-            proposal.reviewed_at = datetime.now()
-
             self.diff_preview.clear_pending(proposal_id)
 
             return ToolResult(

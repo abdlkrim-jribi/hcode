@@ -339,12 +339,6 @@ class HookSystem:
         """
         self.hooks: Dict[str, List[str]] = config or {}
 
-    def register_hook(self, event: str, command: str):
-        """Register a hook for an event"""
-        if event not in self.hooks:
-            self.hooks[event] = []
-        self.hooks[event].append(command)
-
     async def trigger(self, event: str, context: Optional[Dict] = None) -> List[ToolResult]:
         """Trigger hooks for an event"""
         import subprocess

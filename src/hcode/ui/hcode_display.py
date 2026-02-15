@@ -44,22 +44,20 @@ class TaskMode(Enum):
 
 class FileAction(Enum):
     """File operation actions."""
-    EDITED = "Edited"
     VIEWED = "Viewed"
     CREATED = "Created"
-    DELETED = "Deleted"
+    EDITED = "Edited"
 
 
 @dataclass
 class ProgressUpdate:
     """A single progress update."""
-    number: int
     message: str
     timestamp: datetime = field(default_factory=datetime.now)
     completed: bool = False
 
 
-@dataclass 
+@dataclass
 class TrackedFile:
     """A tracked file operation."""
     filename: str
@@ -106,8 +104,6 @@ class HcodeDisplay:
         
         # Display state
         self._thinking_stop_event = threading.Event()
-        self._thinking_thread: Optional[threading.Thread] = None
-        self._thinking_live: Optional[Live] = None
 
         
     def reset(self):

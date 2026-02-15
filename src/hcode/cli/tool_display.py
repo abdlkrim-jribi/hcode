@@ -16,7 +16,7 @@ Features:
 """
 
 import os
-import sys
+
 from typing import Optional, Dict, Any, List, Tuple
 
 from rich.console import Console
@@ -24,52 +24,15 @@ from rich.markup import escape
 from rich.syntax import Syntax
 from rich.text import Text
 
-# Import output handler for smart truncation
-from hcode.core.response.output_handler import (
-    OutputHandler,
-)
 # Import new UI system
 from hcode.ui import Icons, console as styled_console
 from hcode.ui.theme import get_palette as get_theme_palette
 
-# Platform detection
-IS_WINDOWS = sys.platform == "win32"
 
-# Global output handler instance
-_output_handler = OutputHandler(
-    head_lines=100,  # Show first 100 lines (increased for test errors)
-    tail_lines=50,  # ALWAYS show last 50 lines (increased for test errors)
-    max_lines=300,  # Max lines before truncation (increased from 50)
-    max_line_length=500,  # Max chars per line (increased from 200)
-)
 
-# ============================================================
-# PYGMENTS STYLE
-# ============================================================
-from pygments.style import Style
-from pygments.token import Token, Keyword, Name, Comment, String, Error, Number, Operator, Generic
 
-class HcodeSyntaxTheme(Style):
-    """Custom Pygments style matching Hcode Neon Green theme."""
-    default_style = ""
-    styles = {
-        Token:                "#CCCCCC", # text_dim
-        Comment:              "#3D9140 italic", # code_comment
-        Keyword:              "#39FF14 bold", # code_keyword (Neon Green)
-        Keyword.Type:         "#00FF88", # code_class
-        Name:                 "#FFFFFF", # text_primary
-        Name.Function:        "#00FF7F", # code_function
-        Name.Class:           "#00FF88 bold", # code_class
-        Name.Builtin:         "#00FFAA", # code_number (Cyan-green)
-        String:               "#7FFF00", # code_string (Yellow-green)
-        Number:               "#00FFAA", # code_number
-        Operator:             "#39FF14", # code_operator
-        Generic.Heading:      "#39FF14 bold", 
-        Generic.Subheading:   "#00FF88 bold",
-        Generic.Emph:         "italic",
-        Generic.Strong:       "bold",
-        Error:                "#FF3355", # error
-    }
+
+
 
 
 # ============================================================
@@ -97,21 +60,7 @@ class HcodeStyle:
 
         # Colors (from theme)
         self.DIM = "dim"
-        self.BOLD = "bold"
-
-        # Tool colors (from theme palette)
-        self.TOOL_NAME = palette.accent
-        self.TOOL_EXECUTING = palette.warning
-        self.TOOL_SUCCESS = palette.success
-        self.TOOL_ERROR = palette.error
-
-        # Content colors (from theme palette)
         self.FILE_PATH = palette.info
-        self.LINE_NUMBER = f"dim {palette.accent}"
-        self.ADDED = palette.diff_added
-        self.ADDED_BG = palette.diff_added_bg
-        self.REMOVED = palette.diff_removed
-        self.REMOVED_BG = palette.diff_removed_bg
         self.CONTEXT = palette.text_muted
         
         # Dim colors from theme
@@ -133,6 +82,11 @@ class HcodeStyle:
         self.COLOR_WRITE = palette.success       # Green (Neon)
         self.COLOR_EDIT = palette.code_number    # Purple
         self.COLOR_BASH = palette.warning        # Orange
+
+        # Tool Status Colors
+        self.TOOL_SUCCESS = palette.success
+        self.TOOL_ERROR = palette.error
+        self.TOOL_NAME = palette.info
 
 
 
@@ -166,7 +120,7 @@ class HcodeToolDisplay:
     # ─────────────────────────────────────────────────────────
 
     def display_tool_call(
-        self, tool_name: str, arguments: Dict[str, Any], result: Any, show_thinking: bool = False
+        self, tool_name: str, arguments: Dict[str, Any], result: Any
     ):
         """
         Display tool execution in Hcode style.
@@ -175,7 +129,6 @@ class HcodeToolDisplay:
             tool_name: Name of the tool (e.g., 'read', 'write', 'bash')
             arguments: Tool arguments
             result: Tool execution result (has .success, .output, .error)
-            show_thinking: Whether to show verbose output
         """
         tool_name_lower = tool_name.lower().replace("tool", "")
 
@@ -807,29 +760,6 @@ class HcodeToolDisplay:
                 f"[{self.style.TOOL_ERROR}]failed: {escape(str(result.error))}[/]"
             )
 
-    # ─────────────────────────────────────────────────────────
-    # GENERIC TOOL DISPLAY
-    # ─────────────────────────────────────────────────────────
-
-    def _display_generic(self, tool_name: str, arguments: Dict[str, Any], result: Any):
-        """Display generic tool execution"""
-        if result.success:
-            self.console.print(
-                f"  [{self.style.TOOL_SUCCESS}]{self.style.ICON_SUCCESS}[/] "
-                f"[bold]{tool_name}[/bold] "
-                f"[{self.style.DIM}]completed[/]"
-            )
-
-            # Show brief output if available
-            if result.output:
-                preview = result.output[:100] + "..." if len(result.output) > 100 else result.output
-                self.console.print(f"    [{self.style.DIM}]{escape(preview)}[/]")
-        else:
-            self.console.print(
-                f"  [{self.style.TOOL_ERROR}]{self.style.ICON_ERROR}[/] "
-                f"[bold]{tool_name}[/bold] "
-                f"[{self.style.TOOL_ERROR}]failed: {escape(str(result.error))}[/]"
-            )
 
     # ─────────────────────────────────────────────────────────
     # SPINNER / PROGRESS DISPLAY
@@ -917,7 +847,6 @@ class StatusLineDisplay:
 # SINGLETON INSTANCE
 # ============================================================
 
-# Global tool display instance
-tool_display = HcodeToolDisplay()
+
 
 status_line = StatusLineDisplay()

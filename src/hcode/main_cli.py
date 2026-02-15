@@ -46,13 +46,9 @@ from hcode.cli.autocomplete import (
     get_command_help,
     get_all_commands,
 )
-from hcode.cli.reasoning_runner import (
-    create_chat_reasoning_runner,
-)
+# from hcode.cli.reasoning_runner import ... (Removed)
 from hcode.ui.todo_display import (
     ClaudeCodeTodoDisplay,
-    print_claude_code_todos,
-    PersistentStatusBar,
 )
 from hcode.ui.live_todo_bar import (
     LiveTodoBar,
@@ -208,7 +204,7 @@ def cli(ctx, version):
 @click.option("-v", "--verbose", is_flag=True, help="Verbose output")
 def run_task(task, provider, model, complexity, cost, session, stream, agents, autonomous, verbose):
     """
-    🚀 Execute a coding task with AI assistance
+    Execute a coding task with AI assistance
 
     \b
     Examples:
@@ -377,14 +373,13 @@ def run_task(task, provider, model, complexity, cost, session, stream, agents, a
     help="AI provider",
 )
 @click.option("-s", "--session", help="Session ID")
-@click.option("--show-todos/--no-todos", default=True, help="Show todo progress bar")
 @click.option(
     "--debug", is_flag=True, help="Enable debug mode (show verbose output, thinking panels)"
 )
 @click.option("--autonomous/--no-autonomous", default=False, help="Run in autonomous mode (skip confirmation)")
-def chat_mode(provider, session, show_todos, debug, autonomous):
+def chat_mode(provider, session, debug, autonomous):
     """
-    💬 Start an interactive chat session
+    Start an interactive chat session
 
     \b
     Commands in chat:
@@ -457,10 +452,6 @@ def chat_mode(provider, session, show_todos, debug, autonomous):
             f"[bold {palette.warning}]{icons.WARNING} Debug mode enabled - showing verbose output[/bold {palette.warning}]"
         )
 
-    # Initialize reasoning runner for todo tracking - ALWAYS enabled
-    reasoning_runner = create_chat_reasoning_runner(console=console)
-    reasoning_runner.show_todos = True  # Always show todos
-
     # Show modern welcome/help
     from hcode.ui.banners import display_welcome_help
     display_welcome_help(console)
@@ -471,54 +462,15 @@ def chat_mode(provider, session, show_todos, debug, autonomous):
 
     message_count = 0
 
-    # Create Claude Code style todo display
-    ClaudeCodeTodoDisplay(console=console)
-
-    # Create LIVE todo bar for REAL-TIME updates via callback system
-    # This bar receives updates automatically when TodoWrite is called during execution
+    # LiveTodoBar handles persistent display via callback system
     live_todo_bar = LiveTodoBar(console=console, height=6)
+    chat_todos = []
     
     # Start LIVE todo bar for persistent Claude Code-style display
     live_todo_bar.start()
 
-    # Legacy persistent bar (kept for fallback)
-    PersistentStatusBar(console=console, height=6)
+    pass
 
-    # Function to display todo status bar - Claude Code style at bottom
-    def display_todo_bar(
-        force=False, compact=True, show_empty=False, elapsed_seconds=0, token_count=0
-    ):
-        """Display the todo progress bar in Claude Code style.
-        
-        Shows the current todo list using ClaudeCodeTodoDisplay.
-        
-        Args:
-            force: If True, show even if show_todos is disabled
-            compact: If True, show as Claude Code style (always used now)
-            show_empty: If True, show a minimal bar even when no todos
-            elapsed_seconds: Time elapsed for current task
-            token_count: Number of tokens used
-        """
-        # Check if we should display
-        if not force and not reasoning_runner.show_todos:
-            return
-        
-        # Get todos from reasoning runner
-        todos = reasoning_runner.todos
-        
-        # Check if we have todos to display
-        if not todos and not show_empty:
-            return
-        
-        # NOTE: Todo display is now handled by live_todo_bar.print_final_status()
-        # Disabled to prevent duplicate printing:
-        # claude_todo_display.print(
-        #     todos=todos,
-        #     elapsed_seconds=elapsed_seconds,
-        #     token_count=token_count,
-        #     show_shortcuts=True,
-        # )
-        pass
 
     # Helper function to convert Todo objects to dicts (needs to be outside loop)
     def todo_to_dict(todo):
@@ -557,39 +509,26 @@ def chat_mode(provider, session, show_todos, debug, autonomous):
                     continue
 
                 elif command == "todos":
-                    reasoning_runner.show_todos = not reasoning_runner.show_todos
-                    status = "enabled" if reasoning_runner.show_todos else "disabled"
-                    console.print(f"[{palette.info}]{icons.SUCCESS} Todo display {status}[/]")
-                    if reasoning_runner.show_todos and reasoning_runner.todos:
-                        console.print(reasoning_runner.render_full_panel())
+                    # status = "enabled" if reasoning_runner.show_todos else "disabled" (Removed)
+                    console.print(f"[{palette.info}]{icons.SUCCESS} Todo display toggled[/]")
                     continue
 
                 elif command == "todo":
-                    # Show full todo panel in Claude Code style
-                    if reasoning_runner.todos:
-                        # Show Claude Code style with all details
-                        print_claude_code_todos(
-                            todos=reasoning_runner.todos,
-                            console=console,
-                            elapsed_seconds=0,
-                            token_count=0,
-                            show_shortcuts=False,  # Don't show shortcuts in explicit view
-                        )
-                    else:
-                        console.print(f"[{palette.text_muted}]No tasks in progress[/]")
+                    # Show full todo panel (Functionality moved to LiveTodoBar/ClaudeCodeTodoDisplay)
+                    console.print(f"[{palette.text_muted}]Todo panel display is now automatic[/]")
                     continue
 
                 elif command.startswith("todo add "):
                     # Add a todo item
                     todo_text = command[9:].strip()
                     if todo_text:
-                        reasoning_runner.add_todo(todo_text)
+                        # reasoning_runner.add_todo(todo_text) (Removed)
                         console.print(f"[{palette.success}]{icons.SUCCESS} Added: {todo_text}[/]")
                     continue
 
                 elif command == "todo done" or command == "done":
                     # Mark current todo as done
-                    reasoning_runner.complete_current()
+                    # reasoning_runner.complete_current() (Removed)
                     console.print(f"[{palette.success}]{icons.SUCCESS} Task completed[/]")
                     continue
 
@@ -790,10 +729,10 @@ def chat_mode(provider, session, show_todos, debug, autonomous):
 
                     # Include todo progress in stats
                     todo_progress = ""
-                    if reasoning_runner.todos:
-                        total = len(reasoning_runner.todos)
+                    if chat_todos:
+                        total = len(chat_todos)
                         completed = sum(
-                            1 for t in reasoning_runner.todos if t.get("status") == "completed"
+                            1 for t in chat_todos if t.get("status") == "completed"
                         )
                         todo_progress = (
                             f"\n{icons.GEAR} Tasks: [{palette.info}]{completed}/{total}[/]"
@@ -940,7 +879,7 @@ def chat_mode(provider, session, show_todos, debug, autonomous):
 
                 elif command == "clear":
                     agent.context_manager.clear_context(keep_system=True)
-                    reasoning_runner.todos = []  # Clear todos too
+                    chat_todos = []  # Clear todos too
                     console.print(f"[{palette.success}]{icons.SUCCESS} Conversation cleared[/]")
                     message_count = 0
                     continue
@@ -1050,8 +989,8 @@ def chat_mode(provider, session, show_todos, debug, autonomous):
 
             # Start LIVE todo bar - it will update automatically via callbacks
             # when the agent calls TodoWrite during execution
-            if reasoning_runner.todos:
-                live_todo_bar.update_todos(reasoning_runner.todos)
+            if chat_todos:
+                live_todo_bar.update_todos(chat_todos)
             live_todo_bar.start()
 
             # Import Hcode display for Claude Code style output
@@ -1089,7 +1028,7 @@ def chat_mode(provider, session, show_todos, debug, autonomous):
             # Sync todos from live bar (which received callback updates)
             callback_todos = live_todo_bar.get_todos()
             if callback_todos:
-                reasoning_runner.todos = callback_todos
+                chat_todos = callback_todos
 
             # SYNC TODOS FROM AGENT'S TODOWRITE TOOL
             # The agent's tool manager has the authoritative todo list
@@ -1114,7 +1053,7 @@ def chat_mode(provider, session, show_todos, debug, autonomous):
                     if hasattr(todowrite_tool, "todos"):
                         agent_todos = todowrite_tool.todos  # Now a property
                         if agent_todos:
-                            reasoning_runner.todos = [todo_to_dict(t) for t in agent_todos]
+                            chat_todos = [todo_to_dict(t) for t in agent_todos]
                             synced = True
                             if debug:
                                 console.print(
@@ -1124,7 +1063,7 @@ def chat_mode(provider, session, show_todos, debug, autonomous):
                     elif hasattr(todowrite_tool, "todo_manager") and todowrite_tool.todo_manager:
                         agent_todos = todowrite_tool.todo_manager.to_dict_list()
                         if agent_todos:
-                            reasoning_runner.todos = [todo_to_dict(t) for t in agent_todos]
+                            chat_todos = [todo_to_dict(t) for t in agent_todos]
                             synced = True
                             if debug:
                                 console.print(
@@ -1135,26 +1074,26 @@ def chat_mode(provider, session, show_todos, debug, autonomous):
                     console.print(f"[dim red]Todo sync error: {e}[/dim red]")
 
             # If no todos from agent, try extracting from response
-            if not reasoning_runner.todos and not synced:
+            if not chat_todos and not synced:
                 extracted_todos = extract_todos_from_response(result)
                 if extracted_todos:
-                    reasoning_runner.todos = [todo_to_dict(t) for t in extracted_todos]
+                    chat_todos = [todo_to_dict(t) for t in extracted_todos]
 
             # Ensure at least one is in_progress if todos exist and none completed
-            if reasoning_runner.todos:
+            if chat_todos:
                 has_in_progress = any(
-                    t.get("status") == "in_progress" for t in reasoning_runner.todos
+                    t.get("status") == "in_progress" for t in chat_todos
                 )
-                all_completed = all(t.get("status") == "completed" for t in reasoning_runner.todos)
+                all_completed = all(t.get("status") == "completed" for t in chat_todos)
                 if not has_in_progress and not all_completed:
-                    for todo in reasoning_runner.todos:
+                    for todo in chat_todos:
                         if todo.get("status") == "pending":
                             todo["status"] = "in_progress"
                             break
 
             # Update LiveTodoBar with latest todos (it will display persistently)
-            if reasoning_runner.todos:
-                live_todo_bar.update_todos(reasoning_runner.todos)
+            if chat_todos:
+                live_todo_bar.update_todos(chat_todos)
 
             message_count += 1
 
@@ -1170,7 +1109,7 @@ def chat_mode(provider, session, show_todos, debug, autonomous):
             # Sync todos from live bar first (it may have received callback updates)
             callback_todos = live_todo_bar.get_todos()
             if callback_todos:
-                reasoning_runner.todos = callback_todos
+                chat_todos = callback_todos
 
             # Also sync from agent's TodoWrite tool
             try:
@@ -1188,14 +1127,14 @@ def chat_mode(provider, session, show_todos, debug, autonomous):
                     if hasattr(todowrite_tool, "todos"):
                         agent_todos = todowrite_tool.todos
                         if agent_todos:
-                            reasoning_runner.todos = [todo_to_dict(t) for t in agent_todos]
+                            chat_todos = [todo_to_dict(t) for t in agent_todos]
                     elif hasattr(todowrite_tool, "todo_manager") and todowrite_tool.todo_manager:
                         agent_todos = todowrite_tool.todo_manager.to_dict_list()
                         if agent_todos:
-                            reasoning_runner.todos = [todo_to_dict(t) for t in agent_todos]
+                            chat_todos = [todo_to_dict(t) for t in agent_todos]
                 # Update LiveTodoBar after interrupt (it shows persistently)
-                if reasoning_runner.todos:
-                    live_todo_bar.update_todos(reasoning_runner.todos)
+                if chat_todos:
+                    live_todo_bar.update_todos(chat_todos)
             except Exception:
                 pass
             continue
@@ -1214,7 +1153,7 @@ def chat_mode(provider, session, show_todos, debug, autonomous):
 @click.option("--deep", is_flag=True, help="Deep analysis")
 def analyze_code(path, provider, deep):
     """
-    🔍 Analyze code for issues and improvements
+    Analyze code for issues and improvements
 
     \b
     Examples:
@@ -1279,7 +1218,7 @@ def analyze_code(path, provider, deep):
 )
 def explore_codebase(query, thoroughness):
     """
-    🔍 Explore and search codebase
+    Explore and search codebase
 
     \b
     Examples:
@@ -1318,64 +1257,7 @@ def explore_codebase(query, thoroughness):
     )
 
 
-# Aliases for convenience
-@cli.command(name="r", hidden=True)
-@click.pass_context
-def run_alias(ctx):
-    """Alias for 'run' command"""
-    ctx.forward(run_task)
 
-
-@cli.command(name="c", hidden=True)
-@click.pass_context
-def chat_alias(ctx):
-    """Alias for 'chat' command"""
-    ctx.forward(chat_mode)
-
-
-@cli.command(name="a", hidden=True)
-@click.pass_context
-def analyze_alias(ctx):
-    """Alias for 'analyze' command"""
-    ctx.forward(analyze_code)
-
-
-@cli.command(name="quick", short_help="Quick shortcuts")
-def quick_reference():
-    """
-    ⚡ Quick reference for shortcuts and commands
-    """
-    show_banner()
-
-    # Shortcuts table
-    shortcuts = Table(title="⚡ Keyboard Shortcuts & Aliases", box=box.ROUNDED)
-    shortcuts.add_column("Shortcut", style="cyan", no_wrap=True)
-    shortcuts.add_column("Command", style="green")
-    shortcuts.add_column("Description")
-
-    shortcuts.add_row("hcode r", "hcode run", "Execute task")
-    shortcuts.add_row("hcode c", "hcode chat", "Start chat")
-    shortcuts.add_row("hcode a", "hcode analyze", "Analyze code")
-    shortcuts.add_row("-p", "--provider", "Choose provider")
-    shortcuts.add_row("-c s/m/c", "--complexity", "Set complexity")
-    shortcuts.add_row("--cost", "--optimize-cost", "Optimize cost")
-    shortcuts.add_row("-v", "--verbose", "Verbose output")
-
-    console.print(shortcuts)
-
-    # Common patterns
-    patterns = Table(title="🎯 Common Patterns", box=box.ROUNDED)
-    patterns.add_column("Pattern", style="cyan")
-    patterns.add_column("Example")
-
-    patterns.add_row("Quick task", "hcode r 'add logging'")
-    patterns.add_row("With Claude", "hcode r 'refactor' -p claude")
-    patterns.add_row("Cost optimized", "hcode r 'fix tests' --cost")
-    patterns.add_row("Complex task", "hcode r 'redesign' -c c")
-    patterns.add_row("Interactive", "hcode c")
-    patterns.add_row("Deep analysis", "hcode a . --deep")
-
-    console.print("\n", patterns)
 
 
 @cli.command(name="init", short_help="Initialize project config")
@@ -1670,192 +1552,6 @@ def config_path():
     console.print(table)
 
 
-@cli.command(name="history", short_help="Show conversation history")
-@click.option("-n", "--limit", default=10, help="Number of entries to show")
-@click.option("--session", "-s", help="Filter by session ID")
-def show_history(limit, session):
-    """
-    Show conversation history.
-
-    \b
-    Examples:
-      hcode history             Show last 10 entries
-      hcode history -n 20       Show last 20 entries
-      hcode history -s abc123   Show history for session
-    """
-    from pathlib import Path
-    import sqlite3
-
-    db_path = Path.home() / ".hcode" / "memory.db"
-
-    if not db_path.exists():
-        console.print(f"[yellow]{EMOJI['warning']} No history found[/yellow]")
-        console.print("[dim]Start a chat session to create history[/dim]")
-        return
-
-    try:
-        conn = sqlite3.connect(db_path)
-        cursor = conn.cursor()
-
-        # Check if table exists
-        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='conversations'")
-        if not cursor.fetchone():
-            console.print(f"[yellow]{EMOJI['warning']} No conversations found[/yellow]")
-            conn.close()
-            return
-
-        # Query history
-        if session:
-            cursor.execute(
-                "SELECT session_id, role, content, timestamp FROM conversations "
-                "WHERE session_id = ? ORDER BY timestamp DESC LIMIT ?",
-                (session, limit),
-            )
-        else:
-            cursor.execute(
-                "SELECT session_id, role, content, timestamp FROM conversations "
-                "ORDER BY timestamp DESC LIMIT ?",
-                (limit,),
-            )
-
-        rows = cursor.fetchall()
-        conn.close()
-
-        if not rows:
-            console.print(f"[yellow]{EMOJI['warning']} No history found[/yellow]")
-            return
-
-        table = Table(title="Conversation History", box=box.ROUNDED)
-        table.add_column("Session", style="dim", max_width=12)
-        table.add_column("Role", style="cyan", max_width=10)
-        table.add_column("Content", max_width=60)
-        table.add_column("Time", style="dim")
-
-        for session_id, role, content, timestamp in rows:
-            # Truncate content
-            content_preview = content[:100] + "..." if len(content) > 100 else content
-            content_preview = content_preview.replace("\n", " ")
-
-            table.add_row(session_id[:10] + "...", role, content_preview, timestamp)
-
-        console.print(table)
-
-    except Exception as e:
-        console.print(f"[red]{EMOJI['cross']} Error reading history: {e}[/red]")
-
-
-@cli.command(name="clear", short_help="Clear conversation history")
-@click.option("--session", "-s", help="Clear specific session")
-@click.option("--all", "-a", "clear_all", is_flag=True, help="Clear all history")
-@click.option("--force", "-f", is_flag=True, help="Skip confirmation")
-def clear_history(session, clear_all, force):
-    """
-    Clear conversation history.
-
-    \b
-    Examples:
-      hcode clear                 Clear current context
-      hcode clear -s abc123       Clear specific session
-      hcode clear --all           Clear all history
-      hcode clear --all --force   Clear all without confirmation
-    """
-    from pathlib import Path
-    import sqlite3
-
-    db_path = Path.home() / ".hcode" / "memory.db"
-
-    if not db_path.exists():
-        console.print(f"[green]{EMOJI['success']} No history to clear[/green]")
-        return
-
-    # Confirmation
-    if clear_all and not force:
-        if not Confirm.ask("[yellow]Clear ALL conversation history?[/yellow]", default=False):
-            console.print("[dim]Cancelled[/dim]")
-            return
-
-    try:
-        conn = sqlite3.connect(db_path)
-        cursor = conn.cursor()
-
-        # Check if table exists
-        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='conversations'")
-        if not cursor.fetchone():
-            console.print(f"[green]{EMOJI['success']} No history to clear[/green]")
-            conn.close()
-            return
-
-        if clear_all:
-            cursor.execute("DELETE FROM conversations")
-            deleted = cursor.rowcount
-        elif session:
-            cursor.execute("DELETE FROM conversations WHERE session_id = ?", (session,))
-            deleted = cursor.rowcount
-        else:
-            # Clear most recent session
-            cursor.execute("SELECT session_id FROM conversations ORDER BY timestamp DESC LIMIT 1")
-            row = cursor.fetchone()
-            if row:
-                cursor.execute("DELETE FROM conversations WHERE session_id = ?", (row[0],))
-                deleted = cursor.rowcount
-            else:
-                deleted = 0
-
-        conn.commit()
-        conn.close()
-
-        console.print(f"[green]{EMOJI['success']} Cleared {deleted} entries[/green]")
-
-    except Exception as e:
-        console.print(f"[red]{EMOJI['cross']} Error clearing history: {e}[/red]")
-
-
-@cli.command(name="debug", short_help="Debug an issue")
-@click.argument("error_description")
-@click.option(
-    "-p", "--provider", type=click.Choice(["auto", "anthropic", "openai"]), default="auto"
-)
-def debug_issue(error_description, provider):
-    """
-    Debug an issue with AI assistance.
-
-    \b
-    Examples:
-      hcode debug "TypeError: NoneType has no attribute 'get'"
-      hcode debug "Tests failing on line 42"
-    """
-    config = load_config()
-    anthropic_key = os.getenv("ANTHROPIC_API_KEY") or config.get("providers", {}).get(
-        "anthropic", {}
-    ).get("api_key")
-    openai_key = os.getenv("OPENAI_API_KEY") or config.get("providers", {}).get("openai", {}).get(
-        "api_key"
-    )
-
-    if not anthropic_key and not openai_key:
-        console.print("[red]No API keys found[/red]")
-        sys.exit(1)
-
-    preferences = ProviderPreferences(primary_provider=provider)
-    agent = HcodeAgent(anthropic_key=anthropic_key, openai_key=openai_key, preferences=preferences)
-
-    console.print(
-        Panel(f"[bold blue]Debugging:[/bold blue] {error_description}", border_style="blue")
-    )
-
-    console.print("\n[bold cyan]Analysis:[/bold cyan]\n")
-
-    asyncio.run(
-        agent.execute_task(
-            f"Debug this issue: {error_description}\n\n"
-            "Please:\n"
-            "1. Identify the root cause\n"
-            "2. Explain why it's happening\n"
-            "3. Propose a fix\n"
-            "4. Suggest how to prevent similar issues",
-            stream=True,
-        )
-    )
 
 
 def main():

@@ -76,9 +76,7 @@ class StatusIndicator:
         text.append(self.status, style=f"bold {self.color}")
         return text
 
-    def render_compact(self) -> Text:
-        """Render compact version (icon only)."""
-        return Text(self.icon, style=f"bold {self.color}")
+
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -249,13 +247,7 @@ class CommandPalette:
 class ProgressRing:
     """Futuristic circular progress indicator (ASCII representation)."""
 
-    FRAMES = ["◜ ", " ◝", " ◞", "◟ "]  # Spinning
     COMPLETE_FRAMES = ["○", "◔", "◑", "◕", "●"]  # Fill animation
-
-    @classmethod
-    def spinning(cls, frame: int) -> str:
-        """Get spinning frame."""
-        return cls.FRAMES[frame % len(cls.FRAMES)]
 
     @classmethod
     def progress(cls, percentage: float) -> str:

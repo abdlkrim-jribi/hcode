@@ -543,16 +543,6 @@ class ToolRegistry:
             return [t for t in self.tools.values() if t.category == category]
         return list(self.tools.values())
 
-    def get_function_schemas(self) -> List[Dict[str, Any]]:
-        """
-        Get OpenAI function schemas for all registered tools.
-
-        Returns:
-            List[Dict[str, Any]]: A list of function schema dictionaries compatible
-                                  with OpenAI's function calling API.
-        """
-        return [tool.to_function_schema() for tool in self.tools.values()]
-
     def get_anthropic_schemas(self) -> List[Dict[str, Any]]:
         """
         Get Anthropic tool schemas for all registered tools.

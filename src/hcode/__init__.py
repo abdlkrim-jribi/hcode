@@ -19,7 +19,6 @@ __email__ = "contact@hcode.dev"
 
 from hcode.core import (
     HcodeAgent,
-    FileSystemManager,
     SafetyGuard,
     ContextManager,
 )
@@ -54,7 +53,6 @@ __all__ = [
     "__email__",
     # Core
     "HcodeAgent",
-    "FileSystemManager",
     "SafetyGuard",
     "ContextManager",
     # Providers

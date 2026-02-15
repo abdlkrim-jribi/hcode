@@ -25,9 +25,8 @@ class MemoryType(Enum):
     CODE_PATTERN = "code_pattern"  # Code patterns and conventions
     DECISION = "decision"  # Architectural/design decisions
     CONTEXT = "context"  # General context about conversations
-    ERROR = "error"  # Common errors and solutions
-    TODO = "todo"  # Tasks and todos mentioned
-    LEARNING = "learning"  # Things learned during sessions
+    ERROR = "error"  # Common errors
+    # Node types
 
 
 @dataclass
@@ -269,10 +268,22 @@ class SemanticMemory:
         query_emb = self.embedding_model.embed(query)
         results: List[Tuple[Memory, float]] = []
         conn = self._conn
-        conn.row_factory = sqlite3.Row
-        rows = conn.execute("SELECT * FROM memories").fetchall()
+        rows = conn.execute("SELECT id, content, memory_type, source, importance, embedding, metadata, created_at, last_accessed, access_count, project_id FROM memories").fetchall()
         for row in rows:
-            mem = Memory.from_dict(dict(row), self._deserialize_embedding(row["embedding"]))
+            # Map row tuple to dict for from_dict
+            row_dict = {
+                "id": row[0],
+                "content": row[1],
+                "memory_type": row[2],
+                "source": row[3],
+                "importance": row[4],
+                "metadata": json.loads(row[6]),
+                "created_at": row[7],
+                "last_accessed": row[8],
+                "access_count": row[9],
+                "project_id": row[10]
+            }
+            mem = Memory.from_dict(row_dict, self._deserialize_embedding(row[5]))
             # Apply filters
             if memory_types and mem.memory_type not in memory_types:
                 continue

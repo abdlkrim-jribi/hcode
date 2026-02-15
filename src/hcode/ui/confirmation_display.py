@@ -23,7 +23,6 @@ class ConfirmationResult(Enum):
     ALLOW = auto()
     SESSION_ALLOW = auto()
     REJECT = auto()
-    COUNTER = auto() # For internal use if we want to distinguish, but user sees [C]ounter
 
 class ConfirmationDisplay:
     """

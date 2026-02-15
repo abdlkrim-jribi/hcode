@@ -156,24 +156,3 @@ class ToolCallValidator:
                     )
         
         return ValidationResult(is_valid=True, warnings=warnings)
-    
-    def validate_batch(self, tool_calls: List[Dict[str, Any]]) -> List[Tuple[Dict[str, Any], ValidationResult]]:
-        """
-        Validate multiple tool calls.
-        
-        Args:
-            tool_calls: List of tool call dicts with 'name'/'tool' and 'arguments'/'parameters'
-            
-        Returns:
-            List of (tool_call, ValidationResult) tuples
-        """
-        results = []
-        for tc in tool_calls:
-            # Support different formats
-            tool_name = tc.get("name") or tc.get("tool", "")
-            arguments = tc.get("arguments") or tc.get("parameters", {})
-            
-            result = self.validate(tool_name, arguments)
-            results.append((tc, result))
-        
-        return results

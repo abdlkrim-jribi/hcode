@@ -1076,42 +1076,6 @@ class EditTool(BaseTool):
         except ImportError:
             pass
 
-    def get_pending_proposal(self, proposal_id: str):
-        """Get a pending proposal by ID"""
-        return self._pending_proposals.get(proposal_id)
-
-    async def apply_proposal(self, proposal_id: str, force: bool = False) -> ToolResult:
-        """Apply a pending proposal"""
-        proposal = self._pending_proposals.get(proposal_id)
-        if not proposal:
-            return ToolResult(
-                success=False, output=None, error=f"No pending proposal with ID: {proposal_id}"
-            )
-
-        if proposal.has_critical_warnings() and not force:
-            return ToolResult(
-                success=False,
-                output=None,
-                error="Critical warnings present. Use force=True to override.",
-            )
-
-        # Apply the change
-        path = Path(proposal.file_path)
-        with open(path, "w", encoding="utf-8") as f:
-            f.write(proposal.new_content)
-
-        # Show diff after applying
-        diff_summary = self._show_diff(str(path), proposal.old_content, proposal.new_content)
-
-        # Clean up
-        del self._pending_proposals[proposal_id]
-
-        return ToolResult(
-            success=True,
-            output=f"Change applied: {proposal.file_path} (+{proposal.additions}/-{proposal.deletions}) ({diff_summary})",
-            metadata={"applied": True, "proposal_id": proposal_id},
-        )
-
 
 class MultiEditTool(BaseTool):
     """

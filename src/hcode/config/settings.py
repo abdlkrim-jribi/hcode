@@ -237,21 +237,7 @@ class HCodeSettings(BaseSettings):
         self.memory.db_path.parent.mkdir(parents=True, exist_ok=True)
         return self
 
-    def has_api_key(self) -> bool:
-        """Check if any API key is configured."""
-        return bool(self.llm.anthropic_api_key or self.llm.openai_api_key)
 
-    def get_effective_provider(self) -> str:
-        """Get the effective provider based on configuration and availability."""
-        if self.llm.provider != "auto":
-            return self.llm.provider
-
-        if self.llm.anthropic_api_key:
-            return "anthropic"
-        elif self.llm.openai_api_key:
-            return "openai"
-        else:
-            return "ollama"
 
     def to_dict(self) -> dict[str, Any]:
         """Export settings to dictionary."""
@@ -262,40 +248,7 @@ class HCodeSettings(BaseSettings):
         """Create settings from dictionary."""
         return cls(**data)
 
-    def save_to_file(self, path: Path | None = None) -> None:
-        """Save settings to YAML file."""
-        import yaml
 
-        file_path = path or (self.config_dir / "config.yaml")
-        data = self.to_dict()
-
-        # Convert Path objects to strings for YAML
-        def convert_paths(obj: Any) -> Any:
-            if isinstance(obj, dict):
-                return {k: convert_paths(v) for k, v in obj.items()}
-            elif isinstance(obj, list):
-                return [convert_paths(item) for item in obj]
-            elif isinstance(obj, Path):
-                return str(obj)
-            return obj
-
-        data = convert_paths(data)
-
-        with open(file_path, "w", encoding="utf-8") as f:
-            yaml.dump(data, f, default_flow_style=False, sort_keys=False)
-
-    @classmethod
-    def load_from_file(cls, path: Path) -> "HCodeSettings":
-        """Load settings from YAML file."""
-        import yaml
-
-        if not path.exists():
-            return cls()
-
-        with open(path, "r", encoding="utf-8") as f:
-            data = yaml.safe_load(f) or {}
-
-        return cls.from_dict(data)
 
 
 @lru_cache()

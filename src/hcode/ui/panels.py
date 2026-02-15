@@ -547,7 +547,6 @@ class DiffDisplay:
     - Statistics summary (lines added/removed)
     """
 
-    CONTEXT_LINES = 3
 
     @staticmethod
     def compute_diff(old_content: str, new_content: str, context_lines: int = 3) -> List[DiffLine]:
@@ -720,57 +719,6 @@ class DiffDisplay:
             box=ROUNDED,
             padding=(0, 1),
         )
-
-    @staticmethod
-    def render_simple(
-        filename: str,
-        additions: List[str] = None,
-        deletions: List[str] = None,
-        context: List[str] = None,
-    ) -> Panel:
-        """Render simple diff display."""
-        palette = get_palette()
-        lines = []
-
-        if context:
-            for line in context:
-                text = Text(f"  {line}")
-                text.stylize(palette.text_muted)
-                lines.append(text)
-
-        if deletions:
-            for line in deletions:
-                text = Text(f"- {line}")
-                text.stylize(palette.diff_removed)
-                lines.append(text)
-
-        if additions:
-            for line in additions:
-                text = Text(f"+ {line}")
-                text.stylize(palette.diff_added)
-                lines.append(text)
-
-        content = Group(*lines) if lines else Text("No changes", style=palette.text_muted)
-        file_icon = Icons.get_file_icon(filename)
-
-        return Panel(
-            content,
-            title=f"[{palette.text_secondary}]{file_icon} {filename}[/]",
-            border_style=palette.border_default,
-            box=ROUNDED,
-            padding=(0, 1),
-        )
-
-    @staticmethod
-    def render_inline(old_string: str, new_string: str) -> Text:
-        """Render inline diff for small changes."""
-        palette = get_palette()
-        text = Text()
-        text.append(old_string, style=f"strike {palette.diff_removed}")
-        text.append(" → ", style=palette.text_muted)
-        text.append(new_string, style=f"bold {palette.diff_added}")
-        return text
-
 
 # ═══════════════════════════════════════════════════════════════════════
 # HELPER FUNCTIONS

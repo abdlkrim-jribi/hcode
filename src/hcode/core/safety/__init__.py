@@ -1,3 +1,3 @@
-from .guard import SafetyGuard, DryRunContext
+from .guard import SafetyGuard
 
-__all__ = ["SafetyGuard", "DryRunContext"]
+__all__ = ["SafetyGuard"]

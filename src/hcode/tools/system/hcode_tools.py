@@ -26,7 +26,6 @@ class TaskBoundaryTool(BaseTool):
         self.console = Console()
         self.root_dir = Path(root_dir) if root_dir else Path.cwd()
         # Keep track of current task state
-        self.current_task_name = None
         self.current_mode = None
         self._progress_counter = 0
 
@@ -50,7 +49,6 @@ class TaskBoundaryTool(BaseTool):
     ) -> ToolResult:
         """Update task boundary status"""
         try:
-            self.current_task_name = TaskName
             self.current_mode = Mode
             
             # Create a rich panel to display the task boundary

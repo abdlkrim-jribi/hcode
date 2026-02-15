@@ -20,7 +20,7 @@ from hcode.core.observability import (
     end_logging,
 )
 from hcode.core.context import ContextManager, ContextEntry
-from hcode.core.filesystem import FileSystemManager, FileWatcher
+# from hcode.core.filesystem import FileSystemManager, FileWatcher (Removed)
 from hcode.core.optimization import (
     CachedTokenCounter,
     BatchContextWriter,
@@ -34,26 +34,12 @@ from hcode.core.execution import (
     ExecutionStateMachine,
     ExecutionState,
 )
-from hcode.core.response import (
-    OutputHandler,
-    TruncatedOutput,
-    ExtractedError,
-    SearchMatch,
-    ErrorSeverity,
-    OutputType,
-    truncate_output,
-    extract_errors,
-    search_in_output,
-    get_latest_lines,
-)
-from hcode.core.safety import SafetyGuard, DryRunContext
+# from hcode.core.response import (Removed OutputHandler usage)
+from hcode.core.safety import SafetyGuard
 
 __all__ = [
     "HcodeAgent",
-    "FileSystemManager",
-    "FileWatcher",
     "SafetyGuard",
-    "DryRunContext",
     "ContextManager",
     "ContextEntry",
     # Logging & Analytics
@@ -71,17 +57,7 @@ __all__ = [
     "ToolExecutionEvent",
     "ReasoningEvent",
     "get_analytics",
-    # Output handling
-    "OutputHandler",
-    "TruncatedOutput",
-    "ExtractedError",
-    "SearchMatch",
-    "ErrorSeverity",
-    "OutputType",
-    "truncate_output",
-    "extract_errors",
-    "search_in_output",
-    "get_latest_lines",
+    # Output handling (Removed)
     # Optimizations
     "CachedTokenCounter",
     "BatchContextWriter",

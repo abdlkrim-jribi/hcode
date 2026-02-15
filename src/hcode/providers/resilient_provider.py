@@ -46,7 +46,6 @@ class FailureType(Enum):
     TIMEOUT = "timeout"
     AUTHENTICATION = "authentication"
     CONTEXT_OVERFLOW = "context_overflow"
-    INVALID_RESPONSE = "invalid_response"
     NETWORK_ERROR = "network_error"
     UNKNOWN = "unknown"
 
@@ -58,7 +57,6 @@ class FailureRecord:
     failure_type: FailureType
     timestamp: datetime
     error_message: str
-    retry_after: Optional[float] = None  # Seconds to wait before retry
 
 
 @dataclass
@@ -67,12 +65,8 @@ class ProviderStats:
 
     total_requests: int = 0
     successful_requests: int = 0
-    failed_requests: int = 0
     total_latency: float = 0.0
     recent_failures: Deque[FailureRecord] = field(default_factory=lambda: deque(maxlen=100))
-    last_success: Optional[datetime] = None
-    last_failure: Optional[datetime] = None
-    circuit_opened_at: Optional[datetime] = None
 
     @property
     def success_rate(self) -> float:
@@ -300,11 +294,6 @@ class ResilientProvider:
         """Get current active provider"""
         return self.providers[self._current_name]
 
-    @property
-    def current_provider_name(self) -> str:
-        """Get current provider name"""
-        return self._current_name
-
     def set_failover_callback(self, callback: Callable[[str, str, Exception], None]):
         """Set callback for failover events (from_provider, to_provider, exception)"""
         self._on_failover = callback
@@ -400,7 +389,6 @@ class ResilientProvider:
         stats.total_requests += 1
         stats.successful_requests += 1
         stats.total_latency += latency
-        stats.last_success = datetime.now()
 
         circuit = self._circuit_breakers[provider_name]
         circuit.record_success()
@@ -419,8 +407,6 @@ class ResilientProvider:
 
         stats = self._stats[provider_name]
         stats.total_requests += 1
-        stats.failed_requests += 1
-        stats.last_failure = datetime.now()
         stats.recent_failures.append(
             FailureRecord(
                 failure_type=failure_type, timestamp=datetime.now(), error_message=str(error)

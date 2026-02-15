@@ -217,11 +217,7 @@ class DiffHighlighter:
     """Highlight code diffs with additions/deletions."""
 
     def __init__(self):
-        palette = get_palette()
-        self.added_style = f"bold {palette.diff_added} on {palette.diff_added_bg}"
-        self.removed_style = f"bold {palette.diff_removed} on {palette.diff_removed_bg}"
-        self.context_style = palette.text_muted
-        self.header_style = f"bold {palette.secondary}"
+        pass
 
 
     def highlight_inline_diff(
