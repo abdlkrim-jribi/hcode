@@ -10,8 +10,7 @@ from anthropic import AsyncAnthropic
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 from hcode.memory import Message
-from hcode.providers import CompletionResponse, Usage
-from hcode.providers.base import AIProvider, ToolCall
+from hcode.providers.base import AIProvider, ToolCall, CompletionResponse, Usage
 
 
 class AnthropicProvider(AIProvider):
@@ -130,6 +129,11 @@ class AnthropicProvider(AIProvider):
                     name=block.name,
                     arguments=block.input if isinstance(block.input, dict) else {}
                 ))
+
+        # Calculate cost
+        input_price, output_price = self.MODEL_PRICING.get(response.model, (0.0, 0.0))
+        cost = (usage.input_tokens * input_price / 1_000_000) + (usage.output_tokens * output_price / 1_000_000)
+        self.total_cost += cost
 
         return CompletionResponse(
             content=text_content,

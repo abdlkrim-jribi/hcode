@@ -148,7 +148,7 @@ class AgentOrchestrator(AgentOrchestratorProtocol):
                 # Execute current phase
                 phase_name = self.phase_manager.get_current_phase()
                 if self.console:
-                    self.console.print(f"[bold cyan]▸ Phase: {phase_name.capitalize()}[/bold cyan]")
+                    self.console.print(f"[bold cyan]> Phase: {phase_name.capitalize()}[/bold cyan]")
 
                 phase_result = await self.execute_phase_iteration(context)
                 logger.debug(f"Phase result: success={phase_result.success}, can_transition={phase_result.can_transition}")

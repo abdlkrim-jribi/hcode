@@ -84,6 +84,7 @@ class AIProvider(ABC):
         self.model = model
         self.max_tokens = max_tokens
         self.temperature = temperature
+        self.total_cost = 0.0
 
     @abstractmethod
     async def generate_completion(

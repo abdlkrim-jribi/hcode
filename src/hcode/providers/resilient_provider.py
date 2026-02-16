@@ -294,6 +294,11 @@ class ResilientProvider:
         """Get current active provider"""
         return self.providers[self._current_name]
 
+    @property
+    def total_cost(self) -> float:
+        """Get total cost across all providers"""
+        return sum(p.total_cost for p in self.providers.values())
+
     def set_failover_callback(self, callback: Callable[[str, str, Exception], None]):
         """Set callback for failover events (from_provider, to_provider, exception)"""
         self._on_failover = callback

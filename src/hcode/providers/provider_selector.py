@@ -34,6 +34,7 @@ class ProviderPreferences:
 
     primary_provider: str = "auto"  # "auto", "anthropic", "openai"
     cost_optimization: str = "balanced"  # "aggressive", "balanced", "quality"
+    prefer_streaming: bool = True
 
 
 class ProviderSelector:
