@@ -1,8 +1,8 @@
 {
   "summary": {
-    "total_symbols": 1775,
-    "referenced": 604,
-    "unreferenced": 1171
+    "total_symbols": 1677,
+    "referenced": 557,
+    "unreferenced": 1120
   },
   "categories": {
     "entry_points": [
@@ -295,15 +295,6 @@
         }
       ],
       [
-        "hcode.ui.components.ProgressRing.progress",
-        {
-          "type": "function",
-          "is_entry": true,
-          "is_public_api": false,
-          "line": 253
-        }
-      ],
-      [
         "hcode.ui.icons.Emoji.status",
         {
           "type": "function",
@@ -337,6 +328,15 @@
           "is_entry": true,
           "is_public_api": false,
           "line": 248
+        }
+      ],
+      [
+        "hcode.ui.theme.ColorUtils.blend",
+        {
+          "type": "function",
+          "is_entry": true,
+          "is_public_api": false,
+          "line": 316
         }
       ],
       [
@@ -2016,51 +2016,6 @@
         }
       ],
       [
-        "hcode.ui.animations.AnimatedMessage",
-        {
-          "type": "class",
-          "is_entry": false,
-          "is_public_api": true,
-          "line": 139
-        }
-      ],
-      [
-        "hcode.ui.animations.StreamingText",
-        {
-          "type": "class",
-          "is_entry": false,
-          "is_public_api": true,
-          "line": 171
-        }
-      ],
-      [
-        "hcode.ui.animations.GlitchEffect",
-        {
-          "type": "class",
-          "is_entry": false,
-          "is_public_api": true,
-          "line": 202
-        }
-      ],
-      [
-        "hcode.ui.animations.WaveAnimation",
-        {
-          "type": "class",
-          "is_entry": false,
-          "is_public_api": true,
-          "line": 318
-        }
-      ],
-      [
-        "hcode.ui.animations.PulsingText",
-        {
-          "type": "class",
-          "is_entry": false,
-          "is_public_api": true,
-          "line": 391
-        }
-      ],
-      [
         "hcode.ui.components.StatusIndicator",
         {
           "type": "class",
@@ -2070,120 +2025,12 @@
         }
       ],
       [
-        "hcode.ui.components.MetricCard",
-        {
-          "type": "class",
-          "is_entry": false,
-          "is_public_api": true,
-          "line": 152
-        }
-      ],
-      [
-        "hcode.ui.components.CommandPalette",
-        {
-          "type": "class",
-          "is_entry": false,
-          "is_public_api": true,
-          "line": 205
-        }
-      ],
-      [
-        "hcode.ui.components.ProgressRing",
-        {
-          "type": "class",
-          "is_entry": false,
-          "is_public_api": true,
-          "line": 247
-        }
-      ],
-      [
-        "hcode.ui.components.TokenCounter",
-        {
-          "type": "class",
-          "is_entry": false,
-          "is_public_api": true,
-          "line": 278
-        }
-      ],
-      [
-        "hcode.ui.components.InfoCard",
-        {
-          "type": "class",
-          "is_entry": false,
-          "is_public_api": true,
-          "line": 321
-        }
-      ],
-      [
-        "hcode.ui.components.StatsRow",
-        {
-          "type": "class",
-          "is_entry": false,
-          "is_public_api": true,
-          "line": 370
-        }
-      ],
-      [
-        "hcode.ui.components.KeyboardShortcut",
-        {
-          "type": "class",
-          "is_entry": false,
-          "is_public_api": true,
-          "line": 400
-        }
-      ],
-      [
-        "hcode.ui.components.QuickActionBar",
-        {
-          "type": "class",
-          "is_entry": false,
-          "is_public_api": true,
-          "line": 423
-        }
-      ],
-      [
-        "hcode.ui.components.Timestamp",
-        {
-          "type": "class",
-          "is_entry": false,
-          "is_public_api": true,
-          "line": 453
-        }
-      ],
-      [
-        "hcode.ui.components.Badge",
-        {
-          "type": "class",
-          "is_entry": false,
-          "is_public_api": true,
-          "line": 475
-        }
-      ],
-      [
-        "hcode.ui.components.ToolExecution",
-        {
-          "type": "class",
-          "is_entry": false,
-          "is_public_api": true,
-          "line": 503
-        }
-      ],
-      [
         "hcode.ui.confirmation_display.ConfirmationResult",
         {
           "type": "class",
           "is_entry": false,
           "is_public_api": true,
           "line": 22
-        }
-      ],
-      [
-        "hcode.ui.effects.BorderGlow",
-        {
-          "type": "class",
-          "is_entry": false,
-          "is_public_api": true,
-          "line": 291
         }
       ],
       [
@@ -9335,21 +9182,12 @@
         }
       ],
       [
-        "hcode.ui.animations.StreamingText.stream",
-        {
-          "type": "function",
-          "is_entry": false,
-          "is_public_api": false,
-          "line": 184
-        }
-      ],
-      [
         "hcode.ui.animations.ThinkingAnimation.start",
         {
           "type": "function",
           "is_entry": false,
           "is_public_api": false,
-          "line": 243
+          "line": 186
         }
       ],
       [
@@ -9358,7 +9196,7 @@
           "type": "function",
           "is_entry": false,
           "is_public_api": false,
-          "line": 248
+          "line": 191
         }
       ],
       [
@@ -9367,7 +9205,7 @@
           "type": "function",
           "is_entry": false,
           "is_public_api": false,
-          "line": 279
+          "line": 222
         }
       ],
       [
@@ -9376,7 +9214,7 @@
           "type": "function",
           "is_entry": false,
           "is_public_api": false,
-          "line": 290
+          "line": 233
         }
       ],
       [
@@ -9385,106 +9223,7 @@
           "type": "function",
           "is_entry": false,
           "is_public_api": false,
-          "line": 294
-        }
-      ],
-      [
-        "hcode.ui.animations.ThinkingAnimation.thinking",
-        {
-          "type": "function",
-          "is_entry": false,
-          "is_public_api": false,
-          "line": 298
-        }
-      ],
-      [
-        "hcode.ui.animations.WaveAnimation.start",
-        {
-          "type": "function",
-          "is_entry": false,
-          "is_public_api": false,
-          "line": 336
-        }
-      ],
-      [
-        "hcode.ui.animations.WaveAnimation.animate",
-        {
-          "type": "function",
-          "is_entry": false,
-          "is_public_api": false,
-          "line": 341
-        }
-      ],
-      [
-        "hcode.ui.animations.WaveAnimation.stop",
-        {
-          "type": "function",
-          "is_entry": false,
-          "is_public_api": false,
-          "line": 371
-        }
-      ],
-      [
-        "hcode.ui.animations.WaveAnimation.__enter__",
-        {
-          "type": "function",
-          "is_entry": false,
-          "is_public_api": false,
-          "line": 378
-        }
-      ],
-      [
-        "hcode.ui.animations.WaveAnimation.__exit__",
-        {
-          "type": "function",
-          "is_entry": false,
-          "is_public_api": false,
-          "line": 382
-        }
-      ],
-      [
-        "hcode.ui.animations.PulsingText.start",
-        {
-          "type": "function",
-          "is_entry": false,
-          "is_public_api": false,
-          "line": 410
-        }
-      ],
-      [
-        "hcode.ui.animations.PulsingText.animate",
-        {
-          "type": "function",
-          "is_entry": false,
-          "is_public_api": false,
-          "line": 414
-        }
-      ],
-      [
-        "hcode.ui.animations.PulsingText.stop",
-        {
-          "type": "function",
-          "is_entry": false,
-          "is_public_api": false,
-          "line": 435
-        }
-      ],
-      [
-        "hcode.ui.animations.PulsingText.__enter__",
-        {
-          "type": "function",
-          "is_entry": false,
-          "is_public_api": false,
-          "line": 442
-        }
-      ],
-      [
-        "hcode.ui.animations.PulsingText.__exit__",
-        {
-          "type": "function",
-          "is_entry": false,
-          "is_public_api": false,
-          "line": 446
+          "line": 237
         }
       ],
       [
@@ -9493,7 +9232,7 @@
           "type": "function",
           "is_entry": false,
           "is_public_api": false,
-          "line": 503
+          "line": 301
         }
       ],
       [
@@ -9502,7 +9241,7 @@
           "type": "function",
           "is_entry": false,
           "is_public_api": false,
-          "line": 508
+          "line": 306
         }
       ],
       [
@@ -9511,7 +9250,7 @@
           "type": "function",
           "is_entry": false,
           "is_public_api": false,
-          "line": 531
+          "line": 329
         }
       ],
       [
@@ -9520,7 +9259,7 @@
           "type": "function",
           "is_entry": false,
           "is_public_api": false,
-          "line": 538
+          "line": 336
         }
       ],
       [
@@ -9529,7 +9268,7 @@
           "type": "function",
           "is_entry": false,
           "is_public_api": false,
-          "line": 542
+          "line": 340
         }
       ],
       [
@@ -9538,7 +9277,7 @@
           "type": "function",
           "is_entry": false,
           "is_public_api": false,
-          "line": 552
+          "line": 350
         }
       ],
       [
@@ -9547,7 +9286,7 @@
           "type": "function",
           "is_entry": false,
           "is_public_api": false,
-          "line": 569
+          "line": 367
         }
       ],
       [
@@ -9556,7 +9295,7 @@
           "type": "function",
           "is_entry": false,
           "is_public_api": false,
-          "line": 580
+          "line": 378
         }
       ],
       [
@@ -9565,79 +9304,7 @@
           "type": "function",
           "is_entry": false,
           "is_public_api": false,
-          "line": 590
-        }
-      ],
-      [
-        "hcode.ui.banners.create_vertical_gradient_text",
-        {
-          "type": "function",
-          "is_entry": false,
-          "is_public_api": false,
-          "line": 120
-        }
-      ],
-      [
-        "hcode.ui.banners.create_rainbow_text",
-        {
-          "type": "function",
-          "is_entry": false,
-          "is_public_api": false,
-          "line": 139
-        }
-      ],
-      [
-        "hcode.ui.banners.create_animated_banner",
-        {
-          "type": "function",
-          "is_entry": false,
-          "is_public_api": false,
-          "line": 274
-        }
-      ],
-      [
-        "hcode.ui.banners.create_section_header",
-        {
-          "type": "function",
-          "is_entry": false,
-          "is_public_api": false,
-          "line": 324
-        }
-      ],
-      [
-        "hcode.ui.banners.create_subsection_header",
-        {
-          "type": "function",
-          "is_entry": false,
-          "is_public_api": false,
-          "line": 341
-        }
-      ],
-      [
-        "hcode.ui.banners.create_divider",
-        {
-          "type": "function",
-          "is_entry": false,
-          "is_public_api": false,
-          "line": 357
-        }
-      ],
-      [
-        "hcode.ui.banners.create_glow_text",
-        {
-          "type": "function",
-          "is_entry": false,
-          "is_public_api": false,
-          "line": 381
-        }
-      ],
-      [
-        "hcode.ui.banners.create_neon_box",
-        {
-          "type": "function",
-          "is_entry": false,
-          "is_public_api": false,
-          "line": 392
+          "line": 388
         }
       ],
       [
@@ -9646,16 +9313,7 @@
           "type": "function",
           "is_entry": false,
           "is_public_api": false,
-          "line": 410
-        }
-      ],
-      [
-        "hcode.ui.banners.display_startup_animation",
-        {
-          "type": "function",
-          "is_entry": false,
-          "is_public_api": false,
-          "line": 422
+          "line": 256
         }
       ],
       [
@@ -9664,16 +9322,7 @@
           "type": "function",
           "is_entry": false,
           "is_public_api": false,
-          "line": 542
-        }
-      ],
-      [
-        "hcode.ui.banners.status_banner",
-        {
-          "type": "function",
-          "is_entry": false,
-          "is_public_api": false,
-          "line": 555
+          "line": 366
         }
       ],
       [
@@ -9767,48 +9416,12 @@
         }
       ],
       [
-        "hcode.ui.compat.spinner",
-        {
-          "type": "function",
-          "is_entry": false,
-          "is_public_api": false,
-          "line": 25
-        }
-      ],
-      [
-        "hcode.ui.compat.thinking",
-        {
-          "type": "function",
-          "is_entry": false,
-          "is_public_api": false,
-          "line": 43
-        }
-      ],
-      [
-        "hcode.ui.compat.animate",
-        {
-          "type": "function",
-          "is_entry": false,
-          "is_public_api": false,
-          "line": 57
-        }
-      ],
-      [
-        "hcode.ui.components.create_info_table",
-        {
-          "type": "function",
-          "is_entry": false,
-          "is_public_api": false,
-          "line": 554
-        }
-      ],
-      [
         "hcode.ui.components.create_horizontal_rule",
         {
           "type": "function",
           "is_entry": false,
           "is_public_api": false,
-          "line": 579
+          "line": 152
         }
       ],
       [
@@ -9872,78 +9485,6 @@
           "is_entry": false,
           "is_public_api": false,
           "line": 301
-        }
-      ],
-      [
-        "hcode.ui.effects.MatrixRain._init_columns",
-        {
-          "type": "function",
-          "is_entry": false,
-          "is_public_api": false,
-          "line": 45
-        }
-      ],
-      [
-        "hcode.ui.effects.MatrixRain._render_frame",
-        {
-          "type": "function",
-          "is_entry": false,
-          "is_public_api": false,
-          "line": 49
-        }
-      ],
-      [
-        "hcode.ui.effects.matrix_rain",
-        {
-          "type": "function",
-          "is_entry": false,
-          "is_public_api": false,
-          "line": 409
-        }
-      ],
-      [
-        "hcode.ui.effects.scan_line",
-        {
-          "type": "function",
-          "is_entry": false,
-          "is_public_api": false,
-          "line": 414
-        }
-      ],
-      [
-        "hcode.ui.effects.pulse_text",
-        {
-          "type": "function",
-          "is_entry": false,
-          "is_public_api": false,
-          "line": 419
-        }
-      ],
-      [
-        "hcode.ui.effects.reveal_text",
-        {
-          "type": "function",
-          "is_entry": false,
-          "is_public_api": false,
-          "line": 424
-        }
-      ],
-      [
-        "hcode.ui.effects.scramble_text",
-        {
-          "type": "function",
-          "is_entry": false,
-          "is_public_api": false,
-          "line": 429
-        }
-      ],
-      [
-        "hcode.ui.effects.particle_burst",
-        {
-          "type": "function",
-          "is_entry": false,
-          "is_public_api": false,
-          "line": 434
         }
       ],
       [

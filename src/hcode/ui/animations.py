@@ -131,65 +131,9 @@ CYBER_SPINNERS = {
 
 
 # ═══════════════════════════════════════════════════════════════════════
-# ANIMATED MESSAGE
-# ═══════════════════════════════════════════════════════════════════════
-
-
-@dataclass
-class AnimatedMessage:
-    """A message with animated components."""
-
-    prefix_icon: str
-    message: str
-    suffix_frames: List[str]
-    color: str = "#00FFFF"
-
-    def render(self, frame: int) -> Text:
-        """Render the animated message at a specific frame."""
-        text = Text()
-        text.append(f"{self.prefix_icon} ", style=f"bold {self.color}")
-        text.append(self.message, style=f"{self.color}")
-        text.append(
-            f" {self.suffix_frames[frame % len(self.suffix_frames)]}", style=f"bold {self.color}"
-        )
-        return text
-
-
-# ═══════════════════════════════════════════════════════════════════════
 # CYBER PROGRESS
 # ═══════════════════════════════════════════════════════════════════════
 
-
-
-
-
-# ═══════════════════════════════════════════════════════════════════════
-# STREAMING TEXT
-# ═══════════════════════════════════════════════════════════════════════
-
-
-class StreamingText:
-    """Typewriter effect for streaming text output."""
-
-    def __init__(
-        self,
-        console: Console,
-        color: Optional[str] = None,
-        speed: float = 0.02,
-    ):
-        self.console = console
-        self.color = color
-        self.speed = speed
-
-    async def stream(self, text: str) -> None:
-        """Stream text with typewriter effect (async)."""
-        palette = get_palette()
-        color = self.color or palette.text_primary
-
-        for char in text:
-            self.console.print(char, end="", style=color)
-            await asyncio.sleep(self.speed)
-        self.console.print()
 
 
 
@@ -199,8 +143,7 @@ class StreamingText:
 # ═══════════════════════════════════════════════════════════════════════
 
 
-class GlitchEffect:
-    """Apply glitch effect to text."""
+
 
 
 
@@ -294,20 +237,7 @@ class ThinkingAnimation:
     def __exit__(self, *args):
         self.stop()
 
-    @contextmanager
-    def thinking(self, message: str = "Thinking"):
-        """Context manager for thinking animation."""
-        palette = get_palette()
-        spinner_text = Text()
-        spinner_text.append("◈ ", style=f"bold {palette.secondary}")
-        spinner_text.append(f"{message}", style=f"bold {palette.primary}")
 
-        with self.console.status(
-            spinner_text,
-            spinner="dots",
-            spinner_style=f"bold {palette.primary}",
-        ):
-            yield
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -315,142 +245,10 @@ class ThinkingAnimation:
 # ═══════════════════════════════════════════════════════════════════════
 
 
-class WaveAnimation:
-    """Wave animation for processing state."""
 
-    pass
-
-    def __init__(
-        self,
-        console: Console,
-        width: int = 10,
-        message: str = "",
-    ):
-        self.console = console
-        self.width = width
-        self.message = message
-        self._stop_event = threading.Event()
-        self._live: Optional[Live] = None
-        self._thread: Optional[threading.Thread] = None
-
-    def start(self) -> None:
-        """Start wave animation."""
-        self._stop_event.clear()
-        palette = get_palette()
-
-        def animate():
-            offset = 0
-            while not self._stop_event.is_set():
-                wave = ""
-                for i in range(self.width):
-                    char_idx = (i + offset) % len(self.WAVE_CHARS)
-                    wave += self.WAVE_CHARS[char_idx]
-
-                text = Text()
-                if self.message:
-                    text.append(f"{self.message} ", style=palette.text_secondary)
-                text.append(wave, style=f"bold {palette.primary}")
-
-                if self._live:
-                    self._live.update(text)
-
-                offset = (offset + 1) % len(self.WAVE_CHARS)
-                time.sleep(0.1)
-
-        self._live = Live(
-            Text("", style=palette.primary),
-            console=self.console,
-            refresh_per_second=15,
-            transient=True,
-        )
-        self._live.start()
-
-        self._thread = threading.Thread(target=animate, daemon=True)
-        self._thread.start()
-
-    def stop(self) -> None:
-        """Stop wave animation."""
-        self._stop_event.set()
-        if self._live:
-            self._live.stop()
-            self._live = None
-
-    def __enter__(self):
-        self.start()
-        return self
-
-    def __exit__(self, *args):
-        self.stop()
 
 
 # ═══════════════════════════════════════════════════════════════════════
-# PULSING TEXT
-# ═══════════════════════════════════════════════════════════════════════
-
-
-class PulsingText:
-    """Text that pulses between colors."""
-
-    def __init__(
-        self,
-        console: Console,
-        text: str,
-        colors: Optional[List[str]] = None,
-        interval: float = 0.5,
-    ):
-        palette = get_palette()
-        self.console = console
-        self.text = text
-        self.colors = colors or [palette.primary, palette.secondary]
-        self.interval = interval
-        self._stop_event = threading.Event()
-        self._live: Optional[Live] = None
-        self._thread: Optional[threading.Thread] = None
-
-    def start(self) -> None:
-        """Start pulsing animation."""
-        self._stop_event.clear()
-
-        def animate():
-            color_index = 0
-            while not self._stop_event.is_set():
-                color = self.colors[color_index % len(self.colors)]
-                text = Text(self.text, style=f"bold {color}")
-                if self._live:
-                    self._live.update(text)
-                color_index += 1
-                time.sleep(self.interval)
-
-        self._live = Live(
-            Text(self.text, style=f"bold {self.colors[0]}"),
-            console=self.console,
-            refresh_per_second=4,
-            transient=True,
-        )
-        self._live.start()
-
-        self._thread = threading.Thread(target=animate, daemon=True)
-        self._thread.start()
-
-    def stop(self) -> None:
-        """Stop pulsing animation."""
-        self._stop_event.set()
-        if self._live:
-            self._live.stop()
-            self._live = None
-
-    def __enter__(self):
-        self.start()
-        return self
-
-    def __exit__(self, *args):
-        self.stop()
-
-
-# ═══════════════════════════════════════════════════════════════════════
-# COUNTDOWN
-# ═══════════════════════════════════════════════════════════════════════
-
 
 class Countdown:
     """Countdown timer animation."""

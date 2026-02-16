@@ -22,7 +22,6 @@ from hcode.ui.panels import (
     ToolPanel,
     ErrorPanel,
     SuccessPanel,
-    TokenUsagePanel,
 )
 from hcode.ui.theme import ThemeMode, get_theme, get_palette
 
@@ -112,19 +111,6 @@ class ThinkingContext:
         """Update the thinking message."""
         if self.animation:
             self.animation.messages = [message]
-
-
-# ═══════════════════════════════════════════════════════════════════════
-# INTERACTIVE PROMPT
-# ═══════════════════════════════════════════════════════════════════════
-
-
-
-
-# ═══════════════════════════════════════════════════════════════════════
-# QUICK CHAT FUNCTIONS
-# ═══════════════════════════════════════════════════════════════════════
-
 
 def create_chat() -> ChatInterface:
     """Create a new chat interface."""

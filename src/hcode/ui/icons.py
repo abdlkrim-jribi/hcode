@@ -297,15 +297,6 @@ class Emoji:
         return mood_map.get(mood.lower(), "🙂")
 
 
-# ═══════════════════════════════════════════════════════════════════════
-# DECORATIVE BORDERS
-# ═══════════════════════════════════════════════════════════════════════
-
-
-class Borders:
-    """Decorative border characters."""
-
-    pass
 
 
 

@@ -43,18 +43,10 @@ from hcode.ui.animations import (
     # Spinner definitions
     CYBER_SPINNERS,
     # Classes
-    AnimatedMessage,
-    StreamingText,
-    GlitchEffect,
     ThinkingAnimation,
-    WaveAnimation,
-    PulsingText,
     Countdown,
     LoadingDots,
     # Context managers
-    spinner,
-    thinking,
-    loading,
     # Functions
     countdown,
 )
@@ -68,22 +60,7 @@ from hcode.ui.banners import (
     LOGO_SMALL,
     LOGO_TECH,
     LOGO_BLOCK,
-    # Functions
     create_banner,
-    create_animated_banner,
-    create_gradient_text,
-    create_vertical_gradient_text,
-    create_rainbow_text,
-    create_section_header,
-    create_subsection_header,
-    create_divider,
-    create_glow_text,
-    create_neon_box,
-    display_welcome,
-    display_startup_animation,
-    quick_banner,
-    status_banner,
-    get_cyberpunk_gradient,
 )
 from hcode.ui.components import (
     # Box styles
@@ -95,43 +72,14 @@ from hcode.ui.components import (
     # Classes
     StatusIndicator,
     CyberPanel,
-    MetricCard,
-    CommandPalette,
-    ProgressRing,
-    TokenCounter,
-    InfoCard,
-    StatsRow,
-    KeyboardShortcut,
-    QuickActionBar,
-    Timestamp,
-    Badge,
-    ToolExecution,
     # Functions
-    create_info_table,
     create_horizontal_rule,
 )
-from hcode.ui.effects import (
-    # Classes
-    MatrixRain,
-    ScanLine,
-    PulseEffect,
-    RevealEffect,
-    ScrambleEffect,
-    BorderGlow,
-    ParticleBurst,
-    # Functions
-    matrix_rain,
-    scan_line,
-    pulse_text,
-    reveal_text,
-    scramble_text,
-    particle_burst,
-)
+
 from hcode.ui.icons import (
     # Classes
     Icons,
     Emoji,
-    Borders,
     # Constants
     USE_UNICODE,
     IS_WINDOWS,
@@ -147,15 +95,10 @@ from hcode.ui.panels import (
     ErrorPanel,
     SuccessPanel,
     InfoPanel,
-    FileTreePanel,
-    StatsPanel,
-    HelpPanel,
-    TokenUsagePanel,
+    InfoPanel,
     DiffLine,
     DiffDisplay,
     # Functions
-    create_separator,
-    create_status_bar,
 )
 from hcode.ui.syntax import (
     # Classes
@@ -297,20 +240,6 @@ __all__ = [
     "LOGO_TECH",
     "LOGO_BLOCK",
     "create_banner",
-    "create_animated_banner",
-    "create_gradient_text",
-    "create_vertical_gradient_text",
-    "create_rainbow_text",
-    "create_section_header",
-    "create_subsection_header",
-    "create_divider",
-    "create_glow_text",
-    "create_neon_box",
-    "display_welcome",
-    "display_startup_animation",
-    "quick_banner",
-    "status_banner",
-    "get_cyberpunk_gradient",
     # Components
     "CYBER_BOX",
     "NEON_BOX",
@@ -319,37 +248,16 @@ __all__ = [
     "ASCII_BOX",
     "StatusIndicator",
     "CyberPanel",
-    "MetricCard",
-    "CommandPalette",
-    "ProgressRing",
-    "TokenCounter",
-    "InfoCard",
-    "StatsRow",
-    "KeyboardShortcut",
-    "QuickActionBar",
-    "Timestamp",
-    "Badge",
-    "ToolExecution",
-    "create_info_table",
     "create_horizontal_rule",
     # Animations
     "CYBER_SPINNERS",
-    "AnimatedMessage",
-    "StreamingText",
-    "GlitchEffect",
     "ThinkingAnimation",
-    "WaveAnimation",
-    "PulsingText",
     "Countdown",
     "LoadingDots",
-    "spinner",
-    "thinking",
-    "loading",
     "countdown",
     # Icons
     "Icons",
     "Emoji",
-    "Borders",
     "USE_UNICODE",
     "IS_WINDOWS",
     "supports_unicode",
@@ -364,20 +272,6 @@ __all__ = [
     "detect_language",
     "EXTENSION_TO_LANGUAGE",
     "CYBERPUNK_TOKENS",
-    # Effects
-    "MatrixRain",
-    "ScanLine",
-    "PulseEffect",
-    "RevealEffect",
-    "ScrambleEffect",
-    "BorderGlow",
-    "ParticleBurst",
-    "matrix_rain",
-    "scan_line",
-    "pulse_text",
-    "reveal_text",
-    "scramble_text",
-    "particle_burst",
     # Panels
     "WelcomePanel",
     "UserMessagePanel",
@@ -386,14 +280,8 @@ __all__ = [
     "ErrorPanel",
     "SuccessPanel",
     "InfoPanel",
-    "FileTreePanel",
-    "StatsPanel",
-    "HelpPanel",
-    "TokenUsagePanel",
     "DiffLine",
     "DiffDisplay",
-    "create_separator",
-    "create_status_bar",
     # Console
     "console",
     # Chat UI
@@ -422,27 +310,9 @@ __all__ = [
     "reset_display",
 ]
 
-# ═══════════════════════════════════════════════════════════════════════
-# COMPATIBILITY LAYER (Legacy cli.styles support)
-# ═══════════════════════════════════════════════════════════════════════
-
-from .compat import (
 
 
-    # Animations (compatible wrappers)
-    spinner,
-    thinking,
-)
 
-# Update __all__ with compat exports
-__all__.extend(
-    [
-
-
-        "spinner",
-        "thinking",
-    ]
-)
 
 # ═══════════════════════════════════════════════════════════════════════
 # VERSION
