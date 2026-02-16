@@ -6,10 +6,8 @@ from hcode.core.agent import HcodeAgent
 from hcode.core.observability import (
     ExecutionAnalytics,
     ToolAnalytics,
-    ReasoningAnalytics,
     CostAnalytics,
     ToolExecutionEvent,
-    ReasoningEvent,
     get_analytics,
     InteractionLogger,
     get_logger,
@@ -24,9 +22,7 @@ from hcode.core.context import ContextManager, ContextEntry
 from hcode.core.optimization import (
     CachedTokenCounter,
     BatchContextWriter,
-    ParallelToolExecutor,
     ToolResultCache,
-    SmartContextOptimizer,
     get_token_counter,
     get_context_writer,
 )
@@ -52,18 +48,14 @@ __all__ = [
     "end_logging",
     "ExecutionAnalytics",
     "ToolAnalytics",
-    "ReasoningAnalytics",
     "CostAnalytics",
     "ToolExecutionEvent",
-    "ReasoningEvent",
     "get_analytics",
     # Output handling (Removed)
     # Optimizations
     "CachedTokenCounter",
     "BatchContextWriter",
-    "ParallelToolExecutor",
     "ToolResultCache",
-    "SmartContextOptimizer",
     "get_token_counter",
     "get_context_writer",
     # Execution

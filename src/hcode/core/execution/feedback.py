@@ -900,31 +900,6 @@ class ThinkingExecutionFeedbackLoop:
 
         return True, "Continue execution"
 
-    def get_adjusted_action_items(self) -> List[str]:
-        """
-        Get action items adjusted based on feedback and revisions.
-
-        Returns:
-            Updated list of action items
-        """
-        if not self.current_reasoning:
-            return []
-
-        items = list(self.current_reasoning.decision.action_items)
-
-        # Apply revisions
-        for revision in self.pending_revisions:
-            # Remove items
-            for removed in revision.removed_action_items:
-                if removed in items:
-                    items.remove(removed)
-
-            # Add new items
-            for new_item in revision.new_action_items:
-                if new_item not in items:
-                    items.append(new_item)
-
-        return items
 
     def finalize(self) -> Dict[str, Any]:
         """

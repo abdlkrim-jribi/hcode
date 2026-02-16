@@ -27,13 +27,6 @@ class ToolResult:
     metadata: Optional[Dict[str, Any]] = field(default_factory=dict)
 
 
-@dataclass
-class ThinkingBlock:
-    """Parsed thinking block from LLM response."""
-    raw_content: str
-    phase: Optional[str] = None
-    summary: Optional[str] = None
-    is_valid: bool = False
 
 
 @dataclass
@@ -51,21 +44,7 @@ class CompletionState:
     is_complete: bool
     reason: Optional[str] = None
     has_pending_work: bool = False
-    todos_completed: int = 0
-    todos_total: int = 0
 
-
-# ============================================================================
-# Protocol Interfaces
-# ============================================================================
-
-
-
-
-
-# ============================================================================
-# Phase Management Protocols (PEV Workflow)
-# ============================================================================
 
 @dataclass
 class AgentContext:

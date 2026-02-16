@@ -13,31 +13,6 @@ from enum import Enum
 from typing import Optional, List, Dict, Any
 
 
-class FinishReason(Enum):
-    """Reasons for generation stopping"""
-
-    STOP = "stop"  # Natural completion
-    LENGTH = "length"  # Hit max_tokens limit
-    TOOL_CALLS = "tool_calls"  # Stopped for tool execution
-    CONTENT_FILTER = "content_filter"  # Content filtered
-    ERROR = "error"  # Error occurred
-
-
-@dataclass
-class ContinuationState:
-    """State for tracking continuation across API calls"""
-
-    original_request: str
-    accumulated_response: str
-    continuation_count: int
-    total_input_tokens: int
-    total_output_tokens: int
-    is_complete: bool
-    finish_reason: FinishReason
-
-    @property
-    def total_tokens(self) -> int:
-        return self.total_input_tokens + self.total_output_tokens
 
 
 class ContinuationManager:
@@ -51,19 +26,6 @@ class ContinuationManager:
     3. Merging responses seamlessly
     """
 
-    # Markers that indicate incomplete output
-    INCOMPLETE_MARKERS = [
-        # Code blocks
-        "```",  # Unclosed code block
-        # HTML/XML tags
-        "<",  # Unclosed tag
-        # JSON/Objects
-        "{",  # Unclosed brace
-        "[",  # Unclosed bracket
-        # Strings
-        '"',  # Unclosed quote
-        "'",  # Unclosed single quote
-    ]
 
     def __init__(
         self,
@@ -91,16 +53,8 @@ class ContinuationManager:
             max_total_tokens if max_total_tokens is not None else config.max_total_tokens
         )
         self.console = console
-        self.state: Optional[ContinuationState] = None
 
-        # Load truncation patterns from config
-        self._truncation_patterns = config.truncation_patterns if config.truncation_patterns else []
 
-    def _get_continuation_prompts(self) -> List[str]:
-        """Get continuation prompts from external config"""
-        from hcode.config.prompts import get_prompts_config
-
-        return get_prompts_config().get_continuation_prompts()
 
     def should_continue(self, finish_reason: str, response_text: str) -> bool:
         """
@@ -152,113 +106,7 @@ class ContinuationManager:
 
         return False
 
-    def get_continuation_prompt(self, continuation_count: int) -> str:
-        """
-        Get the appropriate continuation prompt from external config.
 
-        Args:
-            continuation_count: How many continuations we've done
-
-        Returns:
-            Continuation prompt string
-        """
-        # Get prompts from config
-        prompts = self._get_continuation_prompts()
-        # Rotate through prompts to avoid repetition
-        idx = continuation_count % len(prompts)
-        return prompts[idx]
-
-    def merge_responses(self, responses: List[str]) -> str:
-        """
-        Merge multiple continuation responses into one coherent output.
-
-        Args:
-            responses: List of response strings
-
-        Returns:
-            Merged response
-        """
-        if not responses:
-            return ""
-
-        merged = responses[0]
-
-        for response in responses[1:]:
-            # Remove any "continuation" acknowledgment from the model
-            cleaned = self._clean_continuation_response(response)
-
-            # Check for overlap and merge
-            merged = self._smart_merge(merged, cleaned)
-
-        return merged
-
-    def _clean_continuation_response(self, response: str) -> str:
-        """
-        Remove continuation acknowledgments from response.
-
-        Args:
-            response: Raw continuation response
-
-        Returns:
-            Cleaned response
-        """
-        # Common patterns models add when continuing
-        cleanup_patterns = [
-            "Continuing from where I left off:",
-            "Continuing:",
-            "Here's the continuation:",
-            "Picking up where I left off:",
-            "Resuming:",
-            "...continuing...",
-        ]
-
-        cleaned = response.strip()
-
-        for pattern in cleanup_patterns:
-            if cleaned.lower().startswith(pattern.lower()):
-                cleaned = cleaned[len(pattern) :].strip()
-
-        return cleaned
-
-    def _smart_merge(self, first: str, second: str) -> str:
-        """
-        Intelligently merge two strings, handling overlaps.
-
-        Args:
-            first: First string
-            second: Second string
-
-        Returns:
-            Merged string
-        """
-        # Check for overlap at the boundary
-        # Look for the last few words of first in the start of second
-
-        first_words = first.split()
-        second_words = second.split()
-
-        if not first_words or not second_words:
-            return first + second
-
-        # Try to find overlap (up to 10 words)
-        max_overlap = min(10, len(first_words), len(second_words))
-
-        for overlap_size in range(max_overlap, 0, -1):
-            first_end = first_words[-overlap_size:]
-            second_start = second_words[:overlap_size]
-
-            if first_end == second_start:
-                # Found overlap, merge without duplication
-                return " ".join(first_words + second_words[overlap_size:])
-
-        # No overlap found, simple concatenation
-        # Add appropriate separator based on context
-        if first.rstrip().endswith((".", "!", "?", ":", ";")):
-            return first.rstrip() + "\n" + second.lstrip()
-        elif first.rstrip().endswith(","):
-            return first.rstrip() + " " + second.lstrip()
-        else:
-            return first.rstrip() + " " + second.lstrip()
 
 
 class ContextWindowManager:
@@ -289,4 +137,3 @@ class ContextWindowManager:
         self.reserve_output_tokens = reserve_output_tokens
         self.summarization_threshold = summarization_threshold
 
-        self.available_input_tokens = max_context_tokens - reserve_output_tokens

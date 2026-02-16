@@ -20,7 +20,6 @@ from .structured import (
     ChangeImpactOutput,
     PreExecutionReviewOutput,
 )
-from .thinking import ThinkingBlock, ThinkingSession, ThinkingPhase
 
 __all__ = [
     # Structured Reasoning
@@ -41,7 +40,4 @@ __all__ = [
     "ChangeImpactOutput",
     "PreExecutionReviewOutput",
     # Thinking Process
-    "ThinkingBlock",
-    "ThinkingSession",
-    "ThinkingPhase",
 ]

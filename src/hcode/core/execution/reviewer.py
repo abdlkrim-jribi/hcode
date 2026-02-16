@@ -24,9 +24,7 @@ class ReviewMode(Enum):
     """Review mode determines how changes are handled"""
 
     AUTO_APPROVE = "auto"  # Apply changes without review (dangerous)
-    PREVIEW_ONLY = "preview"  # Show preview, require explicit apply
     INTERACTIVE = "interactive"  # Interactive approval for each change
-    BATCH = "batch"  # Collect changes, review all at once
 
 
 class ReviewDecision(Enum):
@@ -69,7 +67,6 @@ class ReviewSession:
     results: List[ReviewResult] = field(default_factory=list)
     mode: ReviewMode = ReviewMode.INTERACTIVE
     started_at: datetime = field(default_factory=datetime.now)
-    completed_at: Optional[datetime] = None
 
     def add_proposal(self, proposal: ChangeProposal) -> None:
         """Add a proposal to the session"""
@@ -156,34 +153,7 @@ class ChangeReviewer:
             None
         )
 
-    def set_mode(self, mode: ReviewMode) -> None:
-        """Set the review mode"""
-        self.mode = mode
 
-    def set_approval_callback(
-        self, callback: Callable[[ChangeProposal], Awaitable[ReviewDecision]]
-    ) -> None:
-        """Set custom approval callback"""
-        self._approval_callback = callback
-
-    def propose_change(self, proposal: ChangeProposal) -> str:
-        """
-        Queue a change for review.
-
-        Args:
-            proposal: The change proposal
-
-        Returns:
-            Proposal ID
-        """
-        # Compute diff and analyze safety
-        proposal.compute_diff()
-        proposal.analyze_safety()
-
-        # Store in pending
-        self.pending_proposals[proposal.id] = proposal
-
-        return proposal.id
 
     def start_session(self) -> ReviewSession:
         """Start a new review session with all pending proposals"""
@@ -198,38 +168,6 @@ class ChangeReviewer:
 
         return session
 
-    async def review_proposal(self, proposal: ChangeProposal) -> ReviewResult:
-        """
-        Review a single proposal.
-
-        Args:
-            proposal: The proposal to review
-
-        Returns:
-            Review result
-        """
-        # Display the preview
-        self._display_proposal(proposal)
-
-        # Determine decision based on mode
-        if self.mode == ReviewMode.AUTO_APPROVE:
-            decision = self._auto_decide(proposal)
-        elif self._approval_callback:
-            decision = await self._approval_callback(proposal)
-        else:
-            decision = await self._interactive_decide(proposal)
-
-        result = ReviewResult(proposal_id=proposal.id, decision=decision)
-
-        # Update proposal status based on decision
-        if decision in (ReviewDecision.APPROVE, ReviewDecision.APPROVE_ALL):
-            proposal.status = ChangeStatus.APPROVED
-            proposal.reviewed_at = datetime.now()
-        elif decision in (ReviewDecision.REJECT, ReviewDecision.REJECT_ALL):
-            proposal.status = ChangeStatus.REJECTED
-            proposal.reviewed_at = datetime.now()
-
-        return result
 
     def _auto_decide(self, proposal: ChangeProposal) -> ReviewDecision:
         """Auto-decide based on confidence and safety"""
@@ -353,180 +291,6 @@ class ChangeReviewer:
             self.console.print(proposal.unified_diff)
             self.console.print("=" * 60)
 
-    async def review_all(self) -> List[ReviewResult]:
-        """
-        Review all proposals in the current session.
-
-        Returns:
-            List of review results
-        """
-        if not self.current_session:
-            self.start_session()
-
-        results = []
-        approve_all = False
-        reject_all = False
-
-        for proposal in self.current_session.proposals:
-            if approve_all:
-                result = ReviewResult(proposal_id=proposal.id, decision=ReviewDecision.APPROVE)
-                proposal.status = ChangeStatus.APPROVED
-            elif reject_all:
-                result = ReviewResult(proposal_id=proposal.id, decision=ReviewDecision.REJECT)
-                proposal.status = ChangeStatus.REJECTED
-            else:
-                result = await self.review_proposal(proposal)
-
-                # Check for all decisions
-                if result.decision == ReviewDecision.APPROVE_ALL:
-                    approve_all = True
-                    result.decision = ReviewDecision.APPROVE
-                    proposal.status = ChangeStatus.APPROVED
-                elif result.decision == ReviewDecision.REJECT_ALL:
-                    reject_all = True
-                    result.decision = ReviewDecision.REJECT
-                    proposal.status = ChangeStatus.REJECTED
-
-            results.append(result)
-            self.current_session.add_result(result)
-
-        self.current_session.completed_at = datetime.now()
-        self.session_history.append(self.current_session)
-
-        return results
-
-    async def apply_approved(self) -> Dict[str, Any]:
-        """
-        Apply all approved changes from the current session.
-
-        Returns:
-            Summary of applied changes
-        """
-        if not self.current_session:
-            return {"error": "No active session"}
-
-        applied = []
-        failed = []
-
-        for proposal in self.current_session.proposals:
-            if proposal.status != ChangeStatus.APPROVED:
-                continue
-
-            try:
-                path = Path(proposal.file_path)
-                path.parent.mkdir(parents=True, exist_ok=True)
-
-                with open(path, "w", encoding="utf-8") as f:
-                    f.write(proposal.new_content)
-
-                proposal.status = ChangeStatus.APPLIED
-                proposal.applied_at = datetime.now()
-                applied.append(proposal.id)
-
-            except Exception as e:
-                proposal.status = ChangeStatus.FAILED
-                failed.append({"id": proposal.id, "error": str(e)})
-
-        return {
-            "applied": len(applied),
-            "failed": len(failed),
-            "applied_ids": applied,
-            "failures": failed,
-        }
-
-    def get_pending_count(self) -> int:
-        """Get count of pending proposals"""
-        return len(self.pending_proposals)
-
-    def get_session_summary(self) -> Optional[Dict[str, Any]]:
-        """Get current session summary"""
-        if self.current_session:
-            return self.current_session.get_summary()
-        return None
-
-    def clear_session(self) -> None:
-        """Clear the current session"""
-        self.current_session = None
-        self.pending_proposals.clear()
 
 
-class ChangeReviewContext:
-    """
-    Context manager for scoped change review.
 
-    Usage:
-        async with ChangeReviewContext(reviewer) as ctx:
-            ctx.propose(edit_proposal)
-            ctx.propose(write_proposal)
-            # Changes reviewed and applied on exit if approved
-    """
-
-    def __init__(self, reviewer: ChangeReviewer, auto_apply: bool = True):
-        self.reviewer = reviewer
-        self.auto_apply = auto_apply
-        self.proposals: List[ChangeProposal] = []
-
-    def propose(self, proposal: ChangeProposal) -> str:
-        """Add a proposal to this context"""
-        proposal_id = self.reviewer.propose_change(proposal)
-        self.proposals.append(proposal)
-        return proposal_id
-
-    async def __aenter__(self) -> "ChangeReviewContext":
-        return self
-
-    async def __aexit__(self, exc_type, _exc_val, _exc_tb) -> None:
-        if exc_type is not None:
-            # Exception occurred, don't apply changes
-            self.reviewer.clear_session()
-            return
-
-        # Start review session
-        self.reviewer.start_session()
-
-        # Review all changes
-        await self.reviewer.review_all()
-
-        # Apply if requested
-        if self.auto_apply:
-            await self.reviewer.apply_approved()
-
-
-# Helper function for quick change review
-async def review_change(
-    file_path: str,
-    old_content: str,
-    new_content: str,
-    operation: ChangeOperation = ChangeOperation.EDIT,
-    console: Optional[Any] = None,
-    mode: ReviewMode = ReviewMode.INTERACTIVE,
-) -> bool:
-    """
-    Quick helper to review a single change.
-
-    Args:
-        file_path: Path to the file
-        old_content: Current content
-        new_content: Proposed new content
-        operation: Type of operation
-        console: Rich console for display
-        mode: Review mode
-
-    Returns:
-        True if change was approved
-    """
-    proposal = ChangeProposal(
-        file_path=file_path, operation=operation, old_content=old_content, new_content=new_content
-    )
-
-    reviewer = ChangeReviewer(mode=mode, console=console)
-    reviewer.propose_change(proposal)
-    reviewer.start_session()
-
-    results = await reviewer.review_all()
-
-    if results and results[0].decision == ReviewDecision.APPROVE:
-        await reviewer.apply_approved()
-        return True
-
-    return False

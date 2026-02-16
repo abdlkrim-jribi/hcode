@@ -208,19 +208,6 @@ class BasePhaseHandler(PhaseHandlerProtocol):
             )
             return ""
 
-    def _build_phase_prompt(self, context: AgentContext) -> str:
-        """
-        Build prompt for this phase.
-
-        Can be overridden by subclasses for phase-specific prompts.
-
-        Args:
-            context: Current agent context
-
-        Returns:
-            Prompt string for this phase
-        """
-        return context.task
 
     def _get_thinking_instructions(self) -> str:
         """

@@ -49,31 +49,11 @@ class GPTOSSConfig:
     # Model parameters
     TEMPERATURE = 0.2  # Lower for more deterministic code generation
     MAX_TOKENS = 24576  # Increased for complex reasoning chains
-    TOP_P = 0.95
 
     # Execution limits
     MAX_ROUNDS = 35  # High enough for multi-task execution (5-7 tasks)
     MAX_RETRIES = 4  # Max re-entries when tasks remain incomplete
     TIMEOUT_SECONDS = 1800  # 30 minutes for execution phase
-
-    # Tool extraction patterns (GPT OSS specific)
-    TOOL_PATTERNS = [
-        # Standard JSON in code blocks
-        r'```json\s*(\{.*?\})\s*```',
-        r'```(?:tool)?\s*(\{.*?\})\s*```',
-        # Inline JSON
-        r'\{"tool"\s*:\s*"[^"]+"\s*,\s*"arguments"\s*:\s*\{[^}]*\}\s*\}',
-        # GPT OSS may output without code blocks
-        r'\{\s*"tool"\s*:\s*"([^"]+)"\s*,\s*"arguments"\s*:\s*(\{[^}]*\})\s*\}',
-    ]
-
-    # Phase state keywords for detection
-    PHASE_KEYWORDS = {
-        'phase0': ['task selection', 'read task.md', 'identify next', 'mark as in-progress'],
-        'phase1': ['pre-implementation', 'analysis', 'read file', 'glob', 'understand structure'],
-        'phase2': ['code generation', 'implementing', 'skeleton', 'logic', 'polish'],
-        'phase3': ['validation', 'verify', 'trace', 'deviation report', 'mark complete'],
-    }
 
 
 class ExecutionPhaseHandler(BasePhaseHandler):
@@ -102,12 +82,10 @@ class ExecutionPhaseHandler(BasePhaseHandler):
 
         # Track files already read this session to prevent unnecessary re-reads
         self._files_read_this_session = set()  # Set of file paths already read
-        self._cache_ttl = 60  # seconds
 
         # GPT OSS 120B specific tracking
         self._current_phase_state = 'phase0'
         self._phase_transition_history = []
-        self._reasoning_depth = 0
 
         # Track unresolved bash/command failures across rounds
         # Each entry: {"command": str, "exit_code": int, "error": str}
@@ -121,77 +99,7 @@ class ExecutionPhaseHandler(BasePhaseHandler):
     # HELPER METHODS (Caching, Validation, Retry Logic)
     # ═══════════════════════════════════════════════════════════════════════
 
-    def _read_with_cache(self, file_path: str, context: AgentContext) -> Optional[str]:
-        """
-        Read file with caching to avoid redundant operations.
 
-        Args:
-            file_path: Path to file (absolute or relative to working_dir)
-            context: Agent context
-
-        Returns:
-            File content or None if file doesn't exist
-        """
-        # Check cache
-        if file_path in self._file_cache:
-            content, timestamp = self._file_cache[file_path]
-            if time.time() - timestamp < self._cache_ttl:
-                logger.debug(f"[execution] Cache hit for {file_path}")
-                return content
-
-        # Cache miss or stale - read fresh
-        try:
-            # Resolve path correctly (handles both absolute and relative paths)
-            resolved_path = Path(file_path)
-
-            # If relative, resolve against working directory
-            if not resolved_path.is_absolute():
-                resolved_path = Path(context.working_dir) / file_path
-
-            # Check if file exists
-            if not resolved_path.exists() or not resolved_path.is_file():
-                logger.debug(f"[execution] File not found or not a file: {file_path}")
-                return None
-
-            # Read the file
-            content = resolved_path.read_text(encoding='utf-8')
-            self._file_cache[file_path] = (content, time.time())
-            return content
-
-        except Exception as e:
-            logger.debug(f"[execution] Read failed for {file_path}: {e}")
-            return None
-
-    def _verify_task_deliverables(
-            self, expected_files: List[str], context: AgentContext
-    ) -> Tuple[bool, List[str]]:
-        """
-        Verify that expected files were created/modified.
-
-        Args:
-            expected_files: List of file paths that should exist
-            context: Agent context
-
-        Returns:
-            (all_exist, missing_files) tuple
-        """
-        missing = []
-        for file_path in expected_files:
-            # Check if file exists via read
-            content = self._read_with_cache(file_path, context)
-            if content is None:
-                # Try fresh read (bypass cache)
-                try:
-                    content = self.artifact_manager.load_artifact(
-                        file_path.replace("\\", "/"), context
-                    )
-                except Exception:
-                    pass
-
-            if not content:
-                missing.append(file_path)
-
-        return len(missing) == 0, missing
 
     # ═══════════════════════════════════════════════════════════════════════
     # MAIN HANDLER
@@ -577,95 +485,7 @@ class ExecutionPhaseHandler(BasePhaseHandler):
     # EXECUTION WRITE GATE (Security Boundary)
     # ═══════════════════════════════════════════════════════════════════════
 
-    def _extract_planned_files(self, plan_content: str) -> set:
-        """
-        Extract allowed file paths and patterns from implementation plan.
 
-        Parses the plan for [MODIFY], [NEW], and [DELETE] markers to build
-        a whitelist of files that execution is allowed to modify.
-
-        Args:
-            plan_content: Content of implementation_plan.md
-
-        Returns:
-            Set of file paths and patterns that are allowed to be written/edited
-        """
-        allowed = set()
-
-        # [MODIFY] /path/to/file pattern (strip backticks if present)
-        modify_paths = re.findall(r'\[MODIFY\]\s+([^\s]+)', plan_content)
-        allowed.update(p.strip('`') for p in modify_paths)
-
-        # [NEW] /path/to/file pattern (strip backticks if present)
-        new_paths = re.findall(r'\[NEW\]\s+([^\s]+)', plan_content)
-        allowed.update(p.strip('`') for p in new_paths)
-
-        # [DELETE] /path/to/file pattern (strip backticks if present)
-        delete_paths = re.findall(r'\[DELETE\]\s+([^\s]+)', plan_content)
-        allowed.update(p.strip('`') for p in delete_paths)
-
-        # file:///path markdown links
-        allowed.update(re.findall(r'file:///([^\)]+)', plan_content))
-
-        # Extract backtick paths from plan
-        backtick_paths = re.findall(
-            r'`([^`]+\.(py|txt|json|yaml|yml|md))`', plan_content
-        )
-        allowed.update(path for path, _ in backtick_paths)
-
-        # Always allow task.md updates
-        allowed.add(".hcode/task.md")
-
-        # Pattern-based allowances
-        allowed.add("tests/**/*.py")
-        allowed.add("tests/conftest.py")
-        allowed.add("tasks/**/*.txt")
-        allowed.add("tasks/**/*.md")
-
-        logger.debug(
-            f"Execution write gate: {len(allowed)} paths/patterns allowed from plan"
-        )
-        return allowed
-
-    def _is_path_allowed(self, target_path: str, allowed_files: set) -> bool:
-        """
-        Check if a target path is allowed by write gate.
-
-        Supports both exact path matching and pattern-based matching.
-
-        Args:
-            target_path: Path to check
-            allowed_files: Set of allowed paths and patterns
-
-        Returns:
-            True if path is allowed, False otherwise
-        """
-        import fnmatch
-
-        # Normalize path separators
-        norm_target = target_path.replace("\\", "/").strip()
-
-        for allowed in allowed_files:
-            # Exact match or substring match
-            if allowed in norm_target or norm_target in allowed:
-                return True
-
-            # Pattern matching (supports ** for recursive globs)
-            if "**" in allowed:
-                parts = allowed.split("**/")
-                if len(parts) == 2:
-                    base, suffix = parts
-                    suffix_pattern = suffix.replace("*", ".*")
-                    if (
-                            norm_target.startswith(base)
-                            and re.match(suffix_pattern, norm_target.split("/")[-1])
-                    ):
-                        return True
-            elif "*" in allowed:
-                if fnmatch.fnmatch(norm_target, allowed):
-                    return True
-
-        return False
 
     async def _execute_tools(
             self,
@@ -1811,75 +1631,6 @@ BEGIN Phase 0:
 
         return step
 
-    def _update_task_progress(self, context: AgentContext) -> None:
-        """Update task.md with current progress.
-
-        Does NOT auto-complete tasks if there are unresolved command failures,
-        since a task should only be marked done when all its deliverables
-        (including passing verification commands) are confirmed.
-        """
-        task_content = self.artifact_manager.load_artifact("task.md", context)
-        if not task_content:
-            logger.warning("task.md not found, cannot update progress")
-            return
-
-        # If there are unresolved command failures, skip auto-completion
-        # to avoid falsely marking tasks as done.
-        if self._failed_commands:
-            logger.info(
-                f"[execution] Skipping task auto-completion: "
-                f"{len(self._failed_commands)} unresolved command failure(s)"
-            )
-            return
-
-        completed_files = set(context.modified_files)
-        lines = task_content.split('\n')
-        updated_lines = []
-
-        for line in lines:
-            checkbox_match = re.match(r'^(\s*-\s*)\[[ ]\]\s*(.+)$', line)
-
-            if checkbox_match:
-                prefix = checkbox_match.group(1)
-                task_text = checkbox_match.group(2)
-
-                should_complete = False
-
-                for file_path in completed_files:
-                    file_name = file_path.split('/')[-1].split('\\')[-1]
-                    if file_name in task_text or file_path in task_text:
-                        should_complete = True
-                        break
-
-                for action in context.completed_actions:
-                    tool_name = action.get("tool", "").lower()
-                    if tool_name in task_text.lower():
-                        should_complete = True
-                        break
-
-                if should_complete:
-                    updated_lines.append(f"{prefix}[x] {task_text}")
-                else:
-                    updated_lines.append(line)
-            else:
-                updated_lines.append(line)
-
-        updated_content = '\n'.join(updated_lines)
-
-        if updated_content != task_content:
-            progress_section = f"""
-
-## Progress Update
-
-- Modified files: {len(context.modified_files)}
-- Completed actions: {len(context.completed_actions)}
-- Iteration: {context.iteration}
-"""
-            if "## Progress Update" not in updated_content:
-                updated_content += progress_section
-
-            self.artifact_manager.create_artifact("task.md", updated_content, context)
-            logger.debug("Updated task.md with progress")
 
     def _check_step_completion(
             self,
@@ -1912,67 +1663,6 @@ BEGIN Phase 0:
 
         return None
 
-    def _discover_codebase_structure(self, context: AgentContext) -> str:
-        """Pre-discover codebase structure before execution starts."""
-        try:
-            cwd = Path(context.working_dir)
-
-            dirs = []
-            for d in cwd.rglob("*"):
-                if d.is_dir() and not any(part.startswith(".") for part in d.parts):
-                    try:
-                        relative_path = d.relative_to(cwd)
-                        dirs.append(str(relative_path))
-                        if len(dirs) >= 20:
-                            break
-                    except ValueError:
-                        continue
-
-            py_files = []
-            for f in cwd.rglob("*.py"):
-                if not any(part.startswith(".") for part in f.parts):
-                    try:
-                        relative_path = f.relative_to(cwd)
-                        py_files.append(str(relative_path))
-                        if len(py_files) >= 30:
-                            break
-                    except ValueError:
-                        continue
-
-            config_extensions = ['json', 'yaml', 'yml', 'toml', 'ini', 'cfg', 'md']
-            config_files = []
-            for ext in config_extensions:
-                for f in cwd.glob(f"*.{ext}"):
-                    if f.is_file():
-                        config_files.append(f.name)
-                        if len(config_files) >= 15:
-                            break
-                if len(config_files) >= 15:
-                    break
-
-            dir_list = ', '.join(dirs[:20]) if dirs else 'None'
-            py_list = ', '.join(py_files[:10]) if py_files else 'None'
-            py_more = f'... and {len(py_files) - 10} more' if len(py_files) > 10 else ''
-            config_list = ', '.join(config_files) if config_files else 'None'
-
-            return f"""
----
-
-## CODEBASE STRUCTURE (Pre-Discovered)
-
-**Key Directories ({len(dirs)})**: {dir_list}
-
-**Python Files ({len(py_files)})**: {py_list} {py_more}
-
-**Config Files ({len(config_files)})**: {config_list}
-
-(Use Glob/Read tools to explore further)
-
----
-"""
-        except Exception as e:
-            logger.debug(f"Codebase discovery failed: {e}")
-            return ""
 
     def _get_plan_progress_summary(
             self, context: AgentContext, plan_content: str

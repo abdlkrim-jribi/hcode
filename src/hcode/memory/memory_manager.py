@@ -433,7 +433,7 @@ class MemoryManager:
         """Context manager entry."""
         return self
 
-    def __exit__(self, exc_type, _exc_val, _exc_tb):
+    def __exit__(self, _exc_type, _exc_val, _exc_tb):
         """Context manager exit - save session."""
         self.session_memory.save_session()
 

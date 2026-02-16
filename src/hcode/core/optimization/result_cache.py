@@ -82,15 +82,6 @@ class ToolResultCache:
                 min_key = min(self._cache.keys(), key=lambda k: self._cache[k].hit_count)
                 del self._cache[min_key]
 
-    def invalidate_file(self, file_path: str):
-        with self._lock:
-            self._file_mtimes[file_path] = time.time() + 1
-            keys_to_remove = []
-            for key in self._cache:
-                if file_path in key:
-                    keys_to_remove.append(key)
-            for key in keys_to_remove:
-                del self._cache[key]
 
     def clear(self):
         with self._lock:

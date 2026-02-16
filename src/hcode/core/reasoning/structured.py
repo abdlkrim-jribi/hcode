@@ -281,10 +281,6 @@ class StructuredReasoning:
     tokens_used: int = 0
     duration_ms: int = 0
 
-    # Quality metrics
-    completeness_score: float = 0.0
-    coherence_score: float = 0.0
-    depth_score: float = 0.0
 
     def quality_score(self) -> float:
         """Calculate overall quality score (0-1)"""
@@ -310,13 +306,11 @@ class StructuredReasoning:
 
         # Completeness (40%) - now 8 phases
         completeness = len(phase_scores) / 8.0
-        self.completeness_score = completeness
 
         # Depth - evidence and counter-arguments (30%)
         evidence_count = len(self.reasoning.evidence_for) + len(self.reasoning.evidence_against)
         counter_count = len(self.reasoning.counter_arguments)
         depth = min(1.0, (evidence_count + counter_count) / 6.0)
-        self.depth_score = depth
 
         # Coherence - has logical chain and fallback (30%)
         coherence_factors = [
@@ -326,7 +320,6 @@ class StructuredReasoning:
             self.verification.ready_to_execute or len(self.verification.potential_issues) > 0,
         ]
         coherence = sum(coherence_factors) / len(coherence_factors)
-        self.coherence_score = coherence
 
         return (completeness * 0.4) + (depth * 0.3) + (coherence * 0.3)
 
@@ -394,20 +387,6 @@ class StructuredReasoning:
 
         return " | ".join(summary_parts) if summary_parts else "No changes identified"
 
-    def get_action_items(self) -> List[str]:
-        """Extract all action items for todo list"""
-        items = []
-
-        # From analysis decomposition
-        items.extend(self.analysis.decomposition)
-
-        # From decision action items
-        items.extend(self.decision.action_items)
-
-        # From verification validation steps
-        items.extend(self.verification.validation_steps)
-
-        return items
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary"""
@@ -1162,59 +1141,6 @@ class ConfidenceCalibrator:
 
         return report
 
-    def adjust_confidence(self, raw_confidence: float) -> float:
-        """
-        Adjust confidence based on historical calibration.
-
-        Args:
-            raw_confidence: Model's predicted confidence
-
-        Returns:
-            Calibrated confidence
-        """
-        bucket = self._get_bucket(raw_confidence)
-        samples = self.calibration_buckets.get(bucket, [])
-
-        if len(samples) < 5:  # Not enough data
-            return raw_confidence
-
-        # Calculate historical accuracy for this confidence range
-        accuracy = sum([1 for s in samples if s[1]]) / len(samples)
-
-        # Blend raw confidence with historical accuracy
-        # Weight historical data more as we get more samples
-        weight = min(0.5, len(samples) / 20.0)
-        calibrated = (1 - weight) * raw_confidence + weight * accuracy
-
-        return calibrated
-
-    def should_request_verification(self, confidence: float) -> bool:
-        """
-        Determine if low confidence warrants additional verification.
-
-        Args:
-            confidence: Current confidence level
-
-        Returns:
-            True if verification recommended
-        """
-        # Check if this confidence bucket historically underperforms
-        bucket = self._get_bucket(confidence)
-        samples = self.calibration_buckets.get(bucket, [])
-
-        if len(samples) < 10:
-            # Not enough data, be conservative
-            return confidence < 0.6
-
-        accuracy = sum([1 for s in samples if s[1]]) / len(samples)
-
-        # If historical accuracy is significantly lower than confidence
-        if confidence - accuracy > 0.15:
-            return True
-
-        # If confidence is low anyway
-        return confidence < 0.5
-
 
 class ReasoningToTodoIntegrator:
     """
@@ -1232,11 +1158,7 @@ class ReasoningToTodoIntegrator:
             todo_manager: TodoManager instance to update
         """
         self.todo_manager = todo_manager
-        self.reasoning_todo_map: Dict[str, List[str]] = {}  # reasoning_id -> todo_ids
 
-    def set_todo_manager(self, todo_manager: Any):
-        """Set the todo manager instance"""
-        self.todo_manager = todo_manager
 
     def extract_todos_from_reasoning(self, reasoning: StructuredReasoning) -> List[Dict[str, Any]]:
         """
@@ -1335,128 +1257,7 @@ class ReasoningToTodoIntegrator:
 
         return content
 
-    def sync_todos_with_reasoning(
-        self, reasoning: StructuredReasoning, current_todos: List[Dict[str, Any]]
-    ) -> List[Dict[str, Any]]:
-        """
-        Synchronize todos with reasoning output.
 
-        Merges new reasoning-derived todos with existing ones,
-        avoiding duplicates and maintaining consistency.
-
-        Args:
-            reasoning: New reasoning output
-            current_todos: Existing todo list
-
-        Returns:
-            Updated todo list
-        """
-        new_todos = self.extract_todos_from_reasoning(reasoning)
-
-        # Build map of existing todos by content
-        existing_map = {t["content"].lower(): t for t in current_todos}
-
-        # Track which existing todos are still relevant
-        updated_todos = []
-
-        # Keep completed todos
-        for todo in current_todos:
-            if todo.get("status") == "completed":
-                updated_todos.append(todo)
-
-        # Merge new todos
-        for new_todo in new_todos:
-            key = new_todo["content"].lower()
-
-            if key in existing_map:
-                # Update existing todo
-                existing = existing_map[key]
-                if existing.get("status") != "completed":
-                    updated_todos.append(existing)
-            else:
-                # Add new todo
-                updated_todos.append(new_todo)
-
-        # Keep in-progress todos that aren't in new reasoning
-        for todo in current_todos:
-            if todo.get("status") == "in_progress":
-                if todo["content"].lower() not in [t["content"].lower() for t in updated_todos]:
-                    updated_todos.append(todo)
-
-        # Sort by order if available, then by source priority
-        source_priority = {"decision": 0, "analysis": 1, "verification": 2, "risk_mitigation": 3}
-        updated_todos.sort(
-            key=lambda t: (
-                0 if t.get("status") == "in_progress" else 1,
-                source_priority.get(t.get("source", ""), 99),
-                t.get("order", 999),
-            )
-        )
-
-        return updated_todos
-
-    def update_todo_from_phase(
-        self, phase: ReasoningPhase, phase_output: Any, current_todos: List[Dict[str, Any]]
-    ) -> List[Dict[str, Any]]:
-        """
-        Update todos based on a specific reasoning phase completion.
-
-        Allows incremental todo updates as reasoning progresses.
-
-        Args:
-            phase: The completed reasoning phase
-            phase_output: Output from that phase
-            current_todos: Current todo list
-
-        Returns:
-            Updated todo list
-        """
-        new_items = []
-
-        if phase == ReasoningPhase.ANALYSIS and isinstance(phase_output, AnalysisOutput):
-            # Add decomposition steps
-            for step in phase_output.decomposition:
-                new_items.append(
-                    {
-                        "content": step,
-                        "status": "pending",
-                        "activeForm": self._to_active_form(step),
-                        "source": "analysis",
-                    }
-                )
-
-        elif phase == ReasoningPhase.DECISION and isinstance(phase_output, DecisionOutput):
-            # Add action items
-            for item in phase_output.action_items:
-                new_items.append(
-                    {
-                        "content": item,
-                        "status": "pending",
-                        "activeForm": self._to_active_form(item),
-                        "source": "decision",
-                    }
-                )
-
-        elif phase == ReasoningPhase.VERIFICATION and isinstance(phase_output, VerificationOutput):
-            # Add validation steps
-            for step in phase_output.validation_steps:
-                new_items.append(
-                    {
-                        "content": f"Verify: {step}",
-                        "status": "pending",
-                        "activeForm": f"Verifying: {step}",
-                        "source": "verification",
-                    }
-                )
-
-        # Merge with existing
-        existing_contents = {t["content"].lower() for t in current_todos}
-
-        for item in new_items:
-            if item["content"].lower() not in existing_contents:
-                current_todos.append(item)
-
-        return current_todos
 
 
 class SelfCritiqueEngine:
@@ -1467,14 +1268,6 @@ class SelfCritiqueEngine:
     in the reasoning process.
     """
 
-    CRITIQUE_ASPECTS = [
-        "completeness",
-        "logical_coherence",
-        "evidence_quality",
-        "assumption_validity",
-        "risk_awareness",
-        "alternative_consideration",
-    ]
 
     def __init__(self):
         self.critique_history: List[Dict[str, Any]] = []
@@ -2019,55 +1812,3 @@ class ReasoningQualityMetrics:
 
         return max(0.0, 1.0 - gap)
 
-    def get_trend(self, window: int = 10) -> Dict[str, float]:
-        """
-        Get trend in metrics over recent history.
-
-        Args:
-            window: Number of recent evaluations to consider
-
-        Returns:
-            Dictionary of metric trends (positive = improving)
-        """
-        if len(self.history) < 2:
-            return {}
-
-        recent = self.history[-window:]
-        if len(recent) < 2:
-            return {}
-
-        trends = {}
-        metrics_names = recent[0]["metrics"].keys()
-
-        for metric in metrics_names:
-            values = [h["metrics"][metric] for h in recent]
-            # Calculate simple trend (last half vs first half average)
-            mid = len(values) // 2
-            first_half = statistics.mean(values[:mid]) if mid > 0 else values[0]
-            second_half = statistics.mean(values[mid:])
-            trends[metric] = second_half - first_half
-
-        return trends
-
-    def get_summary_report(self) -> Dict[str, Any]:
-        """Generate summary report of all metrics"""
-        if not self.history:
-            return {"error": "No evaluations recorded"}
-
-        report = {
-            "total_evaluations": len(self.history),
-            "averages": {},
-            "trends": self.get_trend(),
-            "best": {},
-            "worst": {},
-        }
-
-        # Calculate averages
-        metrics_names = self.history[0]["metrics"].keys()
-        for metric in metrics_names:
-            values = [h["metrics"][metric] for h in self.history]
-            report["averages"][metric] = statistics.mean(values)
-            report["best"][metric] = max(values)
-            report["worst"][metric] = min(values)
-
-        return report

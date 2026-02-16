@@ -22,22 +22,11 @@ from typing import Any, Dict, List, Optional, Tuple
 class MetricType(Enum):
     """Types of metrics tracked"""
 
-    LATENCY = "latency"
-    SUCCESS_RATE = "success_rate"
-    TOKEN_USAGE = "token_usage"
-    COST = "cost"
-    TOOL_CALLS = "tool_calls"
-    REASONING_QUALITY = "reasoning_quality"
-    ERROR_RATE = "error_rate"
 
 
 class TimeWindow(Enum):
     """Time windows for aggregation"""
 
-    MINUTE = 60
-    HOUR = 3600
-    DAY = 86400
-    WEEK = 604800
 
 
 @dataclass
@@ -56,16 +45,6 @@ class ToolExecutionEvent:
     task_context: Optional[str] = None
 
 
-@dataclass
-class ReasoningEvent:
-    """Reasoning phase execution event"""
-
-    phase: str
-    timestamp: datetime
-    duration: float
-    quality_score: float
-    confidence: float
-    token_usage: int = 0
 
 
 @dataclass
@@ -75,23 +54,9 @@ class ConversationEvent:
     conversation_id: str
     start_time: datetime
     end_time: Optional[datetime] = None
-    total_turns: int = 0
-    total_tokens: int = 0
-    total_cost: float = 0.0
-    tool_calls: int = 0
     success: bool = True
 
 
-@dataclass
-class AggregatedMetrics:
-    """Aggregated metrics for a time window"""
-
-    window_start: datetime
-    window_end: datetime
-    tool_metrics: Dict[str, Dict[str, float]] = field(default_factory=dict)
-    overall_metrics: Dict[str, float] = field(default_factory=dict)
-    top_errors: List[Tuple[str, int]] = field(default_factory=list)
-    reasoning_quality: float = 0.0
 
 
 class TimeSeriesBuffer:
@@ -114,19 +79,6 @@ class TimeSeriesBuffer:
         cutoff = datetime.now() - self._max_age
         self._data = [(ts, v) for ts, v in self._data if ts > cutoff]
 
-    def get_window(
-        self, start: Optional[datetime] = None, end: Optional[datetime] = None
-    ) -> List[Tuple[datetime, Any]]:
-        """Get data within time window"""
-        self._cleanup()
-        result = self._data
-
-        if start:
-            result = [(ts, v) for ts, v in result if ts >= start]
-        if end:
-            result = [(ts, v) for ts, v in result if ts <= end]
-
-        return result
 
     def __len__(self) -> int:
         return len(self._data)
@@ -200,63 +152,7 @@ class ToolAnalytics:
         return sorted_data[f] + (k - f) * (sorted_data[c] - sorted_data[f])
 
 
-class ReasoningAnalytics:
-    """
-    Analytics for reasoning phases.
-    """
 
-    def __init__(self):
-        self._events = TimeSeriesBuffer(timedelta(hours=24))
-        self._by_phase: Dict[str, List[ReasoningEvent]] = defaultdict(list)
-
-    def record(self, event: ReasoningEvent):
-        """Record reasoning event"""
-        self._events.add(event, event.timestamp)
-        self._by_phase[event.phase].append(event)
-
-    def get_phase_stats(self, phase: str) -> Dict[str, Any]:
-        """Get statistics for a reasoning phase"""
-        events = self._by_phase.get(phase, [])
-        if not events:
-            return {}
-
-        durations = [e.duration for e in events]
-        qualities = [e.quality_score for e in events]
-        confidences = [e.confidence for e in events]
-
-        return {
-            "total_executions": len(events),
-            "avg_duration": statistics.mean(durations) if durations else 0,
-            "avg_quality": statistics.mean(qualities) if qualities else 0,
-            "avg_confidence": statistics.mean(confidences) if confidences else 0,
-            "quality_trend": self._calculate_trend(qualities),
-            "total_tokens": sum(e.token_usage for e in events),
-        }
-
-    def get_overall_quality(self) -> float:
-        """Get overall reasoning quality"""
-        all_qualities = []
-        for events in self._by_phase.values():
-            all_qualities.extend(e.quality_score for e in events)
-        return statistics.mean(all_qualities) if all_qualities else 0
-
-    def _calculate_trend(self, values: List[float]) -> str:
-        """Calculate trend direction"""
-        if len(values) < 3:
-            return "stable"
-
-        recent = values[-5:]
-        older = values[-10:-5] if len(values) >= 10 else values[:5]
-
-        recent_avg = statistics.mean(recent) if recent else 0
-        older_avg = statistics.mean(older) if older else 0
-
-        diff = recent_avg - older_avg
-        if diff > 0.1:
-            return "improving"
-        elif diff < -0.1:
-            return "declining"
-        return "stable"
 
 
 class CostAnalytics:
@@ -280,11 +176,6 @@ class CostAnalytics:
         self._by_provider[provider] += cost
         self._by_model[model] += cost
 
-    def get_daily_cost(self, date: Optional[str] = None) -> float:
-        """Get cost for a specific day"""
-        if date is None:
-            date = datetime.now().strftime("%Y-%m-%d")
-        return self._daily_costs.get(date, 0)
 
     def get_total_cost(self) -> float:
         """Get total cost across all time"""
@@ -326,7 +217,6 @@ class ExecutionAnalytics:
             persistence_path: Optional path for persisting analytics
         """
         self.tool_analytics = ToolAnalytics()
-        self.reasoning_analytics = ReasoningAnalytics()
         self.cost_analytics = CostAnalytics()
 
         self._conversations: Dict[str, ConversationEvent] = {}
@@ -360,24 +250,6 @@ class ExecutionAnalytics:
         )
         self.tool_analytics.record(event)
 
-    def record_reasoning_phase(
-        self,
-        phase: str,
-        duration: float,
-        quality_score: float,
-        confidence: float,
-        token_usage: int = 0,
-    ):
-        """Record a reasoning phase execution"""
-        event = ReasoningEvent(
-            phase=phase,
-            timestamp=datetime.now(),
-            duration=duration,
-            quality_score=quality_score,
-            confidence=confidence,
-            token_usage=token_usage,
-        )
-        self.reasoning_analytics.record(event)
 
     def record_cost(self, cost: float, provider: str, model: str):
         """Record cost"""
@@ -414,7 +286,6 @@ class ExecutionAnalytics:
             "tool_stats": self.tool_analytics.get_all_tool_stats(),
             "top_errors": self.tool_analytics.get_top_errors(5),
             "slowest_tools": self.tool_analytics.get_slowest_tools(5),
-            "reasoning_quality": self.reasoning_analytics.get_overall_quality(),
             "total_cost": self.cost_analytics.get_total_cost(),
             "cost_by_provider": self.cost_analytics.get_cost_by_provider(),
             "cost_trend": self.cost_analytics.get_cost_trend(7),
@@ -472,7 +343,6 @@ class ExecutionAnalytics:
         return {
             "status": "healthy" if not issues else "degraded",
             "overall_success_rate": overall_success_rate,
-            "reasoning_quality": self.reasoning_analytics.get_overall_quality(),
             "issues": issues,
             "recommendations": [i["recommendation"] for i in issues],
         }
@@ -562,7 +432,6 @@ class ExecutionAnalytics:
         summary = report["summary"]
         md += f"- **Uptime**: {summary['uptime_formatted']}\n"
         md += f"- **Total Conversations**: {summary['total_conversations']}\n"
-        md += f"- **Reasoning Quality**: {summary['reasoning_quality']:.2f}\n"
         md += f"- **Total Cost**: ${summary['total_cost']:.4f}\n\n"
 
         md += "## Health Status\n\n"
@@ -618,12 +487,9 @@ __all__ = [
     "MetricType",
     "TimeWindow",
     "ToolExecutionEvent",
-    "ReasoningEvent",
     "ConversationEvent",
-    "AggregatedMetrics",
     "TimeSeriesBuffer",
     "ToolAnalytics",
-    "ReasoningAnalytics",
     "CostAnalytics",
     "ExecutionAnalytics",
     "get_analytics",

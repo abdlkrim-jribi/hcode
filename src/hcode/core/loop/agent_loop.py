@@ -24,7 +24,6 @@ class StopReason(Enum):
     MAX_ITERATIONS = "max_iterations"
     CIRCUIT_BREAKER = "circuit_breaker"
     STUCK_LOOP = "stuck_loop"
-    USER_CANCELLED = "user_cancelled"
     ERROR = "error"
 
 
@@ -124,14 +123,7 @@ class AgentLoopController:
         self.state.phase = new_phase
         self._debug(f"[dim]Phase: {old} → {new_phase.value}[/dim]")
     
-    def is_planning(self) -> bool:
-        return self.state.phase == Phase.PLANNING
     
-    def is_executing(self) -> bool:
-        return self.state.phase == Phase.EXECUTION
-    
-    def is_verifying(self) -> bool:
-        return self.state.phase == Phase.VERIFICATION
     
     def is_complete(self) -> bool:
         return self.state.phase == Phase.COMPLETE
@@ -208,11 +200,6 @@ class AgentLoopController:
             "stop_reason": self.state.stop_reason.value if self.state.stop_reason else None,
         }
     
-    def get_final_response(self) -> str:
-        """Get final response text."""
-        if self.state.responses:
-            return "\n".join(self.state.responses)
-        return "Task completed."
 
 
 # Aliases for compatibility

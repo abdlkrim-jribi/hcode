@@ -72,7 +72,6 @@ class Icons:
 
     PLAY = "▶" if USE_UNICODE else "[>]"
     PAUSE = "⏸" if USE_UNICODE else "[||]"
-    STOP = "⏹" if USE_UNICODE else "[#]"
     REFRESH = "⟳" if USE_UNICODE else "[R]"
     SEARCH = "🔍" if USE_UNICODE else "[?]"
 

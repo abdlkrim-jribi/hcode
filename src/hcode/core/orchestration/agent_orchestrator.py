@@ -330,36 +330,6 @@ class AgentOrchestrator(AgentOrchestratorProtocol):
             }
         )
 
-    def resume_from_checkpoint(
-        self,
-        session_id: str,
-        iteration: Optional[int] = None,
-    ) -> Optional[AgentContext]:
-        """
-        Resume AgentContext from checkpoint.
-
-        Args:
-            session_id: Session ID to resume
-            iteration: Specific iteration to load (None = latest)
-
-        Returns:
-            Restored AgentContext or None if checkpoint doesn't exist
-        """
-        if not self.checkpoint_manager:
-            logger.warning("Checkpoints disabled, cannot resume")
-            return None
-
-        restored = self.checkpoint_manager.load_checkpoint(
-            session_id=session_id,
-            working_dir=self.working_dir,
-            iteration=iteration,
-        )
-
-        if restored:
-            logger.info(f"Resumed session {session_id} from iteration {restored.iteration}")
-
-        return restored
-
     async def execute_phase_iteration(
         self,
         context: AgentContext,
@@ -393,43 +363,4 @@ class AgentOrchestrator(AgentOrchestratorProtocol):
         from datetime import datetime
         return datetime.now().isoformat()
 
-    def get_execution_summary(self, context: AgentContext) -> Dict[str, Any]:
-        """
-        Get summary of execution progress.
 
-        Args:
-            context: Current agent context
-
-        Returns:
-            Summary dict
-        """
-        phase_progress = self.phase_manager.get_phase_progress()
-
-        return {
-            "iteration": context.iteration,
-            "phase": self.phase_manager.get_current_phase(),
-            "phase_progress": phase_progress,
-            "modified_files_count": len(context.modified_files),
-            "completed_actions_count": len(context.completed_actions),
-            "artifacts_created": list(context.artifacts.keys()),
-        }
-
-    def should_continue_execution(self, context: AgentContext) -> bool:
-        """
-        Determine if execution should continue.
-
-        Args:
-            context: Current agent context
-
-        Returns:
-            True if should continue iterating
-        """
-        # Stop if reached max iterations
-        if context.iteration >= self.max_iterations:
-            return False
-
-        # Stop if workflow is complete
-        if self.phase_manager.can_complete(context):
-            return False
-
-        return True

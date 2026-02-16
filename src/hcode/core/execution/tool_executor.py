@@ -57,7 +57,6 @@ class ToolExecutor:
         self.debug_mode = debug_mode
         self.palette = palette
         self.icons = icons
-        self.failed_commands: Dict[str, int] = {}
     
     def _debug_print(self, message: str) -> None:
         """Print message only if debug mode is enabled."""

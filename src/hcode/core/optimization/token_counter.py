@@ -75,12 +75,6 @@ class CachedTokenCounter:
                 pass
         return int(len(text) / self._approx_ratio)
 
-    def count_messages(self, messages: List[Dict[str, str]]) -> int:
-        total = 0
-        for msg in messages:
-            total += 4
-            total += self.count(msg.get("content", ""))
-        return total
 
     def get_stats(self) -> Dict[str, Any]:
         total = self._hits + self._misses
@@ -93,9 +87,6 @@ class CachedTokenCounter:
             "using_tokenizer": self._tokenizer is not None,
         }
 
-    def clear_cache(self):
-        with self._lock:
-            self._cache.clear()
 
 _token_counter: Optional[CachedTokenCounter] = None
 

@@ -184,8 +184,6 @@ class TaskCompletionDetector:
                 is_complete=False,
                 reason=reason,
                 has_pending_work=True,
-                todos_completed=todos_state["completed"],
-                todos_total=todos_state["total"],
             )
         
         # Extra check for summary tasks
@@ -198,8 +196,6 @@ class TaskCompletionDetector:
                     is_complete=False,
                     reason=reason,
                     has_pending_work=True,
-                    todos_completed=todos_state["completed"],
-                    todos_total=todos_state["total"],
                 )
         
         # === Strong completion phrases ===
@@ -209,8 +205,6 @@ class TaskCompletionDetector:
                     return CompletionState(
                         is_complete=True,
                         reason="Strong completion phrase with substantive content",
-                        todos_completed=todos_state["completed"],
-                        todos_total=todos_state["total"],
                     )
                 else:
                     self._debug_print("[?] Completion phrase found but no substantive answer")
@@ -225,8 +219,6 @@ class TaskCompletionDetector:
                     return CompletionState(
                         is_complete=True,
                         reason="Weak completion phrase with substantive content",
-                        todos_completed=todos_state["completed"],
-                        todos_total=todos_state["total"],
                     )
         
         # === All todos completed ===
@@ -234,8 +226,6 @@ class TaskCompletionDetector:
             return CompletionState(
                 is_complete=True,
                 reason="All todos marked as completed",
-                todos_completed=todos_state["completed"],
-                todos_total=todos_state["total"],
             )
         
         # === Many actions with conclusion indicators ===
@@ -250,8 +240,6 @@ class TaskCompletionDetector:
                 return CompletionState(
                     is_complete=True,
                     reason="Multiple conclusion indicators with substantive content",
-                    todos_completed=todos_state["completed"],
-                    todos_total=todos_state["total"],
                 )
         
         # === Long response without tool calls ===
@@ -267,8 +255,6 @@ class TaskCompletionDetector:
                 return CompletionState(
                     is_complete=True,
                     reason="Long response with explicit completion",
-                    todos_completed=todos_state["completed"],
-                    todos_total=todos_state["total"],
                 )
         
         # === Safety: Many iterations without continuing indicators ===
@@ -278,16 +264,12 @@ class TaskCompletionDetector:
                 return CompletionState(
                     is_complete=True,
                     reason="Many iterations without continuation indicators",
-                    todos_completed=todos_state["completed"],
-                    todos_total=todos_state["total"],
                 )
         
         return CompletionState(
             is_complete=False,
             reason="No completion criteria met",
             has_pending_work=self.has_pending_work(response_text),
-            todos_completed=todos_state["completed"],
-            todos_total=todos_state["total"],
         )
     
     def has_pending_work(self, response_text: str) -> bool:

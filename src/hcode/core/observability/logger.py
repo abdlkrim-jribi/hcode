@@ -61,7 +61,6 @@ class SessionLog:
     session_id: str
     start_time: str
     end_time: Optional[str] = None
-    initial_task: str = ""
     provider: str = ""
     model: str = ""
     total_iterations: int = 0
@@ -168,7 +167,6 @@ class InteractionLogger:
         self.current_session = SessionLog(
             session_id=sid,
             start_time=datetime.now().isoformat(),
-            initial_task=task,
             provider=provider,
             model=model,
             metadata=metadata or {},
@@ -337,16 +335,6 @@ class InteractionLogger:
             }
         )
 
-    def log_continuation_prompt(self, prompt: str, reason: str):
-        """Log a continuation prompt sent to the model"""
-        self._write_log_entry(
-            {
-                "type": "continuation_prompt",
-                "timestamp": datetime.now().isoformat(),
-                "prompt": prompt,
-                "reason": reason,
-            }
-        )
 
     def end_session(
         self,
@@ -428,197 +416,11 @@ class InteractionLogger:
             for old_file in log_files[self.max_files :]:
                 old_file.unlink()
 
-    def get_session_summary(self) -> Dict[str, Any]:
-        """Get a summary of the current session"""
-        if not self.current_session:
-            return {"active": False}
 
-        return {
-            "active": True,
-            "session_id": self.current_session.session_id,
-            "start_time": self.current_session.start_time,
-            "task": self.current_session.initial_task,
-            "provider": self.current_session.provider,
-            "model": self.current_session.model,
-            "iterations": self.current_session.total_iterations,
-            "tool_calls": self.current_session.total_tool_calls,
-            "errors": len(self.current_session.errors),
-            "log_file": str(self.current_log_file) if self.current_log_file else None,
-        }
 
-    def get_recent_logs(self, count: int = 100) -> List[Dict[str, Any]]:
-        """Get recent log entries from current session"""
-        if not self.current_log_file or not self.current_log_file.exists():
-            return []
 
-        entries = []
-        try:
-            with open(self.current_log_file, "r", encoding="utf-8") as f:
-                for line in f:
-                    if line.strip():
-                        entries.append(json.loads(line))
-        except Exception:
-            pass
 
-        return entries[-count:]
 
-    def query_logs(
-        self,
-        log_type: Optional[str] = None,
-        tool_name: Optional[str] = None,
-        success_only: bool = False,
-        failed_only: bool = False,
-        since: Optional[datetime] = None,
-    ) -> List[Dict[str, Any]]:
-        """
-        Query logs with filters.
-
-        Args:
-            log_type: Filter by type (interaction, tool_call, error, etc.)
-            tool_name: Filter by tool name
-            success_only: Only include successful operations
-            failed_only: Only include failed operations
-            since: Only include entries after this time
-
-        Returns:
-            List of matching log entries
-        """
-        results = []
-
-        for log_file in sorted(self.log_dir.glob("session_*.jsonl")):
-            try:
-                with open(log_file, "r", encoding="utf-8") as f:
-                    for line in f:
-                        if not line.strip():
-                            continue
-                        entry = json.loads(line)
-
-                        # Apply filters
-                        if log_type and entry.get("type") != log_type:
-                            continue
-                        if tool_name and entry.get("tool_name") != tool_name:
-                            continue
-                        if success_only and not entry.get("success", True):
-                            continue
-                        if failed_only and entry.get("success", False):
-                            continue
-                        if since:
-                            entry_time = datetime.fromisoformat(entry.get("timestamp", ""))
-                            if entry_time < since:
-                                continue
-
-                        results.append(entry)
-            except Exception:
-                continue
-
-        return results
-
-    def get_failed_tool_calls(self) -> List[Dict[str, Any]]:
-        """Get all failed tool calls for analysis"""
-        return self.query_logs(log_type="tool_call", failed_only=True)
-
-    def get_truncated_outputs(self, min_length: int = 1000) -> List[Dict[str, Any]]:
-        """
-        Find log entries where output might have been truncated.
-
-        Note: This checks the logged output, which should be complete.
-        It helps identify where the display was truncated but full output exists.
-        """
-        results = []
-
-        for entry in self.query_logs(log_type="tool_call"):
-            output = entry.get("output", "")
-            if len(output) > min_length:
-                results.append(
-                    {
-                        "tool_name": entry.get("tool_name"),
-                        "output_length": len(output),
-                        "timestamp": entry.get("timestamp"),
-                        "preview": output[:200] + "..." if len(output) > 200 else output,
-                    }
-                )
-
-        return results
-
-    def export_session_report(self, session_id: str, output_path: str) -> bool:
-        """
-        Export a complete session report as markdown.
-
-        Args:
-            session_id: Session ID to export
-            output_path: Path for output file
-
-        Returns:
-            True if successful
-        """
-        log_file = self.log_dir / f"{session_id}.jsonl"
-        if not log_file.exists():
-            return False
-
-        entries = []
-        with open(log_file, "r", encoding="utf-8") as f:
-            for line in f:
-                if line.strip():
-                    entries.append(json.loads(line))
-
-        # Build markdown report
-        report = [f"# Session Report: {session_id}\n"]
-
-        # Session info
-        for entry in entries:
-            if entry.get("type") == "session_start":
-                report.append(f"**Task:** {entry.get('task')}\n")
-                report.append(f"**Provider:** {entry.get('provider')}\n")
-                report.append(f"**Model:** {entry.get('model')}\n")
-                report.append(f"**Start Time:** {entry.get('start_time')}\n")
-                break
-
-        report.append("\n## Interactions\n")
-
-        interaction_num = 0
-        for entry in entries:
-            if entry.get("type") == "interaction":
-                interaction_num += 1
-                report.append(f"\n### Iteration {entry.get('iteration')}\n")
-                report.append(f"- **Finish Reason:** {entry.get('finish_reason')}\n")
-                report.append(f"- **Tool Calls:** {entry.get('tool_calls_detected')}\n")
-                report.append(f"- **Continuation Needed:** {entry.get('continuation_needed')}\n")
-                report.append(
-                    f"\n**Response:**\n```\n{entry.get('response_text', '')[:500]}...\n```\n"
-                )
-
-            elif entry.get("type") == "tool_call":
-                report.append(f"\n#### Tool: {entry.get('tool_name')}\n")
-                report.append(f"- **Success:** {entry.get('success')}\n")
-                if entry.get("error"):
-                    report.append(f"- **Error:** {entry.get('error')}\n")
-                report.append(
-                    f"\n**Arguments:**\n```json\n{json.dumps(entry.get('arguments', {}), indent=2)}\n```\n"
-                )
-                output = entry.get("output", "")
-                if output:
-                    report.append(
-                        f"\n**Output ({len(output)} chars):**\n```\n{output[:1000]}{'...' if len(output) > 1000 else ''}\n```\n"
-                    )
-
-            elif entry.get("type") == "error":
-                report.append(f"\n### ⚠️ Error\n```\n{entry.get('error')}\n```\n")
-
-        # Summary
-        for entry in entries:
-            if entry.get("type") == "session_end":
-                report.append(f"\n## Summary\n")
-                report.append(f"- **Total Iterations:** {entry.get('total_iterations')}\n")
-                report.append(f"- **Total Tool Calls:** {entry.get('total_tool_calls')}\n")
-                report.append(f"- **Errors:** {entry.get('error_count')}\n")
-                report.append(f"- **End Time:** {entry.get('end_time')}\n")
-                break
-
-        # Write report
-        with open(output_path, "w", encoding="utf-8") as f:
-            f.write("\n".join(report))
-
-        return True
 
 
 # Global logger instance access

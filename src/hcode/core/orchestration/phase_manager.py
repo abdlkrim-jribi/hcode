@@ -125,22 +125,6 @@ class PhaseManager(PhaseManagerProtocol):
         verification_handler = self.handlers["verification"]
         return verification_handler.can_transition_to_next(context)
 
-    def get_phase_progress(self) -> Dict[str, Any]:
-        """
-        Get progress through phases.
-
-        Returns:
-            Dict with phase progress information
-        """
-        current_index = self.PHASES.index(self.current_phase)
-        return {
-            "current_phase": self.current_phase,
-            "phase_index": current_index,
-            "total_phases": len(self.PHASES),
-            "progress_percent": int((current_index + 1) / len(self.PHASES) * 100),
-            "phase_history": self.phase_history,
-            "completed_phases": self.phase_history[:-1] if len(self.phase_history) > 1 else [],
-        }
 
     def reset(self, initial_phase: str = "planning") -> None:
         """
@@ -169,25 +153,3 @@ class PhaseManager(PhaseManagerProtocol):
         self.phase_history.append(phase_name)
         return True
 
-    def validate_phase_artifacts(self, context: AgentContext) -> Dict[str, Any]:
-        """
-        Validate artifacts for all completed phases.
-
-        Args:
-            context: Current agent context
-
-        Returns:
-            Dict with validation results for each phase
-        """
-        results = {}
-
-        for phase_name in self.phase_history:
-            handler = self.handlers[phase_name]
-            valid, error = handler.validate_artifacts(context)
-            results[phase_name] = {
-                "valid": valid,
-                "error": error,
-                "required_artifacts": handler.get_required_artifacts(),
-            }
-
-        return results
