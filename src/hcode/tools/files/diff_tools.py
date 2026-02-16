@@ -29,7 +29,7 @@ class ChangeStatus(Enum):
     """Status of a proposed change"""
 
     PENDING = "pending"
-    APPROVED = "approved"
+
     REJECTED = "rejected"
     APPLIED = "applied"
     FAILED = "failed"

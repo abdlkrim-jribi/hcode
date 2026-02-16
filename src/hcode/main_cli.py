@@ -46,10 +46,7 @@ from hcode.cli.autocomplete import (
     get_command_help,
     get_all_commands,
 )
-# from hcode.cli.reasoning_runner import ... (Removed)
-from hcode.ui.todo_display import (
-    ClaudeCodeTodoDisplay,
-)
+
 from hcode.ui.live_todo_bar import (
     LiveTodoBar,
 )
