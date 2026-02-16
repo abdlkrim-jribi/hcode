@@ -237,8 +237,6 @@ class HCodeSettings(BaseSettings):
         self.memory.db_path.parent.mkdir(parents=True, exist_ok=True)
         return self
 
-
-
     def to_dict(self) -> dict[str, Any]:
         """Export settings to dictionary."""
         return self.model_dump(mode="json")
@@ -247,8 +245,6 @@ class HCodeSettings(BaseSettings):
     def from_dict(cls, data: dict[str, Any]) -> "HCodeSettings":
         """Create settings from dictionary."""
         return cls(**data)
-
-
 
 
 @lru_cache()
@@ -315,7 +311,7 @@ def is_debug_mode() -> bool:
 
     settings = get_settings()
     return (
-        settings.ui.debug_mode
-        or settings.ui.show_thinking
-        or os.getenv("HCODE_DEBUG", "").lower() in ("1", "true", "yes")
+            settings.ui.debug_mode
+            or settings.ui.show_thinking
+            or os.getenv("HCODE_DEBUG", "").lower() in ("1", "true", "yes")
     )

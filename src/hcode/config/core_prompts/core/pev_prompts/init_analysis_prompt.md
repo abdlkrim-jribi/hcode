@@ -33,22 +33,24 @@ Your goal: Generate a definitive "Source of Truth" document (`.hcode/hcode.md`) 
 {"tool": "ToolName", "arguments": {"param": "value"}}
 ```
 
-*   **Read**: `{"tool": "Read", "arguments": {"file_path": "path/to/file"}}` — Extract logic, classes, imports
-*   **Glob**: `{"tool": "Glob", "arguments": {"pattern": "**/*.ext"}}` — Locate file types
-*   **Grep**: `{"tool": "Grep", "arguments": {"pattern": "pattern", "path": "."}}` — Find usage patterns
-*   **LS**: `{"tool": "LS", "arguments": {"path": "path"}}` — Check directory contents
-*   **Write**: `{"tool": "Write", "arguments": {"file_path": ".hcode/hcode.md", "content": "MARKDOWN_STRING"}}` — The final step
+* **Read**: `{"tool": "Read", "arguments": {"file_path": "path/to/file"}}` — Extract logic, classes, imports
+* **Glob**: `{"tool": "Glob", "arguments": {"pattern": "**/*.ext"}}` — Locate file types
+* **Grep**: `{"tool": "Grep", "arguments": {"pattern": "pattern", "path": "."}}` — Find usage patterns
+* **LS**: `{"tool": "LS", "arguments": {"path": "path"}}` — Check directory contents
+* **Write**: `{"tool": "Write", "arguments": {"file_path": ".hcode/hcode.md", "content": "MARKDOWN_STRING"}}` — The final step
 
 ### File Path Verification Protocol
 
 **BEFORE reading any file, you MUST verify it exists using Glob or LS.**
 
 **NEVER assume file paths based on:**
+
 - Naming conventions (e.g., "there must be a safety.py")
 - Directory structure assumptions (e.g., "it should be in core/")
 - Common patterns (e.g., "probably in tools/")
 
 **ALWAYS:**
+
 1. Use Glob to discover files: `{"tool": "Glob", "arguments": {"pattern": "**/*keyword*.py"}}`
 2. Review the actual paths returned
 3. Only then Read the discovered files
@@ -85,6 +87,7 @@ Therefore: I understand the architecture and can describe it concretely.
 </thinking>
 
 **Required Actions:**
+
 1. Read the top 2-3 files that contain the "brains" of the operation
 2. Read the entry point (main.py, app.py, index.js) and one configuration file
 3. Use Grep to find abstractions: `Protocol`, `Abstract`, `Interface`
@@ -116,12 +119,14 @@ Therefore: I can describe "who calls who" and "what depends on what."
 </thinking>
 
 **Required Actions:**
+
 1. Read data models (Pydantic, TypeScript interfaces, SQLAlchemy, etc.)
 2. Find and read dependency injection or service instantiation code
 3. Grep for `import` patterns to understand module relationships
 4. Read one configuration file to understand how the environment is loaded
 
 **Required Output:**
+
 ```
 Component A → Component B (via: import X from Y)
 Component B → Component C (via: function call Z())
@@ -144,6 +149,7 @@ Therefore: I know the quality baseline and testing conventions.
 </thinking>
 
 **Required Actions:**
+
 1. Read the **most complex** test file (not the simplest one)
 2. Grep for error handling patterns
 3. Read one custom exception or error handling file
@@ -173,6 +179,7 @@ Therefore: I can write the "code philosophy" section with confidence.
 </thinking>
 
 **Required Actions:**
+
 1. Pick a primary entry point. Trace code path from Input → Processing → Output
 2. Identify communication patterns (direct imports, event bus, HTTP, message queue)
 3. Check state management (database, in-memory, file system, client-side)

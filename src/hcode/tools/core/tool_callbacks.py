@@ -105,8 +105,6 @@ class ToolCallbackManager:
                     cls._instance = cls()
         return cls._instance
 
-
-
     def register(self, event_type: ToolEventType, callback: ToolCallback) -> None:
         """
         Register a callback for a specific event type.
@@ -135,8 +133,6 @@ class ToolCallbackManager:
                 self._callbacks[event_type].remove(callback)
                 return True
             return False
-
-
 
     def emit(self, event: ToolEvent) -> None:
         """
@@ -172,16 +168,7 @@ class ToolCallbackManager:
                 print(f"[Callback Error] {event.event_type.value}: {e}", file=sys.stderr)
 
 
-
-
-
-
-
-
 # Convenience function to get the global manager
 def get_callback_manager() -> ToolCallbackManager:
     """Get the global callback manager instance."""
     return ToolCallbackManager.get_instance()
-
-
-

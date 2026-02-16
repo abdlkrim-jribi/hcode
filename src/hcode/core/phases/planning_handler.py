@@ -19,7 +19,7 @@ import json
 import logging
 import re
 from pathlib import Path
-from typing import List, Any, Dict, Tuple, Optional
+from typing import List, Any, Dict, Optional
 
 from .base_handler import BasePhaseHandler
 from ..protocols import AgentContext, PhaseResult
@@ -31,6 +31,7 @@ except ImportError:
     FileAction = None
 
 logger = logging.getLogger(__name__)
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # PLANNING PHASE HANDLER
@@ -67,7 +68,7 @@ class PlanningPhaseHandler(BasePhaseHandler):
     # Round configuration for multi-round thinking
     # ──────────────────────────────────────────────────────────
     MAX_ROUNDS = 20  # Maximum rounds for planning (increased from 8 to allow agent autonomy)
-    
+
     # Research thresholds
 
     # ──────────────────────────────────────────────────────────
@@ -93,8 +94,6 @@ class PlanningPhaseHandler(BasePhaseHandler):
     def get_required_artifacts(self) -> List[str]:
         """Get artifacts this phase should produce."""
         return ["task.md", "implementation_plan.md"]
-
-
 
     def _extract_tool_calls(self, response: str) -> List[Dict[str, Any]]:
         """Prioritize <output> tags for tool extraction."""
@@ -363,9 +362,6 @@ Status: Reads: {read_count}, Globs: {glob_count}, Greps: {grep_count}"""
 
         # Default fallback
         return "Continue with the 5-phase protocol. Read code, gather evidence, design solution, write artifacts."
-
-
-
 
     def _build_planning_error_recovery(self, errors: List[Dict[str, Any]]) -> Optional[str]:
         """
@@ -747,20 +743,19 @@ Begin with **Phase 0: Requirements Deconstruction**.
         plan_content = self.artifact_manager.load_artifact("implementation_plan.md", context)
         if plan_content:
             has_concrete_steps = (
-                "file://" in plan_content or
-                "[MODIFY]" in plan_content or
-                "[NEW]" in plan_content or
-                "####" in plan_content or
-                "## Steps" in plan_content or
-                "## Proposed Changes" in plan_content or
-                "## Files to Modify" in plan_content or
-                "## Approach" in plan_content or
-                ".py" in plan_content or
-                ".js" in plan_content or
-                ".ts" in plan_content
+                    "file://" in plan_content or
+                    "[MODIFY]" in plan_content or
+                    "[NEW]" in plan_content or
+                    "####" in plan_content or
+                    "## Steps" in plan_content or
+                    "## Proposed Changes" in plan_content or
+                    "## Files to Modify" in plan_content or
+                    "## Approach" in plan_content or
+                    ".py" in plan_content or
+                    ".js" in plan_content or
+                    ".ts" in plan_content
             )
             if not has_concrete_steps:
                 return False
 
         return True
-

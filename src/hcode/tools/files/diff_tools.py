@@ -103,8 +103,8 @@ class ChangeProposal:
 
     id: str = field(
         default_factory=lambda: hashlib.md5(str(datetime.now().timestamp()).encode()).hexdigest()[
-            :12
-        ]
+                                :12
+                                ]
     )
 
     # File information
@@ -425,9 +425,6 @@ class ChangeProposal:
         }
 
 
-
-
-
 class DiffPreviewTool(BaseTool):
     """
     Preview file changes before applying them.
@@ -473,14 +470,14 @@ Use this before Edit or Write to review changes safely."""
         ]
 
     async def execute(
-        self,
-        file_path: str,
-        old_string: Optional[str] = None,
-        new_string: Optional[str] = None,
-        new_content: Optional[str] = None,
-        replace_all: bool = False,
-        context_lines: int = 3,
-        **kwargs,
+            self,
+            file_path: str,
+            old_string: Optional[str] = None,
+            new_string: Optional[str] = None,
+            new_content: Optional[str] = None,
+            replace_all: bool = False,
+            context_lines: int = 3,
+            **kwargs,
     ) -> ToolResult:
         """Generate a preview of proposed changes"""
         try:
@@ -576,11 +573,11 @@ Use this before Edit or Write to review changes safely."""
         lines = []
 
         # Header
-        lines.append(f"{'='*60}")
+        lines.append(f"{'=' * 60}")
         lines.append(f"CHANGE PREVIEW: {proposal.file_path}")
         lines.append(f"Operation: {proposal.operation.value.upper()}")
         lines.append(f"Proposal ID: {proposal.id}")
-        lines.append(f"{'='*60}")
+        lines.append(f"{'=' * 60}")
 
         # Statistics
         lines.append(f"\nStatistics:")
@@ -590,13 +587,13 @@ Use this before Edit or Write to review changes safely."""
 
         # Safety warnings
         if proposal.safety_warnings:
-            lines.append(f"\n{'!'*40}")
+            lines.append(f"\n{'!' * 40}")
             lines.append("SAFETY WARNINGS:")
             for warning in proposal.safety_warnings:
                 icon = {"info": "i", "warning": "!", "critical": "X"}[warning.level]
                 line_info = f" (line {warning.line_number})" if warning.line_number else ""
                 lines.append(f"  [{icon}] [{warning.category}] {warning.message}{line_info}")
-            lines.append(f"{'!'*40}")
+            lines.append(f"{'!' * 40}")
 
         # Diff
         lines.append(f"\nDiff:")
@@ -708,7 +705,7 @@ The change will only be applied if it was previously previewed."""
                     success=False,
                     output=None,
                     error=f"Critical warnings found. Use force=True to override:\n"
-                    + "\n".join(warnings),
+                          + "\n".join(warnings),
                 )
 
             # Apply the change
@@ -785,7 +782,7 @@ class RejectChangeTool(BaseTool):
             return ToolResult(
                 success=True,
                 output=f"Change rejected: {proposal.file_path}"
-                + (f" - {reason}" if reason else ""),
+                       + (f" - {reason}" if reason else ""),
                 metadata={"proposal_id": proposal_id, "reason": reason},
             )
 

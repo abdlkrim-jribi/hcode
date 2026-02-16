@@ -13,10 +13,10 @@ class BatchContextWriter:
     """
 
     def __init__(
-        self,
-        flush_threshold: int = 10,
-        flush_interval: float = 5.0,
-        write_callback: Optional[Callable[[List[Dict]], None]] = None,
+            self,
+            flush_threshold: int = 10,
+            flush_interval: float = 5.0,
+            write_callback: Optional[Callable[[List[Dict]], None]] = None,
     ):
         self._buffer: List[Dict[str, Any]] = []
         self._threshold = flush_threshold
@@ -74,7 +74,9 @@ class BatchContextWriter:
             "avg_batch_size": self._message_count / max(1, self._flush_count),
         }
 
+
 _context_writer: Optional[BatchContextWriter] = None
+
 
 def get_context_writer() -> BatchContextWriter:
     global _context_writer

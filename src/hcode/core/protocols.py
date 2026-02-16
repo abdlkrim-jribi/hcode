@@ -10,8 +10,8 @@ Following the Interface Segregation Principle (ISP), each protocol
 is focused on a single role/responsibility.
 """
 
-from typing import Protocol, List, Dict, Any, Optional, Tuple, runtime_checkable
 from dataclasses import dataclass, field
+from typing import Protocol, List, Dict, Any, Optional, Tuple, runtime_checkable
 
 
 # ============================================================================
@@ -27,8 +27,6 @@ class ToolResult:
     metadata: Optional[Dict[str, Any]] = field(default_factory=dict)
 
 
-
-
 @dataclass
 class ParsedToolCall:
     """Parsed tool call from LLM response."""
@@ -38,7 +36,7 @@ class ParsedToolCall:
     source: str = "text"  # "native" or "text"
 
 
-@dataclass 
+@dataclass
 class CompletionState:
     """State information for task completion detection."""
     is_complete: bool
@@ -85,9 +83,9 @@ class PhaseHandlerProtocol(Protocol):
     phase_name: str
 
     async def handle(
-        self,
-        context: AgentContext,
-        loop_controller: Any,  # AgentLoopController
+            self,
+            context: AgentContext,
+            loop_controller: Any,  # AgentLoopController
     ) -> PhaseResult:
         """
         Execute this phase's logic.
@@ -157,9 +155,9 @@ class PhaseManagerProtocol(Protocol):
         ...
 
     async def execute_current_phase(
-        self,
-        context: AgentContext,
-        loop_controller: Any,
+            self,
+            context: AgentContext,
+            loop_controller: Any,
     ) -> PhaseResult:
         """
         Execute the current phase.
@@ -269,10 +267,10 @@ class ArtifactManagerProtocol(Protocol):
     """
 
     def create_artifact(
-        self,
-        artifact_name: str,
-        content: str,
-        context: AgentContext,
+            self,
+            artifact_name: str,
+            content: str,
+            context: AgentContext,
     ) -> str:
         """
         Create a phase artifact file.
@@ -288,9 +286,9 @@ class ArtifactManagerProtocol(Protocol):
         ...
 
     def load_artifact(
-        self,
-        artifact_name: str,
-        context: AgentContext,
+            self,
+            artifact_name: str,
+            context: AgentContext,
     ) -> Optional[str]:
         """
         Load artifact content.
@@ -305,9 +303,9 @@ class ArtifactManagerProtocol(Protocol):
         ...
 
     def artifact_exists(
-        self,
-        artifact_name: str,
-        context: AgentContext,
+            self,
+            artifact_name: str,
+            context: AgentContext,
     ) -> bool:
         """
         Check if artifact exists.
@@ -322,9 +320,9 @@ class ArtifactManagerProtocol(Protocol):
         ...
 
     def validate_artifact_content(
-        self,
-        artifact_name: str,
-        content: str,
+            self,
+            artifact_name: str,
+            content: str,
     ) -> Tuple[bool, Optional[str]]:
         """
         Validate artifact has required content.
@@ -352,10 +350,10 @@ class AgentOrchestratorProtocol(Protocol):
     """
 
     async def execute_task(
-        self,
-        task: str,
-        session_id: str,
-        stream_callback: Optional[Any] = None,
+            self,
+            task: str,
+            session_id: str,
+            stream_callback: Optional[Any] = None,
     ) -> Dict[str, Any]:
         """
         Execute a user task through the PEV workflow.
@@ -388,8 +386,8 @@ class AgentOrchestratorProtocol(Protocol):
         ...
 
     async def execute_phase_iteration(
-        self,
-        context: AgentContext,
+            self,
+            context: AgentContext,
     ) -> PhaseResult:
         """
         Execute one iteration of current phase.

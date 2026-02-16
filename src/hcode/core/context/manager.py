@@ -38,9 +38,9 @@ class ContextManager:
     """Manages conversation context and history"""
 
     def __init__(
-        self,
-        root_dir: Optional[str] = None,
-        session_id: Optional[str] = None,
+            self,
+            root_dir: Optional[str] = None,
+            session_id: Optional[str] = None,
             _fresh_session: bool = True,
     ):
         """
@@ -106,18 +106,18 @@ class ContextManager:
             # Check for missing columns (simple migration)
             cursor.execute("PRAGMA table_info(messages)")
             columns = [info[1] for info in cursor.fetchall()]
-            
+
             if "tool_calls" not in columns:
                 try:
                     cursor.execute("ALTER TABLE messages ADD COLUMN tool_calls TEXT")
                 except sqlite3.OperationalError:
-                    pass # Already exists
-            
+                    pass  # Already exists
+
             if "tool_call_id" not in columns:
                 try:
                     cursor.execute("ALTER TABLE messages ADD COLUMN tool_call_id TEXT")
                 except sqlite3.OperationalError:
-                    pass # Already exists
+                    pass  # Already exists
 
         cursor.execute(
             """
@@ -147,10 +147,10 @@ class ContextManager:
                 tool_calls_data = json.loads(row[5]) if row[5] else None
                 self.context.append(
                     ContextEntry(
-                        role=row[0], 
-                        content=row[1], 
-                        timestamp=row[2], 
-                        tokens=row[3], 
+                        role=row[0],
+                        content=row[1],
+                        timestamp=row[2],
+                        tokens=row[3],
                         importance=row[4],
                         tool_calls=tool_calls_data,
                         tool_call_id=row[6]
@@ -178,13 +178,13 @@ class ContextManager:
         conn.close()
 
     def add_message(
-        self,
-        role: str,
-        content: str,
-        importance: float = 1.0,
-        provider: Optional[AIProvider] = None,
-        tool_calls: Optional[List[Dict]] = None,
-        tool_call_id: Optional[str] = None,
+            self,
+            role: str,
+            content: str,
+            importance: float = 1.0,
+            provider: Optional[AIProvider] = None,
+            tool_calls: Optional[List[Dict]] = None,
+            tool_call_id: Optional[str] = None,
     ):
         """
         Add a message to the context.
@@ -219,17 +219,17 @@ class ContextManager:
         cursor = conn.cursor()
 
         tool_calls_json = json.dumps(entry.tool_calls) if entry.tool_calls else None
-        
+
         cursor.execute(
             """
             INSERT INTO messages (role, content, timestamp, tokens, importance, tool_calls, tool_call_id)
             VALUES (?, ?, ?, ?, ?, ?, ?)
         """,
             (
-                entry.role, 
-                entry.content, 
-                entry.timestamp, 
-                entry.tokens, 
+                entry.role,
+                entry.content,
+                entry.timestamp,
+                entry.tokens,
                 entry.importance,
                 tool_calls_json,
                 entry.tool_call_id
@@ -263,7 +263,7 @@ class ContextManager:
         conn.close()
 
     def get_messages(
-        self, max_tokens: Optional[int] = None, include_system: bool = True
+            self, max_tokens: Optional[int] = None, include_system: bool = True
     ) -> List[Message]:
         """
         Get messages for AI provider.
@@ -303,7 +303,7 @@ class ContextManager:
                     ))
 
             messages.append(Message(
-                role=entry.role, 
+                role=entry.role,
                 content=entry.content,
                 tool_calls=tool_calls_objs,
                 tool_call_id=entry.tool_call_id

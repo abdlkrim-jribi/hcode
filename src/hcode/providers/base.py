@@ -4,9 +4,8 @@ Defines the interface that all AI providers (Anthropic, OpenAI) must implement.
 """
 
 from abc import ABC, abstractmethod
-from typing import List, Dict, Any, AsyncIterator, Optional
 from dataclasses import dataclass
-from enum import Enum
+from typing import List, Dict, Any, AsyncIterator, Optional
 
 
 @dataclass
@@ -47,11 +46,11 @@ class Usage:
 @dataclass
 class ToolCall:
     """Represents a tool call from the model (native function calling)"""
-    
+
     id: str  # Unique identifier for this tool call
     name: str  # Tool name
     arguments: Dict[str, Any]  # Tool arguments as a dictionary
-    
+
     def to_dict(self) -> Dict[str, Any]:
         return {"id": self.id, "name": self.name, "arguments": self.arguments}
 
@@ -88,7 +87,7 @@ class AIProvider(ABC):
 
     @abstractmethod
     async def generate_completion(
-        self, messages: List[Message], stream: bool = False, **kwargs
+            self, messages: List[Message], stream: bool = False, **kwargs
     ) -> CompletionResponse | AsyncIterator[str]:
         """
         Generate a completion from the AI model.

@@ -174,10 +174,10 @@ class FileMemory:
         return "\n---\n\n".join(sections)
 
     def update_memory(
-        self,
-        content: str,
-        scope: str = "project",
-        append: bool = False,
+            self,
+            content: str,
+            scope: str = "project",
+            append: bool = False,
     ) -> Path:
         """
         Update or create a memory file.
@@ -274,4 +274,3 @@ class FileMemory:
                     f.write(f"# HCODE agent local memory\n{pattern}\n")
         else:
             gitignore.write_text(f"# HCODE agent local memory\n{pattern}\n", encoding="utf-8")
-

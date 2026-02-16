@@ -38,10 +38,10 @@ class MemoryManager:
     """
 
     def __init__(
-        self,
-        project_root: Optional[Path] = None,
-        session_id: Optional[str] = None,
-        config: Optional[MemoryConfig] = None,
+            self,
+            project_root: Optional[Path] = None,
+            session_id: Optional[str] = None,
+            config: Optional[MemoryConfig] = None,
     ):
         """
         Initialize the memory manager.
@@ -73,7 +73,7 @@ class MemoryManager:
         return hashlib.md5(str(path.resolve()).encode()).hexdigest()[:12]
 
     def add_message(
-        self, role: str, content: str, is_anchor: bool = False, extract_memories: bool = True
+            self, role: str, content: str, is_anchor: bool = False, extract_memories: bool = True
     ) -> None:
         """
         Add a message to the conversation.
@@ -101,7 +101,7 @@ class MemoryManager:
     def _extract_memories_from_recent(self):
         """Extract facts and patterns from recent messages."""
         # Get recent messages for extraction
-        recent = self.session.messages[-self.config.extraction_interval :]
+        recent = self.session.messages[-self.config.extraction_interval:]
 
         for msg in recent:
             content = msg.content
@@ -201,12 +201,12 @@ class MemoryManager:
         return patterns[:3]
 
     def get_context(
-        self,
-        query: Optional[str] = None,
-        include_file_memory: bool = True,
-        include_session: bool = True,
-        include_semantic: bool = True,
-        max_tokens: Optional[int] = None,
+            self,
+            query: Optional[str] = None,
+            include_file_memory: bool = True,
+            include_session: bool = True,
+            include_semantic: bool = True,
+            max_tokens: Optional[int] = None,
     ) -> ContextWindow:
         """
         Assemble context for the agent from all memory layers.
@@ -306,11 +306,11 @@ class MemoryManager:
         return len(text) // 4
 
     def remember(
-        self,
-        content: str,
-        memory_type: MemoryType = MemoryType.CONTEXT,
-        importance: float = 0.5,
-        source: str = "user",
+            self,
+            content: str,
+            memory_type: MemoryType = MemoryType.CONTEXT,
+            importance: float = 0.5,
+            source: str = "user",
     ) -> Memory:
         """
         Explicitly add something to long-term memory.
@@ -333,7 +333,7 @@ class MemoryManager:
         )
 
     def recall(
-        self, query: str, top_k: int = 5, memory_types: Optional[List[MemoryType]] = None
+            self, query: str, top_k: int = 5, memory_types: Optional[List[MemoryType]] = None
     ) -> List[Tuple[Memory, float]]:
         """
         Search long-term memory for relevant information.
@@ -366,7 +366,7 @@ class MemoryManager:
             pass
 
     def update_file_memory(
-        self, content: str, scope: str = "project", section: Optional[str] = None
+            self, content: str, scope: str = "project", section: Optional[str] = None
     ) -> Path:
         """
         Update an AGENT.md file.
@@ -396,7 +396,7 @@ class MemoryManager:
         return self.session_memory.list_sessions(limit=limit)
 
     def cleanup(
-        self, prune_semantic: bool = True, compact_session: bool = True, apply_decay: bool = True
+            self, prune_semantic: bool = True, compact_session: bool = True, apply_decay: bool = True
     ) -> Dict[str, int]:
         """
         Perform cleanup on all memory layers.
@@ -428,7 +428,6 @@ class MemoryManager:
 
         return stats
 
-
     def __enter__(self):
         """Context manager entry."""
         return self
@@ -439,7 +438,7 @@ class MemoryManager:
 
 
 def get_memory_manager(
-    project_root: Optional[Path] = None, session_id: Optional[str] = None
+        project_root: Optional[Path] = None, session_id: Optional[str] = None
 ) -> MemoryManager:
     """
     Convenience function to get a memory manager instance.

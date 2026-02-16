@@ -220,7 +220,7 @@ class DisplayPanelTool(BaseTool):
         ]
 
     async def execute(
-        self, content: str, title: Optional[str] = None, style: str = "blue"
+            self, content: str, title: Optional[str] = None, style: str = "blue"
     ) -> ToolResult:
         """Display content in a panel"""
         try:
@@ -255,17 +255,17 @@ class ProgressTool(BaseTool):
         ]
 
     async def execute(
-        self, message: str, total: Optional[int] = None, current: int = 0
+            self, message: str, total: Optional[int] = None, current: int = 0
     ) -> ToolResult:
         """Update progress"""
         try:
             from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn
 
             with Progress(
-                SpinnerColumn(),
-                TextColumn("[progress.description]{task.description}"),
-                BarColumn(),
-                TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+                    SpinnerColumn(),
+                    TextColumn("[progress.description]{task.description}"),
+                    BarColumn(),
+                    TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
             ) as progress:
                 task = progress.add_task(message, total=total if total else 100)
                 progress.update(task, completed=current)

@@ -47,10 +47,10 @@ class ArtifactManager(ArtifactManagerProtocol):
         return base_dir / artifact_name
 
     def create_artifact(
-        self,
-        artifact_name: str,
-        content: str,
-        context: AgentContext,
+            self,
+            artifact_name: str,
+            content: str,
+            context: AgentContext,
     ) -> str:
         """
         Create a phase artifact file.
@@ -77,9 +77,9 @@ class ArtifactManager(ArtifactManagerProtocol):
         return str(artifact_path)
 
     def load_artifact(
-        self,
-        artifact_name: str,
-        context: AgentContext,
+            self,
+            artifact_name: str,
+            context: AgentContext,
     ) -> Optional[str]:
         """
         Load artifact content.
@@ -102,9 +102,9 @@ class ArtifactManager(ArtifactManagerProtocol):
             return None
 
     def artifact_exists(
-        self,
-        artifact_name: str,
-        context: AgentContext,
+            self,
+            artifact_name: str,
+            context: AgentContext,
     ) -> bool:
         """
         Check if artifact exists.
@@ -120,9 +120,9 @@ class ArtifactManager(ArtifactManagerProtocol):
         return artifact_path.exists()
 
     def validate_artifact_content(
-        self,
-        artifact_name: str,
-        content: str,
+            self,
+            artifact_name: str,
+            content: str,
     ) -> Tuple[bool, Optional[str]]:
         """
         Validate artifact has required content.
@@ -220,4 +220,3 @@ class ArtifactManager(ArtifactManagerProtocol):
             return False, "walkthrough.md is too brief"
 
         return True, None
-

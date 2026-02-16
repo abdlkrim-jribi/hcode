@@ -3,6 +3,11 @@ Core components for Hcode.
 """
 
 from hcode.core.agent import HcodeAgent
+from hcode.core.context import ContextManager, ContextEntry
+from hcode.core.execution import (
+    ExecutionStateMachine,
+    ExecutionState,
+)
 from hcode.core.observability import (
     ExecutionAnalytics,
     ToolAnalytics,
@@ -17,7 +22,6 @@ from hcode.core.observability import (
     log_error,
     end_logging,
 )
-from hcode.core.context import ContextManager, ContextEntry
 # from hcode.core.filesystem import FileSystemManager, FileWatcher (Removed)
 from hcode.core.optimization import (
     CachedTokenCounter,
@@ -25,10 +29,6 @@ from hcode.core.optimization import (
     ToolResultCache,
     get_token_counter,
     get_context_writer,
-)
-from hcode.core.execution import (
-    ExecutionStateMachine,
-    ExecutionState,
 )
 # from hcode.core.response import (Removed OutputHandler usage)
 from hcode.core.safety import SafetyGuard

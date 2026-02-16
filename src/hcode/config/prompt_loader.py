@@ -251,7 +251,7 @@ class PromptLoader:
             try:
                 end_idx = lines[1:].index(self.FRONTMATTER_DELIMITER) + 1
                 frontmatter = "\n".join(lines[1:end_idx])
-                template = "\n".join(lines[end_idx + 1 :])
+                template = "\n".join(lines[end_idx + 1:])
             except ValueError:
                 # No closing delimiter - treat as no frontmatter
                 frontmatter = ""
@@ -411,13 +411,13 @@ class PromptLoader:
         ]
 
     def create_prompt(
-        self,
-        name: str,
-        template: str,
-        description: str = "",
-        variables: Optional[List[Dict[str, Any]]] = None,
-        category: str = "general",
-        tags: Optional[List[str]] = None,
+            self,
+            name: str,
+            template: str,
+            description: str = "",
+            variables: Optional[List[Dict[str, Any]]] = None,
+            category: str = "general",
+            tags: Optional[List[str]] = None,
     ) -> Path:
         """
         Create a new prompt file.

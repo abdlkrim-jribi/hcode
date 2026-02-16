@@ -9,9 +9,9 @@ Provides:
 
 import json
 import logging
-from pathlib import Path
-from typing import Optional, Dict, Any, List
 from datetime import datetime
+from pathlib import Path
+from typing import Optional
 
 from hcode.core.protocols import AgentContext
 
@@ -41,9 +41,9 @@ class CheckpointManager:
         self.checkpoint_dir = checkpoint_dir
 
     def save_checkpoint(
-        self,
-        context: AgentContext,
-        phase_name: Optional[str] = None,
+            self,
+            context: AgentContext,
+            phase_name: Optional[str] = None,
     ) -> str:
         """
         Save AgentContext to checkpoint file.
@@ -93,7 +93,6 @@ class CheckpointManager:
         except Exception as e:
             logger.error(f"Failed to save checkpoint: {e}")
             raise
-
 
 
 def get_checkpoint_manager(checkpoint_dir: str = ".hcode/checkpoints") -> CheckpointManager:

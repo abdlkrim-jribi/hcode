@@ -206,8 +206,6 @@ class ToolsConfig:
 
         return definitions
 
-
-
     def get_openai_schemas(self, tool_names: Optional[List[str]] = None) -> List[Dict[str, Any]]:
         """Get OpenAI function calling schemas for specified tools (or all)"""
         schemas = []
@@ -240,16 +238,16 @@ class ToolsConfig:
             docs.append(f"### {tool_name}")
             docs.append(tool_data.get("description", "").strip())
             docs.append("\n**Parameters:**")
-            
+
             params = tool_data.get("parameters", {})
             example_args = {}
-            
+
             for param_name, param_data in params.items():
                 required = " (required)" if param_data.get("required", False) else " (optional)"
                 p_type = param_data.get("type", "string")
                 desc = param_data.get("description", "")
                 docs.append(f"- `{param_name}` ({p_type}){required}: {desc}")
-                
+
                 # Build example args
                 if param_data.get("required", False):
                     # Provide a sensible default for example
@@ -290,8 +288,6 @@ class ToolsConfig:
             docs.append("```\n")
 
         return "\n".join(docs)
-
-
 
 
 # Convenience functions

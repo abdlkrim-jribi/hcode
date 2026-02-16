@@ -275,8 +275,6 @@ def run_task(task, provider, model, complexity, cost, session, stream, agents, a
         )
         sys.exit(1)
 
-
-
     # Create agent
     preferences = ProviderPreferences(
         primary_provider=provider,
@@ -462,12 +460,11 @@ def chat_mode(provider, session, debug, autonomous):
     # LiveTodoBar handles persistent display via callback system
     live_todo_bar = LiveTodoBar(console=console, height=6)
     chat_todos = []
-    
+
     # Start LIVE todo bar for persistent Claude Code-style display
     live_todo_bar.start()
 
     pass
-
 
     # Helper function to convert Todo objects to dicts (needs to be outside loop)
     def todo_to_dict(todo):
@@ -902,12 +899,12 @@ def chat_mode(provider, session, debug, autonomous):
                             border_style=palette.primary,
                         )
                     )
-                    
+
                     try:
                         from pathlib import Path as PathlibPath
                         from hcode.core.phases.init_handler import InitHandler
                         from hcode.core.protocols import AgentContext
-                        
+
                         # Create InitHandler with agent's components
                         # Note: agent.current_provider may be None if not yet selected
                         # We need to select a provider first
@@ -917,14 +914,14 @@ def chat_mode(provider, session, debug, autonomous):
                                 complexity=TaskComplexity.MODERATE,
                                 task_type=TaskType.CODE_GENERATION
                             )
-                        
+
                         init_handler = InitHandler(
                             provider=agent.current_provider,
                             tool_executor=agent._tool_executor,
                             context_manager=agent.context_manager,
                             console=console,
                         )
-                        
+
                         # Create AgentContext
                         context = AgentContext(
                             task="/init codebase analysis",
@@ -932,10 +929,10 @@ def chat_mode(provider, session, debug, autonomous):
                             working_dir=str(PathlibPath.cwd()),
                             iteration=1,
                         )
-                        
+
                         # Execute analysis
                         result = asyncio.run(init_handler.analyze(context))
-                        
+
                         # Display results
                         if result.success:
                             console.print(
@@ -962,7 +959,7 @@ def chat_mode(provider, session, debug, autonomous):
                                     border_style=palette.warning,
                                 )
                             )
-                        
+
                     except Exception as e:
                         from rich.markup import escape
                         error_panel = ErrorPanel(
@@ -976,7 +973,7 @@ def chat_mode(provider, session, debug, autonomous):
                         console.print(error_panel.render())
                         if debug:
                             console.print_exception()
-                    
+
                     continue
 
             # Execute task with modern assistant indicator
@@ -994,27 +991,27 @@ def chat_mode(provider, session, debug, autonomous):
             from hcode.ui.hcode_display import (
                 get_hcode_display,
             )
-            
+
             # Get Hcode display instance
             hcode_display = get_hcode_display(console)
-            
+
             # Extract task name from user input
             task_name = user_input.split('\n')[0].strip()[:50]
             if len(user_input) > 50:
                 task_name = task_name[:47] + "..."
-            
+
             # Wrapper for agent execution
             # The agent handles task boundary display internally
-            
+
             # Pause todo bar during streaming to prevent ANSI interference
             live_todo_bar.pause()
-            
+
             try:
                 result = asyncio.run(agent.execute_task(task=user_input, stream=True))
             finally:
                 # End thinking timer if it was running (safety)
                 hcode_display.end_thinking()
-                
+
                 # Resume todo bar after streaming
                 live_todo_bar.resume()
 
@@ -1181,7 +1178,7 @@ def analyze_code(path, provider, deep):
     agent = HcodeAgent(anthropic_key=anthropic_key, openai_key=openai_key, preferences=preferences)
 
     with Progress(
-        SpinnerColumn(), TextColumn("[progress.description]{task.description}"), console=console
+            SpinnerColumn(), TextColumn("[progress.description]{task.description}"), console=console
     ) as progress:
         task = progress.add_task("Analyzing code...", total=None)
 
@@ -1237,7 +1234,7 @@ def explore_codebase(query, thoroughness):
     agent = HcodeAgent(anthropic_key=anthropic_key, openai_key=openai_key)
 
     with Progress(
-        SpinnerColumn(), TextColumn("[progress.description]{task.description}"), console=console
+            SpinnerColumn(), TextColumn("[progress.description]{task.description}"), console=console
     ) as progress:
         task = progress.add_task(f"Exploring ({thoroughness})...", total=None)
 
@@ -1252,9 +1249,6 @@ def explore_codebase(query, thoroughness):
             border_style="cyan",
         )
     )
-
-
-
 
 
 @cli.command(name="init", short_help="Initialize project config")
@@ -1547,8 +1541,6 @@ def config_path():
     )
 
     console.print(table)
-
-
 
 
 def main():

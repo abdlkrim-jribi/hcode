@@ -43,9 +43,9 @@ environment.  All concrete tool implementations reside in
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional, List
 from dataclasses import dataclass
 from enum import Enum
+from typing import Dict, Any, Optional, List
 
 
 class ToolCategory(Enum):
@@ -516,7 +516,7 @@ class ToolRegistry:
         # Try stripping common prefixes
         for prefix in ["run_", "execute_", "do_", "perform_"]:
             if name_lower.startswith(prefix):
-                stripped = name_lower[len(prefix) :]
+                stripped = name_lower[len(prefix):]
                 tool = self.tools.get(stripped)
                 if tool:
                     return tool

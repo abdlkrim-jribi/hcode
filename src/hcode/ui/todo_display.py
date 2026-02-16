@@ -5,7 +5,6 @@ Provides a Claude Code-style persistent todo list that displays at the
 bottom of the terminal to track agent progress in real-time.
 """
 
-from dataclasses import dataclass
 from datetime import datetime
 from typing import Optional, List, Dict, Any
 
@@ -59,11 +58,11 @@ class ClaudeCodeTodoDisplay:
         return str(tokens)
 
     def render(
-        self,
-        todos: List[Dict[str, Any]],
-        elapsed_seconds: float = 0,
-        token_count: int = 0,
-        show_shortcuts: bool = True,
+            self,
+            todos: List[Dict[str, Any]],
+            elapsed_seconds: float = 0,
+            token_count: int = 0,
+            show_shortcuts: bool = True,
     ) -> Text:
         """
         Render Claude Code-style todo display.
@@ -140,11 +139,11 @@ class ClaudeCodeTodoDisplay:
         return text
 
     def print(
-        self,
-        todos: List[Dict[str, Any]],
-        elapsed_seconds: float = 0,
-        token_count: int = 0,
-        show_shortcuts: bool = True,
+            self,
+            todos: List[Dict[str, Any]],
+            elapsed_seconds: float = 0,
+            token_count: int = 0,
+            show_shortcuts: bool = True,
     ):
         """Print the todo display to console."""
         rendered = self.render(todos, elapsed_seconds, token_count, show_shortcuts)

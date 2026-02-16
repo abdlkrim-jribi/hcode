@@ -8,8 +8,8 @@ Implements safeguards:
 4. Proactive warnings and guidance
 """
 
-from typing import Optional, Tuple, List
 from pathlib import Path
+from typing import Optional, Tuple, List
 
 
 class ContextBudgetManager:
@@ -25,9 +25,9 @@ class ContextBudgetManager:
 
     # Claude Code-style limits
     MAX_GLOB_RESULTS = 1000  # Maximum files to return from Glob
-    MAX_GLOB_DISPLAY = 100   # Maximum files to display in full
+    MAX_GLOB_DISPLAY = 100  # Maximum files to display in full
     MAX_TOOL_OUTPUT_CHARS = 30000  # Maximum characters per tool output
-    MAX_FILE_LINES = 2000    # Maximum lines to read from a file
+    MAX_FILE_LINES = 2000  # Maximum lines to read from a file
 
     # Directories to exclude from glob (like .gitignore)
     EXCLUDED_DIRS = {
@@ -89,9 +89,9 @@ class ContextBudgetManager:
         return False
 
     def filter_glob_results(
-        self,
-        matches: List[Path],
-        pattern: str,
+            self,
+            matches: List[Path],
+            pattern: str,
     ) -> Tuple[List[Path], bool, str]:
         """
         Filter and limit glob results like Claude Code.
@@ -138,10 +138,10 @@ Use a more specific pattern to see all results.
         return filtered, was_truncated, guidance
 
     def format_glob_output(
-        self,
-        paths: List[Path],
-        root_dir: Path,
-        was_truncated: bool = False,
+            self,
+            paths: List[Path],
+            root_dir: Path,
+            was_truncated: bool = False,
     ) -> str:
         """
         Format glob output with smart truncation.
@@ -176,7 +176,7 @@ Use a more specific pattern to see all results.
             last_part = relative_paths[-preview_count:]
 
             output_lines = first_part
-            output_lines.append(f"... and {len(relative_paths) - 2*preview_count} more")
+            output_lines.append(f"... and {len(relative_paths) - 2 * preview_count} more")
             output_lines.extend(last_part)
 
             result = "\n".join(output_lines)
@@ -191,9 +191,9 @@ Use a more specific pattern to see all results.
         return result + summary
 
     def truncate_tool_output(
-        self,
-        output: str,
-        tool_name: str,
+            self,
+            output: str,
+            tool_name: str,
     ) -> Tuple[str, bool]:
         """
         Truncate tool output if too large.
@@ -211,9 +211,9 @@ Use a more specific pattern to see all results.
         # Truncate in the middle to show both start and end
         half = self.MAX_TOOL_OUTPUT_CHARS // 2
         truncated = (
-            output[:half] +
-            f"\n\n... [Output truncated - {len(output)} chars total, showing {self.MAX_TOOL_OUTPUT_CHARS}] ...\n\n" +
-            output[-half:]
+                output[:half] +
+                f"\n\n... [Output truncated - {len(output)} chars total, showing {self.MAX_TOOL_OUTPUT_CHARS}] ...\n\n" +
+                output[-half:]
         )
 
         return truncated, True
@@ -232,8 +232,8 @@ Use a more specific pattern to see all results.
         return len(text) // 4
 
     def check_context_budget(
-        self,
-        new_content: str,
+            self,
+            new_content: str,
     ) -> Tuple[bool, Optional[str]]:
         """
         Check if adding new content would exceed budget.
@@ -268,7 +268,7 @@ The result is too large to fit in context. Please:
         usage_ratio = new_usage / self.context_window
         if usage_ratio >= self.warning_threshold:
             warning = f"""
-[WARNING] Context budget at {usage_ratio*100:.0f}%
+[WARNING] Context budget at {usage_ratio * 100:.0f}%
 
 Current: {self.current_usage:,} tokens
 After this: {new_usage:,} tokens

@@ -4,12 +4,10 @@ Executes external tools and commands with timeout and output handling.
 """
 
 import asyncio
-import os
-import re
 import shlex
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Optional, List
+from typing import Dict, Optional
 
 
 @dataclass
@@ -47,12 +45,12 @@ class ToolExecutor:
         self.env = dict(os.environ)  # Copy environment variables
 
     async def execute(
-        self,
-        command: str,
-        timeout: float = 120,
-        cwd: Optional[str] = None,
-        env: Optional[Dict[str, str]] = None,
-        shell: bool = False,
+            self,
+            command: str,
+            timeout: float = 120,
+            cwd: Optional[str] = None,
+            env: Optional[Dict[str, str]] = None,
+            shell: bool = False,
     ) -> ExecutionResult:
         """
         Execute a command asynchronously.

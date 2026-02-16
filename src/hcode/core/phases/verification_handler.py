@@ -60,9 +60,9 @@ class VerificationPhaseHandler(BasePhaseHandler):
         return ["walkthrough.md"]
 
     async def _execute_tools(
-        self,
-        tool_calls: List[Dict[str, Any]],
-        context: AgentContext,
+            self,
+            tool_calls: List[Dict[str, Any]],
+            context: AgentContext,
     ) -> List[Dict[str, Any]]:
         """
         Verification-phase tool executor that blocks Edit on task.md.
@@ -81,9 +81,9 @@ class VerificationPhaseHandler(BasePhaseHandler):
             # Block Edit/Write on task.md — system handles this
             if tool_name in ("edit", "edittool"):
                 target = (
-                    arguments.get("file_path")
-                    or arguments.get("TargetFile")
-                    or ""
+                        arguments.get("file_path")
+                        or arguments.get("TargetFile")
+                        or ""
                 )
                 if "task.md" in target:
                     logger.info(
@@ -116,9 +116,9 @@ class VerificationPhaseHandler(BasePhaseHandler):
     # ═══════════════════════════════════════════════════════════════════════
 
     async def handle(
-        self,
-        context: AgentContext,
-        loop_controller: Any,
+            self,
+            context: AgentContext,
+            loop_controller: Any,
     ) -> PhaseResult:
         """
         Execute verification phase using the 5-phase QA protocol.
@@ -227,8 +227,8 @@ class VerificationPhaseHandler(BasePhaseHandler):
 
             # Determine verdict from test results AND task.md completion
             tests_ok = (
-                not test_results.get("tests_run")
-                or test_results.get("tests_failed", 0) == 0
+                    not test_results.get("tests_run")
+                    or test_results.get("tests_failed", 0) == 0
             )
 
             # Check task.md for remaining unchecked items
@@ -359,11 +359,11 @@ Therefore: Final verdict is [verdict] because [justification].
     # ═══════════════════════════════════════════════════════════════════════
 
     async def _run_verification_analysis(
-        self,
-        context: AgentContext,
-        plan_content: Optional[str],
-        task_content: Optional[str],
-        test_results: Dict[str, Any],
+            self,
+            context: AgentContext,
+            plan_content: Optional[str],
+            task_content: Optional[str],
+            test_results: Dict[str, Any],
     ) -> str:
         """
         Run AI-driven verification analysis through Phases 1-4.
@@ -496,11 +496,11 @@ Working directory: {context.working_dir}
 """
 
     def _build_verification_prompt(
-        self,
-        context: AgentContext,
-        plan_content: Optional[str],
-        task_content: Optional[str],
-        test_results: Dict[str, Any],
+            self,
+            context: AgentContext,
+            plan_content: Optional[str],
+            task_content: Optional[str],
+            test_results: Dict[str, Any],
     ) -> str:
         """
         Build the user prompt for AI verification analysis.
@@ -585,11 +585,11 @@ Produce your analysis in structured format. Read the modified files to verify.
 - File paths as listed above in the "Modified Files" section"""
 
     def _build_continuation_prompt(
-        self,
-        round_results: List[Dict[str, Any]],
-        all_results: List[Dict[str, Any]],
-        round_num: int,
-        context: Any = None,
+            self,
+            round_results: List[Dict[str, Any]],
+            all_results: List[Dict[str, Any]],
+            round_num: int,
+            context: Any = None,
     ) -> str:
         """Phase-aware continuation for verification rounds."""
         read_count = sum(
@@ -625,15 +625,15 @@ Produce your analysis in structured format. Read the modified files to verify.
         return [
             f for f in context.modified_files
             if ".hcode" not in f
-            and not f.endswith("task.md")
-            and not f.endswith("implementation_plan.md")
-            and not f.endswith("walkthrough.md")
+               and not f.endswith("task.md")
+               and not f.endswith("implementation_plan.md")
+               and not f.endswith("walkthrough.md")
         ]
 
     async def _run_tests(
-        self,
-        context: AgentContext,
-        plan_content: Optional[str]
+            self,
+            context: AgentContext,
+            plan_content: Optional[str]
     ) -> Dict[str, Any]:
         """
         Run verification commands extracted from the implementation plan.
@@ -911,10 +911,10 @@ Produce your analysis in structured format. Read the modified files to verify.
         return None
 
     async def _execute_command(
-        self,
-        command: str,
-        working_dir: str,
-        timeout: int = 120
+            self,
+            command: str,
+            working_dir: str,
+            timeout: int = 120
     ) -> Dict[str, Any]:
         """
         Execute a shell command and capture output.
@@ -1010,9 +1010,9 @@ Produce your analysis in structured format. Read the modified files to verify.
     # ═══════════════════════════════════════════════════════════════════════
 
     def _update_task_status(
-        self,
-        context: AgentContext,
-        test_results: Dict[str, Any],
+            self,
+            context: AgentContext,
+            test_results: Dict[str, Any],
     ) -> None:
         """
         Phase 5: Update task.md with true completion status.
@@ -1027,8 +1027,8 @@ Produce your analysis in structured format. Read the modified files to verify.
             return
 
         tests_ok = (
-            not test_results.get("tests_run")
-            or test_results.get("tests_failed", 0) == 0
+                not test_results.get("tests_run")
+                or test_results.get("tests_failed", 0) == 0
         )
 
         # Build set of modified code files (not artifacts)
@@ -1060,9 +1060,9 @@ Produce your analysis in structured format. Read the modified files to verify.
                     if tool_name in ['write', 'edit', 'writetool', 'edittool']:
                         args = action.get("arguments", {})
                         target = (
-                            args.get("TargetFile", "")
-                            or args.get("file_path", "")
-                            or action.get("file_path", "")
+                                args.get("TargetFile", "")
+                                or args.get("file_path", "")
+                                or action.get("file_path", "")
                         )
                         if target:
                             target_name = target.split('/')[-1].split('\\')[-1]
@@ -1118,10 +1118,10 @@ Produce your analysis in structured format. Read the modified files to verify.
     # ═══════════════════════════════════════════════════════════════════════
 
     async def _create_walkthrough(
-        self,
-        context: AgentContext,
-        test_results: Dict[str, Any],
-        verification_analysis: str = "",
+            self,
+            context: AgentContext,
+            test_results: Dict[str, Any],
+            verification_analysis: str = "",
     ) -> str:
         """
         Create walkthrough.md using AI with GPT OSS 120B protocol.
@@ -1192,10 +1192,10 @@ Users need thorough documentation to understand exactly what was implemented and
             return self._create_walkthrough_fallback(context, test_results, verification_analysis)
 
     def _build_walkthrough_input_data(
-        self,
-        context: AgentContext,
-        test_results: Dict[str, Any],
-        verification_analysis: str,
+            self,
+            context: AgentContext,
+            test_results: Dict[str, Any],
+            verification_analysis: str,
     ) -> str:
         """Build formatted input data for walkthrough AI generation."""
         # Format modified files with full paths
@@ -1274,10 +1274,10 @@ Users need thorough documentation to understand exactly what was implemented and
         return response.strip()
 
     def _create_walkthrough_fallback(
-        self,
-        context: AgentContext,
-        test_results: Dict[str, Any],
-        verification_analysis: str = "",
+            self,
+            context: AgentContext,
+            test_results: Dict[str, Any],
+            verification_analysis: str = "",
     ) -> str:
         """
         Fallback template-based walkthrough generation.
@@ -1332,8 +1332,8 @@ Users need thorough documentation to understand exactly what was implemented and
 
         # Determine verdict
         tests_ok = (
-            not test_results.get("tests_run")
-            or test_results.get("tests_failed", 0) == 0
+                not test_results.get("tests_run")
+                or test_results.get("tests_failed", 0) == 0
         )
         verdict = "APPROVED" if tests_ok else "NEEDS REVISION"
 
@@ -1417,11 +1417,11 @@ This implementation modified {len(context.modified_files)} file(s) across the co
     # ═══════════════════════════════════════════════════════════════════════
 
     def _update_hcode_memory(
-        self,
-        context: AgentContext,
-        test_results: dict,
-        verification_analysis: str,
-        verdict: str
+            self,
+            context: AgentContext,
+            test_results: dict,
+            verification_analysis: str,
+            verdict: str
     ) -> None:
         """
         Update task memory after successful verification.
@@ -1466,11 +1466,11 @@ This implementation modified {len(context.modified_files)} file(s) across the co
             )
 
     def _build_memory_entry(
-        self,
-        context: AgentContext,
-        test_results: dict,
-        verification_analysis: str,
-        verdict: str
+            self,
+            context: AgentContext,
+            test_results: dict,
+            verification_analysis: str,
+            verdict: str
     ) -> str:
         """
         Build a new memory entry from current task completion.

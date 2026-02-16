@@ -190,7 +190,6 @@ BUILTIN_COMMANDS: List[Command] = [
     ),
 ]
 
-
 # ═══════════════════════════════════════════════════════════════════════
 # SMART PHRASE COMPLETIONS
 # ═══════════════════════════════════════════════════════════════════════
@@ -380,7 +379,7 @@ class SmartPhraseCompleter(Completer):
             if trigger.startswith(last_word):
                 for phrase in completions:
                     # Calculate what to add
-                    remaining = phrase[len(last_word) :] if phrase.startswith(last_word) else phrase
+                    remaining = phrase[len(last_word):] if phrase.startswith(last_word) else phrase
 
                     yield Completion(
                         remaining,
@@ -497,7 +496,7 @@ class SmartAutoSuggest(AutoSuggestFromHistory):
                 if text_lower.endswith(trigger):
                     # Suggest first completion
                     if completions:
-                        suggestion = completions[0][len(trigger) :]
+                        suggestion = completions[0][len(trigger):]
                         return Suggestion(suggestion)
 
         return None
@@ -553,12 +552,12 @@ class HCodePrompt:
     """
 
     def __init__(
-        self,
-        history_file: Optional[str] = None,
-        enable_history: bool = True,
-        enable_suggestions: bool = True,
-        enable_file_completion: bool = True,
-        custom_commands: Optional[List[Command]] = None,
+            self,
+            history_file: Optional[str] = None,
+            enable_history: bool = True,
+            enable_suggestions: bool = True,
+            enable_file_completion: bool = True,
+            custom_commands: Optional[List[Command]] = None,
     ):
         # Build completers
         completers = [
@@ -674,8 +673,8 @@ class HCodePrompt:
 
 
 def create_hcode_prompt(
-    history_file: Optional[str] = None,
-    enable_suggestions: bool = True,
+        history_file: Optional[str] = None,
+        enable_suggestions: bool = True,
 ) -> HCodePrompt:
     """Create an HCode prompt with default settings."""
     # Default history file in user's home

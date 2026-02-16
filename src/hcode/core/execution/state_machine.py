@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 
 # =============================================================================
@@ -15,8 +15,6 @@ class ExecutionState(Enum):
     AWAITING_INPUT = "awaiting_input"
     COMPLETED = "completed"
     FAILED = "failed"
-
-
 
 
 class ExecutionStateMachine:
@@ -68,7 +66,6 @@ class ExecutionStateMachine:
     def record_error(self):
         self._error_count += 1
 
-
     def reset(self):
         self._state = ExecutionState.IDLE
         self._error_count = 0
@@ -83,4 +80,3 @@ class ExecutionStateMachine:
             "should_continue": self.should_continue,
             "transition_count": self._iteration_count,
         }
-

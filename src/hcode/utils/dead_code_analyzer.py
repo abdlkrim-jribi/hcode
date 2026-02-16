@@ -80,7 +80,7 @@ def build_call_graph() -> Dict[str, Set[str]]:
             tree = ast.parse(source, filename=str(file_path))
         except Exception:
             continue  # Skip files that cannot be parsed
-        module_name = '.'.join(file_path.with_suffix('').parts[-(len(file_path.parts)-1):])  # e.g., src.hcode.utils.config -> hcode.utils.config
+        module_name = '.'.join(file_path.with_suffix('').parts[-(len(file_path.parts) - 1):])  # e.g., src.hcode.utils.config -> hcode.utils.config
         defs = _collect_definitions(tree, module_name)
         graph.update(defs)
 
@@ -91,7 +91,8 @@ def build_call_graph() -> Dict[str, Set[str]]:
             tree = ast.parse(source, filename=str(file_path))
         except Exception:
             continue
-        module_name = '.'.join(file_path.with_suffix('').parts[-(len(file_path.parts)-1):])
+        module_name = '.'.join(file_path.with_suffix('').parts[-(len(file_path.parts) - 1):])
+
         # Determine the current function/class context while walking
         class ContextVisitor(ast.NodeVisitor):
             def __init__(self):

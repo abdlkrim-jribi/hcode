@@ -23,9 +23,9 @@ def supports_unicode() -> bool:
                 return False
 
         return (
-            os.environ.get("WT_SESSION") is not None
-            or os.environ.get("ConEmuANSI") == "ON"
-            or os.environ.get("TERM_PROGRAM") == "vscode"
+                os.environ.get("WT_SESSION") is not None
+                or os.environ.get("ConEmuANSI") == "ON"
+                or os.environ.get("TERM_PROGRAM") == "vscode"
         )
     return True
 
@@ -61,11 +61,9 @@ class Icons:
     # TODO STATUS ICONS
     # ═══════════════════════════════════════════════════════════════
 
-
     # ═══════════════════════════════════════════════════════════════
     # ACTION ICONS
     # ═══════════════════════════════════════════════════════════════
-
 
     THINKING = "💭" if USE_UNICODE else "[...]"
     AGENT = "🤖" if USE_UNICODE else "[AI]"
@@ -104,7 +102,6 @@ class Icons:
     # COMMUNICATION
     # ═══════════════════════════════════════════════════════════════
 
-
     MESSAGE = "💬" if USE_UNICODE else "[M]"
 
     # ═══════════════════════════════════════════════════════════════
@@ -117,7 +114,7 @@ class Icons:
     FOLDER = "📁" if USE_UNICODE else "[D]"
     GLOBE = "🌐" if USE_UNICODE else "[W]"
     STAR = "★" if USE_UNICODE else "*"
-    
+
     # HCode Design System Specific
     GUTTER_BAR = "┃" if USE_UNICODE else "|"
     ICON_FILE_CIRCLE = "○" if USE_UNICODE else "[F]"
@@ -128,7 +125,6 @@ class Icons:
     DECO_LEFT = "◢" if USE_UNICODE else "["
     DECO_RIGHT = "◣" if USE_UNICODE else "]"
 
-
     # ═══════════════════════════════════════════════════════════════
     # DECORATIVE
     # ═══════════════════════════════════════════════════════════════
@@ -136,24 +132,17 @@ class Icons:
     BULLET = "•" if USE_UNICODE else "*"
     CYBER_DOT = "●" if USE_UNICODE else "*"
 
-
-
-
     # ═══════════════════════════════════════════════════════════════
     # BOX DRAWING
     # ═══════════════════════════════════════════════════════════════
-
 
     # ═══════════════════════════════════════════════════════════════
     # PROGRESS
     # ═══════════════════════════════════════════════════════════════
 
-
     # ═══════════════════════════════════════════════════════════════
     # SPINNER FRAMES
     # ═══════════════════════════════════════════════════════════════
-
-
 
     # ═══════════════════════════════════════════════════════════════
     # NERD FONT ICONS (for terminals with Nerd Fonts)
@@ -226,7 +215,6 @@ class Icons:
         ext = os.path.splitext(filename.lower())[1]
         return ext_map.get(ext, cls.FILE)
 
-
     @classmethod
     def get_tool_icon(cls, tool_name: str) -> str:
         """Get icon for tool."""
@@ -247,10 +235,6 @@ class Icons:
     # ═══════════════════════════════════════════════════════════════
     # TOOL-SPECIFIC ICONS WITH ENHANCED VISIBILITY
     # ═══════════════════════════════════════════════════════════════
-
-
-
-
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -295,8 +279,3 @@ class Emoji:
             "celebrating": "🎊",
         }
         return mood_map.get(mood.lower(), "🙂")
-
-
-
-
-

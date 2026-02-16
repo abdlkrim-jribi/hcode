@@ -4,14 +4,15 @@ Long‑term storage with similarity‑based retrieval.
 Uses SQLite with optional sqlite‑vec extension.
 """
 
-from pathlib import Path
-from typing import Optional, List, Dict, Any, Tuple
+import json
+import sqlite3
 from dataclasses import dataclass, field
 from datetime import datetime
-import sqlite3
-import json
-import numpy as np
 from enum import Enum
+from pathlib import Path
+from typing import Optional, List, Dict, Any, Tuple
+
+import numpy as np
 
 from hcode.memory.config import config
 from hcode.memory.embeddings import get_embedding_model_safe, cosine_similarity
@@ -157,13 +158,13 @@ class SemanticMemory:
         return np.frombuffer(data, dtype=np.float32)
 
     def add(
-        self,
-        content: str,
-        memory_type: MemoryType = MemoryType.CONTEXT,
-        source: str = "",
-        importance: float = 0.5,
-        metadata: Optional[Dict] = None,
-        project_id: Optional[str] = None,
+            self,
+            content: str,
+            memory_type: MemoryType = MemoryType.CONTEXT,
+            source: str = "",
+            importance: float = 0.5,
+            metadata: Optional[Dict] = None,
+            project_id: Optional[str] = None,
     ) -> Memory:
         """Add a new memory to the store.
 
@@ -247,13 +248,13 @@ class SemanticMemory:
         return memory
 
     def search(
-        self,
-        query: str,
-        top_k: int = 10,
-        memory_types: Optional[List[MemoryType]] = None,
-        min_importance: float = 0.0,
-        project_id: Optional[str] = None,
-        include_global: bool = True,
+            self,
+            query: str,
+            top_k: int = 10,
+            memory_types: Optional[List[MemoryType]] = None,
+            min_importance: float = 0.0,
+            project_id: Optional[str] = None,
+            include_global: bool = True,
     ) -> List[Tuple[Memory, float]]:
         """Search for relevant memories using semantic similarity.
 
@@ -268,7 +269,8 @@ class SemanticMemory:
         query_emb = self.embedding_model.embed(query)
         results: List[Tuple[Memory, float]] = []
         conn = self._conn
-        rows = conn.execute("SELECT id, content, memory_type, source, importance, embedding, metadata, created_at, last_accessed, access_count, project_id FROM memories").fetchall()
+        rows = conn.execute(
+            "SELECT id, content, memory_type, source, importance, embedding, metadata, created_at, last_accessed, access_count, project_id FROM memories").fetchall()
         for row in rows:
             # Map row tuple to dict for from_dict
             row_dict = {

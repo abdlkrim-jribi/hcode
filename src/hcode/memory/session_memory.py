@@ -116,10 +116,10 @@ class SessionMemory:
     """
 
     def __init__(
-        self,
-        session_id: Optional[str] = None,
-        project_path: Optional[Path] = None,
-        summarizer: Optional[Callable[[List[Message]], str]] = None,
+            self,
+            session_id: Optional[str] = None,
+            project_path: Optional[Path] = None,
+            summarizer: Optional[Callable[[List[Message]], str]] = None,
     ):
         """
         Initialize session memory.
@@ -214,7 +214,7 @@ class SessionMemory:
             json.dump(self.session.to_dict(), f, indent=2, ensure_ascii=False)
 
     def add_message(
-        self, role: str, content: str, is_anchor: bool = False, auto_anchor: bool = True, **metadata
+            self, role: str, content: str, is_anchor: bool = False, auto_anchor: bool = True, **metadata
     ) -> Message:
         """
         Add a message to the session.

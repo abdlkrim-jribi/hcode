@@ -8,9 +8,9 @@ Provides validation layer for tool calls before execution to prevent:
 - Type mismatches
 """
 
-from pathlib import Path
-from typing import Dict, Any, List, Tuple, Optional
 from dataclasses import dataclass
+from pathlib import Path
+from typing import Dict, Any, List, Optional
 
 
 @dataclass
@@ -19,7 +19,7 @@ class ValidationResult:
     is_valid: bool
     error_message: str = ""
     warnings: List[str] = None
-    
+
     def __post_init__(self):
         if self.warnings is None:
             self.warnings = []
@@ -35,7 +35,7 @@ class ToolCallValidator:
     - Invalid file paths (for read operations)
     - Type mismatches
     """
-    
+
     def __init__(self, tool_manager, root_dir: Optional[Path] = None):
         """
         Initialize validator with tool manager reference.
@@ -46,7 +46,7 @@ class ToolCallValidator:
         """
         self.tool_manager = tool_manager
         self.root_dir = root_dir or Path.cwd()
-        
+
         # Tool-specific required parameters
         self.required_params = {
             "read": ["file_path"],
@@ -62,13 +62,13 @@ class ToolCallValidator:
             "grep": ["pattern"],
             "greptool": ["pattern"],
         }
-        
+
         # Tools that require existing files
         self.file_read_tools = {
-            "read", "readtool", "edit", "edittool", 
+            "read", "readtool", "edit", "edittool",
             "notebookread", "notebookedit"
         }
-    
+
     def validate(self, tool_name: str, arguments: Dict[str, Any]) -> ValidationResult:
         """
         Validate a tool call before execution.
@@ -82,14 +82,14 @@ class ToolCallValidator:
         """
         tool_lower = tool_name.lower()
         warnings = []
-        
+
         # 1. Check if tool exists
         tool = self.tool_manager.get_tool(tool_name)
         if not tool:
             # Try common aliases
             aliases = {
                 "read": "ReadTool",
-                "write": "WriteTool", 
+                "write": "WriteTool",
                 "edit": "EditTool",
                 "bash": "BashTool",
                 "glob": "GlobTool",
@@ -98,13 +98,13 @@ class ToolCallValidator:
             }
             if tool_lower in aliases:
                 tool = self.tool_manager.get_tool(aliases[tool_lower])
-            
+
             if not tool:
                 return ValidationResult(
                     is_valid=False,
                     error_message=f"Unknown tool: '{tool_name}'. Available tools: {', '.join(self.tool_manager.tool_registry.tools.keys())}"
                 )
-        
+
         # 2. Check required parameters
         required = self.required_params.get(tool_lower, [])
         missing = [p for p in required if p not in arguments or not arguments[p]]
@@ -113,37 +113,37 @@ class ToolCallValidator:
                 is_valid=False,
                 error_message=f"Missing required parameter(s) for {tool_name}: {', '.join(missing)}"
             )
-        
+
         # 3. Validate file paths for read operations
         if tool_lower in self.file_read_tools:
             file_path = arguments.get("file_path", "")
             if file_path:
                 path = Path(file_path)
-                
+
                 # Convert relative to absolute
                 if not path.is_absolute():
                     path = self.root_dir / path
                     warnings.append(f"Converted relative path to absolute: {path}")
-                
+
                 # Check existence for read operations
                 if not path.exists():
                     return ValidationResult(
                         is_valid=False,
                         error_message=f"File does not exist: {path}"
                     )
-                    
+
                 if path.is_dir() and tool_lower not in {"ls", "lstool"}:
                     return ValidationResult(
                         is_valid=False,
                         error_message=f"Path is a directory, not a file: {path}"
                     )
-        
+
         # 4. Validate edit operations have non-empty strings
         if tool_lower in {"edit", "edittool"}:
             old_string = arguments.get("old_string", "")
             if not old_string.strip():
                 warnings.append("old_string is empty - this will create a new file or insert at beginning")
-        
+
         # 5. Validate command safety for bash
         if tool_lower in {"bash", "bashtool"}:
             command = arguments.get("command", "")
@@ -154,5 +154,5 @@ class ToolCallValidator:
                         is_valid=False,
                         error_message=f"Dangerous command pattern detected: {pattern}"
                     )
-        
+
         return ValidationResult(is_valid=True, warnings=warnings)

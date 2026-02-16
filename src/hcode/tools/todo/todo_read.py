@@ -25,7 +25,7 @@ class TodoReadTool(BaseTool):
         self.task_file = self.root_dir / ".hcode" / "task.md"
 
     def get_parameters(self) -> List[ToolParameter]:
-        return [] # No parameters needed
+        return []  # No parameters needed
 
     async def execute(self, **kwargs) -> ToolResult:
         """Read todos from task.md"""
@@ -36,10 +36,10 @@ class TodoReadTool(BaseTool):
                     output="No task list found (task.md does not exist).",
                     metadata={"todos": [], "exists": False}
                 )
-            
+
             content = self.task_file.read_text(encoding="utf-8")
             todos = self._parse_task_md(content)
-            
+
             return ToolResult(
                 success=True,
                 output=f"Read {len(todos)} todo(s) from {self.task_file.name}",
@@ -57,13 +57,13 @@ class TodoReadTool(BaseTool):
             if match:
                 status_char = match.group(1).lower()
                 todo_content = match.group(2).strip()
-                
+
                 status = "pending"
                 if status_char == "x":
                     status = "completed"
                 elif status_char == "/":
                     status = "in_progress"
-                
+
                 todos.append({
                     "content": todo_content,
                     "status": status

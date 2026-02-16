@@ -28,7 +28,6 @@ class TaskType(Enum):
     ARCHITECTURE = "architecture"
 
 
-
 @dataclass
 class ProviderPreferences:
     """User preferences for provider selection"""
@@ -41,13 +40,13 @@ class ProviderSelector:
     """Selects optimal AI provider for tasks"""
 
     def __init__(
-        self,
-        anthropic_key: Optional[str] = None,
-        openai_key: Optional[str] = None,
-        openai_base_url: Optional[str] = None,
-        anthropic_model: Optional[str] = None,
-        openai_model: Optional[str] = None,
-        preferences: Optional[ProviderPreferences] = None,
+            self,
+            anthropic_key: Optional[str] = None,
+            openai_key: Optional[str] = None,
+            openai_base_url: Optional[str] = None,
+            anthropic_model: Optional[str] = None,
+            openai_model: Optional[str] = None,
+            preferences: Optional[ProviderPreferences] = None,
     ):
         """
         Initialize provider selector.
@@ -120,12 +119,12 @@ class ProviderSelector:
             return "gpt-4o"
 
     def select_provider(
-        self,
-        complexity: TaskComplexity = TaskComplexity.MODERATE,
-        task_type: TaskType = TaskType.CODE_GENERATION,
-        requires_vision: bool = False,
-        requires_function_calling: bool = False,
-        estimated_tokens: Optional[int] = None,
+            self,
+            complexity: TaskComplexity = TaskComplexity.MODERATE,
+            task_type: TaskType = TaskType.CODE_GENERATION,
+            requires_vision: bool = False,
+            requires_function_calling: bool = False,
+            estimated_tokens: Optional[int] = None,
     ) -> AIProvider:
         """
         Select the best provider for a task.
@@ -145,7 +144,7 @@ class ProviderSelector:
             if self.preferences.primary_provider in self.providers:
                 provider = self.providers[self.preferences.primary_provider]
                 if self._is_provider_suitable(
-                    provider, requires_vision, requires_function_calling, estimated_tokens
+                        provider, requires_vision, requires_function_calling, estimated_tokens
                 ):
                     return provider
 
@@ -168,13 +167,13 @@ class ProviderSelector:
         return self.providers[best_provider_name]
 
     def _score_provider(
-        self,
-        provider: AIProvider,
-        complexity: TaskComplexity,
-        task_type: TaskType,
-        requires_vision: bool,
-        requires_function_calling: bool,
-        estimated_tokens: Optional[int],
+            self,
+            provider: AIProvider,
+            complexity: TaskComplexity,
+            task_type: TaskType,
+            requires_vision: bool,
+            requires_function_calling: bool,
+            estimated_tokens: Optional[int],
     ) -> float:
         """
         Score a provider for a task (higher is better).
@@ -237,11 +236,11 @@ class ProviderSelector:
         return score
 
     def _is_provider_suitable(
-        self,
-        provider: AIProvider,
-        requires_vision: bool,
-        requires_function_calling: bool,
-        estimated_tokens: Optional[int],
+            self,
+            provider: AIProvider,
+            requires_vision: bool,
+            requires_function_calling: bool,
+            estimated_tokens: Optional[int],
     ) -> bool:
         """Check if provider meets basic requirements"""
         if requires_vision and not provider.supports_vision():
@@ -252,10 +251,6 @@ class ProviderSelector:
             return False
         return True
 
-
-
     def get_available_providers(self) -> List[str]:
         """Get list of available provider names"""
         return list(self.providers.keys())
-
-

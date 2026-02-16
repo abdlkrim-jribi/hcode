@@ -38,12 +38,12 @@ class BasePhaseHandler(PhaseHandlerProtocol):
     phase_name: str = "base"
 
     def __init__(
-        self,
-        artifact_manager: ArtifactManagerProtocol,
-        provider: Any,
-        tool_executor: Any,
-        context_manager: Any,
-        console: Any = None,
+            self,
+            artifact_manager: ArtifactManagerProtocol,
+            provider: Any,
+            tool_executor: Any,
+            context_manager: Any,
+            console: Any = None,
     ):
         """
         Initialize base phase handler.
@@ -90,9 +90,9 @@ class BasePhaseHandler(PhaseHandlerProtocol):
             print(message)
 
     async def handle(
-        self,
-        context: AgentContext,
-        loop_controller: Any,
+            self,
+            context: AgentContext,
+            loop_controller: Any,
     ) -> PhaseResult:
         """
         Execute this phase's logic.
@@ -208,7 +208,6 @@ class BasePhaseHandler(PhaseHandlerProtocol):
             )
             return ""
 
-
     def _get_thinking_instructions(self) -> str:
         """
         Get standard thinking instructions to prepend to prompts.
@@ -237,11 +236,11 @@ CRITICAL RULES:
 """
 
     async def _generate_response(
-        self,
-        prompt: str,
-        context: AgentContext,
-        system_prompt: Optional[str] = None,
-        include_thinking: bool = True,
+            self,
+            prompt: str,
+            context: AgentContext,
+            system_prompt: Optional[str] = None,
+            include_thinking: bool = True,
     ) -> str:
         """
         Generate AI response for this phase.
@@ -503,7 +502,7 @@ CRITICAL RULES:
         for i, call in enumerate(tool_calls):
             if 'tool' not in call:
                 self._display(
-                    f"⚠️  Tool call {i+1} missing 'tool' key\n"
+                    f"⚠️  Tool call {i + 1} missing 'tool' key\n"
                     f"   Got: {call}\n"
                     f"   Expected: {{\"tool\": \"ToolName\", \"arguments\": {{...}}}}",
                     "error"
@@ -514,7 +513,7 @@ CRITICAL RULES:
                 # Check if they used 'parameters' instead
                 if 'parameters' in call:
                     self._display(
-                        f"⚠️  Tool call {i+1} uses 'parameters' instead of 'arguments'\n"
+                        f"⚠️  Tool call {i + 1} uses 'parameters' instead of 'arguments'\n"
                         f"   ❌ Wrong: {{\"tool\": \"{call['tool']}\", \"parameters\": {{...}}}}\n"
                         f"   ✅ Correct: {{\"tool\": \"{call['tool']}\", \"arguments\": {{...}}}}",
                         "error"
@@ -524,7 +523,7 @@ CRITICAL RULES:
                     param_keys = [k for k in call.keys() if k != 'tool']
                     if param_keys:
                         self._display(
-                            f"⚠️  Tool call {i+1} missing 'arguments' wrapper\n"
+                            f"⚠️  Tool call {i + 1} missing 'arguments' wrapper\n"
                             f"   ❌ Wrong: {{\"tool\": \"{call['tool']}\", \"{param_keys[0]}\": \"...\"}}\n"
                             f"   ✅ Correct: {{\"tool\": \"{call['tool']}\", \"arguments\": {{\"{param_keys[0]}\": \"...\"}}}}\n"
                             f"   Wrap parameters inside 'arguments' key",
@@ -532,7 +531,7 @@ CRITICAL RULES:
                         )
                     else:
                         self._display(
-                            f"⚠️  Tool call {i+1} ({call.get('tool')}) missing 'arguments' key\n"
+                            f"⚠️  Tool call {i + 1} ({call.get('tool')}) missing 'arguments' key\n"
                             f"   Got: {call}\n"
                             f"   Expected: {{\"tool\": \"{call['tool']}\", \"arguments\": {{\"param\": \"value\"}}}}",
                             "error"
@@ -599,10 +598,10 @@ CRITICAL RULES:
         return tool_calls
 
     async def _execute_tools(
-        self,
-        tool_calls: List[Dict[str, Any]],
-        context: AgentContext,
-        silent: bool = False,
+            self,
+            tool_calls: List[Dict[str, Any]],
+            context: AgentContext,
+            silent: bool = False,
     ) -> List[Dict[str, Any]]:
         """
         Execute tool calls and track results.
@@ -628,12 +627,12 @@ CRITICAL RULES:
             # Display tool execution using modern UI (unless silent mode)
             # Get file path from various argument names used by different tools
             file_path = (
-                arguments.get('TargetFile') or
-                arguments.get('AbsolutePath') or
-                arguments.get('file_path') or
-                arguments.get('path') or
-                arguments.get('DirectoryPath') or
-                ''
+                    arguments.get('TargetFile') or
+                    arguments.get('AbsolutePath') or
+                    arguments.get('file_path') or
+                    arguments.get('path') or
+                    arguments.get('DirectoryPath') or
+                    ''
             )
             if not silent:
                 # Use theme styles: [>] Tool: Path
@@ -732,15 +731,15 @@ CRITICAL RULES:
         return results
 
     async def _generate_and_execute(
-        self,
-        prompt: str,
-        context: AgentContext,
-        system_prompt: Optional[str] = None,
-        max_rounds: int = 8,
-        max_tokens: int = 8192,
-        temperature: float = 0.7,
-        timeout_seconds: int = 600,  # 10 minutes default
-        include_history: bool = False,
+            self,
+            prompt: str,
+            context: AgentContext,
+            system_prompt: Optional[str] = None,
+            max_rounds: int = 8,
+            max_tokens: int = 8192,
+            temperature: float = 0.7,
+            timeout_seconds: int = 600,  # 10 minutes default
+            include_history: bool = False,
     ) -> Tuple[str, List[Dict[str, Any]]]:
         """
         Generate response and execute tool calls in a multi-turn loop.
@@ -776,7 +775,7 @@ CRITICAL RULES:
 
         # Build initial messages with thinking instructions
         thinking_instructions = self._get_thinking_instructions()
-        
+
         messages = []
         if include_history and self.context_manager:
             messages = self.context_manager.get_messages(include_system=False)
@@ -915,11 +914,11 @@ CRITICAL RULES:
         return last_response, all_tool_results
 
     def _build_continuation_prompt(
-        self,
-        round_results: List[Dict[str, Any]],
-        all_results: List[Dict[str, Any]],
-        round_num: int,
-        context: Any = None,
+            self,
+            round_results: List[Dict[str, Any]],
+            all_results: List[Dict[str, Any]],
+            round_num: int,
+            context: Any = None,
     ) -> str:
         """
         Build a phase-aware continuation message after each tool round.
@@ -935,7 +934,7 @@ CRITICAL RULES:
         )
 
     def _format_tool_results(
-        self, results: List[Dict[str, Any]], preserve_signatures: bool = False
+            self, results: List[Dict[str, Any]], preserve_signatures: bool = False
     ) -> str:
         """
         Format tool execution results for feeding back to the AI.
@@ -956,18 +955,18 @@ CRITICAL RULES:
         # - Search tools: Smaller limits for results
         # - Listing tools: Small limits for file lists
         TOOL_OUTPUT_LIMITS = {
-            'bash': 15000,           # Execution tools - full test outputs with stack traces
+            'bash': 15000,  # Execution tools - full test outputs with stack traces
             'bashtool': 15000,
             'bashexecutor': 15000,
-            'read': 30000,            # Increased to align with 800-line limit (~30KB)
+            'read': 30000,  # Increased to align with 800-line limit (~30KB)
             'readtool': 30000,
-            'grep': 5000,            # Increased for more search results
+            'grep': 5000,  # Increased for more search results
             'greptool': 5000,
             'smartgreptool': 5000,
-            'glob': 5000,            # Increased for larger file listings
+            'glob': 5000,  # Increased for larger file listings
             'globtool': 5000,
             'smartglobtool': 5000,
-            'default': 5000          # Higher fallback for other tools
+            'default': 5000  # Higher fallback for other tools
         }
 
         parts = []

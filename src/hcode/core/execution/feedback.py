@@ -166,7 +166,7 @@ class HypothesisValidator:
         self.validation_history: List[Dict[str, Any]] = []
 
     def validate(
-        self, reasoning: StructuredReasoning, execution_result: ExecutionResult
+            self, reasoning: StructuredReasoning, execution_result: ExecutionResult
     ) -> Tuple[FeedbackType, Dict[str, Any]]:
         """
         Validate hypothesis against execution result.
@@ -307,11 +307,11 @@ class FeedbackProcessor:
         self.processed_feedback: List[FeedbackEntry] = []
 
     def process(
-        self,
-        reasoning: StructuredReasoning,
-        execution_result: ExecutionResult,
-        feedback_type: FeedbackType,
-        validation_details: Dict[str, Any],
+            self,
+            reasoning: StructuredReasoning,
+            execution_result: ExecutionResult,
+            feedback_type: FeedbackType,
+            validation_details: Dict[str, Any],
     ) -> FeedbackEntry:
         """
         Process feedback and create feedback entry.
@@ -386,10 +386,10 @@ class FeedbackProcessor:
         return "Unknown deviation"
 
     def _assess_impact(
-        self,
-        feedback_type: FeedbackType,
-        reasoning: StructuredReasoning,
-        execution_result: ExecutionResult,
+            self,
+            feedback_type: FeedbackType,
+            reasoning: StructuredReasoning,
+            execution_result: ExecutionResult,
     ) -> str:
         """Assess impact level of the feedback"""
         if feedback_type == FeedbackType.ERROR:
@@ -414,7 +414,7 @@ class FeedbackProcessor:
             return "low"
 
     def _requires_replanning(
-        self, feedback_type: FeedbackType, impact_level: str, confidence: float
+            self, feedback_type: FeedbackType, impact_level: str, confidence: float
     ) -> bool:
         """Determine if replanning is required"""
         # Always replan on critical impact
@@ -436,10 +436,10 @@ class FeedbackProcessor:
         return False
 
     def _extract_lessons(
-        self,
-        feedback_type: FeedbackType,
-        reasoning: StructuredReasoning,
-        execution_result: ExecutionResult,
+            self,
+            feedback_type: FeedbackType,
+            reasoning: StructuredReasoning,
+            execution_result: ExecutionResult,
     ) -> List[str]:
         """Extract lessons from the feedback"""
         lessons = []
@@ -473,10 +473,10 @@ class FeedbackProcessor:
         return lessons
 
     def _suggest_adjustments(
-        self,
-        feedback_type: FeedbackType,
-        reasoning: StructuredReasoning,
-        execution_result: ExecutionResult,
+            self,
+            feedback_type: FeedbackType,
+            reasoning: StructuredReasoning,
+            execution_result: ExecutionResult,
     ) -> List[str]:
         """Suggest adjustments based on feedback"""
         adjustments = []
@@ -521,7 +521,7 @@ class ReasoningReviser:
         self.revisions: List[ReasoningRevision] = []
 
     def revise(
-        self, original_reasoning: StructuredReasoning, feedback_entries: List[FeedbackEntry]
+            self, original_reasoning: StructuredReasoning, feedback_entries: List[FeedbackEntry]
     ) -> ReasoningRevision:
         """
         Create a revision based on feedback.
@@ -630,11 +630,11 @@ class ReasoningReviser:
         return original
 
     def _revise_decision(
-        self,
-        original: str,
-        feedback_entries: List[FeedbackEntry],
-        has_fallback: bool,
-        fallback: str,
+            self,
+            original: str,
+            feedback_entries: List[FeedbackEntry],
+            has_fallback: bool,
+            fallback: str,
     ) -> str:
         """Revise decision based on feedback"""
         errors = [f for f in feedback_entries if f.feedback_type == FeedbackType.ERROR]
@@ -658,7 +658,7 @@ class ReasoningReviser:
         return original
 
     def _calculate_revised_confidence(
-        self, original_confidence: float, feedback_summary: Dict[str, Any]
+            self, original_confidence: float, feedback_summary: Dict[str, Any]
     ) -> float:
         """Calculate revised confidence based on feedback"""
         # Start with original
@@ -684,7 +684,7 @@ class ReasoningReviser:
         return max(0.1, min(0.95, confidence))
 
     def _update_action_items(
-        self, original_items: List[str], feedback_entries: List[FeedbackEntry]
+            self, original_items: List[str], feedback_entries: List[FeedbackEntry]
     ) -> Tuple[List[str], List[str]]:
         """Update action items based on feedback"""
         new_items = []
@@ -742,9 +742,9 @@ class ThinkingExecutionFeedbackLoop:
     """
 
     def __init__(
-        self,
-        confidence_calibrator: Optional[ConfidenceCalibrator] = None,
-        quality_metrics: Optional[ReasoningQualityMetrics] = None,
+            self,
+            confidence_calibrator: Optional[ConfidenceCalibrator] = None,
+            quality_metrics: Optional[ReasoningQualityMetrics] = None,
     ):
         self.parser = ReasoningParser()
         self.validator = HypothesisValidator()
@@ -899,7 +899,6 @@ class ThinkingExecutionFeedbackLoop:
                 return False, "Confidence too low after revision"
 
         return True, "Continue execution"
-
 
     def finalize(self) -> Dict[str, Any]:
         """

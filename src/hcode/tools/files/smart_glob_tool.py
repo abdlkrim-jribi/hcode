@@ -65,12 +65,12 @@ Note: Automatically excludes .git, .venv, node_modules, __pycache__, etc.
         ]
 
     async def execute(
-        self,
-        pattern: str = None,
-        path: Optional[str] = None,
-        Pattern: str = None,
-        SearchDirectory: Optional[str] = None,
-        **kwargs
+            self,
+            pattern: str = None,
+            path: Optional[str] = None,
+            Pattern: str = None,
+            SearchDirectory: Optional[str] = None,
+            **kwargs
     ) -> ToolResult:
         """Find files matching pattern with context protection."""
         # Normalize parameters
@@ -78,7 +78,7 @@ Note: Automatically excludes .git, .venv, node_modules, __pycache__, etc.
         final_path = path or SearchDirectory
 
         if not final_pattern:
-             return ToolResult(success=False, output="", error="pattern (or Pattern) is required")
+            return ToolResult(success=False, output="", error="pattern (or Pattern) is required")
 
         try:
             search_dir = Path(final_path) if final_path else self.root_dir
@@ -92,7 +92,7 @@ Note: Automatically excludes .git, .venv, node_modules, __pycache__, etc.
 
             # Expand brace patterns like {file1,file2} since Python glob doesn't support them
             expanded_patterns = self._expand_brace_pattern(final_pattern)
-            
+
             # Find matching files for all expanded patterns
             matches = []
             for pattern in expanded_patterns:
@@ -102,7 +102,7 @@ Note: Automatically excludes .git, .venv, node_modules, __pycache__, etc.
                 except Exception:
                     # If a pattern fails, log it but continue with others
                     pass
-            
+
             # Remove duplicates while preserving order
             seen = set()
             unique_matches = []
@@ -151,8 +151,6 @@ Note: Automatically excludes .git, .venv, node_modules, __pycache__, etc.
                 output = f"Found {len(matches)} file(s) matching '{final_pattern}', but all were excluded by filters (e.g., __pycache__, .venv, etc.)\\n\\n"
                 output += "Try a more specific pattern or search in a different directory."
 
-
-
             return ToolResult(
                 success=True,
                 output=output,
@@ -188,19 +186,19 @@ Note: Automatically excludes .git, .venv, node_modules, __pycache__, etc.
             List of expanded patterns
         """
         import re
-        
+
         # Find all brace groups in the pattern
         brace_pattern = r'\{([^}]+)\}'
         match = re.search(brace_pattern, pattern)
-        
+
         if not match:
             # No braces, return as-is
             return [pattern]
-        
+
         # Extract the options inside braces
         options = match.group(1).split(',')
         options = [opt.strip() for opt in options]
-        
+
         # Generate patterns by substituting each option
         patterns = []
         for option in options:
@@ -208,7 +206,7 @@ Note: Automatically excludes .git, .venv, node_modules, __pycache__, etc.
             expanded = pattern[:match.start()] + option + pattern[match.end():]
             # Recursively expand remaining braces
             patterns.extend(self._expand_brace_pattern(expanded))
-        
+
         return patterns
 
     def _generate_no_match_help(self, pattern: str, search_dir: Path) -> str:

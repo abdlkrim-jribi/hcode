@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from typing import Final
 
-
 # Version information
 VERSION: Final[str] = "1.0.0"
 APP_NAME: Final[str] = "hcode"

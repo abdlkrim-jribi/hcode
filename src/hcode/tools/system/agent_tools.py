@@ -174,6 +174,3 @@ Please confirm to proceed.
             output=output,
             metadata={"plan": plan, "mode": "exit_plan", "awaiting_confirmation": True},
         )
-
-
-

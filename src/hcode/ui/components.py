@@ -4,18 +4,15 @@ Custom panels, boxes, and interactive elements.
 """
 
 from dataclasses import dataclass
-from datetime import datetime
-from typing import Optional, List, Tuple, Dict
+from typing import Optional, Tuple
 
-from rich.align import Align
-from rich.box import Box, ROUNDED, SIMPLE
-from rich.console import RenderableType, Group
+from rich.box import Box
+from rich.console import RenderableType
 from rich.panel import Panel
-from rich.table import Table
 from rich.text import Text
 
-from hcode.ui.theme import get_palette
 from hcode.ui.icons import Icons
+from hcode.ui.theme import get_palette
 
 # ═══════════════════════════════════════════════════════════════════════
 # CUSTOM BOX STYLES
@@ -77,8 +74,6 @@ class StatusIndicator:
         return text
 
 
-
-
 # ═══════════════════════════════════════════════════════════════════════
 # CYBER PANEL
 # ═══════════════════════════════════════════════════════════════════════
@@ -88,16 +83,16 @@ class CyberPanel:
     """Futuristic panel with customizable glow and styling."""
 
     def __init__(
-        self,
-        content: RenderableType,
-        title: Optional[str] = None,
-        subtitle: Optional[str] = None,
-        border_color: Optional[str] = None,
-        glow_color: Optional[str] = None,
-        box_style: Box = MODERN_BOX,
-        status: Optional[str] = None,
-        padding: Tuple[int, int] = (1, 2),
-        width: Optional[int] = None,
+            self,
+            content: RenderableType,
+            title: Optional[str] = None,
+            subtitle: Optional[str] = None,
+            border_color: Optional[str] = None,
+            glow_color: Optional[str] = None,
+            box_style: Box = MODERN_BOX,
+            status: Optional[str] = None,
+            padding: Tuple[int, int] = (1, 2),
+            width: Optional[int] = None,
     ):
         self.content = content
         self.title = title

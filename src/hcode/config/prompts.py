@@ -253,8 +253,6 @@ Guidelines:
         return tool_prompts.get(prompt_name, default_prompts.get(prompt_name, ""))
 
 
-
-
 class ModelsConfig:
     """
     Model configuration loader.
@@ -400,8 +398,6 @@ class ModelsConfig:
             connect_timeout=rel_data.get("connect_timeout", 30.0),
             max_retries=rel_data.get("max_retries", 5),
         )
-
-
 
 
 # Convenience functions

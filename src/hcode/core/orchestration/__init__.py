@@ -5,7 +5,7 @@ Orchestration components for agent execution.
 - AgentOrchestrator: Coordinates overall agent execution
 """
 
-from .phase_manager import PhaseManager
 from .agent_orchestrator import AgentOrchestrator
+from .phase_manager import PhaseManager
 
 __all__ = ["PhaseManager", "AgentOrchestrator"]

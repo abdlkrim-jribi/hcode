@@ -3,12 +3,13 @@ Todo management tool for Hcode.
 Strictly aligns with Antigravity standards by syncing with task.md.
 """
 
-from typing import List, Dict, Any, Optional
-from pathlib import Path
 import os
+from pathlib import Path
+from typing import List, Dict, Any, Optional
 
-from hcode.tools.base.base_tool import BaseTool, ToolResult, ToolParameter, ToolCategory
 from hcode.core.todo import TodoManager, TodoStatus
+from hcode.tools.base.base_tool import BaseTool, ToolResult, ToolParameter, ToolCategory
+
 
 class TodoWriteTool(BaseTool):
     """
@@ -40,10 +41,10 @@ class TodoWriteTool(BaseTool):
         try:
             # Update internal manager
             self.todo_manager.batch_update(todos)
-            
+
             # Sync to task.md
             success = self._sync_to_file()
-            
+
             if success:
                 return ToolResult(
                     success=True,
@@ -66,25 +67,25 @@ class TodoWriteTool(BaseTool):
         try:
             # Ensure directory exists
             self.task_file.parent.mkdir(parents=True, exist_ok=True)
-            
+
             content = "# Task Checklist\n\n"
-            
+
             for todo in self.todo_manager.get_all():
                 status_char = " "
                 if todo.status == TodoStatus.COMPLETED:
                     status_char = "x"
                 elif todo.status == TodoStatus.IN_PROGRESS:
                     status_char = "/"
-                
+
                 content += f"- [{status_char}] {todo.content}\n"
-                
+
             with open(self.task_file, "w", encoding="utf-8") as f:
                 f.write(content)
-            
+
             # Update mtime after write to avoid unnecessary reload
             if self.task_file.exists():
                 self._last_mtime = self.task_file.stat().st_mtime
-            
+
             return True
         except Exception:
             return False
@@ -101,7 +102,7 @@ class TodoWriteTool(BaseTool):
 
             # File has changed, reload
             content = self.task_file.read_text(encoding="utf-8")
-            
+
             # Simple parsing (duplicated from TodoReadTool to avoid circular deps/complexity)
             import re
             todos = []
@@ -110,24 +111,24 @@ class TodoWriteTool(BaseTool):
                 if match:
                     status_char = match.group(1).lower()
                     todo_content = match.group(2).strip()
-                    
+
                     status = "pending"
                     if status_char == "x":
                         status = "completed"
                     elif status_char == "/":
                         status = "in_progress"
-                    
+
                     todos.append({
                         "content": todo_content,
                         "status": status
                     })
-            
+
             if todos:
                 # Update manager without triggering sync back to file
                 self.todo_manager.batch_update(todos)
-            
+
             self._last_mtime = current_mtime
-            
+
         except Exception:
             # If read fails, stick with current state
             pass

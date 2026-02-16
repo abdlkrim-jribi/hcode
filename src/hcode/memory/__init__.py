@@ -8,8 +8,6 @@ A three-layer persistent memory architecture:
 """
 
 from hcode.memory.config import MemoryConfig, config, get_config, update_config
-from hcode.memory.file_memory import FileMemory, MemoryFile
-from hcode.memory.session_memory import SessionMemory, Session, Message, SessionSummary
 from hcode.memory.embeddings import (
     EmbeddingModel,
     get_embedding_model,
@@ -19,8 +17,10 @@ from hcode.memory.embeddings import (
     get_embedding_model_safe,
     FallbackEmbedding,
 )
-from hcode.memory.semantic_memory import SemanticMemory, Memory, MemoryType
+from hcode.memory.file_memory import FileMemory, MemoryFile
 from hcode.memory.memory_manager import MemoryManager, ContextWindow, get_memory_manager
+from hcode.memory.semantic_memory import SemanticMemory, Memory, MemoryType
+from hcode.memory.session_memory import SessionMemory, Session, Message, SessionSummary
 
 __all__ = [
     # Config

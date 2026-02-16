@@ -8,12 +8,12 @@ This package handles parsing and processing of LLM responses:
 - Response cleaning for display
 """
 
-from .thinking_processor import ThinkingBlockProcessor
-from .parser import ResponseParser
-from .completion_detector import TaskCompletionDetector
 from .cleaner import ResponseCleaner
+from .completion_detector import TaskCompletionDetector
 # from .output_handler import ... (Removed)
 from .continuation import ContinuationManager
+from .parser import ResponseParser
+from .thinking_processor import ThinkingBlockProcessor
 
 __all__ = [
     "ThinkingBlockProcessor",

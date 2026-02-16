@@ -45,11 +45,11 @@ class InitHandler(BasePhaseHandler):
     """
 
     def __init__(
-        self,
-        provider: Any,
-        tool_executor: Any,
-        context_manager: Any = None,
-        console: Any = None,
+            self,
+            provider: Any,
+            tool_executor: Any,
+            context_manager: Any = None,
+            console: Any = None,
     ):
         """
         Initialize init handler.
@@ -79,7 +79,7 @@ class InitHandler(BasePhaseHandler):
                 self._hcode_display = get_hcode_display(console)
             except ImportError:
                 pass
-    
+
     # ──────────────────────────────────────────────────────────
     # Static helper – JSON string unescape that is safe for UTF-8
     # ──────────────────────────────────────────────────────────
@@ -96,7 +96,7 @@ class InitHandler(BasePhaseHandler):
         """
         import re as _re
 
-        s = s.replace('\\\\', '\x00')          # placeholder for literal backslash
+        s = s.replace('\\\\', '\x00')  # placeholder for literal backslash
         s = s.replace('\\n', '\n')
         s = s.replace('\\t', '\t')
         s = s.replace('\\r', '\r')
@@ -109,7 +109,7 @@ class InitHandler(BasePhaseHandler):
             return chr(int(m.group(1), 16))
 
         s = _re.sub(r'\\u([0-9a-fA-F]{4})', _uni, s)
-        s = s.replace('\x00', '\\')            # restore backslashes
+        s = s.replace('\x00', '\\')  # restore backslashes
         return s
 
     # ──────────────────────────────────────────────────────────
@@ -153,18 +153,18 @@ class InitHandler(BasePhaseHandler):
 
         # ── 1. Directory tree (Recursive up to depth 4) ──────────
         tree_lines: List[str] = []
-        
+
         def _list_tree(path: Path, prefix: str = "", current_depth: int = 0, max_depth: int = 4):
             if current_depth >= max_depth:
                 return
-                
+
             try:
                 # Sort: Directories first, then files
                 items = sorted(path.iterdir(), key=lambda x: (not x.is_dir(), x.name.lower()))
-                
+
                 for i, item in enumerate(items):
                     name = item.name
-                    
+
                     # Skip excluded items
                     if name in _EXCLUDE or (name.startswith('.') and name not in ('.env.example', '.hcode', '.hcoderc')):
                         continue
@@ -172,13 +172,13 @@ class InitHandler(BasePhaseHandler):
                     # Visual branch characters could be used, but simple indentation is token-efficient
                     # using 2 spaces per level
                     indent = "  " * current_depth
-                    
+
                     if item.is_dir():
                         tree_lines.append(f"{indent}{name}/")
                         _list_tree(item, prefix, current_depth + 1, max_depth)
                     else:
                         tree_lines.append(f"{indent}{name}")
-                        
+
             except OSError:
                 tree_lines.append(f"{prefix}  (access denied)")
 
@@ -186,7 +186,7 @@ class InitHandler(BasePhaseHandler):
             _list_tree(working_dir)
         except Exception as e:
             tree_lines.append(f"(Error listing tree: {e})")
-            
+
         parts.append("### Directory Structure\n" + "\n".join(tree_lines))
 
         # ── 2. Package definition (first one found) ─────────────
@@ -246,9 +246,9 @@ class InitHandler(BasePhaseHandler):
         core_candidates = [
             f for f in all_files
             if f.suffix == '.py'
-            and f.name not in _SKIP_NAMES
-            and 'test' not in f.name.lower()
-            and not _should_exclude(f)
+               and f.name not in _SKIP_NAMES
+               and 'test' not in f.name.lower()
+               and not _should_exclude(f)
         ]
         # Sort by file size descending — bigger files tend to be the real logic
         core_candidates.sort(key=lambda p: p.stat().st_size, reverse=True)
@@ -265,9 +265,9 @@ class InitHandler(BasePhaseHandler):
                 continue
             for pkg in sorted(base.iterdir()):
                 if (
-                    not pkg.is_dir()
-                    or pkg.name.startswith('.')
-                    or pkg.name in _EXCLUDE
+                        not pkg.is_dir()
+                        or pkg.name.startswith('.')
+                        or pkg.name in _EXCLUDE
                 ):
                     continue
                 init_py = pkg / '__init__.py'
@@ -321,10 +321,10 @@ class InitHandler(BasePhaseHandler):
         # ── 9. Code-pattern scan (grep-style, no AI) ────────────
         py_files = [f for f in all_files if f.suffix == '.py']
         patterns_to_find = {
-            'Classes':     _re.compile(r'^\s*class\s+(\w+)'),
-            'Async defs':  _re.compile(r'^\s*async\s+def\s+(\w+)'),
+            'Classes': _re.compile(r'^\s*class\s+(\w+)'),
+            'Async defs': _re.compile(r'^\s*async\s+def\s+(\w+)'),
             'Public defs': _re.compile(r'^def\s+(\w+)'),
-            'Decorators':  _re.compile(r'^\s*(@\w[\w.]*)'),
+            'Decorators': _re.compile(r'^\s*(@\w[\w.]*)'),
         }
         findings: Dict[str, List[str]] = {k: [] for k in patterns_to_find}
         for f in py_files[:60]:  # cap to keep scan fast
@@ -380,19 +380,19 @@ class InitHandler(BasePhaseHandler):
             # Notify user
             # self._display_banner() # Method not available
             self._display("\n🚀 Initializing codebase analysis...\n", style="info")
-            
+
             # Load prompt and inject pre-explored codebase snapshot
             prompt = self._load_init_prompt()
             exploration_data = self._programmatic_explore(context)
             prompt = prompt.replace("{{CODEBASE_SNAPSHOT}}", exploration_data)
             system_prompt = self._get_init_system_prompt(context)
-            
+
             self._display("🤖 Agent starting deep codebase analysis...", style="info")
-            
+
             # Start thinking display
             if self._hcode_display:
                 self._hcode_display.start_thinking()
-            
+
             # Execute agent with tools
             response_text, tool_results = await self._generate_and_execute(
                 prompt=prompt,
@@ -400,14 +400,14 @@ class InitHandler(BasePhaseHandler):
                 system_prompt=system_prompt,
                 max_rounds=24,  # 12 deep reading + 8 synthesis + 4 write/buffer
             )
-            
+
             # End thinking display
             if self._hcode_display:
                 self._hcode_display.end_thinking()
-            
+
             # Validate hcode.md was created
             hcode_path = Path(context.working_dir) / ".hcode" / "hcode.md"
-            
+
             if hcode_path.exists():
                 self._display(f"✨ Generated: {hcode_path}", style="success")
                 return InitResult(
@@ -424,14 +424,14 @@ class InitHandler(BasePhaseHandler):
                     tool_results=tool_results,
                     response_text=response_text,
                 )
-                
+
         except Exception as e:
             logger.exception(f"Init analysis failed: {e}")
             return InitResult(
                 success=False,
                 error=str(e),
             )
-    
+
     def _load_init_prompt(self) -> str:
         """
         Load init analysis prompt from core_prompts.
@@ -444,10 +444,10 @@ class InitHandler(BasePhaseHandler):
             # init_handler.py is in src/hcode/core/phases/
             # We need to go up 3 levels to get to src/hcode/, then into config/
             prompt_path = Path(__file__).parent.parent.parent / "config" / "core_prompts" / "core" / "pev_prompts" / "init_analysis_prompt.md"
-            
+
             logger.info(f"[init] Loading prompt from: {prompt_path}")
             logger.info(f"[init] Prompt exists: {prompt_path.exists()}")
-            
+
             if prompt_path.exists():
                 with open(prompt_path, 'r', encoding='utf-8') as f:
                     content = f.read()
@@ -457,7 +457,7 @@ class InitHandler(BasePhaseHandler):
                 logger.warning(f"[init] Prompt file not found at: {prompt_path}")
         except Exception as e:
             logger.warning(f"Failed to load init_analysis_prompt.md: {e}")
-        
+
         # Fallback inline prompt
         return """# Codebase Initialization Analysis
 
@@ -486,7 +486,7 @@ Create comprehensive documentation with:
 - Implementation Guidelines (specific, actionable advice)
 
 Be thorough, use tools effectively, and provide specific paths and examples."""
-    
+
     def _get_init_system_prompt(self, context: AgentContext) -> str:
         """
         Build system prompt for init analysis.
@@ -502,20 +502,19 @@ Be thorough, use tools effectively, and provide specific paths and examples."""
         try:
             from hcode.config.core_prompts.core.loader import get_prompt_loader
             loader = get_prompt_loader()
-            
+
             # Get identity and tool format
             identity = loader.get_identity()
             tool_format = loader.get_tool_format()
-            
+
             system_base = f"""{identity}
 
 {tool_format}"""
-            
+
         except Exception as e:
             logger.warning(f"Failed to load core prompts: {e}")
             system_base = "You are Hcode, an AI coding assistant."
-        
-    
+
         # Add init-specific instructions (GPT OSS 120B optimized)
         init_instructions = f"""
 
@@ -591,9 +590,9 @@ Every finding in hcode.md should trace back to a specific file read.
 
 **BEGIN DIMENSION A — Read the most logically complex file in the snapshot.**
 """
-    
+
         return system_base + init_instructions
-    
+
     def _get_current_phase(self, round_num: int) -> str:
         """Determine current dimension based on round number."""
         if round_num < 6:
@@ -625,14 +624,13 @@ Every finding in hcode.md should trace back to a specific file read.
             return f"**Dimension D: Context Extraction** (Round {round_num + 1}/20) — {remaining} rounds to extract conventions"
         else:
             return f"**Generation Phase** (Round {round_num + 1}) — OUTPUT Write tool JSON for .hcode/hcode.md NOW"
-    
-    
+
     async def _generate_and_execute(
-        self,
-        prompt: str,
-        context: AgentContext,
-        system_prompt: Optional[str] = None,
-        max_rounds: int = 10,
+            self,
+            prompt: str,
+            context: AgentContext,
+            system_prompt: Optional[str] = None,
+            max_rounds: int = 10,
     ) -> tuple[str, List[Dict[str, Any]]]:
         """
         Generate response and execute tool calls (multi-turn loop).
@@ -653,7 +651,7 @@ Every finding in hcode.md should trace back to a specific file read.
         all_tool_results = []
         synthesis_buffer = []
         last_response = ""
-        
+
         # Start analysis loop
         for round_num in range(max_rounds):
             logger.info(f"[init] Generation round {round_num + 1}/{max_rounds}...")
@@ -696,7 +694,7 @@ Every finding in hcode.md should trace back to a specific file read.
             if not tool_calls:
                 # No tool calls.
                 hcode_path = Path(context.working_dir) / ".hcode" / "hcode.md"
-                
+
                 # Check for direct markdown generation in generation phase (Round 20+)
                 if round_num >= 20 and self._looks_like_markdown_content(last_response):
                     logger.info("[init] Round 20+ no tool calls but markdown detected — fallback extraction")
@@ -710,7 +708,7 @@ Every finding in hcode.md should trace back to a specific file read.
                             break
                         except Exception as write_err:
                             logger.error(f"Failed to save extracted hcode.md: {write_err}")
-                
+
                 # Valid text output handling
                 phase = self._get_current_phase(round_num)
 
@@ -738,7 +736,7 @@ DO NOT write documentation yet.
                     logger.info(f"[init] Round {round_num + 1}: Context extraction step recorded")
 
                     # Capture synthesis content
-                    synthesis_buffer.append(f"## Context Extraction (Round {round_num+1})\n\n{last_response}")
+                    synthesis_buffer.append(f"## Context Extraction (Round {round_num + 1})\n\n{last_response}")
 
                     remaining = 20 - round_num
                     reminder_msg = f"""
@@ -752,7 +750,7 @@ Use <thinking> tags to reason, then take action or continue synthesis.
                     messages.append(Message(role="assistant", content=last_response))
                     messages.append(Message(role="user", content=reminder_msg))
                     continue
-                
+
                 # PHASE 3 (Round 20+): Text output without Write tool -> ERROR & RETRY (Do not break!)
                 elif round_num >= 20:
                     logger.warning(f"[init] Round {round_num + 1}: Text output in generation phase (Missing Write Tool)")
@@ -768,7 +766,7 @@ Output the JSON tool call now.
                     messages.append(Message(role="assistant", content=last_response))
                     messages.append(Message(role="user", content=reminder_msg))
                     continue
-                
+
                 # Should not reach here if logic is correct, but safe break
                 break
 
@@ -824,28 +822,28 @@ Use the Write tool in JSON format:
 
         # FALLBACK: If file doesn't exist, try to extract it from the agent's text output
         if not hcode_path.exists():
-             logger.info("[init] hcode.md not found via tool. Attempting fallback...")
-             
-             # 1. Try extracting from last response
-             extracted_content = self._extract_hcode_from_text(last_response)
-             
-             # 2. If that failed, check if we have a synthesis buffer
-             if not extracted_content and synthesis_buffer:
-                 logger.info(f"[init] Using {len(synthesis_buffer)} buffered synthesis blocks as fallback")
-                 extracted_content = "# Hcode Analysis (Synthesized)\n\n" + "\n\n".join(synthesis_buffer)
-                 
-             if not extracted_content and len(messages) > 1:
-                 # 3. Check the last assistant message in history
-                 last_assistant_msg = next((m.content for m in reversed(messages) if m.role == "assistant"), "")
-                 extracted_content = self._extract_hcode_from_text(last_assistant_msg)
+            logger.info("[init] hcode.md not found via tool. Attempting fallback...")
 
-             if extracted_content:
-                 try:
-                     hcode_path.parent.mkdir(parents=True, exist_ok=True)
-                     hcode_path.write_text(extracted_content, encoding="utf-8")
-                     self._display(f"📝 Recovered hcode.md from analysis text", style="info")
-                 except Exception as e:
-                     logger.error(f"Failed to save extracted hcode content: {e}")
+            # 1. Try extracting from last response
+            extracted_content = self._extract_hcode_from_text(last_response)
+
+            # 2. If that failed, check if we have a synthesis buffer
+            if not extracted_content and synthesis_buffer:
+                logger.info(f"[init] Using {len(synthesis_buffer)} buffered synthesis blocks as fallback")
+                extracted_content = "# Hcode Analysis (Synthesized)\n\n" + "\n\n".join(synthesis_buffer)
+
+            if not extracted_content and len(messages) > 1:
+                # 3. Check the last assistant message in history
+                last_assistant_msg = next((m.content for m in reversed(messages) if m.role == "assistant"), "")
+                extracted_content = self._extract_hcode_from_text(last_assistant_msg)
+
+            if extracted_content:
+                try:
+                    hcode_path.parent.mkdir(parents=True, exist_ok=True)
+                    hcode_path.write_text(extracted_content, encoding="utf-8")
+                    self._display(f"📝 Recovered hcode.md from analysis text", style="info")
+                except Exception as e:
+                    logger.error(f"Failed to save extracted hcode content: {e}")
 
         if not hcode_path.exists():
             logger.warning("[init] Max rounds reached without hcode.md creation - sending final demand")
@@ -900,9 +898,9 @@ DO IT NOW!"""
                     # LAST RESORT: Extract from final response
                     extracted_final = self._extract_hcode_from_text(last_response)
                     if extracted_final:
-                         hcode_path.parent.mkdir(parents=True, exist_ok=True)
-                         hcode_path.write_text(extracted_final, encoding="utf-8")
-                         self._display(f"📝 Recovered hcode.md from final demand", style="info")
+                        hcode_path.parent.mkdir(parents=True, exist_ok=True)
+                        hcode_path.write_text(extracted_final, encoding="utf-8")
+                        self._display(f"📝 Recovered hcode.md from final demand", style="info")
 
             except Exception as e:
                 logger.error(f"Final Write attempt failed: {e}")
@@ -930,7 +928,7 @@ DO IT NOW!"""
         h2_count = text.count('\n## ')
 
         return has_title and h2_count >= 2
-    
+
     def _extract_hcode_from_text(self, text: str) -> Optional[str]:
         """
         Extract hcode.md content from a raw text response.
@@ -978,8 +976,8 @@ DO IT NOW!"""
                         # Path 1: proper json.loads (handles \n, \uXXXX etc)
                         parsed = json.loads(text[start:end + 1])
                         content = (
-                            parsed.get("arguments", {}).get("CodeContent")
-                            or parsed.get("CodeContent")
+                                parsed.get("arguments", {}).get("CodeContent")
+                                or parsed.get("CodeContent")
                         )
                         if content and len(content) > 100 and "## " in content:
                             logger.info("[init] Extracted CodeContent via json.loads")
@@ -1033,7 +1031,7 @@ DO IT NOW!"""
             success = r.get('success', False)
             output = str(r.get('output', ''))[:2000]
             error = r.get('error', '')
-            
+
             # Format based on tool type
             if tool.lower() in ['glob', 'globtool', 'smartglob']:
                 if success:
@@ -1044,7 +1042,7 @@ DO IT NOW!"""
                         parts.append(f"[{tool}] ✓ Success:\n{output}")
                 else:
                     parts.append(f"[{tool}] ✗ Failed: {error}")
-                    
+
             elif tool.lower() in ['read', 'readtool']:
                 if success:
                     parts.append(f"[{tool}] ✓ File read successfully:\n{output}")
@@ -1070,24 +1068,24 @@ You attempted to read a file that doesn't exist. This violates the tool usage pr
 """)
                     else:
                         parts.append(f"[{tool}] ✗ Failed: {error}")
-                        
+
             elif tool.lower() in ['ls', 'lstool']:
                 if success:
                     parts.append(f"[{tool}] ✓ Directory listed:\n{output}")
                 else:
                     parts.append(f"[{tool}] ✗ Failed: {error}")
-                    
+
             elif tool.lower() in ['write', 'writetool']:
                 if success:
                     parts.append(f"[{tool}] ✓ File written successfully:\n{output}")
                 else:
                     parts.append(f"[{tool}] ✗ Failed: {error}")
-                    
+
             else:
                 # Generic formatting for other tools
                 if success:
                     parts.append(f"[{tool}] Success:\n{output}")
                 else:
                     parts.append(f"[{tool}] Failed: {error}")
-        
+
         return "\n\n".join(parts) if parts else "No tool results."

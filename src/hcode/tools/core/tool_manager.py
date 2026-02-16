@@ -124,7 +124,7 @@ class ToolManager:
         self.task_tool = TaskTool()  # Will be initialized with agent_orchestrator later
         self.tool_registry.register(self.task_tool)
         self.tool_registry.register(ExitPlanModeTool())
-        
+
         # Hcode Tools
         self.tool_registry.register(TaskBoundaryTool())
         self.tool_registry.register(NotifyUserTool())
@@ -142,23 +142,23 @@ class ToolManager:
         if "greptool" in self.tool_registry.tools:
             self.tool_registry.tools["grep_search"] = self.tool_registry.tools["greptool"]
             self.tool_registry.tools["codebase_search"] = self.tool_registry.tools["greptool"]
-        
+
         if "readtool" in self.tool_registry.tools:
             self.tool_registry.tools["view_file"] = self.tool_registry.tools["readtool"]
 
         if "writetool" in self.tool_registry.tools:
-             self.tool_registry.tools["write_to_file"] = self.tool_registry.tools["writetool"]
+            self.tool_registry.tools["write_to_file"] = self.tool_registry.tools["writetool"]
 
         if "edittool" in self.tool_registry.tools:
-             self.tool_registry.tools["replace_file_content"] = self.tool_registry.tools["edittool"]
-            
+            self.tool_registry.tools["replace_file_content"] = self.tool_registry.tools["edittool"]
+
         if "globtool" in self.tool_registry.tools:
             self.tool_registry.tools["find_files"] = self.tool_registry.tools["globtool"]
             self.tool_registry.tools["find_by_name"] = self.tool_registry.tools["globtool"]
-            
+
         if "bash" in self.tool_registry.tools:
             self.tool_registry.tools["run_command"] = self.tool_registry.tools["bash"]
-            
+
         if "viewfileoutlinetool" in self.tool_registry.tools:
             self.tool_registry.tools["view_file_outline"] = self.tool_registry.tools["viewfileoutlinetool"]
 
@@ -194,8 +194,6 @@ class ToolManager:
             return self.tool_registry.list_tools(category=cat_enum)
         return self.tool_registry.list_tools()
 
-
-
     def get_tool_documentation(self) -> str:
         """
         Generate documentation for all registered tools in a format suitable for the system prompt.
@@ -204,73 +202,63 @@ class ToolManager:
             String containing formatted tool documentation with JSON usage examples.
         """
         doc_parts = []
-        
+
         # Get all registered tools
         # We access the internal dictionary to get aliases properly
         tools_map = self.tool_registry.tools
-        
+
         # Sort by name for consistency
         sorted_names = sorted(tools_map.keys())
-        
+
         for name in sorted_names:
             tool = tools_map[name]
             schema = tool.to_function_schema()
-            
+
             # Construct JSON example
             params = {}
             for param_name, param_info in schema.get("parameters", {}).get("properties", {}).items():
                 # specific example values based on param type or name
                 val = "value"
                 if "directory" in param_name.lower():
-                     val = "absolute/path/to/dir"
+                    val = "absolute/path/to/dir"
                 elif "path" in param_name.lower() or "file" in param_name.lower():
-                     val = "absolute/path/to/file"
+                    val = "absolute/path/to/file"
                 elif "line" in param_name.lower():
                     val = 10
                 elif param_info.get("type") == "boolean":
                     val = False
                 elif param_info.get("type") == "integer":
                     val = 1
-                
+
                 params[param_name] = val
-                
+
             example_json = {
                 "tool": name,
                 "parameters": params
             }
-            
+
             import json
             json_str = json.dumps(example_json)
-            
+
             doc_parts.append(f"**{name}** ({tool.__class__.__name__}) - {schema.get('description', '')}:")
             doc_parts.append(f"```json\n{json_str}\n```\n")
-            
+
         return "\n".join(doc_parts)
 
     def get_usage_stats(self) -> Dict[str, int]:
         """Get tool usage statistics"""
         return self.usage_stats.copy()
 
-
-
-
-
-
     def set_agent_orchestrator(self, agent_orchestrator):
         """Set the agent orchestrator for tools that need it"""
         if hasattr(self, "task_tool"):
             self.task_tool.agent_orchestrator = agent_orchestrator
-            
+
         # Also set for SkillTool
         skill_tool = self.get_tool("skilltool")
         if skill_tool:
             skill_tool.agent_orchestrator = agent_orchestrator
 
-
     # =========================================================================
     # CHANGE PREVIEW METHODS (NEW)
     # =========================================================================
-
-
-
-

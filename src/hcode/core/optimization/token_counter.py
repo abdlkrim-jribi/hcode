@@ -1,7 +1,7 @@
 import hashlib
 import threading
 from collections import OrderedDict
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 
 # =============================================================================
@@ -75,7 +75,6 @@ class CachedTokenCounter:
                 pass
         return int(len(text) / self._approx_ratio)
 
-
     def get_stats(self) -> Dict[str, Any]:
         total = self._hits + self._misses
         return {
@@ -89,6 +88,7 @@ class CachedTokenCounter:
 
 
 _token_counter: Optional[CachedTokenCounter] = None
+
 
 def get_token_counter() -> CachedTokenCounter:
     global _token_counter

@@ -54,6 +54,7 @@ class ReasoningPromptConfig:
 from hcode.config.prompts import get_prompts_config
 from hcode.config.core_prompts.core import CorePromptLoader
 
+
 # =============================================================================
 # PROMPT BUILDER CLASS
 # =============================================================================
@@ -69,7 +70,7 @@ class ReasoningPromptBuilder:
         self.prompts_config = get_prompts_config()
 
     def build_system_prompt(
-        self, task_type: Optional[str] = None, include_self_critique: bool = True
+            self, task_type: Optional[str] = None, include_self_critique: bool = True
     ) -> str:
         """
         Build complete system prompt for reasoning.
@@ -99,10 +100,10 @@ class ReasoningPromptBuilder:
         return "\n".join(parts)
 
     def build_thinking_prompt(
-        self,
-        task: str,
-        context: Optional[Dict[str, Any]] = None,
-        depth: Optional[ReasoningDepth] = None,
+            self,
+            task: str,
+            context: Optional[Dict[str, Any]] = None,
+            depth: Optional[ReasoningDepth] = None,
     ) -> str:
         """
         Build prompt to trigger thinking for a specific task.
@@ -142,7 +143,7 @@ class ReasoningPromptBuilder:
                     context_str.append(f"Active Files: {', '.join(v)}")
                 else:
                     context_str.append(f"{k}: {v}")
-            
+
             if context_str:
                 prompt_parts.insert(1, "\nContext:\n" + "\n".join(context_str) + "\n")
 
@@ -304,9 +305,6 @@ def get_reasoning_system_prompt(task_type: Optional[str] = None) -> str:
     return builder.build_system_prompt(task_type=task_type)
 
 
-
-
-
 def detect_task_type(message: str) -> Optional[str]:
     """Detect task type from a message"""
     builder = ReasoningPromptBuilder()
@@ -416,7 +414,7 @@ class ClaudeReasoningBuilder:
 
     @staticmethod
     def build_phase_prompt(
-        phase_name: str, task_context: Optional[Dict[str, Any]] = None
+            phase_name: str, task_context: Optional[Dict[str, Any]] = None
     ) -> str:
         """
         Build a complete prompt for a specific reasoning phase.
@@ -440,7 +438,7 @@ class ClaudeReasoningBuilder:
 
     @staticmethod
     def build_workflow_transition(
-        from_phase: str, to_phase: str, reason: str = ""
+            from_phase: str, to_phase: str, reason: str = ""
     ) -> str:
         """
         Build a prompt for transitioning between workflow phases.
@@ -486,4 +484,3 @@ class ClaudeReasoningBuilder:
             validation[phase] = f"[PHASE" in output and phase in output.upper()
 
         return validation
-

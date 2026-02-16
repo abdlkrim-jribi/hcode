@@ -39,6 +39,9 @@ Example Usage:
 # THEME EXPORTS
 # ═══════════════════════════════════════════════════════════════════════
 
+# Create a global console instance for convenience
+from rich.console import Console as _Console
+
 from hcode.ui.animations import (
     # Spinner definitions
     CYBER_SPINNERS,
@@ -75,7 +78,6 @@ from hcode.ui.components import (
     # Functions
     create_horizontal_rule,
 )
-
 from hcode.ui.icons import (
     # Classes
     Icons,
@@ -130,8 +132,6 @@ from hcode.ui.theme import (
     # Theme definitions
     THEMES,
 )
-# Create a global console instance for convenience
-from rich.console import Console as _Console
 
 # ═══════════════════════════════════════════════════════════════════════hcode.ui
 # BANNER EXPORTS
@@ -213,7 +213,6 @@ from hcode.ui.hcode_display import (
     get_hcode_display,
     reset_display,
 )
-
 
 # ═══════════════════════════════════════════════════════════════════════
 # ALL EXPORTS
@@ -309,10 +308,6 @@ __all__ = [
     "get_hcode_display",
     "reset_display",
 ]
-
-
-
-
 
 # ═══════════════════════════════════════════════════════════════════════
 # VERSION

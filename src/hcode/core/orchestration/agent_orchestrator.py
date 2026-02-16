@@ -9,8 +9,10 @@ The orchestrator is the main coordinator that:
 """
 
 import logging
-from typing import Dict, Any, Optional, Callable
 from pathlib import Path
+from typing import Dict, Any, Optional, Callable
+
+from ..loop.agent_loop import AgentLoopController, Phase, StopReason
 from ..protocols import (
     AgentOrchestratorProtocol,
     PhaseManagerProtocol,
@@ -18,7 +20,6 @@ from ..protocols import (
     AgentContext,
     PhaseResult,
 )
-from ..loop.agent_loop import AgentLoopController, Phase, StopReason
 from ..services.checkpoint import get_checkpoint_manager
 
 logger = logging.getLogger(__name__)
@@ -39,14 +40,14 @@ class AgentOrchestrator(AgentOrchestratorProtocol):
     """
 
     def __init__(
-        self,
-        phase_manager: PhaseManagerProtocol,
-        task_classifier: TaskClassifierProtocol,
-        working_dir: Optional[str] = None,
-        max_iterations: int = 50,
-        console: Any = None,
-        debug_mode: bool = False,
-        enable_checkpoints: bool = True,
+            self,
+            phase_manager: PhaseManagerProtocol,
+            task_classifier: TaskClassifierProtocol,
+            working_dir: Optional[str] = None,
+            max_iterations: int = 50,
+            console: Any = None,
+            debug_mode: bool = False,
+            enable_checkpoints: bool = True,
     ):
         """
         Initialize orchestrator.
@@ -79,10 +80,10 @@ class AgentOrchestrator(AgentOrchestratorProtocol):
         self.checkpoint_manager = get_checkpoint_manager() if enable_checkpoints else None
 
     async def execute_task(
-        self,
-        task: str,
-        session_id: str,
-        stream_callback: Optional[Callable] = None,
+            self,
+            task: str,
+            session_id: str,
+            stream_callback: Optional[Callable] = None,
     ) -> Dict[str, Any]:
         """
         Execute a user task through the PEV workflow.
@@ -169,21 +170,21 @@ class AgentOrchestrator(AgentOrchestratorProtocol):
                     # Preserve any existing output if it's more than just a status message
                     if phase_result.output and "phase complete" not in phase_result.output.lower():
                         results["output"] = phase_result.output
-                    
+
                     results["error"] = phase_result.error
                     continue
 
                 # Stream callback if provided
                 if stream_callback and phase_result.output:
                     await self._safe_callback(stream_callback, phase_result.output)
-                
+
                 # If the phase result has a meaningful output (e.g. from exploration), store it
                 # We prioritize output that DOES NOT look like a generic status message
                 # Or if metadata contains the full response, use that as the source of truth
                 is_generic = any(s in phase_result.output.lower() for s in ["phase complete", "iteration complete", "task is done", "already exist"])
-                
+
                 phase_response = phase_result.metadata.get("response") if phase_result.metadata else None
-                
+
                 if phase_response:
                     results["output"] = phase_response
                 elif phase_result.output and (not is_generic or not results["output"]):
@@ -331,8 +332,8 @@ class AgentOrchestrator(AgentOrchestratorProtocol):
         )
 
     async def execute_phase_iteration(
-        self,
-        context: AgentContext,
+            self,
+            context: AgentContext,
     ) -> PhaseResult:
         """
         Execute one iteration of current phase.
@@ -362,5 +363,3 @@ class AgentOrchestrator(AgentOrchestratorProtocol):
         """Get current timestamp string."""
         from datetime import datetime
         return datetime.now().isoformat()
-
-

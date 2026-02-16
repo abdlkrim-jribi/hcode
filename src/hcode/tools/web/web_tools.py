@@ -8,6 +8,7 @@ from typing import List, Optional
 
 import html2text
 import httpx
+
 from hcode.tools.base.base_tool import BaseTool, ToolResult, ToolParameter, ToolCategory
 
 
@@ -35,9 +36,9 @@ class WebFetchTool(BaseTool):
     def validate_parameters(self, **kwargs) -> tuple[bool, Optional[str]]:
         """Validate parameters allowing for strict aliases"""
         if "Url" not in kwargs and "url" not in kwargs:
-             return False, "Missing required parameter: Url (or url)"
+            return False, "Missing required parameter: Url (or url)"
         if "Prompt" not in kwargs and "prompt" not in kwargs:
-             return False, "Missing required parameter: Prompt (or prompt)"
+            return False, "Missing required parameter: Prompt (or prompt)"
         return True, None
 
     async def execute(self, Url: str = None, Prompt: str = None, url: str = None, prompt: str = None, **kwargs) -> ToolResult:
@@ -45,12 +46,12 @@ class WebFetchTool(BaseTool):
         # Parameter Normalization
         final_url = Url or url
         final_prompt = Prompt or prompt
-        
+
         if not final_url:
-             return ToolResult(success=False, output="", error="Url (or url) is required")
+            return ToolResult(success=False, output="", error="Url (or url) is required")
         if not final_prompt:
-             return ToolResult(success=False, output="", error="Prompt (or prompt) is required")
-             
+            return ToolResult(success=False, output="", error="Prompt (or prompt) is required")
+
         # Use final variables
         url = final_url
         prompt = final_prompt
@@ -144,20 +145,20 @@ class WebSearchTool(BaseTool):
     def validate_parameters(self, **kwargs) -> tuple[bool, Optional[str]]:
         """Validate parameters allowing for strict aliases"""
         if "Query" not in kwargs and "query" not in kwargs:
-             return False, "Missing required parameter: Query (or query)"
+            return False, "Missing required parameter: Query (or query)"
         return True, None
 
     async def execute(
-        self,
-        Query: str = None,
-        NumResults: int = 5,
-        AllowedDomains: Optional[List[str]] = None,
-        BlockedDomains: Optional[List[str]] = None,
-        query: str = None,
-        num_results: int = None,
-        allowed_domains: Optional[List[str]] = None,
-        blocked_domains: Optional[List[str]] = None,
-        **kwargs
+            self,
+            Query: str = None,
+            NumResults: int = 5,
+            AllowedDomains: Optional[List[str]] = None,
+            BlockedDomains: Optional[List[str]] = None,
+            query: str = None,
+            num_results: int = None,
+            allowed_domains: Optional[List[str]] = None,
+            blocked_domains: Optional[List[str]] = None,
+            **kwargs
     ) -> ToolResult:
         """Search the web"""
         # Parameter Normalization
@@ -165,10 +166,10 @@ class WebSearchTool(BaseTool):
         final_num = NumResults or num_results or 5
         final_allowed = AllowedDomains or allowed_domains
         final_blocked = BlockedDomains or blocked_domains
-        
+
         if not final_query:
             return ToolResult(success=False, output="", error="Query (or query) is required")
-            
+
         # Map to internal names
         query = final_query
         num_results = final_num
@@ -253,26 +254,26 @@ class WebScrapeTool(BaseTool):
     def validate_parameters(self, **kwargs) -> tuple[bool, Optional[str]]:
         """Validate parameters allowing for strict aliases"""
         if "Url" not in kwargs and "url" not in kwargs:
-             return False, "Missing required parameter: Url (or url)"
+            return False, "Missing required parameter: Url (or url)"
         return True, None
 
     async def execute(
-        self, Url: str = None, Selector: Optional[str] = None, ExtractLinks: bool = False,
-        url: str = None, selector: str = None, extract_links: bool = None, **kwargs
+            self, Url: str = None, Selector: Optional[str] = None, ExtractLinks: bool = False,
+            url: str = None, selector: str = None, extract_links: bool = None, **kwargs
     ) -> ToolResult:
         """Scrape website content"""
         # Parameter Normalization
         final_url = Url or url
         final_selector = Selector or selector
         final_extract = ExtractLinks or extract_links or False
-        
+
         if not final_url:
             return ToolResult(success=False, output="", error="Url (or url) is required")
-            
+
         url = final_url
         selector = final_selector
         extract_links = final_extract
-        
+
         """Scrape website content"""
         try:
             from bs4 import BeautifulSoup

@@ -29,10 +29,10 @@ class BaseGitTool(BaseTool):
                 cwd=str(self.root_dir),
             )
             stdout, stderr = await process.communicate()
-            
+
             stdout_str = stdout.decode("utf-8", errors="replace").strip()
             stderr_str = stderr.decode("utf-8", errors="replace").strip()
-            
+
             if process.returncode != 0:
                 return ToolResult(
                     success=False,
@@ -40,14 +40,14 @@ class BaseGitTool(BaseTool):
                     error=stderr_str or f"Git command failed with exit code {process.returncode}",
                     metadata={"exit_code": process.returncode}
                 )
-            
+
             return ToolResult(
                 success=True,
                 output=stdout_str,
                 metadata={"exit_code": 0}
             )
         except FileNotFoundError:
-             return ToolResult(
+            return ToolResult(
                 success=False,
                 output=None,
                 error="Git executable not found. Please ensure git is installed and in your PATH."

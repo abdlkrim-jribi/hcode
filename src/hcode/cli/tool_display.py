@@ -16,7 +16,6 @@ Features:
 """
 
 import os
-
 from typing import Optional, Dict, Any, List, Tuple
 
 from rich.console import Console
@@ -27,12 +26,6 @@ from rich.text import Text
 # Import new UI system
 from hcode.ui import Icons, console as styled_console
 from hcode.ui.theme import get_palette as get_theme_palette
-
-
-
-
-
-
 
 
 # ============================================================
@@ -62,7 +55,7 @@ class HcodeStyle:
         self.DIM = "dim"
         self.FILE_PATH = palette.info
         self.CONTEXT = palette.text_muted
-        
+
         # Dim colors from theme
         self.TEXT_DIM = "text.dim"
 
@@ -70,25 +63,23 @@ class HcodeStyle:
         # Icons from UI system
         self.ICON_SUCCESS = self._icons.SUCCESS
         self.ICON_ERROR = self._icons.ERROR
-        
+
         # HCode Design: Gutter & Tree-Lite
         self.GUTTER = self._icons.GUTTER_BAR
         self.ICON_FILE_CIRCLE = self._icons.ICON_FILE_CIRCLE
         self.ICON_DIR_CIRCLE = self._icons.ICON_DIR_CIRCLE
         self.PROMPT_LAMBDA = self._icons.PROMPT_LAMBDA
-        
+
         # Gutter Colors
-        self.COLOR_READ = palette.primary        # Cyan
-        self.COLOR_WRITE = palette.success       # Green (Neon)
-        self.COLOR_EDIT = palette.code_number    # Purple
-        self.COLOR_BASH = palette.warning        # Orange
+        self.COLOR_READ = palette.primary  # Cyan
+        self.COLOR_WRITE = palette.success  # Green (Neon)
+        self.COLOR_EDIT = palette.code_number  # Purple
+        self.COLOR_BASH = palette.warning  # Orange
 
         # Tool Status Colors
         self.TOOL_SUCCESS = palette.success
         self.TOOL_ERROR = palette.error
         self.TOOL_NAME = palette.info
-
-
 
 
 # ============================================================
@@ -120,7 +111,7 @@ class HcodeToolDisplay:
     # ─────────────────────────────────────────────────────────
 
     def display_tool_call(
-        self, tool_name: str, arguments: Dict[str, Any], result: Any
+            self, tool_name: str, arguments: Dict[str, Any], result: Any
     ):
         """
         Display tool execution in Hcode style.
@@ -174,7 +165,7 @@ class HcodeToolDisplay:
             ".toml": "toml", ".ini": "ini",
         }
         lang = lang_map.get(ext, "text")
-        
+
         gutter_color = self.style.COLOR_READ
         gutter = f"[{gutter_color}]{self.style.GUTTER}[/]"
 
@@ -182,7 +173,7 @@ class HcodeToolDisplay:
             content = result.output or ""
             lines = content.split("\n") if content else []
             total_lines = len(lines)
-            
+
             # 1. Header: ┃ Read path
             self.console.print()
             header = Text()
@@ -196,24 +187,24 @@ class HcodeToolDisplay:
             except:
                 pass
             self.console.print(header)
-            
+
             # 2. Spacer: ┃
             self.console.print(f"{gutter}")
 
             # 3. Content Logic
-            
+
             def create_content_grid(lines_to_print, start_line_num):
                 # Use a single grid for the whole chunk to ensure alignment
                 from rich.table import Table
                 # Expand to full width to prevent squeezing
                 grid = Table.grid(padding=0, expand=True)
-                grid.add_column(style=f"dim {gutter_color}", no_wrap=True) # Gutter + Line Num
-                grid.add_column(style="white", ratio=1, no_wrap=True) # Code column takes remaining space
-                
+                grid.add_column(style=f"dim {gutter_color}", no_wrap=True)  # Gutter + Line Num
+                grid.add_column(style="white", ratio=1, no_wrap=True)  # Code column takes remaining space
+
                 for i, line_content in enumerate(lines_to_print):
                     line_num = start_line_num + i
                     line_num_str = f"{line_num:>4}"
-                    
+
                     # Safe highlighting
                     try:
                         # Use Syntax for single line
@@ -221,15 +212,15 @@ class HcodeToolDisplay:
                         syntax = Syntax(line_content, lang, theme="monokai", line_numbers=False, word_wrap=False, code_width=None)
                     except:
                         syntax = escape(line_content)
-                    
+
                     prefix = Text.assemble(
-                            (f"{self.style.GUTTER} ", str(gutter_color)),
-                            (f"{line_num_str} ", f"{self.style.TEXT_DIM}"),
-                            (f"│ ", f"{self.style.TEXT_DIM}")
+                        (f"{self.style.GUTTER} ", str(gutter_color)),
+                        (f"{line_num_str} ", f"{self.style.TEXT_DIM}"),
+                        (f"│ ", f"{self.style.TEXT_DIM}")
                     )
-                    
+
                     grid.add_row(prefix, syntax)
-                
+
                 return grid
 
             if total_lines <= 10:
@@ -238,16 +229,16 @@ class HcodeToolDisplay:
                 # Head (4 lines)
                 head_lines = lines[:4]
                 self.console.print(create_content_grid(head_lines, 1))
-                
+
                 # Gap
                 self.console.print(
-                     Text.assemble(
+                    Text.assemble(
                         (f"{self.style.GUTTER} ", str(gutter_color)),
                         (f"   ⋮   ", f"bold {self.style.TEXT_DIM}"),
                         (f"  {total_lines - 8} lines hidden", f"italic {self.style.TEXT_DIM}")
-                     )
+                    )
                 )
-                
+
                 # Tail (4 lines)
                 tail_lines = lines[-4:]
                 self.console.print(create_content_grid(tail_lines, total_lines - 3))
@@ -261,8 +252,6 @@ class HcodeToolDisplay:
                 f"\n[{self.style.TOOL_ERROR}]┃[/] [bold red]Read failed:[/bold red] [{self.style.FILE_PATH}]{file_path}[/]"
             )
             self.console.print(f"  [red]{escape(str(result.error))}[/red]")
-
-
 
     # ─────────────────────────────────────────────────────────
     # WRITE TOOL DISPLAY - Claude Code Style
@@ -281,7 +270,7 @@ class HcodeToolDisplay:
             lines = content.split("\n") if content else []
             total_lines = len(lines)
             byte_count = len(content.encode("utf-8"))
-            
+
             # 1. Header: ┃ Write path
             self.console.print()
             header = Text()
@@ -295,14 +284,14 @@ class HcodeToolDisplay:
             except:
                 pass
             self.console.print(header)
-            
+
             # 2. Spacer
             self.console.print(f"{gutter}")
 
             # 3. Content
             # self.style.ADDED_BG is hex, Rich text style needs careful handling. 
             # Reverting to explicit styling
-            
+
             def print_green_line(line_content, line_num):
                 # Format: ┃   1 │ content (with green bg implication?)
                 # Actually, write output should just show it was written. 
@@ -313,7 +302,7 @@ class HcodeToolDisplay:
                         (f"{self.style.GUTTER} ", str(gutter_color)),
                         (f"{line_num_str} ", f"{self.style.TEXT_DIM}"),
                         (f"│ ", f"{self.style.TEXT_DIM}"),
-                        (f"{line_content}", f"green") # Make text green to indicate create/write
+                        (f"{line_content}", f"green")  # Make text green to indicate create/write
                     )
                 )
 
@@ -324,13 +313,13 @@ class HcodeToolDisplay:
                 # Head (4 lines)
                 for i in range(4):
                     print_green_line(lines[i], i + 1)
-                
+
                 self.console.print(
-                     Text.assemble(
+                    Text.assemble(
                         (f"{self.style.GUTTER} ", str(gutter_color)),
                         (f"   ⋮   ", f"bold {self.style.TEXT_DIM}"),
                         (f"  {total_lines - 8} lines hidden", f"italic {self.style.TEXT_DIM}")
-                     )
+                    )
                 )
 
                 # Tail (4 lines)
@@ -347,7 +336,6 @@ class HcodeToolDisplay:
             )
             self.console.print(f"  [red]{escape(str(result.error))}[/red]")
 
-
     # ─────────────────────────────────────────────────────────
     # MULTI-EDIT TOOL DISPLAY
     # ─────────────────────────────────────────────────────────
@@ -359,7 +347,7 @@ class HcodeToolDisplay:
     def _display_multiedit(self, arguments: Dict[str, Any], result: Any):
         """Display MultiEdit tool execution - Status Gutter Style"""
         file_path = arguments.get("file_path", "unknown")
-        
+
         gutter_color = self.style.COLOR_EDIT
         gutter = f"[{gutter_color}]{self.style.GUTTER}[/]"
 
@@ -386,12 +374,12 @@ class HcodeToolDisplay:
             info_text.append(", ", style=f"{self.style.TEXT_DIM}")
             info_text.append(f"{total_replacements} replacements", style="bold white")
             self.console.print(info_text)
-            
+
             if diff_summary:
                 self.console.print(
                     Text.assemble(
-                         (f" {self.style.GUTTER} ", str(gutter_color)),
-                         (f" {diff_summary}", f"{self.style.TEXT_DIM}")
+                        (f" {self.style.GUTTER} ", str(gutter_color)),
+                        (f" {diff_summary}", f"{self.style.TEXT_DIM}")
                     )
                 )
 
@@ -428,20 +416,20 @@ class HcodeToolDisplay:
 
             old_lines = old_string.splitlines()
             new_lines = new_string.splitlines()
-            
+
             diff = list(difflib.unified_diff(
-                old_lines, 
-                new_lines, 
+                old_lines,
+                new_lines,
                 lineterm=""
             ))
-            
+
             # Skip header lines
             content_diff = diff[3:] if len(diff) > 3 else []
-            
+
             for line in content_diff:
                 if line.startswith("-"):
                     # Deletion
-                     self.console.print(
+                    self.console.print(
                         Text.assemble(
                             (f"{self.style.GUTTER} ", str(gutter_color)),
                             (f" - ", "red"),
@@ -474,8 +462,6 @@ class HcodeToolDisplay:
                 f"\n[{self.style.TOOL_ERROR}]┃[/] [bold red]Edit failed:[/bold red] [{self.style.FILE_PATH}]{file_path}[/]"
             )
             self.console.print(f"  [red]{escape(str(result.error))}[/red]")
-            
-
 
     # ─────────────────────────────────────────────────────────
     # BASH TOOL DISPLAY
@@ -503,7 +489,7 @@ class HcodeToolDisplay:
             output = result.output or ""
             lines = output.split("\n")
             total_lines = len(lines)
-            
+
             # Header
             self.console.print()
             header = Text()
@@ -511,11 +497,11 @@ class HcodeToolDisplay:
             header.append("Bash ", style=f"bold {gutter_color}")
             header.append(f"{display_cmd}", style="white")
             self.console.print(header)
-            
+
             self.console.print(f"{gutter}")
-            
+
             def print_bash_line(line_content):
-                 self.console.print(
+                self.console.print(
                     Text.assemble(
                         (f"{self.style.GUTTER} ", str(gutter_color)),
                         (f"  {line_content}", f"{self.style.TEXT_DIM}")
@@ -523,7 +509,7 @@ class HcodeToolDisplay:
                 )
 
             if not output.strip():
-                 self.console.print(
+                self.console.print(
                     Text.assemble(
                         (f"{self.style.GUTTER} ", str(gutter_color)),
                         (f"  (no output)", "italic dim")
@@ -536,19 +522,19 @@ class HcodeToolDisplay:
                 # Head
                 for i in range(3):
                     print_bash_line(lines[i])
-                
+
                 self.console.print(
-                     Text.assemble(
+                    Text.assemble(
                         (f"{self.style.GUTTER} ", str(gutter_color)),
                         (f"   ⋮   ", f"bold {self.style.TEXT_DIM}"),
                         (f"  {total_lines - 6} lines hidden", f"italic {self.style.TEXT_DIM}")
-                     )
+                    )
                 )
-                
+
                 # Tail
                 for i in range(total_lines - 3, total_lines):
                     print_bash_line(lines[i])
-            
+
             self.console.print(f"{gutter}")
             self.console.print()
 
@@ -581,7 +567,7 @@ class HcodeToolDisplay:
             else:
                 files = result.output.strip().split("\n") if result.output else []
                 files = [f.strip() for f in files if f.strip()]
-            
+
             # Header
             self.console.print()
             header = Text()
@@ -591,42 +577,42 @@ class HcodeToolDisplay:
             self.console.print(header)
 
             display_files = []
-            
+
             for f in files:
                 # Determine icon based on simple heuristic or metadata if available
                 # Logic: if ends with /, it is dir.
                 is_dir = f.endswith("/") or f.endswith("\\")
-                
+
                 icon = self.style.ICON_DIR_CIRCLE if is_dir else self.style.ICON_FILE_CIRCLE
                 color = "cyan" if is_dir else "white"
-                
+
                 display_files.append((icon, f, color))
 
             self._display_tree_lite_results(display_files, "No files found")
-            
+
         else:
             self.console.print(
                 f"  [{self.style.TOOL_ERROR}]{self.style.ICON_ERROR}[/] "
                 f"[bold]Glob[/bold] [{self.style.TOOL_NAME}]{escape(pattern)}[/] "
                 f"[{self.style.TOOL_ERROR}]failed: {escape(str(result.error))}[/]"
             )
-            
+
     def _display_tree_lite_results(self, items: List[Tuple[str, str, str]], empty_text: str = "No items found"):
         """Display a list of items in Tree-Lite style."""
         total_items = len(items)
-        
+
         if total_items == 0:
-             self.console.print(f"  [italic dim]{empty_text}[/italic dim]")
-             self.console.print()
-             return
+            self.console.print(f"  [italic dim]{empty_text}[/italic dim]")
+            self.console.print()
+            return
 
         def print_item(item):
             icon, text, color = item
             self.console.print(
-                 Text.assemble(
+                Text.assemble(
                     (f"{icon} ", f"{color}"),
                     (f"{text}", f"{color} dim" if color == "cyan" else f"{self.style.TEXT_DIM}")
-                 )
+                )
             )
 
         if total_items <= 15:
@@ -637,15 +623,15 @@ class HcodeToolDisplay:
             head = items[:10]
             tail = items[-5:]
             hidden = total_items - 15
-            
+
             for item in head:
                 print_item(item)
-                
+
             self.console.print(f"  ... {hidden} more items ...", style="italic dim")
-            
+
             for item in tail:
                 print_item(item)
-        
+
         self.console.print()
 
     # ─────────────────────────────────────────────────────────
@@ -665,7 +651,7 @@ class HcodeToolDisplay:
             output = result.output.strip() if result.output else ""
             matches = output.split("\n") if output else []
             matches = [m.strip() for m in matches if m.strip()]
-            
+
             # Header
             self.console.print()
             header = Text()
@@ -689,8 +675,6 @@ class HcodeToolDisplay:
                 f"[{self.style.TOOL_ERROR}]failed: {escape(str(result.error))}[/]"
             )
 
-
-
     # ─────────────────────────────────────────────────────────
     # LS TOOL DISPLAY
     # ─────────────────────────────────────────────────────────
@@ -706,7 +690,7 @@ class HcodeToolDisplay:
         if result.success:
             items = result.output.strip().split("\n") if result.output else []
             items = [i.strip() for i in items if i.strip()]
-            
+
             # Header
             self.console.print()
             header = Text()
@@ -715,7 +699,7 @@ class HcodeToolDisplay:
             self.console.print(header)
 
             display_items = []
-            
+
             for f in items:
                 # Basic heuristic for LS output (usually doesn't have trailing slash in simple list)
                 # But we can try to guess or just use Generic File
@@ -724,7 +708,7 @@ class HcodeToolDisplay:
                 is_dir = f.endswith("/") or f.endswith("\\")
                 icon = self.style.ICON_DIR_CIRCLE if is_dir else self.style.ICON_FILE_CIRCLE
                 color = "cyan" if is_dir else "white"
-                
+
                 display_items.append((icon, f, color))
 
             self._display_tree_lite_results(display_items, "Empty directory")
@@ -760,20 +744,14 @@ class HcodeToolDisplay:
                 f"[{self.style.TOOL_ERROR}]failed: {escape(str(result.error))}[/]"
             )
 
-
     # ─────────────────────────────────────────────────────────
     # SPINNER / PROGRESS DISPLAY
     # ─────────────────────────────────────────────────────────
 
 
-
-
 # ============================================================
 # STREAMING DISPLAY
 # ============================================================
-
-
-
 
 
 # ============================================================
@@ -796,12 +774,12 @@ class StatusLineDisplay:
         self._icons = Icons()
 
     def render(
-        self,
-        model: str = "",
-        tokens: int = 0,
-        cost: float = 0.0,
-        status: str = "ready",
-        cwd: str = "",
+            self,
+            model: str = "",
+            tokens: int = 0,
+            cost: float = 0.0,
+            status: str = "ready",
+            cwd: str = "",
     ) -> str:
         """Render status line string"""
         parts = []
@@ -846,7 +824,6 @@ class StatusLineDisplay:
 # ============================================================
 # SINGLETON INSTANCE
 # ============================================================
-
 
 
 status_line = StatusLineDisplay()

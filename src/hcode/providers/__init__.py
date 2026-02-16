@@ -3,8 +3,8 @@ AI Provider implementations for Hcode.
 Supports Anthropic Claude and OpenAI GPT models.
 """
 
-from hcode.providers.base import AIProvider, Message, Usage, CompletionResponse, ToolCall
 from hcode.providers.anthropic_provider import AnthropicProvider
+from hcode.providers.base import AIProvider, Message, Usage, CompletionResponse, ToolCall
 from hcode.providers.openai_provider import OpenAIProvider, LLMConnectionError
 from hcode.providers.provider_selector import ProviderSelector, ProviderPreferences, TaskComplexity, TaskType
 from hcode.providers.resilient_provider import (

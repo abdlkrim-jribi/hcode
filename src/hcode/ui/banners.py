@@ -1,14 +1,11 @@
-import time
-from typing import List, Optional
+from typing import List
 
 from rich.align import Align
-from rich.box import ROUNDED, DOUBLE
 from rich.console import Console, Group, RenderableType
-from rich.panel import Panel
 from rich.style import Style
 from rich.text import Text
 
-from hcode.ui.theme import get_palette, ColorUtils
+from hcode.ui.theme import get_palette
 
 # ═══════════════════════════════════════════════════════════════════════
 # MAIN LOGO VARIANTS
@@ -117,18 +114,9 @@ def create_gradient_text(text: str, colors: List[str]) -> Text:
     return result
 
 
-
-
-
-
-
-
 # ═══════════════════════════════════════════════════════════════════════
 # BANNER DISPLAY FUNCTIONS
 # ═══════════════════════════════════════════════════════════════════════
-
-
-
 
 
 def get_neon_green_gradient() -> List[str]:
@@ -161,10 +149,10 @@ def get_neon_green_gradient() -> List[str]:
 
 
 def create_banner(
-    style: str = "cyber",
-    show_version: bool = True,
-    show_tagline: bool = True,
-    version: str = "1.0.0",
+        style: str = "cyber",
+        show_version: bool = True,
+        show_tagline: bool = True,
+        version: str = "1.0.0",
 ) -> RenderableType:
     """Create a styled banner with logo and optional info, centered in the terminal."""
     palette = get_palette()
@@ -186,13 +174,13 @@ def create_banner(
 
     # Use NEON GREEN gradient for the HCODE logo
     gradient_colors = get_neon_green_gradient()
-    
+
     elements = []
-    
+
     # Main Logo (centered)
     logo_text = logo.strip("\n")
     gradient_logo = create_gradient_text(logo_text, gradient_colors)
-    
+
     elements.append(Align.center(gradient_logo))
 
     # Enhanced decorative line with glow effect
@@ -208,8 +196,8 @@ def create_banner(
             version_text.append(" │ ", style=palette.text_muted)
 
         if show_tagline:
-             version_text.append("AI-Powered Coding Agent", style=f"italic {palette.secondary}")
-             version_text.append(" │ ", style=palette.text_muted)
+            version_text.append("AI-Powered Coding Agent", style=f"italic {palette.secondary}")
+            version_text.append(" │ ", style=palette.text_muted)
 
         version_text.append("◉ ", style=f"bold #39FF14")
         version_text.append("ONLINE", style=f"bold #39FF14")
@@ -220,18 +208,9 @@ def create_banner(
     return Align.center(Group(*elements))
 
 
-
-
-
 # ═══════════════════════════════════════════════════════════════════════
 # SECTION HEADERS
 # ═══════════════════════════════════════════════════════════════════════
-
-
-
-
-
-
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -239,23 +218,9 @@ def create_banner(
 # ═══════════════════════════════════════════════════════════════════════
 
 
-
-
-
-
-
-
-
-
-
 # ═══════════════════════════════════════════════════════════════════════
 # STARTUP SEQUENCES
 # ═══════════════════════════════════════════════════════════════════════
-
-
-
-
-
 
 
 def display_welcome_help(console: Console) -> None:
@@ -264,9 +229,9 @@ def display_welcome_help(console: Console) -> None:
     from rich.padding import Padding
     from rich.table import Table
     from typing import List, Tuple
-    
+
     palette = get_palette()
-    
+
     # ─── Hero Header ──────────────────────────────────────────────────────────────
     # Centered, spaced out, gradient text
     console.print()
@@ -275,22 +240,22 @@ def display_welcome_help(console: Console) -> None:
     console.print()
 
     # ─── Help Helpers ─────────────────────────────────────────────────────────────
-    
+
     def create_gutter_block(title: str, color: str, items: List[Tuple[str, str]]) -> Table:
         """Create a block with a left gutter line."""
         # Main container is a grid with 2 columns: gutter line, content
         grid = Table.grid(padding=(0, 0))
-        grid.add_column(width=2) # The gutter line column
-        grid.add_column()        # The content column
-        
+        grid.add_column(width=2)  # The gutter line column
+        grid.add_column()  # The content column
+
         # Header (spans both or sits above? Sits in content col usually)
         # We'll put header in content col, first row
         grid.add_row(
-            " ", # Empty gutter for header 
+            " ",  # Empty gutter for header
             Text(title, style=f"bold {color}")
         )
-        grid.add_row(" ", Text("")) # Spacer
-        
+        grid.add_row(" ", Text(""))  # Spacer
+
         # Content rows
         for icon, text in items:
             # Create the content row with the gutter line
@@ -301,51 +266,50 @@ def display_welcome_help(console: Console) -> None:
             # Let's try Panel with box.MINIMAL and left border only styling? 
             # Rich Panels don't easily support single-side borders.
             # Stick to "│" character for now as items are short text.
-            
+
             row_content = Table.grid(padding=(0, 2))
-            row_content.add_column(width=headers_width if title == "COMMANDS" else 4) # Icon/Key width
-            row_content.add_column() # Text
-            
+            row_content.add_column(width=headers_width if title == "COMMANDS" else 4)  # Icon/Key width
+            row_content.add_column()  # Text
+
             row_content.add_row(icon, f"[{palette.text_secondary}]{text}[/]")
-            
+
             grid.add_row(
-                Text("│", style=f"bold {color}"), 
+                Text("│", style=f"bold {color}"),
                 Padding(row_content, (0, 0, 0, 1))
             )
-            
+
         return grid
 
     # ─── Content Data ─────────────────────────────────────────────────────────────
-    
+
     tips_data = [
         ("⚡", "Type naturally, Hcode understands context"),
         ("⚡", "Use /commands for special actions"),
         ("⚡", "Press Ctrl+C to interrupt, /exit to quit"),
         ("⚡", "Responses stream in real-time"),
     ]
-    
+
     shortcuts_data = [
         ("[bold #111111 on #00FFFF] Tab [/]", "Autocomplete"),
         ("[bold #111111 on #00FFFF] Ctrl+Space [/]", "Show Suggestions"),
         ("[bold #111111 on #00FFFF] ↑ / ↓ [/]", "History Nav"),
         ("[bold #111111 on #00FFFF] /todos [/]", "Toggle Tasks"),
     ]
-    
+
     # Calculate widths for alignment
-    headers_width = 16 # Approx width for keys
-    
+    headers_width = 16  # Approx width for keys
+
     # ─── Construction ─────────────────────────────────────────────────────────────
-    
+
     tips_block = create_gutter_block("TIPS", "#39FF14", tips_data)
     shortcuts_block = create_gutter_block("COMMANDS", "#00FFFF", shortcuts_data)
 
     # ─── Layout ───────────────────────────────────────────────────────────────────
     # Use Columns to place them side-by-side
-    
+
     columns = Columns([tips_block, shortcuts_block], expand=True, align="center")
     console.print(Padding(columns, (0, 4)))
     console.print()
-
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -364,7 +328,3 @@ def quick_banner() -> Text:
     text.append("AI Agent", style=f"italic {palette.text_secondary}")
 
     return text
-
-
-
-

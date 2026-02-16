@@ -7,10 +7,11 @@ import os
 from typing import List, AsyncIterator, Dict, Any, Optional
 
 from anthropic import AsyncAnthropic
-from hcode.providers.base import AIProvider, ToolCall
+from tenacity import retry, stop_after_attempt, wait_exponential
+
 from hcode.memory import Message
 from hcode.providers import CompletionResponse, Usage
-from tenacity import retry, stop_after_attempt, wait_exponential
+from hcode.providers.base import AIProvider, ToolCall
 
 
 class AnthropicProvider(AIProvider):
@@ -41,11 +42,11 @@ class AnthropicProvider(AIProvider):
     ]
 
     def __init__(
-        self,
-        api_key: Optional[str] = None,
-        model: str = "claude-3-5-sonnet-20241022",
-        max_tokens: int = 16384,  # Increased for complex reasoning outputs
-        temperature: float = 0.2,  # Lower for more deterministic/consistent results
+            self,
+            api_key: Optional[str] = None,
+            model: str = "claude-3-5-sonnet-20241022",
+            max_tokens: int = 16384,  # Increased for complex reasoning outputs
+            temperature: float = 0.2,  # Lower for more deterministic/consistent results
     ):
         """
         Initialize Anthropic provider.
@@ -118,7 +119,7 @@ class AnthropicProvider(AIProvider):
         # Parse content blocks - may include text and tool_use blocks
         text_content = ""
         tool_calls = []
-        
+
         for block in response.content:
             if block.type == "text":
                 text_content += block.text

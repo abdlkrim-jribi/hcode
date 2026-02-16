@@ -45,7 +45,6 @@ class TodoItem:
     # Creation timestamp
     created_at: datetime = field(default_factory=datetime.now)
 
-
     # Additional metadata
     metadata: Dict[str, Any] = field(default_factory=dict)
 
@@ -223,7 +222,7 @@ class TodoManager:
         total = len(self.todos)
         completed = sum(1 for t in self.todos if t.status == TodoStatus.COMPLETED)
         return total, completed
-    
+
     def has_pending(self) -> bool:
         """Check if there are pending or in-progress todos."""
         return any(t.status in [TodoStatus.PENDING, TodoStatus.IN_PROGRESS] for t in self.todos)

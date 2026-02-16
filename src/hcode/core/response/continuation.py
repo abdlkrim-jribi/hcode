@@ -8,11 +8,7 @@ Handles long outputs by automatically continuing generation when:
 Similar to Claude Code's seamless long-form generation.
 """
 
-from dataclasses import dataclass
-from enum import Enum
-from typing import Optional, List, Dict, Any
-
-
+from typing import Optional, Any
 
 
 class ContinuationManager:
@@ -26,12 +22,11 @@ class ContinuationManager:
     3. Merging responses seamlessly
     """
 
-
     def __init__(
-        self,
-        max_continuations: int = None,
-        max_total_tokens: int = None,
-        console: Optional[Any] = None,
+            self,
+            max_continuations: int = None,
+            max_total_tokens: int = None,
+            console: Optional[Any] = None,
     ):
         """
         Initialize ContinuationManager.
@@ -53,8 +48,6 @@ class ContinuationManager:
             max_total_tokens if max_total_tokens is not None else config.max_total_tokens
         )
         self.console = console
-
-
 
     def should_continue(self, finish_reason: str, response_text: str) -> bool:
         """
@@ -107,8 +100,6 @@ class ContinuationManager:
         return False
 
 
-
-
 class ContextWindowManager:
     """
     Manages context window to prevent exceeding limits.
@@ -120,10 +111,10 @@ class ContextWindowManager:
     """
 
     def __init__(
-        self,
-        max_context_tokens: int = 128000,
-        reserve_output_tokens: int = 4096,
-        summarization_threshold: float = 0.8,
+            self,
+            max_context_tokens: int = 128000,
+            reserve_output_tokens: int = 4096,
+            summarization_threshold: float = 0.8,
     ):
         """
         Initialize ContextWindowManager.
@@ -136,4 +127,3 @@ class ContextWindowManager:
         self.max_context_tokens = max_context_tokens
         self.reserve_output_tokens = reserve_output_tokens
         self.summarization_threshold = summarization_threshold
-

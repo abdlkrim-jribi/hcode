@@ -104,15 +104,15 @@ class OpenAIProvider(AIProvider):
     ]
 
     def __init__(
-        self,
-        api_key: Optional[str] = None,
-        model: str = "gpt-4-turbo-preview",
-        max_tokens: int = 16384,  # GPT-4o max output tokens
-        temperature: float = 0.2,  # Lower for more deterministic/consistent results
-        base_url: Optional[str] = None,
-        timeout: float = 120.0,
-        max_retries: int = 3,
-        verify_ssl: Optional[bool] = None,
+            self,
+            api_key: Optional[str] = None,
+            model: str = "gpt-4-turbo-preview",
+            max_tokens: int = 16384,  # GPT-4o max output tokens
+            temperature: float = 0.2,  # Lower for more deterministic/consistent results
+            base_url: Optional[str] = None,
+            timeout: float = 120.0,
+            max_retries: int = 3,
+            verify_ssl: Optional[bool] = None,
     ):
         """
         Initialize OpenAI provider.
@@ -182,7 +182,7 @@ class OpenAIProvider(AIProvider):
     def _convert_message(self, message: Message) -> Dict[str, Any]:
         """Convert a Message object to OpenAI API format."""
         data = {"role": message.role, "content": message.content}
-        
+
         # Handle tool calls conversion to OpenAI format
         if message.tool_calls:
             data["tool_calls"] = []
@@ -193,7 +193,7 @@ class OpenAIProvider(AIProvider):
                     args_str = json.dumps(tc.arguments)
                 else:
                     args_str = str(tc.arguments)
-                    
+
                 data["tool_calls"].append({
                     "id": tc.id,
                     "type": "function",
@@ -202,10 +202,10 @@ class OpenAIProvider(AIProvider):
                         "arguments": args_str
                     }
                 })
-                
+
         if message.tool_call_id:
             data["tool_call_id"] = message.tool_call_id
-            
+
         return data
 
     @retry(
@@ -214,12 +214,12 @@ class OpenAIProvider(AIProvider):
         retry=retry_if_exception_type((APIConnectionError, APITimeoutError, RateLimitError)),
     )
     async def generate_completion(
-        self,
-        messages: List[Message],
-        stream: bool = False,
-        functions: Optional[List[Dict[str, Any]]] = None,
-        system_prompt: Optional[str] = None,
-        **kwargs,
+            self,
+            messages: List[Message],
+            stream: bool = False,
+            functions: Optional[List[Dict[str, Any]]] = None,
+            system_prompt: Optional[str] = None,
+            **kwargs,
     ) -> CompletionResponse | AsyncIterator[str]:
         """
         Generate completion using OpenAI API.
@@ -316,8 +316,8 @@ class OpenAIProvider(AIProvider):
             # Catch any other connection-related errors
             error_str = str(e).lower()
             if any(
-                kw in error_str
-                for kw in ["connect", "timeout", "network", "refused", "unreachable"]
+                    kw in error_str
+                    for kw in ["connect", "timeout", "network", "refused", "unreachable"]
             ):
                 error_msg = f"Connection error to LLM API"
                 if self.base_url:
@@ -389,15 +389,15 @@ class OpenAIProvider(AIProvider):
 
         # Check for connection-related keywords in generic exceptions
         elif any(
-            kw in error_str
-            for kw in [
-                "connect",
-                "timeout",
-                "network",
-                "refused",
-                "unreachable",
-                "connection error",
-            ]
+                kw in error_str
+                for kw in [
+                    "connect",
+                    "timeout",
+                    "network",
+                    "refused",
+                    "unreachable",
+                    "connection error",
+                ]
         ):
             error_msg = f"Connection error to LLM API"
             if self.base_url:
@@ -424,11 +424,11 @@ class OpenAIProvider(AIProvider):
                 # Fallback calculation if usage is missing (e.g. some OSS providers)
                 content = response.choices[0].message.content or ""
                 output_tokens = self.count_tokens(content)
-                
+
                 # Estimate input tokens from messages
                 input_text = " ".join([str(msg.get("content", "")) for msg in params.get("messages", [])])
                 input_tokens = self.count_tokens(input_text)
-                
+
                 usage = Usage(
                     input_tokens=input_tokens,
                     output_tokens=output_tokens,
@@ -436,7 +436,7 @@ class OpenAIProvider(AIProvider):
                 )
 
             content = response.choices[0].message.content or ""
-            
+
             # Parse native function calls into ToolCall objects
             parsed_tool_calls = []
             if response.choices[0].message.tool_calls:
@@ -450,7 +450,7 @@ class OpenAIProvider(AIProvider):
                             except json.JSONDecodeError:
                                 # If JSON parsing fails, store as raw string
                                 args = {"_raw": tc.function.arguments}
-                        
+
                         parsed_tool_calls.append(ToolCall(
                             id=tc.id,
                             name=tc.function.name,
@@ -543,8 +543,6 @@ class OpenAIProvider(AIProvider):
             return True
 
         return False
-
-
 
     def get_system_prompt_for_coding(self) -> str:
         """Get optimized system prompt for coding tasks from external config"""

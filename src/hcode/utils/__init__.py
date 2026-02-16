@@ -15,16 +15,21 @@ try:
 except ImportError:
     # Fallbacks for missing symbols – they are not required for the test suite
     from .config import load_config
+
+
     def save_config(*args, **kwargs):
         """Placeholder no‑op for missing save_config."""
         return None
+
+
     def create_default_config(*args, **kwargs):
         """Placeholder no‑op for missing create_default_config."""
         return None
+
+
     def get_model_for_size(*args, **kwargs):
         """Placeholder no‑op for missing get_model_for_size."""
         return None
-
 
 # Export formatting symbols
 # Export formatting symbols

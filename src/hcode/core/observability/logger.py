@@ -98,11 +98,11 @@ class InteractionLogger:
     _lock = threading.Lock()
 
     def __init__(
-        self,
-        log_dir: Optional[str] = None,
-        max_file_size_mb: int = 50,
-        max_files: int = 10,
-        compress_old: bool = True,
+            self,
+            log_dir: Optional[str] = None,
+            max_file_size_mb: int = 50,
+            max_files: int = 10,
+            compress_old: bool = True,
     ):
         """
         Initialize the interaction logger.
@@ -137,12 +137,12 @@ class InteractionLogger:
             return cls._instance
 
     def start_session(
-        self,
-        task: str,
-        provider: str = "",
-        model: str = "",
-        session_id: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+            self,
+            task: str,
+            provider: str = "",
+            model: str = "",
+            session_id: Optional[str] = None,
+            metadata: Optional[Dict[str, Any]] = None,
     ) -> str:
         """
         Start a new logging session.
@@ -160,8 +160,8 @@ class InteractionLogger:
         import uuid
 
         sid = (
-            session_id
-            or f"session_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}"
+                session_id
+                or f"session_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}"
         )
 
         self.current_session = SessionLog(
@@ -191,17 +191,17 @@ class InteractionLogger:
         return sid
 
     def log_interaction(
-        self,
-        iteration: int,
-        request_messages: List[Dict[str, Any]],
-        response_text: str,
-        finish_reason: str,
-        tool_calls_detected: int = 0,
-        continuation_needed: bool = False,
-        pending_work_detected: bool = False,
-        tokens_used: Optional[Dict[str, int]] = None,
-        duration_ms: float = 0.0,
-        metadata: Optional[Dict[str, Any]] = None,
+            self,
+            iteration: int,
+            request_messages: List[Dict[str, Any]],
+            response_text: str,
+            finish_reason: str,
+            tool_calls_detected: int = 0,
+            continuation_needed: bool = False,
+            pending_work_detected: bool = False,
+            tokens_used: Optional[Dict[str, int]] = None,
+            duration_ms: float = 0.0,
+            metadata: Optional[Dict[str, Any]] = None,
     ) -> ModelInteractionLog:
         """
         Log a model interaction.
@@ -269,15 +269,16 @@ class InteractionLogger:
                 "context": context or {},
             }
         )
+
     def log_tool_call(
-        self,
-        tool_name: str,
-        arguments: Dict[str, Any],
-        success: bool,
-        output: str,
-        error: Optional[str] = None,
-        duration_ms: float = 0.0,
-        metadata: Optional[Dict[str, Any]] = None,
+            self,
+            tool_name: str,
+            arguments: Dict[str, Any],
+            success: bool,
+            output: str,
+            error: Optional[str] = None,
+            duration_ms: float = 0.0,
+            metadata: Optional[Dict[str, Any]] = None,
     ) -> ToolCallLog:
         """
         Log a tool call with full output.
@@ -335,12 +336,11 @@ class InteractionLogger:
             }
         )
 
-
     def end_session(
-        self,
-        final_result: str = "",
-        errors: Optional[List[str]] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+            self,
+            final_result: str = "",
+            errors: Optional[List[str]] = None,
+            metadata: Optional[Dict[str, Any]] = None,
     ):
         """
         End the current logging session.
@@ -413,14 +413,8 @@ class InteractionLogger:
         )
 
         if len(log_files) > self.max_files:
-            for old_file in log_files[self.max_files :]:
+            for old_file in log_files[self.max_files:]:
                 old_file.unlink()
-
-
-
-
-
-
 
 
 # Global logger instance access
@@ -452,6 +446,7 @@ def log_error(error: str, context: Optional[Dict[str, Any]] = None):
 def log_debug(message: str, context: Optional[Dict[str, Any]] = None):
     """Log a debug message"""
     get_logger().log_debug(message, context)
+
 
 def end_logging(**kwargs):
     """End the current logging session"""

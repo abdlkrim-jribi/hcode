@@ -6,18 +6,15 @@ Specialized panels for different content types.
 import os
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Optional, List, Dict, Any, Tuple
+from typing import Optional, List
 
 from rich.align import Align
-from rich.box import ROUNDED, SIMPLE
+from rich.box import ROUNDED
 from rich.console import Group, RenderableType
 from rich.markdown import Markdown
 from rich.padding import Padding
 from rich.panel import Panel
-from rich.rule import Rule
-from rich.table import Table
 from rich.text import Text
-from rich.tree import Tree
 
 from hcode.ui.icons import Icons
 from hcode.ui.theme import get_palette
@@ -32,10 +29,10 @@ class WelcomePanel:
     """Welcome panel with system info and status."""
 
     def __init__(
-        self,
-        model: str = "claude-sonnet-4-20250514",
-        provider: str = "Anthropic",
-        version: str = "1.0.0",
+            self,
+            model: str = "claude-sonnet-4-20250514",
+            provider: str = "Anthropic",
+            version: str = "1.0.0",
     ):
         self.model = model
         self.provider = provider
@@ -118,10 +115,10 @@ class AIMessagePanel:
     """Panel for AI responses."""
 
     def __init__(
-        self,
-        content: str,
-        thinking: Optional[str] = None,
-        timestamp: Optional[datetime] = None,
+            self,
+            content: str,
+            thinking: Optional[str] = None,
+            timestamp: Optional[datetime] = None,
     ):
         self.content = content
         self.thinking = thinking
@@ -168,12 +165,12 @@ class ToolPanel:
     """Panel for tool execution display."""
 
     def __init__(
-        self,
-        tool_name: str,
-        tool_input: str,
-        tool_output: Optional[str] = None,
-        status: str = "running",  # running, success, error
-        duration: Optional[float] = None,
+            self,
+            tool_name: str,
+            tool_input: str,
+            tool_output: Optional[str] = None,
+            status: str = "running",  # running, success, error
+            duration: Optional[float] = None,
     ):
         self.tool_name = tool_name
         self.tool_input = tool_input
@@ -241,10 +238,10 @@ class ErrorPanel:
     """Panel for error messages."""
 
     def __init__(
-        self,
-        message: str,
-        details: Optional[str] = None,
-        error_type: str = "Error",
+            self,
+            message: str,
+            details: Optional[str] = None,
+            error_type: str = "Error",
     ):
         self.message = message
         self.details = details
@@ -315,10 +312,10 @@ class InfoPanel:
     """Panel for informational messages."""
 
     def __init__(
-        self,
-        title: str,
-        content: RenderableType,
-        icon: str = "ℹ",
+            self,
+            title: str,
+            content: RenderableType,
+            icon: str = "ℹ",
     ):
         self.title = title
         self.content = content
@@ -338,14 +335,6 @@ class InfoPanel:
             border_style=palette.info,
             padding=(0, 2),
         )
-
-
-
-
-
-
-
-
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -373,7 +362,6 @@ class DiffDisplay:
     - Context lines around changes
     - Statistics summary (lines added/removed)
     """
-
 
     @staticmethod
     def compute_diff(old_content: str, new_content: str, context_lines: int = 3) -> List[DiffLine]:
@@ -424,12 +412,12 @@ class DiffDisplay:
 
     @staticmethod
     def render(
-        filename: str,
-        old_content: str,
-        new_content: str,
-        context_lines: int = 3,
-        show_stats: bool = True,
-        language: str = None,
+            filename: str,
+            old_content: str,
+            new_content: str,
+            context_lines: int = 3,
+            show_stats: bool = True,
+            language: str = None,
     ) -> Panel:
         """Render a Claude Code-style diff panel."""
         palette = get_palette()
@@ -546,4 +534,3 @@ class DiffDisplay:
             box=ROUNDED,
             padding=(0, 1),
         )
-

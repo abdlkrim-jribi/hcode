@@ -23,9 +23,8 @@ import json
 import logging
 import os
 import re
-import time
 from pathlib import Path
-from typing import List, Any, Dict, Optional, Tuple
+from typing import List, Any, Dict, Optional
 
 from .base_handler import BasePhaseHandler
 from ..protocols import AgentContext, PhaseResult
@@ -98,8 +97,6 @@ class ExecutionPhaseHandler(BasePhaseHandler):
     # ═══════════════════════════════════════════════════════════════════════
     # HELPER METHODS (Caching, Validation, Retry Logic)
     # ═══════════════════════════════════════════════════════════════════════
-
-
 
     # ═══════════════════════════════════════════════════════════════════════
     # MAIN HANDLER
@@ -480,12 +477,9 @@ class ExecutionPhaseHandler(BasePhaseHandler):
 
         return tool_calls
 
-
     # ═══════════════════════════════════════════════════════════════════════
     # EXECUTION WRITE GATE (Security Boundary)
     # ═══════════════════════════════════════════════════════════════════════
-
-
 
     async def _execute_tools(
             self,
@@ -609,10 +603,10 @@ Artifacts directory: .hcode
             # This is just a helper, actual loading done in _get_execution_system_prompt
             pass
         except:
-             pass
+            pass
 
         try:
-             # Basic file read attempt if module import fails
+            # Basic file read attempt if module import fails
             prompt_dir = (
                     Path(__file__).parent.parent.parent
                     / "config" / "core_prompts" / "core" / "pev_prompts"
@@ -1005,8 +999,8 @@ BEGIN Phase 0:
                 non_artifact_reads = [
                     p for p in sorted(self._files_read_this_session)
                     if '.hcode' not in p
-                    and 'task.md' not in p
-                    and 'implementation_plan.md' not in p
+                       and 'task.md' not in p
+                       and 'implementation_plan.md' not in p
                 ]
                 if non_artifact_reads:
                     read_list = "\n".join(f"  - {p}" for p in non_artifact_reads[:15])
@@ -1631,7 +1625,6 @@ BEGIN Phase 0:
 
         return step
 
-
     def _check_step_completion(
             self,
             step: Dict[str, Any],
@@ -1662,7 +1655,6 @@ BEGIN Phase 0:
                 return step
 
         return None
-
 
     def _get_plan_progress_summary(
             self, context: AgentContext, plan_content: str

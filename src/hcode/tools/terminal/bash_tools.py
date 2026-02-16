@@ -38,7 +38,7 @@ class BashShellManager:
         self.shells: Dict[str, BackgroundShell] = {}
 
     def create_shell(
-        self, shell_id: str, process: asyncio.subprocess.Process, command: str
+            self, shell_id: str, process: asyncio.subprocess.Process, command: str
     ) -> BackgroundShell:
         """Create and register a new background shell"""
         shell = BackgroundShell(
@@ -55,7 +55,6 @@ class BashShellManager:
     def get_shell(self, shell_id: str) -> Optional[BackgroundShell]:
         """Get a shell by ID"""
         return self.shells.get(shell_id)
-
 
     def remove_shell(self, shell_id: str) -> bool:
         """Remove a shell from registry"""
@@ -122,7 +121,7 @@ class BashTool(BaseTool):
         """Validate parameters allowing for strict aliases"""
         # Check required: CommandLine (or command)
         if "CommandLine" not in kwargs and "command" not in kwargs:
-             return False, "Missing required parameter: CommandLine (or command)"
+            return False, "Missing required parameter: CommandLine (or command)"
         return True, None
 
     def _translate_command(self, command: str) -> str:
@@ -130,19 +129,19 @@ class BashTool(BaseTool):
         import sys
         if sys.platform != "win32" or not command:
             return command
-            
+
         # Simple tokenization
         parts = command.strip().split()
         if not parts:
             return command
-            
+
         base_cmd = parts[0]
         args = " ".join(parts[1:])
-        
+
         # Helper to replace forward slashes with backslashes in args
         def fix_paths(s):
             return s.replace("/", "\\")
-            
+
         # Command mappings
         if base_cmd == "ls":
             # Handle common flags roughly
@@ -151,32 +150,32 @@ class BashTool(BaseTool):
             elif "-la" in args or "-al" in args:
                 return f"dir /a {args.replace('-la', '').replace('-al', '')}"
             return f"dir {args}"
-            
+
         elif base_cmd == "cp":
             return f"copy {fix_paths(args)}"
-            
+
         elif base_cmd == "mv":
             return f"move {fix_paths(args)}"
-            
+
         elif base_cmd == "rm":
             # rm -rf -> rmdir /s /q for dirs, or del for files
             # This is tricky because rm works on both. 
             # safe bet: del for files. rmdir for dirs requires knowing it's a dir.
             # For now, map simple rm to del
             if "-rf" in args:
-                 return f"rmdir /s /q {fix_paths(args).replace('-rf', '')}"
+                return f"rmdir /s /q {fix_paths(args).replace('-rf', '')}"
             return f"del {fix_paths(args)}"
-            
+
         elif base_cmd == "cat":
             return f"type {fix_paths(args)}"
-            
+
         elif base_cmd == "grep":
             return f"findstr {args}"
-            
+
         elif base_cmd == "touch":
             if args:
                 return f"type nul >> {fix_paths(args)}"
-                
+
         return command
 
     async def execute(self, command: str = None, CommandLine: str = None, **kwargs) -> ToolResult:
@@ -200,7 +199,7 @@ class BashTool(BaseTool):
 
         # If translation changed the command, notify in description/metadata
         if command != raw_command and description == raw_command[:50]:
-             description = f"{raw_command} (translated to {command})"
+            description = f"{raw_command} (translated to {command})"
 
         # Validate timeout - let agent decide, just enforce reasonable bounds
         max_timeout = 600000 / 1000  # 10 minutes max to prevent runaway processes
@@ -216,13 +215,13 @@ class BashTool(BaseTool):
         try:
             from hcode.ui.confirmation_display import get_confirmation_display
             confirmation = get_confirmation_display()
-            
+
             approved = confirmation.show_command_confirmation(
                 command=command,
                 description=description,
                 working_dir=str(self.root_dir)
             )
-            
+
             if not approved:
                 return ToolResult(
                     success=False,
@@ -247,7 +246,7 @@ class BashTool(BaseTool):
             return ToolResult(success=False, output="", error=f"Command execution failed: {str(e)}")
 
     async def _execute_foreground(
-        self, command: str, timeout: float, description: str
+            self, command: str, timeout: float, description: str
     ) -> ToolResult:
         """Execute command in foreground with timeout"""
 
@@ -554,8 +553,8 @@ class BashOutputTool(BaseTool):
             return ToolResult(success=False, output="", error=f"Shell not found: {bash_id}")
 
         # Get new output since last read
-        new_stdout = shell.output_buffer[shell.last_read_position :]
-        new_stderr = shell.error_buffer[shell.last_read_position :]
+        new_stdout = shell.output_buffer[shell.last_read_position:]
+        new_stderr = shell.error_buffer[shell.last_read_position:]
 
         # Update read position
         shell.last_read_position = len(shell.output_buffer)
@@ -690,9 +689,8 @@ class LSTool(BaseTool):
         """Validate parameters allowing for strict aliases"""
         # Check required: DirectoryPath (or path)
         if "DirectoryPath" not in kwargs and "path" not in kwargs:
-             return False, "Missing required parameter: DirectoryPath"
+            return False, "Missing required parameter: DirectoryPath"
         return True, None
-
 
     async def execute(self, path: str = None, DirectoryPath: str = None, **kwargs) -> ToolResult:
         """List directory contents"""
@@ -766,8 +764,6 @@ class LSTool(BaseTool):
             output_lines.append(f"Total: {len(entries)} items")
 
             output_text = "\n".join(output_lines)
-
-
 
             return ToolResult(
                 success=True,

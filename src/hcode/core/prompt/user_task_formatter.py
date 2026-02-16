@@ -6,6 +6,7 @@ and proper structure for the LLM.
 """
 
 from typing import Optional
+
 from hcode.config.core_prompts.core import CorePromptLoader
 
 
@@ -31,7 +32,7 @@ class UserTaskFormatter:
     def OUTPUT_FORMAT(self) -> str:
         """Get the output format instructions from config."""
         return self._loader.get_output_format("default")
-    
+
     def format(self, task: str, context: Optional[str] = None) -> str:
         """
         Format a user task for the LLM.
@@ -44,13 +45,11 @@ class UserTaskFormatter:
             Formatted task string
         """
         formatted = f"<user_task>\n{task}\n</user_task>"
-        
+
         if context:
             formatted = f"<context>\n{context}\n</context>\n\n{formatted}"
-        
+
         if self.include_output_format:
             formatted = formatted + "\n\n" + self.OUTPUT_FORMAT
-        
-        return formatted
-    
 
+        return formatted

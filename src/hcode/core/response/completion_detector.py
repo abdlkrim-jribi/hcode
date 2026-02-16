@@ -24,7 +24,7 @@ class TaskCompletionDetector:
     - Action count thresholds
     - Response structure analysis
     """
-    
+
     # Strong completion indicators - signal task is done
     COMPLETION_PHRASES = [
         "task completed",
@@ -42,7 +42,7 @@ class TaskCompletionDetector:
         "nothing more to do",
         "no further action",
     ]
-    
+
     # Weaker phrases that might appear mid-task
     WEAK_COMPLETION_PHRASES = [
         "let me know if you need",
@@ -61,7 +61,7 @@ class TaskCompletionDetector:
         "that's it",
         "everything is",
     ]
-    
+
     # Indicators that suggest task is continuing
     CONTINUING_INDICATORS = [
         "next",
@@ -76,7 +76,7 @@ class TaskCompletionDetector:
         "error",
         "issue",
     ]
-    
+
     # Thinking block patterns to strip
     THINKING_PATTERNS = [
         r"<thinking>[\s\S]*?(?:</thinking>|$)",
@@ -88,7 +88,7 @@ class TaskCompletionDetector:
         r"\[RISK\][\s\S]*?(?=\[(?:UNDERSTAND|CONTEXT|OPTIONS|DECISION|ASSUMPTIONS)\]|$)",
         r"\[ASSUMPTIONS\][\s\S]*?(?=\[(?:UNDERSTAND|CONTEXT|OPTIONS|DECISION|RISK)\]|$)",
     ]
-    
+
     # Action completion indicators for imperative tasks
     ACTION_COMPLETION_INDICATORS = [
         "i have created", "i created", "file was created", "file has been created",
@@ -99,7 +99,7 @@ class TaskCompletionDetector:
         "confirmed", "matches", "correct", "i have listed", "directory contains",
         "files found", "here are the files",
     ]
-    
+
     # Answer indicators for Q&A style responses
     ANSWER_INDICATORS = [
         "here is a summary", "here is an overview", "here is the",
@@ -109,20 +109,20 @@ class TaskCompletionDetector:
         "it contains the following", "the following", "consists of",
         "is organized as", "includes:",
     ]
-    
+
     # Summary keywords for pending summary tasks
     SUMMARY_KEYWORDS = [
         "summarize", "summarise", "summary", "compile", "overview",
         "describe", "provide", "write", "generate", "create",
     ]
-    
+
     def __init__(
-        self, 
-        todo_manager: TodoManager, 
-        console=None,
-        debug_mode: bool = False,
-        min_actions_for_completion: int = 3,
-        min_iterations_for_phrase: int = 5,
+            self,
+            todo_manager: TodoManager,
+            console=None,
+            debug_mode: bool = False,
+            min_actions_for_completion: int = 3,
+            min_iterations_for_phrase: int = 5,
     ):
         """
         Initialize the completion detector.
@@ -139,12 +139,12 @@ class TaskCompletionDetector:
         self.debug_mode = debug_mode
         self.min_actions_for_completion = min_actions_for_completion
         self.min_iterations_for_phrase = min_iterations_for_phrase
-    
+
     def is_complete(
-        self,
-        response_text: str,
-        completed_actions: List[Dict[str, Any]],
-        iteration: int,
+            self,
+            response_text: str,
+            completed_actions: List[Dict[str, Any]],
+            iteration: int,
     ) -> CompletionState:
         """
         Check if the task has been completed.
@@ -160,7 +160,7 @@ class TaskCompletionDetector:
         response_lower = response_text.lower()
         response_stripped = response_text.strip()
         action_count = len(completed_actions) if completed_actions else 0
-        
+
         # Get todo state
         todos_state = self.todo_manager.get_completion_state()
         has_todos = todos_state["total"] > 0
@@ -168,10 +168,10 @@ class TaskCompletionDetector:
             todos_state["completed"] == todos_state["total"] if has_todos else True
         )
         has_pending_todos = has_todos and not all_todos_completed
-        
+
         # Check substantive content
         has_substantive = self.has_substantive_answer(response_text)
-        
+
         # === STRICT: If pending todos, require substantive content ===
         if has_pending_todos and not has_substantive:
             pending_is_summary = self._check_pending_is_summary()
@@ -185,7 +185,7 @@ class TaskCompletionDetector:
                 reason=reason,
                 has_pending_work=True,
             )
-        
+
         # Extra check for summary tasks
         if has_pending_todos and has_substantive:
             pending_is_summary = self._check_pending_is_summary()
@@ -197,7 +197,7 @@ class TaskCompletionDetector:
                     reason=reason,
                     has_pending_work=True,
                 )
-        
+
         # === Strong completion phrases ===
         if action_count >= self.min_actions_for_completion:
             if any(phrase in response_lower for phrase in self.COMPLETION_PHRASES):
@@ -208,11 +208,11 @@ class TaskCompletionDetector:
                     )
                 else:
                     self._debug_print("[?] Completion phrase found but no substantive answer")
-        
+
         # === Weak completion phrases ===
         if (
-            iteration >= self.min_iterations_for_phrase
-            and action_count >= self.min_actions_for_completion
+                iteration >= self.min_iterations_for_phrase
+                and action_count >= self.min_actions_for_completion
         ):
             if any(phrase in response_lower for phrase in self.WEAK_COMPLETION_PHRASES):
                 if not self._looks_like_tool_call(response_text) and has_substantive:
@@ -220,14 +220,14 @@ class TaskCompletionDetector:
                         is_complete=True,
                         reason="Weak completion phrase with substantive content",
                     )
-        
+
         # === All todos completed ===
         if all_todos_completed and has_todos:
             return CompletionState(
                 is_complete=True,
                 reason="All todos marked as completed",
             )
-        
+
         # === Many actions with conclusion indicators ===
         if action_count >= 5:
             conclusion_indicators = [
@@ -241,7 +241,7 @@ class TaskCompletionDetector:
                     is_complete=True,
                     reason="Multiple conclusion indicators with substantive content",
                 )
-        
+
         # === Long response without tool calls ===
         if len(response_stripped) > 500 and not self._looks_like_tool_call(response_text):
             explicit_completion = any(
@@ -256,7 +256,7 @@ class TaskCompletionDetector:
                     is_complete=True,
                     reason="Long response with explicit completion",
                 )
-        
+
         # === Safety: Many iterations without continuing indicators ===
         if iteration > 8 and action_count > 5:
             has_continuing = any(ind in response_lower for ind in self.CONTINUING_INDICATORS)
@@ -265,13 +265,13 @@ class TaskCompletionDetector:
                     is_complete=True,
                     reason="Many iterations without continuation indicators",
                 )
-        
+
         return CompletionState(
             is_complete=False,
             reason="No completion criteria met",
             has_pending_work=self.has_pending_work(response_text),
         )
-    
+
     def has_pending_work(self, response_text: str) -> bool:
         """
         Check if there's pending work that model should continue.
@@ -286,9 +286,9 @@ class TaskCompletionDetector:
         if self.todo_manager.has_pending():
             if not self.has_substantive_answer(response_text):
                 return True
-        
+
         response_stripped = response_text.strip()
-        
+
         # Check for JSON fragments or incomplete tool calls
         json_fragment_patterns = [
             r"^\s*\{[^}]*$",  # Opening brace without closing
@@ -298,7 +298,7 @@ class TaskCompletionDetector:
         for pattern in json_fragment_patterns:
             if re.match(pattern, response_stripped, re.DOTALL):
                 return True
-        
+
         # Check for continuing work indicators
         response_lower = response_stripped.lower()
         for indicator in self.CONTINUING_INDICATORS:
@@ -306,9 +306,9 @@ class TaskCompletionDetector:
                 # Check it's not negated
                 if f"don't {indicator}" not in response_lower and f"no {indicator}" not in response_lower:
                     return True
-        
+
         return False
-    
+
     def has_substantive_answer(self, response_text: str) -> bool:
         """
         Check if response contains actual answer to user's question.
@@ -328,37 +328,37 @@ class TaskCompletionDetector:
         clean_text = self._strip_metadata(response_text)
         response_stripped = clean_text.strip()
         response_lower = response_stripped.lower()
-        
+
         # === Imperative task completion check ===
         has_action_completion = any(
             ind in response_lower for ind in self.ACTION_COMPLETION_INDICATORS
         )
         if has_action_completion and len(response_stripped) >= 5:
             return True
-        
+
         # === Question detection ===
         if response_stripped.endswith("?") and len(response_stripped) >= 20:
             return True
-        
+
         # === Q&A answer detection ===
         if len(response_stripped) < 100:
             return False
-        
+
         # Code blocks are substantive
         if "```" in response_stripped and response_stripped.count("```") >= 2:
             return True
-        
+
         # Check for answer indicators
         has_answer_indicator = any(
             ind in response_lower for ind in self.ANSWER_INDICATORS
         )
         if not has_answer_indicator:
             return False
-        
+
         # Check for prose structure
         sentence_count = len(re.findall(r"[.!?]\s+[A-Z]", response_stripped))
         return sentence_count >= 2
-    
+
     def is_response_truncated(self, response_text: str, finish_reason: str) -> bool:
         """
         Check if response was truncated (model cut off mid-response).
@@ -373,9 +373,9 @@ class TaskCompletionDetector:
         # Explicit truncation from API
         if finish_reason == "length":
             return True
-        
+
         response_stripped = response_text.strip()
-        
+
         # Check for truncation indicators
         truncation_indicators = [
             response_stripped.endswith("{"),
@@ -385,17 +385,17 @@ class TaskCompletionDetector:
             # Incomplete code block
             response_stripped.count("```") % 2 == 1,
         ]
-        
+
         return any(truncation_indicators)
-    
+
     def _strip_metadata(self, text: str) -> str:
         """Strip thinking blocks and JSON metadata from text."""
         clean = text
-        
+
         # Strip thinking blocks
         for pattern in self.THINKING_PATTERNS:
             clean = re.sub(pattern, "", clean, flags=re.IGNORECASE | re.DOTALL)
-        
+
         # Strip JSON blocks
         json_patterns = [
             r'\{[^{}]*"tool"[^{}]*\}',
@@ -405,18 +405,18 @@ class TaskCompletionDetector:
         ]
         for pattern in json_patterns:
             clean = re.sub(pattern, "", clean, flags=re.DOTALL)
-        
+
         # Strip status lines
         clean = re.sub(r"\*\s*GOAL:.*", "", clean)
         clean = re.sub(r"\[OK\].*", "", clean)
         clean = re.sub(r"\[!\].*", "", clean)
         clean = re.sub(r"\[CHALLENGE\].*", "", clean)
-        
+
         # Clean whitespace
         clean = re.sub(r"\n\s*\n\s*\n+", "\n\n", clean)
-        
+
         return clean
-    
+
     def _check_pending_is_summary(self) -> bool:
         """Check if any pending todo is a summary-type task."""
         try:
@@ -427,18 +427,18 @@ class TaskCompletionDetector:
         except Exception:
             pass
         return False
-    
+
     def _has_summary_structure(self, text: str) -> bool:
         """Check if response has summary-like structure."""
         clean = self._strip_metadata(text).strip()
         return (
-            "## " in clean
-            or "### " in clean
-            or "summary" in clean.lower()
-            or "overview" in clean.lower()
-            or (clean.count("\n") > 10 and len(clean) > 500)
+                "## " in clean
+                or "### " in clean
+                or "summary" in clean.lower()
+                or "overview" in clean.lower()
+                or (clean.count("\n") > 10 and len(clean) > 500)
         )
-    
+
     def _looks_like_tool_call(self, text: str) -> bool:
         """Check if text looks like it contains a tool call."""
         tool_patterns = [
@@ -448,7 +448,7 @@ class TaskCompletionDetector:
             r'"command"\s*:\s*"',
         ]
         return any(re.search(p, text) for p in tool_patterns)
-    
+
     def _debug_print(self, message: str) -> None:
         """Print debug message if console available."""
         if self.console and self.debug_mode:

@@ -3,7 +3,7 @@ from .analytics import (
     ConversationEvent,
     TimeSeriesBuffer,
     ToolAnalytics,
-    ExecutionAnalytics, 
+    ExecutionAnalytics,
     CostAnalytics,
     get_analytics,
 )

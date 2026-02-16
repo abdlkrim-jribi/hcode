@@ -3,14 +3,12 @@ SafetyGuard for Hcode.
 Provides backup, rollback, and safety checks for file operations.
 """
 
-import hashlib
 import json
 import os
-import shutil
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 
 
 class SafetyGuard:
@@ -71,7 +69,6 @@ class SafetyGuard:
         self._save_history()
         return transaction_id
 
-
     def commit_transaction(self) -> bool:
         """
         Commit the current transaction.
@@ -105,7 +102,6 @@ class SafetyGuard:
 
         transaction = self.transaction_history[tx_id]
 
-
         # Delete created files
         for file_path in transaction["files_created"]:
             path = Path(file_path)
@@ -122,4 +118,3 @@ class SafetyGuard:
             self.current_transaction = None
 
         return True
-

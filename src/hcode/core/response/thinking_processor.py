@@ -170,23 +170,23 @@ class ThinkingBlockProcessor:
     def _build_display_content(self, block: StructuredReasoning) -> str:
         """Build structured markdown content for display."""
         sections = []
-        
+
         # Safe icon getter
         try:
-             from hcode.ui.icons import Icons
-             search_icon = Icons.SEARCH
-             brain_icon = Icons.BRAIN
-             flash_icon = Icons.LIGHTNING
-             gear_icon = Icons.GEAR
-             idea_icon = Icons.STAR
-             shield_icon = Icons.CHECK
+            from hcode.ui.icons import Icons
+            search_icon = Icons.SEARCH
+            brain_icon = Icons.BRAIN
+            flash_icon = Icons.LIGHTNING
+            gear_icon = Icons.GEAR
+            idea_icon = Icons.STAR
+            shield_icon = Icons.CHECK
         except ImportError:
-             search_icon = "SEARCH"
-             brain_icon = "BRAIN"
-             flash_icon = "ANALYSIS"
-             gear_icon = "REASONING"
-             idea_icon = "DECISION"
-             shield_icon = "VERIFY"
+            search_icon = "SEARCH"
+            brain_icon = "BRAIN"
+            flash_icon = "ANALYSIS"
+            gear_icon = "REASONING"
+            idea_icon = "DECISION"
+            shield_icon = "VERIFY"
 
         # 1. Perception
         if block.perception.is_complete():
@@ -227,11 +227,11 @@ class ThinkingBlockProcessor:
             if block.reasoning.hypothesis:
                 sections.append(f"**Hypothesis:** {block.reasoning.hypothesis}")
             if block.reasoning.logical_chain:
-                 pass
+                pass
             if block.reasoning.evidence_for:
-                 sections.append("**Supporting Evidence:**")
-                 for ev in block.reasoning.evidence_for:
-                     sections.append(f"- {ev}")
+                sections.append("**Supporting Evidence:**")
+                for ev in block.reasoning.evidence_for:
+                    sections.append(f"- {ev}")
 
         # 5. Decision
         if block.decision.is_complete():
@@ -258,7 +258,7 @@ class ThinkingBlockProcessor:
         if not sections and block.raw_content:
             sections.append(block.raw_content.strip())
         elif len(sections) == 0:
-             sections.append("_Processing..._")
+            sections.append("_Processing..._")
 
         self._determine_primary_phase(block)
         return "\n\n".join(sections)

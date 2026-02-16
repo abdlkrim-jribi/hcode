@@ -29,9 +29,9 @@ class PhaseManager(PhaseManagerProtocol):
     PHASES = ["planning", "execution", "verification"]
 
     def __init__(
-        self,
-        handlers: Dict[str, PhaseHandlerProtocol],
-        initial_phase: str = "planning",
+            self,
+            handlers: Dict[str, PhaseHandlerProtocol],
+            initial_phase: str = "planning",
     ):
         """
         Initialize phase manager.
@@ -54,9 +54,9 @@ class PhaseManager(PhaseManagerProtocol):
         return self.current_phase
 
     async def execute_current_phase(
-        self,
-        context: AgentContext,
-        loop_controller: Any,
+            self,
+            context: AgentContext,
+            loop_controller: Any,
     ) -> PhaseResult:
         """
         Execute the current phase.
@@ -125,7 +125,6 @@ class PhaseManager(PhaseManagerProtocol):
         verification_handler = self.handlers["verification"]
         return verification_handler.can_transition_to_next(context)
 
-
     def reset(self, initial_phase: str = "planning") -> None:
         """
         Reset phase manager to initial state.
@@ -152,4 +151,3 @@ class PhaseManager(PhaseManagerProtocol):
         self.current_phase = phase_name
         self.phase_history.append(phase_name)
         return True
-

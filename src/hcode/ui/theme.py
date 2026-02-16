@@ -5,7 +5,7 @@ Supports multiple themes with smooth color transitions and glow effects.
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Dict, Optional, Tuple, List
+from typing import Dict, Optional, Tuple
 
 from rich.console import Console
 from rich.style import Style
@@ -45,7 +45,6 @@ class ColorPalette:
     bg_medium: str = "#1A1A2E"  # Dark blue-black
     bg_light: str = "#16213E"  # Navy accent
     bg_elevated: str = "#1F1F3D"  # Elevated surfaces
-
 
     # ═══════════════════════════════════════════════════════════════
     # SEMANTIC COLORS
@@ -254,45 +253,45 @@ THEMES: Dict[ThemeMode, ColorPalette] = {
     # Signature HCODE theme - Modern neon green aesthetic
     # Signature HCODE theme - Electric Cyan & Slate Grey
     ThemeMode.NEON_GREEN: ColorPalette(
-        primary="#00E5FF",       # Electric Cyan (Action/Progress)
-        secondary="#708090",     # Muted Slate (Metadata/Borders)
-        accent="#39FF14",        # Neon Green (Success/Additions - kept for compatibility/success)
-        bg_dark="#1E1E1E",       # Deep Charcoal
-        bg_medium="#252526",     # Slightly Lighter Charcoal
-        bg_light="#2D2D30",      # Lightest Charcoal
-        bg_elevated="#333333",   # Elevated Surface
+        primary="#00E5FF",  # Electric Cyan (Action/Progress)
+        secondary="#708090",  # Muted Slate (Metadata/Borders)
+        accent="#39FF14",  # Neon Green (Success/Additions - kept for compatibility/success)
+        bg_dark="#1E1E1E",  # Deep Charcoal
+        bg_medium="#252526",  # Slightly Lighter Charcoal
+        bg_light="#2D2D30",  # Lightest Charcoal
+        bg_elevated="#333333",  # Elevated Surface
         text_primary="#FFFFFF",  # Pure White
-        text_secondary="#B0BEC5", # Light Blue-Grey
-        text_muted="#708090",    # Muted Slate
-        text_glow="#00E5FF",     # Electric Cyan Glow
-        text_highlight="#39FF14", # Neon Green Highlight
-        success="#39FF14",       # Neon Green
-        error="#FF3355",         # Red
-        warning="#FF5F00",       # Safety Orange
-        info="#00E5FF",          # Electric Cyan
-        gradient_start="#00E5FF", # Cyan
-        gradient_mid="#9D00FF",   # Vivid Purple
-        gradient_end="#39FF14",   # Neon Green
-        glow_color="#00E5FF",    # Cyan Glow
-        border_glow="#00E5FF",   # Cyan Border Glow
-        pulse_color="#00E5FF",   # Cyan Pulse
-        code_keyword="#FF5F00",   # Orange Keywords
-        code_string="#39FF14",    # Green Strings
+        text_secondary="#B0BEC5",  # Light Blue-Grey
+        text_muted="#708090",  # Muted Slate
+        text_glow="#00E5FF",  # Electric Cyan Glow
+        text_highlight="#39FF14",  # Neon Green Highlight
+        success="#39FF14",  # Neon Green
+        error="#FF3355",  # Red
+        warning="#FF5F00",  # Safety Orange
+        info="#00E5FF",  # Electric Cyan
+        gradient_start="#00E5FF",  # Cyan
+        gradient_mid="#9D00FF",  # Vivid Purple
+        gradient_end="#39FF14",  # Neon Green
+        glow_color="#00E5FF",  # Cyan Glow
+        border_glow="#00E5FF",  # Cyan Border Glow
+        pulse_color="#00E5FF",  # Cyan Pulse
+        code_keyword="#FF5F00",  # Orange Keywords
+        code_string="#39FF14",  # Green Strings
         code_function="#00E5FF",  # Cyan Functions
-        code_comment="#708090",   # Slate Comments
-        code_number="#9D00FF",    # Purple Numbers
+        code_comment="#708090",  # Slate Comments
+        code_number="#9D00FF",  # Purple Numbers
         code_operator="#FFFFFF",  # White Operators
-        code_class="#00E5FF",     # Cyan Classes
+        code_class="#00E5FF",  # Cyan Classes
         code_variable="#B0BEC5",  # Blue-Grey Vars
-        diff_added="#39FF14",     # Neon Green Added
-        diff_removed="#FF3355",   # Red Removed
-        border_default="#708090", # Slate Border
-        border_focus="#00E5FF",   # Cyan Focus
-        text_dim="#606060",       # Dim Grey
-        border_dim="#404040",     # Dim Border
+        diff_added="#39FF14",  # Neon Green Added
+        diff_removed="#FF3355",  # Red Removed
+        border_default="#708090",  # Slate Border
+        border_focus="#00E5FF",  # Cyan Focus
+        text_dim="#606060",  # Dim Grey
+        border_dim="#404040",  # Dim Border
         # Special HCode Palette extras
         code_constant="#9D00FF",  # Purple Constants
-        code_parameter="#FF5F00", # Orange Parameters
+        code_parameter="#FF5F00",  # Orange Parameters
     ),
 }
 
@@ -304,13 +303,12 @@ class ColorUtils:
     def hex_to_rgb(hex_color: str) -> Tuple[int, int, int]:
         """Convert hex color to RGB tuple."""
         hex_color = hex_color.lstrip("#")
-        return tuple(int(hex_color[i : i + 2], 16) for i in (0, 2, 4))
+        return tuple(int(hex_color[i: i + 2], 16) for i in (0, 2, 4))
 
     @staticmethod
     def rgb_to_hex(r: int, g: int, b: int) -> str:
         """Convert RGB to hex color."""
         return f"#{r:02x}{g:02x}{b:02x}"
-
 
     @staticmethod
     def blend(color1: str, color2: str, factor: float = 0.5) -> str:
@@ -321,8 +319,6 @@ class ColorUtils:
         g = int(g1 * (1 - factor) + g2 * factor)
         b = int(b1 * (1 - factor) + b2 * factor)
         return ColorUtils.rgb_to_hex(r, g, b)
-
-
 
 
 class ThemeEngine:
@@ -451,9 +447,6 @@ class ThemeEngine:
         self.mode = mode
         self.palette = THEMES[mode]
         self._console = None  # Reset console with new theme
-
-
-
 
 
 # ═══════════════════════════════════════════════════════════════════════

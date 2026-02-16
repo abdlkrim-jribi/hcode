@@ -8,6 +8,7 @@ Supports template substitution with context variables.
 import logging
 from pathlib import Path
 from typing import Dict, Any, Optional
+
 import yaml
 
 logger = logging.getLogger(__name__)
@@ -409,11 +410,11 @@ class CorePromptLoader:
         return self._substitute(template, {"task": task})
 
     def build_execution_prompt(
-        self,
-        plan_content: str,
-        modified_files_count: int,
-        completed_actions_count: int,
-        iteration: int,
+            self,
+            plan_content: str,
+            modified_files_count: int,
+            completed_actions_count: int,
+            iteration: int,
     ) -> str:
         """
         Build the execution phase prompt with context.
@@ -458,11 +459,11 @@ class CorePromptLoader:
         return self.get_raw("templates.implementation_plan_md.template")
 
     def build_walkthrough_md(
-        self,
-        task: str,
-        modified_files_section: str,
-        changes_details: str,
-        test_section: str,
+            self,
+            task: str,
+            modified_files_section: str,
+            changes_details: str,
+            test_section: str,
     ) -> str:
         """
         Build walkthrough.md content from template.
@@ -502,10 +503,10 @@ class CorePromptLoader:
         })
 
     def build_refinement_prompt(
-        self,
-        original_reasoning: str,
-        feedback: str,
-        outcome: str,
+            self,
+            original_reasoning: str,
+            feedback: str,
+            outcome: str,
     ) -> str:
         """
         Build refinement prompt for iterating on reasoning.

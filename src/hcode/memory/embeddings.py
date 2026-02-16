@@ -8,6 +8,7 @@ import json
 from typing import List, Optional, Union
 
 import numpy as np
+
 from hcode.memory.config import config
 
 
@@ -108,11 +109,11 @@ class EmbeddingModel:
         return embedding
 
     def embed_batch(
-        self,
-        texts: List[str],
-        use_cache: bool = True,
-        batch_size: int = 32,
-        show_progress: bool = False,
+            self,
+            texts: List[str],
+            use_cache: bool = True,
+            batch_size: int = 32,
+            show_progress: bool = False,
     ) -> np.ndarray:
         """
         Generate embeddings for multiple texts efficiently.

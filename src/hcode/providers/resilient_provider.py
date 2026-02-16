@@ -192,11 +192,11 @@ class RetryHandler:
         self.config = config
 
     async def execute_with_retry(
-        self,
-        func: Callable,
-        *args,
-        should_retry: Optional[Callable[[Exception], bool]] = None,
-        **kwargs,
+            self,
+            func: Callable,
+            *args,
+            should_retry: Optional[Callable[[Exception], bool]] = None,
+            **kwargs,
     ) -> Any:
         """
         Execute function with retry logic.
@@ -252,11 +252,11 @@ class ResilientProvider:
     """
 
     def __init__(
-        self,
-        providers: Dict[str, AIProvider],
-        primary_provider: Optional[str] = None,
-        circuit_config: Optional[CircuitBreakerConfig] = None,
-        retry_config: Optional[RetryConfig] = None,
+            self,
+            providers: Dict[str, AIProvider],
+            primary_provider: Optional[str] = None,
+            circuit_config: Optional[CircuitBreakerConfig] = None,
+            retry_config: Optional[RetryConfig] = None,
     ):
         """
         Initialize resilient provider.
@@ -320,7 +320,6 @@ class ResilientProvider:
             return ProviderHealth.DEGRADED
 
         return ProviderHealth.HEALTHY
-
 
     def get_stats(self, provider_name: str) -> Optional[ProviderStats]:
         """Get statistics for a provider"""
@@ -417,7 +416,7 @@ class ResilientProvider:
         circuit.record_failure()
 
     async def generate_completion(
-        self, messages: List[Message], stream: bool = False, **kwargs
+            self, messages: List[Message], stream: bool = False, **kwargs
     ) -> CompletionResponse | AsyncIterator[str]:
         """
         Generate completion with automatic failover.
@@ -488,8 +487,6 @@ class ResilientProvider:
 
         # All providers failed
         raise last_error or RuntimeError("All providers failed")
-
-
 
     def get_summary(self) -> Dict[str, Any]:
         """Get summary of all providers"""
@@ -580,10 +577,10 @@ class ResilientStreamWrapper:
 
 
 def create_resilient_provider(
-    anthropic_key: Optional[str] = None,
-    openai_key: Optional[str] = None,
-    primary: str = "anthropic",
-    **kwargs,
+        anthropic_key: Optional[str] = None,
+        openai_key: Optional[str] = None,
+        primary: str = "anthropic",
+        **kwargs,
 ) -> ResilientProvider:
     """
     Create a resilient provider from API keys.

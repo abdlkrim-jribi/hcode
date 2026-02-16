@@ -13,7 +13,6 @@ Key Features:
 - Cross-platform support via Rich
 """
 
-import sys
 import threading
 import time
 from datetime import datetime
@@ -35,11 +34,12 @@ from hcode.tools.core.tool_callbacks import (
     get_callback_manager,
 )
 
-
 from rich.segment import Segment
+
 
 class RawControl:
     """Wrapper for raw ANSI control codes."""
+
     def __init__(self, code: str):
         self.code = code
         self.code = code
@@ -66,7 +66,7 @@ class LiveTodoBar:
     """
 
     def __init__(
-        self, console: Optional[Console] = None, height: int = 6, show_shortcuts: bool = True
+            self, console: Optional[Console] = None, height: int = 6, show_shortcuts: bool = True
     ):
         """
         Initialize live todo bar.
@@ -169,7 +169,6 @@ class LiveTodoBar:
 
         # NOTE: Don't clear status area here - it would erase the final status we just printed
 
-
     def print_final_status(self) -> None:
         """Print the final todo status (called when task completes)."""
         with self._lock:
@@ -207,7 +206,7 @@ class LiveTodoBar:
         with _stdout_write_lock:
             # Print newlines to create space
             self.console.print("\n" * self.height, end="")
-            
+
             # Move cursor back up using Rich control
             self.console.control(Control.move(0, -self.height))
 
@@ -216,21 +215,21 @@ class LiveTodoBar:
         with _stdout_write_lock:
             # We use standard ANSI codes wrapped in Rich Control for maximum compatibility
             # Save cursor, move to bottom area, clear lines, restore cursor
-            
+
             terminal_height = self.console.height
-            
+
             # Create control sequence
             controls = [
                 RawControl("\033[s"),  # Save cursor
             ]
-            
+
             for i in range(self.height):
                 row = terminal_height - self.height + i
                 controls.append(Control.move_to(0, row))
-                controls.append(Control((ControlType.ERASE_IN_LINE, 2))) # Clear whole line
-                
+                controls.append(Control((ControlType.ERASE_IN_LINE, 2)))  # Clear whole line
+
             controls.append(RawControl("\033[u"))  # Restore cursor
-            
+
             self.console.control(*controls)
 
     def update_todos(self, todos: List[Dict[str, Any]]) -> None:
@@ -287,7 +286,6 @@ class LiveTodoBar:
                     self.console.print(rendered, end="")
             except Exception:
                 pass
-
 
     @property
     def is_active(self) -> bool:

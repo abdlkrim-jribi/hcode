@@ -5,25 +5,18 @@ Beautiful, responsive chat experience.
 
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, AsyncIterator, List, Any
+from typing import Optional, List
 
-from rich.console import Console, RenderableType
-from rich.live import Live
-from rich.markdown import Markdown
+from rich.console import Console
 from rich.padding import Padding
-from rich.rule import Rule
 from rich.text import Text
 
 from hcode.ui.animations import ThinkingAnimation
 from hcode.ui.panels import (
     WelcomePanel,
     UserMessagePanel,
-    AIMessagePanel,
-    ToolPanel,
-    ErrorPanel,
-    SuccessPanel,
 )
-from hcode.ui.theme import ThemeMode, get_theme, get_palette
+from hcode.ui.theme import get_theme, get_palette
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -35,9 +28,9 @@ class ChatInterface:
     """Futuristic chat interface with rich visuals."""
 
     def __init__(
-        self,
-        console: Optional[Console] = None,
-        history_file: Optional[Path] = None,
+            self,
+            console: Optional[Console] = None,
+            history_file: Optional[Path] = None,
     ):
         self.theme = get_theme()
         self.console = console or self.theme.console
@@ -48,9 +41,9 @@ class ChatInterface:
         self.messages: List[dict] = []
 
     def display_welcome(
-        self,
-        model: str = "claude-sonnet-4-20250514",
-        provider: str = "Anthropic",
+            self,
+            model: str = "claude-sonnet-4-20250514",
+            provider: str = "Anthropic",
     ) -> None:
         """Display welcome panel with system info."""
         panel = WelcomePanel(model=model, provider=provider)
@@ -73,12 +66,6 @@ class ChatInterface:
         header.append(f"  {datetime.now().strftime('%H:%M')}", style=palette.text_muted)
 
         self.console.print(header)
-
-
-
-
-
-
 
     def clear(self) -> None:
         """Clear the console."""
@@ -112,15 +99,16 @@ class ThinkingContext:
         if self.animation:
             self.animation.messages = [message]
 
+
 def create_chat() -> ChatInterface:
     """Create a new chat interface."""
     return ChatInterface()
 
 
 def display_message(
-    content: str,
-    role: str = "ai",
-    console: Optional[Console] = None,
+        content: str,
+        role: str = "ai",
+        console: Optional[Console] = None,
 ) -> None:
     """Quick function to display a message."""
     chat = ChatInterface(console)
@@ -134,8 +122,8 @@ def display_message(
 
 
 def display_thinking(
-    console: Optional[Console] = None,
-    message: str = "Thinking",
+        console: Optional[Console] = None,
+        message: str = "Thinking",
 ) -> ThinkingContext:
     """Create a thinking context."""
     chat = ChatInterface(console)

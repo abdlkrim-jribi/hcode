@@ -64,15 +64,15 @@ class Skill:
                 # Find all placeholders
                 matches = re.findall(r"\{(\w+)\}", prompt)
                 unique_placeholders = list(set(matches))
-                
+
                 if len(unique_placeholders) == 1:
                     # Single placeholder - assign string to it
                     context = {unique_placeholders[0]: context}
                 else:
                     # Fallback context wrapper
                     context = {
-                        "input": context, 
-                        "text": context, 
+                        "input": context,
+                        "text": context,
                         "content": context,
                         "file_content": context
                     }
@@ -265,15 +265,15 @@ class SkillTool(BaseTool):
         """Get description with list of available skills"""
         base_desc = super().get_description()
         skills = self.command_registry.list_skills()
-        
+
         if not skills:
             return base_desc
-            
+
         skill_list = "\n\nAvailable Skills:"
         for skill in skills:
             desc = f" - {skill.description}" if skill.description else ""
             skill_list += f"\n- {skill.name}{desc}"
-            
+
         return base_desc + skill_list
 
     async def execute(self, skill: str, context: Optional[Dict] = None) -> ToolResult:
@@ -292,18 +292,18 @@ class SkillTool(BaseTool):
 
             # Expand prompt
             expanded_prompt = skill_obj.execute(context)
-            
+
             # Execute with LLM if orchestrator is available
             if self.agent_orchestrator:
                 from hcode.providers import Message
-                
+
                 # Select provider
                 provider = self.agent_orchestrator.provider_selector.select_provider()
-                
+
                 # Execute
                 messages = [Message(role="user", content=expanded_prompt)]
                 response = await provider.generate_completion(messages=messages, stream=False)
-                
+
                 output = response.content
             else:
                 # Fallback to returning prompt (for tests/legacy)

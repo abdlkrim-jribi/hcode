@@ -96,5 +96,3 @@ class ThinkingConfig:
 
     # Tool count threshold to trigger thinking
     tool_threshold: int = 3
-
-

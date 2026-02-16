@@ -8,8 +8,8 @@ Each phase implements PhaseHandlerProtocol and is responsible for:
 """
 
 from .base_handler import BasePhaseHandler
-from .planning_handler import PlanningPhaseHandler
 from .execution_handler import ExecutionPhaseHandler
+from .planning_handler import PlanningPhaseHandler
 from .verification_handler import VerificationPhaseHandler
 
 __all__ = [

@@ -33,12 +33,12 @@ class NotebookEditTool(BaseTool):
         ]
 
     async def execute(
-        self,
-        notebook_path: str,
-        new_source: str,
-        cell_id: Optional[str] = None,
-        cell_type: str = "code",
-        edit_mode: str = "replace",
+            self,
+            notebook_path: str,
+            new_source: str,
+            cell_id: Optional[str] = None,
+            cell_type: str = "code",
+            edit_mode: str = "replace",
     ) -> ToolResult:
         """Edit notebook cell"""
         try:

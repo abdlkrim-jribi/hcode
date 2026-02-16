@@ -2,8 +2,8 @@
 Todo management package for Hcode agent.
 """
 
-from .manager import TodoManager, TodoItem, TodoStatus
 from .auto_updater import TodoAutoUpdater
+from .manager import TodoManager, TodoItem, TodoStatus
 
 __all__ = [
     "TodoManager",

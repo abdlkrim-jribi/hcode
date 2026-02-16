@@ -93,17 +93,17 @@ class HcodeAgent:
     """
 
     def __init__(
-        self,
-        anthropic_key: Optional[str] = None,
-        openai_key: Optional[str] = None,
-        openai_base_url: Optional[str] = None,
-        anthropic_model: Optional[str] = None,
-        openai_model: Optional[str] = None,
-        root_dir: Optional[str] = None,
-        preferences: Optional[ProviderPreferences] = None,
-        session_id: Optional[str] = None,
-        config: Optional[Dict[str, Any]] = None,
-        autonomous_mode: bool = False,
+            self,
+            anthropic_key: Optional[str] = None,
+            openai_key: Optional[str] = None,
+            openai_base_url: Optional[str] = None,
+            anthropic_model: Optional[str] = None,
+            openai_model: Optional[str] = None,
+            root_dir: Optional[str] = None,
+            preferences: Optional[ProviderPreferences] = None,
+            session_id: Optional[str] = None,
+            config: Optional[Dict[str, Any]] = None,
+            autonomous_mode: bool = False,
     ):
         """
         Initialize Hcode agent.
@@ -192,7 +192,6 @@ class HcodeAgent:
 
         # Todo management
         self._todo_manager = TodoManager(self.tool_manager)
-
 
         # Response processing
         self._response_parser = ResponseParser(
@@ -333,10 +332,10 @@ class HcodeAgent:
         return True
 
     def _init_resilient_provider(
-        self,
-        anthropic_key: Optional[str],
-        openai_key: Optional[str],
-        openai_base_url: Optional[str],
+            self,
+            anthropic_key: Optional[str],
+            openai_key: Optional[str],
+            openai_base_url: Optional[str],
     ):
         """Initialize resilient provider with automatic failover"""
         self.resilient_provider = None
@@ -394,7 +393,7 @@ class HcodeAgent:
         """
         markers = [".git", "pyproject.toml", "setup.py", "package.json", ".hcode"]
         current = start_path.resolve()
-        
+
         # Traverse up to 10 levels (safety limit)
         for _ in range(10):
             for marker in markers:
@@ -404,17 +403,17 @@ class HcodeAgent:
             if parent == current:  # Reached filesystem root
                 break
             current = parent
-        
+
         # Fallback to original path if no markers found
         return start_path.resolve()
 
     async def execute_task(
-        self,
-        task: str,
-        complexity: TaskComplexity = TaskComplexity.MODERATE,
-        task_type: TaskType = TaskType.CODE_GENERATION,
-        stream: bool = True,
-        use_sub_agents: bool = False,
+            self,
+            task: str,
+            complexity: TaskComplexity = TaskComplexity.MODERATE,
+            task_type: TaskType = TaskType.CODE_GENERATION,
+            stream: bool = True,
+            use_sub_agents: bool = False,
     ) -> str:
         """
         Execute a task using the agent capabilities.
@@ -438,8 +437,6 @@ class HcodeAgent:
         task_start_time = time.time()
         self.analytics.start_conversation(self.context_manager.session_id)
         self._loop_controller.transition(Phase.PLANNING)
-
-
 
         # Initialize Hcode Display for task header
         from hcode.ui.hcode_display import get_hcode_display, TaskMode
@@ -663,7 +660,7 @@ class HcodeAgent:
 
         # Add tool documentation
         base_prompt += "\n\n" + tool_docs
-        
+
         # INJECT PROJECT ROOT CONTEXT so model knows correct paths
         base_prompt += f"""
 <user_information>
@@ -690,23 +687,23 @@ Code relating to the user's requests should be written in the locations listed a
             hcode_dir = self.root_dir / ".hcode"
             task_file = hcode_dir / "task.md"
             plan_file = hcode_dir / "implementation_plan.md"
-            
+
             context_injection = "\n\n## CURRENT TASK CONTEXT\n"
             has_context = False
-            
+
             if task_file.exists():
                 task_content = task_file.read_text(encoding="utf-8")
                 context_injection += f"\n### Current Task List ({task_file.name})\n{task_content}\n"
                 has_context = True
-                
+
             if plan_file.exists():
                 plan_content = plan_file.read_text(encoding="utf-8")
                 context_injection += f"\n### Implementation Plan ({plan_file.name})\n{plan_content}\n"
                 has_context = True
-                
+
             if has_context:
                 base_prompt += context_injection
-                
+
         except Exception as e:
             self.console.print(f"[dim yellow][!] Could not inject task context: {e}[/dim yellow]")
 
@@ -1003,7 +1000,7 @@ Then repeat your tool call.""",
 
                     # Process tool calls
                     await self._process_tool_calls(tool_calls, response_text, iteration)
-                    
+
                     # FORCE CONTINUE after tool execution
                     continue
 
@@ -1101,11 +1098,6 @@ Then repeat your tool call.""",
             return "Task completed but no output was generated. Please try again."
         return result
 
-
-
-
-
-
     def _generate_task_summary(
             self, completed_actions: List[Dict[str, Any]]
     ) -> str:
@@ -1175,8 +1167,6 @@ Then repeat your tool call.""",
         summary_parts.append(f"[bold cyan]====================[/bold cyan]")
 
         return "\n".join(summary_parts)
-
-
 
     def _format_user_task(self, task: str) -> str:
         """
@@ -1364,20 +1354,20 @@ START NOW - think first, then act:"""
         for entry in current_context:
             content_lower = entry.content.lower()
             if any(
-                cmd in content_lower
-                for cmd in [
-                    "pytest",
-                    "python -m pytest",
-                    "npm test",
-                    "npm run",
-                    "make test",
-                    "cargo test",
-                    "go test",
-                    "jest",
-                    "git commit",
-                    "git push",
-                    "pip install",
-                ]
+                    cmd in content_lower
+                    for cmd in [
+                        "pytest",
+                        "python -m pytest",
+                        "npm test",
+                        "npm run",
+                        "make test",
+                        "cargo test",
+                        "go test",
+                        "jest",
+                        "git commit",
+                        "git push",
+                        "pip install",
+                    ]
             ):
                 context_has_action_commands = True
                 break
@@ -1493,9 +1483,6 @@ Continue working or provide your final answer:"""
 
         return prompts_config.get_tool_prompt("continuation_general")
 
-
-
-
     def get_tool_usage_stats(self) -> Dict[str, int]:
         """Get statistics on tool usage"""
         return self.tool_manager.get_usage_stats()
@@ -1609,7 +1596,7 @@ Continue working or provide your final answer:"""
             return {"available": False, "error": str(e)}
 
     def update_agent_memory(
-        self, content: str, scope: str = "project", section: Optional[str] = None
+            self, content: str, scope: str = "project", section: Optional[str] = None
     ) -> bool:
         """
         Update an AGENT.md memory file.

@@ -3,23 +3,13 @@ HCode Futuristic Animations and Loading Effects
 Smooth, non-blocking terminal animations.
 """
 
-import asyncio
 import threading
 import time
 from contextlib import contextmanager
-from dataclasses import dataclass
 from typing import Optional, List
 
 from rich.console import Console
 from rich.live import Live
-from rich.progress import (
-    Progress,
-    SpinnerColumn,
-    TextColumn,
-    BarColumn,
-    TaskProgressColumn,
-
-)
 from rich.text import Text
 
 from .theme import get_palette
@@ -135,19 +125,9 @@ CYBER_SPINNERS = {
 # ═══════════════════════════════════════════════════════════════════════
 
 
-
-
-
 # ═══════════════════════════════════════════════════════════════════════
 # GLITCH EFFECT
 # ═══════════════════════════════════════════════════════════════════════
-
-
-
-
-
-
-
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -171,10 +151,10 @@ class ThinkingAnimation:
     THINKING_ICONS = ["◐", "◓", "◑", "◒"]
 
     def __init__(
-        self,
-        console: Console,
-        style: str = "cyber",
-        custom_messages: Optional[List[str]] = None,
+            self,
+            console: Console,
+            style: str = "cyber",
+            custom_messages: Optional[List[str]] = None,
     ):
         self.console = console
         self.style = style
@@ -238,14 +218,9 @@ class ThinkingAnimation:
         self.stop()
 
 
-
-
 # ═══════════════════════════════════════════════════════════════════════
 # WAVE ANIMATION
 # ═══════════════════════════════════════════════════════════════════════
-
-
-
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -254,10 +229,10 @@ class Countdown:
     """Countdown timer animation."""
 
     def __init__(
-        self,
-        console: Console,
-        seconds: int,
-        message: str = "Starting in",
+            self,
+            console: Console,
+            seconds: int,
+            message: str = "Starting in",
     ):
         self.console = console
         self.seconds = seconds
@@ -286,10 +261,10 @@ class LoadingDots:
     """Animated loading dots."""
 
     def __init__(
-        self,
-        console: Console,
-        message: str = "Loading",
-        max_dots: int = 3,
+            self,
+            console: Console,
+            message: str = "Loading",
+            max_dots: int = 3,
     ):
         self.console = console
         self.message = message
@@ -348,17 +323,17 @@ class LoadingDots:
 
 @contextmanager
 def spinner(
-    console: Console,
-    message: str = "Processing",
-    spinner_type: str = "dots",
+        console: Console,
+        message: str = "Processing",
+        spinner_type: str = "dots",
 ):
     """Context manager for spinner animation."""
     palette = get_palette()
 
     with console.status(
-        f"[bold {palette.primary}]{message}",
-        spinner=spinner_type,
-        spinner_style=f"bold {palette.primary}",
+            f"[bold {palette.primary}]{message}",
+            spinner=spinner_type,
+            spinner_style=f"bold {palette.primary}",
     ):
         yield
 

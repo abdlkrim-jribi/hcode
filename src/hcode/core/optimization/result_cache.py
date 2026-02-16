@@ -17,6 +17,7 @@ class CachedResult:
     timestamp: float
     hit_count: int = 0
 
+
 class ToolResultCache:
     """Caches tool results."""
 
@@ -81,7 +82,6 @@ class ToolResultCache:
             while len(self._cache) > self._max_size:
                 min_key = min(self._cache.keys(), key=lambda k: self._cache[k].hit_count)
                 del self._cache[min_key]
-
 
     def clear(self):
         with self._lock:

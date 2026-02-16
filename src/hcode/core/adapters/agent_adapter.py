@@ -26,12 +26,12 @@ class AgentAdapter:
     """
 
     def __init__(
-        self,
-        provider: Any,
-        tool_executor: Any,
-        context_manager: Any,
-        working_dir: Optional[str] = None,
-        console: Optional[Any] = None,
+            self,
+            provider: Any,
+            tool_executor: Any,
+            context_manager: Any,
+            working_dir: Optional[str] = None,
+            console: Optional[Any] = None,
     ):
         """Initialize adapter with existing components."""
         self.provider = provider
@@ -71,10 +71,10 @@ class AgentAdapter:
         )
 
     async def execute_task(
-        self,
-        task: str,
-        session_id: str,
-        stream_callback: Optional[Any] = None,
+            self,
+            task: str,
+            session_id: str,
+            stream_callback: Optional[Any] = None,
     ) -> Dict[str, Any]:
         """
         Execute task through new PEV workflow.

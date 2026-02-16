@@ -3,11 +3,11 @@ Session Manager for Hcode.
 Handles session-level permissions and state for tools.
 """
 
+import json
 import logging
+import os
 from pathlib import Path
 from typing import Set, Tuple
-import json
-import os
 
 logger = logging.getLogger(__name__)
 
@@ -20,11 +20,11 @@ class SessionConfirmationManager:
     
     Persists state to .hcode/session_permissions.json to survive process restarts.
     """
-    
+
     def __init__(self):
         # Set of (tool_name, target_path) that are allowed for this session
         self._allowed_actions: Set[Tuple[str, str]] = set()
-        
+
         # Files that are always allowed to be edited/written without confirmation
         self._auto_allow_files = {
             "implementation_plan.md",
@@ -33,7 +33,7 @@ class SessionConfirmationManager:
             "memory.md",
             "walkthrough.md"
         }
-        
+
         self._session_file = Path(os.getcwd()) / ".hcode" / "session_permissions.json"
         self._load_state()
 
@@ -56,10 +56,10 @@ class SessionConfirmationManager:
         try:
             # Create directory if needed
             self._session_file.parent.mkdir(parents=True, exist_ok=True)
-            
+
             # Convert set of tuples to list of lists for JSON
             data = [list(item) for item in self._allowed_actions]
-            
+
             with open(self._session_file, "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=2)
             logger.debug(f"Saved session state to {self._session_file}")
@@ -79,7 +79,7 @@ class SessionConfirmationManager:
             abs_path = str(Path(target_path).resolve())
         except Exception:
             abs_path = target_path
-            
+
         logger.info(f"Granting session permission for {tool_name} on {abs_path}")
         self._allowed_actions.add((tool_name, abs_path))
         self._save_state()
@@ -101,13 +101,12 @@ class SessionConfirmationManager:
         except Exception:
             abs_path = target_path
             filename = ""
-            
+
         # Check whitelist first
         if filename in self._auto_allow_files:
             return True
-            
-        return (tool_name, abs_path) in self._allowed_actions
 
+        return (tool_name, abs_path) in self._allowed_actions
 
 
 # Global instance

@@ -12,7 +12,7 @@ Provides comprehensive analytics for:
 import json
 import statistics
 from collections import defaultdict
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum
 from pathlib import Path
@@ -23,10 +23,8 @@ class MetricType(Enum):
     """Types of metrics tracked"""
 
 
-
 class TimeWindow(Enum):
     """Time windows for aggregation"""
-
 
 
 @dataclass
@@ -45,8 +43,6 @@ class ToolExecutionEvent:
     task_context: Optional[str] = None
 
 
-
-
 @dataclass
 class ConversationEvent:
     """Conversation-level event"""
@@ -55,8 +51,6 @@ class ConversationEvent:
     start_time: datetime
     end_time: Optional[datetime] = None
     success: bool = True
-
-
 
 
 class TimeSeriesBuffer:
@@ -78,7 +72,6 @@ class TimeSeriesBuffer:
         """Remove old entries"""
         cutoff = datetime.now() - self._max_age
         self._data = [(ts, v) for ts, v in self._data if ts > cutoff]
-
 
     def __len__(self) -> int:
         return len(self._data)
@@ -152,9 +145,6 @@ class ToolAnalytics:
         return sorted_data[f] + (k - f) * (sorted_data[c] - sorted_data[f])
 
 
-
-
-
 class CostAnalytics:
     """
     Analytics for cost tracking.
@@ -166,7 +156,7 @@ class CostAnalytics:
         self._by_model: Dict[str, float] = defaultdict(float)
 
     def record_cost(
-        self, cost: float, provider: str, model: str, timestamp: Optional[datetime] = None
+            self, cost: float, provider: str, model: str, timestamp: Optional[datetime] = None
     ):
         """Record cost event"""
         ts = timestamp or datetime.now()
@@ -175,7 +165,6 @@ class CostAnalytics:
         self._daily_costs[date_key] += cost
         self._by_provider[provider] += cost
         self._by_model[model] += cost
-
 
     def get_total_cost(self) -> float:
         """Get total cost across all time"""
@@ -224,16 +213,16 @@ class ExecutionAnalytics:
         self._start_time = datetime.now()
 
     def record_tool_execution(
-        self,
-        tool_name: str,
-        duration: float,
-        success: bool,
-        error_type: Optional[str] = None,
-        error_message: Optional[str] = None,
-        input_tokens: int = 0,
-        output_tokens: int = 0,
-        file_path: Optional[str] = None,
-        task_context: Optional[str] = None,
+            self,
+            tool_name: str,
+            duration: float,
+            success: bool,
+            error_type: Optional[str] = None,
+            error_message: Optional[str] = None,
+            input_tokens: int = 0,
+            output_tokens: int = 0,
+            file_path: Optional[str] = None,
+            task_context: Optional[str] = None,
     ):
         """Record a tool execution"""
         event = ToolExecutionEvent(
@@ -250,7 +239,6 @@ class ExecutionAnalytics:
         )
         self.tool_analytics.record(event)
 
-
     def record_cost(self, cost: float, provider: str, model: str):
         """Record cost"""
         self.cost_analytics.record_cost(cost, provider, model)
@@ -262,11 +250,11 @@ class ExecutionAnalytics:
         )
 
     def end_conversation(
-        self,
-        conversation_id: str,
-        success: bool = True,
-        total_tokens: int = 0,
-        total_cost: float = 0.0,
+            self,
+            conversation_id: str,
+            success: bool = True,
+            total_tokens: int = 0,
+            total_cost: float = 0.0,
     ):
         """End a conversation"""
         if conversation_id in self._conversations:
@@ -389,7 +377,7 @@ class ExecutionAnalytics:
                 insights.append(
                     {
                         "type": "cost",
-                        "insight": f"{most_expensive[0]} accounts for {most_expensive[1]/total_cost:.1%} of costs",
+                        "insight": f"{most_expensive[0]} accounts for {most_expensive[1] / total_cost:.1%} of costs",
                         "suggestion": "Consider using a cheaper model for simpler tasks",
                     }
                 )
@@ -417,11 +405,11 @@ class ExecutionAnalytics:
         if seconds < 60:
             return f"{seconds:.1f}s"
         elif seconds < 3600:
-            return f"{seconds/60:.1f}m"
+            return f"{seconds / 60:.1f}m"
         elif seconds < 86400:
-            return f"{seconds/3600:.1f}h"
+            return f"{seconds / 3600:.1f}h"
         else:
-            return f"{seconds/86400:.1f}d"
+            return f"{seconds / 86400:.1f}d"
 
     def _format_markdown_report(self, report: Dict[str, Any]) -> str:
         """Format report as markdown"""

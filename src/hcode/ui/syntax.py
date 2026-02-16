@@ -50,7 +50,6 @@ CYBERPUNK_TOKENS = {
     "error": "#ff5555",
 }
 
-
 # ═══════════════════════════════════════════════════════════════════════
 # LANGUAGE DETECTION
 # ═══════════════════════════════════════════════════════════════════════
@@ -136,12 +135,12 @@ class CyberSyntax:
     """Cyberpunk-styled syntax highlighter."""
 
     def __init__(
-        self,
-        theme: str = "dracula",
-        line_numbers: bool = True,
-        word_wrap: bool = True,
-        tab_size: int = 4,
-        background_color: Optional[str] = None,
+            self,
+            theme: str = "dracula",
+            line_numbers: bool = True,
+            word_wrap: bool = True,
+            tab_size: int = 4,
+            background_color: Optional[str] = None,
     ):
         self.theme = theme
         self.line_numbers = line_numbers
@@ -150,14 +149,14 @@ class CyberSyntax:
         self.background_color = background_color
 
     def highlight(
-        self,
-        code: str,
-        language: str = "python",
-        title: Optional[str] = None,
-        show_path: bool = False,
-        path: Optional[str] = None,
-        start_line: int = 1,
-        highlight_lines: Optional[List[int]] = None,
+            self,
+            code: str,
+            language: str = "python",
+            title: Optional[str] = None,
+            show_path: bool = False,
+            path: Optional[str] = None,
+            start_line: int = 1,
+            highlight_lines: Optional[List[int]] = None,
     ) -> Panel:
         """Highlight code with cyberpunk styling."""
         palette = get_palette()
@@ -195,7 +194,6 @@ class CyberSyntax:
             expand=True,
         )
 
-
     def inline_code(self, code: str) -> Text:
         """Format inline code snippet."""
         palette = get_palette()
@@ -219,11 +217,10 @@ class DiffHighlighter:
     def __init__(self):
         pass
 
-
     def highlight_inline_diff(
-        self,
-        old_text: str,
-        new_text: str,
+            self,
+            old_text: str,
+            new_text: str,
     ) -> Text:
         """Highlight inline diff (old → new)."""
         palette = get_palette()
@@ -246,16 +243,15 @@ class CodeBlock:
 
     @staticmethod
     def create(
-        code: str,
-        language: str = "python",
-        title: Optional[str] = None,
-        theme: str = "dracula",
-        line_numbers: bool = True,
+            code: str,
+            language: str = "python",
+            title: Optional[str] = None,
+            theme: str = "dracula",
+            line_numbers: bool = True,
     ) -> Panel:
         """Create a styled code block."""
         highlighter = CyberSyntax(theme=theme, line_numbers=line_numbers)
         return highlighter.highlight(code, language, title=title)
-
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -264,10 +260,10 @@ class CodeBlock:
 
 
 def highlight_code(
-    code: str,
-    language: str = "python",
-    title: Optional[str] = None,
-    line_numbers: bool = True,
+        code: str,
+        language: str = "python",
+        title: Optional[str] = None,
+        line_numbers: bool = True,
 ) -> Panel:
     """Quick function to highlight code."""
     highlighter = CyberSyntax(line_numbers=line_numbers)
@@ -275,9 +271,9 @@ def highlight_code(
 
 
 def highlight_file(
-    filepath: str,
-    title: Optional[str] = None,
-    line_numbers: bool = True,
+        filepath: str,
+        title: Optional[str] = None,
+        line_numbers: bool = True,
 ) -> Panel:
     """Highlight code from a file."""
     language = detect_language(filepath)

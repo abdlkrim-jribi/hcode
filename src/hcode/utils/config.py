@@ -48,9 +48,9 @@ def deep_merge(a: Dict[Any, Any], b: Dict[Any, Any]) -> Dict[Any, Any]:
     result = dict(a)  # shallow copy
     for key, val in b.items():
         if (
-            key in result
-            and isinstance(result[key], dict)
-            and isinstance(val, dict)
+                key in result
+                and isinstance(result[key], dict)
+                and isinstance(val, dict)
         ):
             result[key] = deep_merge(result[key], val)
         else:
@@ -71,8 +71,6 @@ def get_model_for_size(size: str) -> str:
     return mapping.get(size.lower(), "gpt-3.5-turbo")
 
 
-
-
 def save_config(path: str, data: Dict[str, Any]) -> bool:
     """Write *data* as pretty‑printed JSON to *path*.
     Returns ``True`` on success, ``False`` on any IOError.
@@ -89,7 +87,3 @@ def create_default_config() -> Dict[str, Any]:
     The tests only require the presence of a ``model`` key.
     """
     return {"model": "gpt-3.5-turbo", "api_key": ""}
-
-
-
-

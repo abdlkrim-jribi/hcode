@@ -41,14 +41,14 @@ class ReadTool(BaseTool):
                 "file_path", "string", "Path to file to view. Must be an absolute path.", required=True
             ),
             ToolParameter(
-                "start_line", 
-                "integer", 
+                "start_line",
+                "integer",
                 "Optional. Startline to view, 1-indexed as usual, inclusive.",
                 default=None
             ),
             ToolParameter(
-                "end_line", 
-                "integer", 
+                "end_line",
+                "integer",
                 "Optional. Endline to view, 1-indexed as usual, inclusive.",
                 default=None
             ),
@@ -60,44 +60,44 @@ class ReadTool(BaseTool):
             ToolParameter("offset", "integer", "Alias for start_line", default=None),
             ToolParameter("limit", "integer", "Implies end_line (start_line + limit)", default=None),
         ]
-    
+
     def validate_parameters(self, **kwargs) -> tuple[bool, Optional[str]]:
         """Validate parameters allowing for strict aliases"""
         # Check required: AbsolutePath (or file_path or path)
         if "AbsolutePath" not in kwargs and "file_path" not in kwargs and "path" not in kwargs:
-             return False, "Missing required parameter: AbsolutePath (or file_path)"
+            return False, "Missing required parameter: AbsolutePath (or file_path)"
         return True, None
 
     async def execute(
-        self, 
-        file_path: str = None, 
-        start_line: Optional[int] = None, 
-        end_line: Optional[int] = None,
-        AbsolutePath: str = None, 
-        StartLine: Optional[int] = None, 
-        EndLine: Optional[int] = None,
-        offset: int = None,
-        limit: int = None,
-        path: str = None,
-        **kwargs
+            self,
+            file_path: str = None,
+            start_line: Optional[int] = None,
+            end_line: Optional[int] = None,
+            AbsolutePath: str = None,
+            StartLine: Optional[int] = None,
+            EndLine: Optional[int] = None,
+            offset: int = None,
+            limit: int = None,
+            path: str = None,
+            **kwargs
     ) -> ToolResult:
         """Read file contents with detailed control"""
-        
+
         # 1. Parameter Normalization
         # Support legacy params if new ones aren't provided
         path_str = file_path or AbsolutePath or path or kwargs.get("path")
-        
+
         if not path_str:
             return ToolResult(success=False, output=None, error="file_path (or AbsolutePath) is required")
-            
+
         start = start_line or StartLine
         if start is None and offset is not None:
-             start = offset
-             
+            start = offset
+
         end = end_line or EndLine
         if end is None and limit is not None and start is not None:
             end = start + limit
-            
+
         try:
             path = Path(path_str)
 
@@ -110,40 +110,40 @@ class ReadTool(BaseTool):
             # Check for binary file (simple heuristic)
             try:
                 with open(path, "r", encoding="utf-8", errors="ignore") as f:
-                     # Read first chunk to check for null bytes or encoding issues?
-                     # For now, relying on encoding="utf-8", errors="ignore" makes it "text safe" mostly.
-                     # But let's read distinct lines.
-                     all_lines = f.readlines()
+                    # Read first chunk to check for null bytes or encoding issues?
+                    # For now, relying on encoding="utf-8", errors="ignore" makes it "text safe" mostly.
+                    # But let's read distinct lines.
+                    all_lines = f.readlines()
             except Exception as e:
                 # If we really can't read it as text
-                 return ToolResult(success=False, output=None, error=f"Error reading file (binary?): {str(e)}")
+                return ToolResult(success=False, output=None, error=f"Error reading file (binary?): {str(e)}")
 
             total_lines = len(all_lines)
-            
+
             # 2. Logic for viewing range
             # Rules:
             # - 1-indexed
             # - Max 800 lines
             # - If start/end not provided, view first 800.
-            
+
             if start is None:
                 start = 1
             if end is None:
                 end = min(total_lines, start + self.MAX_LINES - 1)
                 # If default view covers the whole file, great. If not, it's capped.
-            
+
             # Validate Constraints
             if start < 1:
                 start = 1
             if start > total_lines and total_lines > 0:
-                 # Start beyond file?
-                 return ToolResult(success=False, output=None, error=f"StartLine {start} is beyond end of file ({total_lines} lines)")
-            
+                # Start beyond file?
+                return ToolResult(success=False, output=None, error=f"StartLine {start} is beyond end of file ({total_lines} lines)")
+
             if end > total_lines:
                 end = total_lines
-            
+
             if end < start:
-                 return ToolResult(success=False, output=None, error=f"EndLine {end} cannot be less than StartLine {start}")
+                return ToolResult(success=False, output=None, error=f"EndLine {end} cannot be less than StartLine {start}")
 
             count_requested = end - start + 1
             if count_requested > self.MAX_LINES:
@@ -152,18 +152,18 @@ class ReadTool(BaseTool):
                 truncated = True
             else:
                 truncated = False
-            
-            selected_lines = all_lines[start-1 : end]
-            
+
+            selected_lines = all_lines[start - 1: end]
+
             # 3. Format Output
             output_str = ""
             for idx, line in enumerate(selected_lines, start=start):
                 # rstrip line to avoid double newlines if line has one, but keep indentation
                 # actually, 'cat -n' style usually preserves the line end, but we are appending to string.
                 # let's strip the newline char from the line itself for formatting.
-                clean_line = line.rstrip('\n\r') 
+                clean_line = line.rstrip('\n\r')
                 output_str += f"{idx:6d}\t{clean_line}\n"
-                
+
             return ToolResult(
                 success=True,
                 output=output_str,
@@ -197,10 +197,10 @@ class WriteTool(BaseTool):
     _partial_writes: Dict[str, str] = {}
 
     def __init__(
-        self,
-        root_dir: Optional[str] = None,
-        preview_mode: bool = False,
-        console: Optional[Any] = None,
+            self,
+            root_dir: Optional[str] = None,
+            preview_mode: bool = False,
+            console: Optional[Any] = None,
     ):
         super().__init__()
         self.category = ToolCategory.FILE_OPERATION
@@ -241,12 +241,12 @@ class WriteTool(BaseTool):
         """Validate parameters allowing for strict aliases"""
         # Check required: TargetFile (or file_path)
         if "TargetFile" not in kwargs and "file_path" not in kwargs:
-             return False, "Missing required parameter: TargetFile (or file_path)"
-        
+            return False, "Missing required parameter: TargetFile (or file_path)"
+
         # Check required: CodeContent (or content)
         if "CodeContent" not in kwargs and "content" not in kwargs and "Content" not in kwargs:
-             return False, "Missing required parameter: CodeContent (or content)"
-             
+            return False, "Missing required parameter: CodeContent (or content)"
+
         return True, None
 
     def _validate_content(self, content: str, file_path: str) -> List[str]:
@@ -324,16 +324,16 @@ class WriteTool(BaseTool):
         return False, ""
 
     async def execute(
-        self,
-        file_path: str = None,
-        content: str = None,
-        TargetFile: str = None,
-        CodeContent: str = None,
-        Content: str = None,
-        mode: str = "overwrite",
-        is_partial: bool = False,
-        preview: bool = False,
-        **kwargs,
+            self,
+            file_path: str = None,
+            content: str = None,
+            TargetFile: str = None,
+            CodeContent: str = None,
+            Content: str = None,
+            mode: str = "overwrite",
+            is_partial: bool = False,
+            preview: bool = False,
+            **kwargs,
     ) -> ToolResult:
         """
         Write content to file with validation and robustness features.
@@ -350,11 +350,11 @@ class WriteTool(BaseTool):
         # Parameter Normalization
         file_path = file_path or TargetFile
         content = content or CodeContent or Content or kwargs.get("Content") or kwargs.get("content")
-        
+
         if not file_path:
             return ToolResult(success=False, output="", error="file_path (or TargetFile) is required")
-        if content is None: # Content can be empty string
-             return ToolResult(success=False, output="", error="content (or CodeContent) is required")
+        if content is None:  # Content can be empty string
+            return ToolResult(success=False, output="", error="content (or CodeContent) is required")
         try:
             # Check if preview mode is enabled (either instance or parameter)
             use_preview = preview or self.preview_mode
@@ -367,18 +367,18 @@ class WriteTool(BaseTool):
 
             # Allow overwriting if mode is overwrite
             if path.exists() and mode == "overwrite":
-                 # Check if the content is exactly the same (idempotent write) - strictly optional optimization
-                 try:
-                     with open(path, "r", encoding="utf-8", errors="ignore") as f:
-                         current_content = f.read()
-                     if current_content == content:
-                         return ToolResult(
-                            success=True, 
+                # Check if the content is exactly the same (idempotent write) - strictly optional optimization
+                try:
+                    with open(path, "r", encoding="utf-8", errors="ignore") as f:
+                        current_content = f.read()
+                    if current_content == content:
+                        return ToolResult(
+                            success=True,
                             output=f"File {path} already has this content (no change made).",
                             metadata={"bytes_written": 0, "verified": True}
-                         )
-                 except:
-                     pass
+                        )
+                except:
+                    pass
 
             # Handle append mode for chunked writes
             if mode == "append":
@@ -408,7 +408,6 @@ class WriteTool(BaseTool):
                 # Store partial content for potential continuation
                 self._partial_writes[file_key] = content
 
-
             # Create parent directories
             path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -420,14 +419,14 @@ class WriteTool(BaseTool):
                     desc += " (Partial/Chunked Write)"
                 if mode == "append":
                     desc += " (Append Mode)"
-                
+
                 # Show confirmation
                 result, feedback = confirmation.show_file_create_confirmation(
                     file_path=str(path.absolute()),
                     content=content,
                     description=desc
                 )
-                
+
                 if result == ConfirmationResult.REJECT:
                     return ToolResult(
                         success=False,
@@ -437,7 +436,7 @@ class WriteTool(BaseTool):
                 elif result == ConfirmationResult.SESSION_ALLOW:
                     session_manager.grant_permission("Write", str(path.absolute()))
                 # If ALLOW, just proceed once
-            
+
             # --- End Confirmation Loop ---
 
             # Write file
@@ -494,7 +493,7 @@ class WriteTool(BaseTool):
             return ToolResult(success=False, output=None, error=str(e))
 
     async def _execute_with_preview(
-        self, file_path: str, content: str, mode: str = "overwrite", is_partial: bool = False
+            self, file_path: str, content: str, mode: str = "overwrite", is_partial: bool = False
     ) -> ToolResult:
         """Execute write with preview mode - shows diff before applying"""
         from .diff_tools import ChangeProposal, ChangeOperation
@@ -535,8 +534,8 @@ class WriteTool(BaseTool):
         return ToolResult(
             success=True,
             output=f"Preview generated for: {path}\nProposal ID: {proposal.id}\n"
-            f"+{proposal.additions} additions, -{proposal.deletions} deletions\n"
-            f"Use apply_proposal('{proposal.id}') to apply this change.",
+                   f"+{proposal.additions} additions, -{proposal.deletions} deletions\n"
+                   f"Use apply_proposal('{proposal.id}') to apply this change.",
             metadata={
                 "proposal_id": proposal.id,
                 "preview_mode": True,
@@ -583,10 +582,6 @@ class WriteTool(BaseTool):
             pass
 
 
-
-
-
-
 class EditTool(BaseTool):
     """
     Edit files by replacing exact string matches.
@@ -596,10 +591,10 @@ class EditTool(BaseTool):
     """
 
     def __init__(
-        self,
-        root_dir: Optional[str] = None,
-        console: Optional[Any] = None,
-        preview_mode: bool = False,
+            self,
+            root_dir: Optional[str] = None,
+            console: Optional[Any] = None,
+            preview_mode: bool = False,
     ):
         super().__init__()
         self.category = ToolCategory.FILE_OPERATION
@@ -632,16 +627,16 @@ class EditTool(BaseTool):
         """Validate parameters allowing for strict aliases"""
         # Check required: TargetFile (or file_path)
         if "TargetFile" not in kwargs and "file_path" not in kwargs:
-             return False, "Missing required parameter: TargetFile (or file_path)"
+            return False, "Missing required parameter: TargetFile (or file_path)"
 
         # Check required: TargetContent (or old_string)
         if "TargetContent" not in kwargs and "old_string" not in kwargs:
-             return False, "Missing required parameter: TargetContent (or old_string)"
-             
+            return False, "Missing required parameter: TargetContent (or old_string)"
+
         # Check required: ReplacementContent (or new_string)
         if "ReplacementContent" not in kwargs and "new_string" not in kwargs:
-             return False, "Missing required parameter: ReplacementContent (or new_string)"
-             
+            return False, "Missing required parameter: ReplacementContent (or new_string)"
+
         return True, None
 
     def _show_diff(self, file_path: str, old_content: str, new_content: str) -> str:
@@ -703,40 +698,40 @@ class EditTool(BaseTool):
             Tuple of (found, matched_string, count_matches)
         """
         import re
-        
+
         # 1. Handling Indentation/Line Breaks issues:
         # Strip the target string. This allows finding the block even if 
         # the user provided extra indentation or newlines at the start/end
         # that aren't strictly part of the content signature.
         clean_target = target.strip()
         if not clean_target:
-             return False, "", 0
-             
+            return False, "", 0
+
         # 2. Flexible Whitespace:
         # Split by whitespace sequences to handle "  " vs " " vs "\n" mismatch
         parts = re.split(r"\s+", clean_target)
-        
+
         # Escape each part to treat as literal
         escaped_parts = [re.escape(p) for p in parts]
-        
+
         # Join with \s+ pattern (one or more whitespace characters)
         # This matches: "a b" -> "a\s+b" -> matching "a  b", "a\nb", etc.
         fuzzy_pattern_str = r"\s+".join(escaped_parts)
-        
+
         # Compile pattern
         try:
             pattern = re.compile(fuzzy_pattern_str, re.DOTALL)
             matches = list(pattern.finditer(content))
-            
+
             if not matches:
                 return False, "", 0
-                
+
             # If unique match found, return the exact string that matched
             if len(matches) == 1:
                 return True, matches[0].group(0), 1
-                
+
             return True, "", len(matches)
-            
+
         except re.error:
             # Fallback for complex patterns or regex errors
             return False, "", 0
@@ -799,19 +794,19 @@ class EditTool(BaseTool):
         return '\n'.join(hint_parts)
 
     async def execute(
-        self,
-        file_path: str = None,
-        old_string: str = None,
-        new_string: str = None,
-        TargetFile: str = None,
-        TargetContent: str = None,
-        ReplacementContent: str = None,
-        replace_all: bool = False,
-        preview: bool = False,
-        **kwargs,  # Accept and ignore unknown parameters for model compatibility
+            self,
+            file_path: str = None,
+            old_string: str = None,
+            new_string: str = None,
+            TargetFile: str = None,
+            TargetContent: str = None,
+            ReplacementContent: str = None,
+            replace_all: bool = False,
+            preview: bool = False,
+            **kwargs,  # Accept and ignore unknown parameters for model compatibility
     ) -> ToolResult:
         """Edit file by replacing TargetContent with ReplacementContent"""
-        
+
         # Session & Confirmation Logic
         session_manager = get_session_manager()
         confirmation = get_confirmation_display()
@@ -819,11 +814,11 @@ class EditTool(BaseTool):
         # Parameter Normalization
         final_path = file_path or TargetFile
         final_old = old_string or TargetContent
-        final_new = new_string or ReplacementContent # Can be empty if we allow deletion? Usually empty string.
-        
+        final_new = new_string or ReplacementContent  # Can be empty if we allow deletion? Usually empty string.
+
         if final_new is None and ReplacementContent is None and new_string is None:
-             # If passed as empty string, it's fine. If None, it's missing.
-             pass 
+            # If passed as empty string, it's fine. If None, it's missing.
+            pass
 
         if not final_path:
             return ToolResult(success=False, output="", error="file_path (or TargetFile) is required")
@@ -857,7 +852,7 @@ class EditTool(BaseTool):
 
             # Store original content for diff
             original_content = content
-            
+
             # Match state tracking
             match_found = False
             actual_old_string = old_string
@@ -880,7 +875,7 @@ class EditTool(BaseTool):
                             output=None,
                             error=f"String not found exactly, and fuzzy match found {match_count} occurrences. Please be more specific or use replace_all=True with exact string.",
                         )
-            
+
             if not match_found:
                 # Build helpful error with actual file context so the AI
                 # can see what the file really contains and fix its old_string.
@@ -902,13 +897,13 @@ class EditTool(BaseTool):
             # Perform replacement
             if replace_all:
                 if actual_old_string != old_string:
-                     # If using fuzzy match, we can't easily replace-all safely without regex logic for all occurrences
-                     # For now, restrict fuzzy-match to single replacement or demand exact string for global replace
-                     return ToolResult(
+                    # If using fuzzy match, we can't easily replace-all safely without regex logic for all occurrences
+                    # For now, restrict fuzzy-match to single replacement or demand exact string for global replace
+                    return ToolResult(
                         success=False,
                         output=None,
                         error="Fuzzy matching is only supported for single replacements. Please verify the exact string for global replacement.",
-                     )
+                    )
                 new_content = content.replace(actual_old_string, new_string)
                 replacements = content.count(actual_old_string)
             else:
@@ -924,7 +919,7 @@ class EditTool(BaseTool):
                     new_content=new_content,
                     description=f"Replacing '{actual_old_string[:50]}...'"
                 )
-                
+
                 if result == ConfirmationResult.REJECT:
                     return ToolResult(
                         success=False,
@@ -934,7 +929,7 @@ class EditTool(BaseTool):
                 elif result == ConfirmationResult.SESSION_ALLOW:
                     session_manager.grant_permission("Edit", str(path.absolute()))
                 # If ALLOW, just proceed once
-            
+
             # --- End Confirmation Loop ---
 
             # Write back
@@ -943,7 +938,7 @@ class EditTool(BaseTool):
 
             # Show diff
             diff_summary = self._show_diff(str(path), original_content, new_content)
-            
+
             return_msg = f"File edited successfully. Replaced {replacements} occurrence(s). ({diff_summary})"
             if actual_old_string != old_string:
                 return_msg += "\nNote: Used fuzzy matching to ignore whitespace differences."
@@ -965,7 +960,7 @@ class EditTool(BaseTool):
             return ToolResult(success=False, output=None, error=str(e))
 
     async def _execute_with_preview(
-        self, file_path: str, old_string: str, new_string: str, replace_all: bool = False
+            self, file_path: str, old_string: str, new_string: str, replace_all: bool = False
     ) -> ToolResult:
         """Execute edit with preview mode - shows diff before applying"""
         from .diff_tools import ChangeProposal, ChangeOperation
@@ -1028,9 +1023,9 @@ class EditTool(BaseTool):
         return ToolResult(
             success=True,
             output=f"Preview generated for: {path}\nProposal ID: {proposal.id}\n"
-            f"Replacing {replacements} occurrence(s)\n"
-            f"+{proposal.additions} additions, -{proposal.deletions} deletions\n"
-            f"Use apply_proposal('{proposal.id}') to apply this change.",
+                   f"Replacing {replacements} occurrence(s)\n"
+                   f"+{proposal.additions} additions, -{proposal.deletions} deletions\n"
+                   f"Use apply_proposal('{proposal.id}') to apply this change.",
             metadata={
                 "proposal_id": proposal.id,
                 "preview_mode": True,
@@ -1171,7 +1166,7 @@ class MultiEditTool(BaseTool):
                     return ToolResult(
                         success=False,
                         output=None,
-                        error=f"Edit {i+1}: old_string and new_string are required",
+                        error=f"Edit {i + 1}: old_string and new_string are required",
                     )
 
                 # Check if old_string exists
@@ -1179,7 +1174,7 @@ class MultiEditTool(BaseTool):
                     return ToolResult(
                         success=False,
                         output=None,
-                        error=f"Edit {i+1}: String not found in file: {old_string[:100]}...",
+                        error=f"Edit {i + 1}: String not found in file: {old_string[:100]}...",
                     )
 
                 # Check if replacement would be ambiguous
@@ -1188,7 +1183,7 @@ class MultiEditTool(BaseTool):
                     return ToolResult(
                         success=False,
                         output=None,
-                        error=f"Edit {i+1}: String appears {count} times. Use replace_all=true or provide more context.",
+                        error=f"Edit {i + 1}: String appears {count} times. Use replace_all=true or provide more context.",
                     )
 
                 # Perform replacement
@@ -1257,12 +1252,12 @@ class GlobTool(BaseTool):
             ToolParameter("Pattern", "string", "Alias for pattern", default=None),
             ToolParameter("SearchDirectory", "string", "Alias for path", default=None),
         ]
-        
+
     def validate_parameters(self, **kwargs) -> tuple[bool, Optional[str]]:
         """Validate parameters allowing for strict aliases"""
         # Check required: pattern (or Pattern)
         if "pattern" not in kwargs and "Pattern" not in kwargs:
-             return False, "Missing required parameter: pattern (or Pattern)"
+            return False, "Missing required parameter: pattern (or Pattern)"
         return True, None
 
     async def execute(self, pattern: str = None, path: str = None, Pattern: str = None, SearchDirectory: str = None, **kwargs) -> ToolResult:
@@ -1272,7 +1267,7 @@ class GlobTool(BaseTool):
         final_path = path or SearchDirectory
 
         if not final_pattern:
-             return ToolResult(success=False, output="", error="pattern (or Pattern) is required")
+            return ToolResult(success=False, output="", error="pattern (or Pattern) is required")
 
         try:
             search_dir = Path(final_path) if final_path else self.root_dir
@@ -1291,8 +1286,8 @@ class GlobTool(BaseTool):
                     # Try to find the base directory
                     base_part = final_pattern
                     while glob_module.has_magic(base_part):
-                         base_part = os.path.dirname(base_part)
-                    
+                        base_part = os.path.dirname(base_part)
+
                     if base_part and os.path.exists(base_part):
                         search_dir = Path(base_part)
                         # Construct relative pattern
@@ -1300,8 +1295,8 @@ class GlobTool(BaseTool):
                         try:
                             final_pattern = str(full_pat.relative_to(search_dir))
                         except ValueError:
-                             # Fallback if relative conversion fails
-                             pass
+                            # Fallback if relative conversion fails
+                            pass
                 else:
                     # No magic, just an absolute path
                     p = Path(final_pattern)
@@ -1347,7 +1342,7 @@ class GlobTool(BaseTool):
                                 subdirs.append(item.name)
                 except Exception:
                     pass
-                
+
                 output = "No matches found"
                 if subdirs:
                     output += f"\n\nHINT: Found potentially relevant directories: {', '.join(subdirs)}"
@@ -1367,7 +1362,6 @@ class GlobTool(BaseTool):
             return ToolResult(success=False, output=None, error=str(e))
 
 
-
 class GrepTool(BaseTool):
     """
     Search for patterns in files using ripgrep-style interface.
@@ -1383,13 +1377,13 @@ class GrepTool(BaseTool):
             ToolParameter("pattern", "string", "Search pattern (regex)", required=True),
             ToolParameter("path", "string", "File or directory to search", required=True),
             ToolParameter("glob", "string", "Glob pattern to filter files", default=None),
-            
+
             # Legacy parameters
             ToolParameter("Query", "string", "Alias for pattern", default=None),
             ToolParameter("SearchPath", "string", "Alias for path", default=None),
             ToolParameter("Includes", "array", "Alias for glob", default=None),
             ToolParameter("MatchPerLine", "boolean", "Legacy: Show each matching line (implies output_mode='content')", default=False),
-            
+
             ToolParameter("case_insensitive", "boolean", "Case insensitive search", default=False),
             ToolParameter(
                 "output_mode",
@@ -1403,26 +1397,26 @@ class GrepTool(BaseTool):
         """Validate parameters allowing for strict aliases"""
         # Check required: pattern (or Query)
         if "pattern" not in kwargs and "Query" not in kwargs:
-             return False, "Missing required parameter: pattern (or Query)"
-        
+            return False, "Missing required parameter: pattern (or Query)"
+
         # Check required: path (or SearchPath)
         if "path" not in kwargs and "SearchPath" not in kwargs:
-             return False, "Missing required parameter: path (or SearchPath)"
-             
+            return False, "Missing required parameter: path (or SearchPath)"
+
         return True, None
 
     async def execute(
-        self,
-        pattern: str = None,
-        path: str = None,
-        glob: str = None,
-        Query: str = None,
-        SearchPath: str = None,
-        Includes: List[str] = None,
-        MatchPerLine: bool = False,
-        case_insensitive: bool = False,
-        output_mode: str = "files_with_matches",
-        **kwargs,  # Accept and ignore unknown parameters for model compatibility
+            self,
+            pattern: str = None,
+            path: str = None,
+            glob: str = None,
+            Query: str = None,
+            SearchPath: str = None,
+            Includes: List[str] = None,
+            MatchPerLine: bool = False,
+            case_insensitive: bool = False,
+            output_mode: str = "files_with_matches",
+            **kwargs,  # Accept and ignore unknown parameters for model compatibility
     ) -> ToolResult:
         """Search for pattern in files"""
         import re
@@ -1431,30 +1425,30 @@ class GrepTool(BaseTool):
         final_query = pattern or Query
         final_path = path or SearchPath
         final_includes = glob or Includes
-        
+
         if not final_query:
-             return ToolResult(success=False, output="", error="pattern (or Query) is required")
-        
+            return ToolResult(success=False, output="", error="pattern (or Query) is required")
+
         # Handle MatchPerLine override
         if MatchPerLine:
             output_mode = "content"
-        
+
         # SearchPath is technically optional in legacy, but prompt requires it. 
         # We'll use root_dir if not provided, for legacy support.
-        
+
         try:
             search_path = Path(final_path) if final_path else self.root_dir
 
             # Handle glob as list or string (model may pass list)
             if isinstance(final_includes, list):
                 final_includes = final_includes[0] if final_includes else None  # Use first pattern if list
-            
+
             # Handle absolute glob patterns (e.g. D:\path\to\*.py)
             if final_includes and Path(final_includes).is_absolute():
                 glob_path = Path(final_includes)
                 search_path = glob_path.parent
                 final_includes = glob_path.name
-            
+
             # Compile regex pattern
             flags = re.IGNORECASE if case_insensitive else 0
             regex = re.compile(final_query, flags)
@@ -1511,14 +1505,14 @@ class GrepTool(BaseTool):
             else:
                 # No matches - provide helpful hints with regex patterns
                 hints = []
-                
+
                 # Analyze the pattern to suggest alternatives
                 # Extract potential keywords from the pattern
                 import re as re_module
                 # Remove regex special chars to get base words
                 clean_pattern = re_module.sub(r'[.*+?^${}()|\[\]\\]', ' ', final_query)
                 words = [w for w in clean_pattern.replace('_', ' ').replace('-', ' ').split() if len(w) > 2]
-                
+
                 if len(words) >= 2:
                     # Suggest regex with wildcards between words
                     hints.append(f"Try regex pattern: {words[0]}.*{words[1]}")
@@ -1526,11 +1520,11 @@ class GrepTool(BaseTool):
                     hints.append(f"Try hyphenated: {words[0]}-{words[1]} or {words[1]}-{words[0]}")
                 elif len(words) == 1:
                     hints.append(f"Try broader search with just: {words[0]}")
-                
+
                 # Suggest case-insensitive if not already
                 if not case_insensitive:
                     hints.append("Try with case_insensitive=True")
-                
+
                 # Look for config directories
                 subdirs = []
                 try:
@@ -1544,10 +1538,10 @@ class GrepTool(BaseTool):
                                 subdirs.append(item.name)
                 except Exception:
                     pass
-                
+
                 if subdirs:
                     hints.append(f"Try searching in: {', '.join(subdirs)}")
-                
+
                 output = "No matches found"
                 if hints:
                     output += "\n\nHINTS (try these patterns):\n- " + "\n- ".join(hints)
@@ -1564,5 +1558,3 @@ class GrepTool(BaseTool):
 
         except Exception as e:
             return ToolResult(success=False, output=None, error=str(e))
-
-

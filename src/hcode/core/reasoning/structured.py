@@ -281,7 +281,6 @@ class StructuredReasoning:
     tokens_used: int = 0
     duration_ms: int = 0
 
-
     def quality_score(self) -> float:
         """Calculate overall quality score (0-1)"""
         phase_scores = []
@@ -340,20 +339,20 @@ class StructuredReasoning:
     def is_self_critical(self) -> bool:
         """Check if reasoning includes self-critique"""
         return (
-            len(self.reasoning.evidence_against) > 0
-            or len(self.reasoning.counter_arguments) > 0
-            or len(self.verification.potential_issues) > 0
-            or len(self.pre_execution_review.what_could_go_wrong) > 0
-            or len(self.change_impact.breaking_changes) > 0
+                len(self.reasoning.evidence_against) > 0
+                or len(self.reasoning.counter_arguments) > 0
+                or len(self.verification.potential_issues) > 0
+                or len(self.pre_execution_review.what_could_go_wrong) > 0
+                or len(self.change_impact.breaking_changes) > 0
         )
 
     def requires_user_approval(self) -> bool:
         """Check if change requires user approval based on impact"""
         return (
-            self.pre_execution_review.user_approval_needed
-            or self.change_impact.requires_review
-            or self.change_impact.impact_score > 0.7
-            or len(self.change_impact.breaking_changes) > 0
+                self.pre_execution_review.user_approval_needed
+                or self.change_impact.requires_review
+                or self.change_impact.impact_score > 0.7
+                or len(self.change_impact.breaking_changes) > 0
         )
 
     def is_valid(self) -> bool:
@@ -364,12 +363,12 @@ class StructuredReasoning:
             True if at least one phase is complete or raw content is substantial.
         """
         return (
-            self.perception.is_complete()
-            or self.comprehension.is_complete()
-            or self.analysis.is_complete()
-            or self.reasoning.is_complete()
-            or self.decision.is_complete()
-            or len(self.raw_content) > 20
+                self.perception.is_complete()
+                or self.comprehension.is_complete()
+                or self.analysis.is_complete()
+                or self.reasoning.is_complete()
+                or self.decision.is_complete()
+                or len(self.raw_content) > 20
         )
 
     def get_change_summary(self) -> str:
@@ -386,7 +385,6 @@ class StructuredReasoning:
             summary_parts.append(f"Changes: {self.pre_execution_review.what_will_change[:100]}...")
 
         return " | ".join(summary_parts) if summary_parts else "No changes identified"
-
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary"""
@@ -980,7 +978,7 @@ class ReasoningParser:
             return ReasoningLevel.QUICK
 
     def _populate_from_dict(
-        self, result: StructuredReasoning, data: Dict[str, Any]
+            self, result: StructuredReasoning, data: Dict[str, Any]
     ) -> StructuredReasoning:
         """Populate StructuredReasoning from dictionary"""
         if "perception" in data:
@@ -1159,7 +1157,6 @@ class ReasoningToTodoIntegrator:
         """
         self.todo_manager = todo_manager
 
-
     def extract_todos_from_reasoning(self, reasoning: StructuredReasoning) -> List[Dict[str, Any]]:
         """
         Extract todo items from structured reasoning.
@@ -1258,8 +1255,6 @@ class ReasoningToTodoIntegrator:
         return content
 
 
-
-
 class SelfCritiqueEngine:
     """
     Generates self-critique and reflection on reasoning quality.
@@ -1267,7 +1262,6 @@ class SelfCritiqueEngine:
     Identifies blind spots, weak points, and areas for improvement
     in the reasoning process.
     """
-
 
     def __init__(self):
         self.critique_history: List[Dict[str, Any]] = []
@@ -1473,8 +1467,8 @@ class SelfCritiqueEngine:
 
         # Check safety check
         if (
-            reasoning.verification.safety_check
-            and reasoning.verification.safety_check != "Not specified"
+                reasoning.verification.safety_check
+                and reasoning.verification.safety_check != "Not specified"
         ):
             score += 0.3
         else:
@@ -1544,7 +1538,7 @@ class SelfCritiqueEngine:
         return blind_spots
 
     def _identify_weak_points(
-        self, reasoning: StructuredReasoning, aspects: Dict[str, Dict[str, Any]]
+            self, reasoning: StructuredReasoning, aspects: Dict[str, Dict[str, Any]]
     ) -> List[str]:
         """Identify weak points based on aspect scores"""
         weak_points = []
@@ -1557,7 +1551,7 @@ class SelfCritiqueEngine:
         return weak_points
 
     def _generate_suggestions(
-        self, reasoning: StructuredReasoning, critique: Dict[str, Any]
+            self, reasoning: StructuredReasoning, critique: Dict[str, Any]
     ) -> List[str]:
         """Generate improvement suggestions"""
         suggestions = []
@@ -1593,7 +1587,7 @@ class SelfCritiqueEngine:
         return suggestions[:5]  # Limit to top 5
 
     def _identify_strengths(
-        self, reasoning: StructuredReasoning, aspects: Dict[str, Dict[str, Any]]
+            self, reasoning: StructuredReasoning, aspects: Dict[str, Dict[str, Any]]
     ) -> List[str]:
         """Identify reasoning strengths"""
         strengths = []
@@ -1811,4 +1805,3 @@ class ReasoningQualityMetrics:
             gap *= 1.5
 
         return max(0.0, 1.0 - gap)
-
