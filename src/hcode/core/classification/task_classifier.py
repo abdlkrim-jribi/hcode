@@ -243,21 +243,18 @@ class TaskClassifier(TaskClassifierProtocol):
 
     def requires_pev_workflow(self, task: str) -> bool:
         """
-        Check if task requires PEV workflow.
+        Check if task requires the planning phase of the PEV workflow.
 
-        ALWAYS returns True because PEV workflow is mandatory for all tasks,
-        regardless of type or complexity. This method exists for documentation
-        and to make the design intent explicit.
+        Returns True only for complex tasks that benefit from upfront planning.
+        Simple and moderate tasks skip planning and go directly to execution+verification.
 
         Args:
             task: User's task description
 
         Returns:
-            Always True - PEV is enforced for all tasks
+            True if task complexity is "complex" and needs the planning phase
         """
-        # PEV workflow is ALWAYS required - no exceptions
-        # This ensures consistent quality and traceability
-        return True
+        return self.get_complexity(task) == "complex"
 
     def get_workflow_recommendation(self, task: str) -> Dict[str, Any]:
         """
@@ -275,9 +272,10 @@ class TaskClassifier(TaskClassifierProtocol):
         task_type = self.classify(task)
         complexity = self.get_complexity(task)
 
+        needs_planning = self.requires_pev_workflow(task)
         return {
-            "workflow": "PEV",  # Always PEV
-            "pev_enforced": True,  # Always True
+            "workflow": "PEV" if needs_planning else "EV",
+            "use_planning": needs_planning,
             "task_type": task_type,
             "complexity": complexity,
             "planning_focus": self._get_planning_focus(task_type),

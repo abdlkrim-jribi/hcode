@@ -48,6 +48,7 @@ class AgentOrchestrator(AgentOrchestratorProtocol):
             console: Any = None,
             debug_mode: bool = False,
             enable_checkpoints: bool = True,
+            fast_handler: Any = None,
     ):
         """
         Initialize orchestrator.
@@ -68,6 +69,7 @@ class AgentOrchestrator(AgentOrchestratorProtocol):
         self.console = console
         self.debug_mode = debug_mode
         self.enable_checkpoints = enable_checkpoints
+        self.fast_handler = fast_handler  # Used when use_planning=False
 
         # Initialize loop controller
         self.loop_controller = AgentLoopController(
@@ -84,22 +86,25 @@ class AgentOrchestrator(AgentOrchestratorProtocol):
             task: str,
             session_id: str,
             stream_callback: Optional[Callable] = None,
+            use_planning: bool = True,
     ) -> Dict[str, Any]:
         """
-        Execute a user task through the PEV workflow.
+        Execute a user task through the EV or PEV workflow.
 
-        IMPORTANT: PEV workflow is ALWAYS enforced regardless of task complexity.
-        Every task goes through:
-        1. PLANNING: Create task.md and implementation_plan.md
-        2. EXECUTION: Implement the plan using tools
-        3. VERIFICATION: Test and create walkthrough.md
+        When use_planning=True (full PEV):
+          1. PLANNING: Create task.md and implementation_plan.md
+          2. EXECUTION: Implement the plan using tools
+          3. VERIFICATION: Test and create walkthrough.md
 
-        Uses AgentLoopController for state management and phase transitions.
+        When use_planning=False (EV only):
+          1. EXECUTION: Implement directly using tools
+          2. VERIFICATION: Test and create walkthrough.md
 
         Args:
             task: User's task description
             session_id: Session identifier
             stream_callback: Optional callback for streaming
+            use_planning: Whether to run the planning phase (default: True)
 
         Returns:
             Dict with execution results
@@ -107,19 +112,52 @@ class AgentOrchestrator(AgentOrchestratorProtocol):
         # Reset loop controller for new task
         self.loop_controller.reset()
 
-        # Reset phase manager to ensure we ALWAYS start with planning
-        # PEV is enforced for ALL tasks regardless of complexity
-        self.phase_manager.reset(initial_phase="planning")
-
         # Initialize context
         context = self.initialize_context(task, session_id)
 
-        # Classify task (for metadata only - does NOT affect PEV enforcement)
+        # Classify task for metadata
         task_type = self.task_classifier.classify(task)
         complexity = self.task_classifier.get_complexity(task)
 
-        # Log that PEV is being enforced
-        logger.info(f"Executing task with PEV workflow (type={task_type}, complexity={complexity})")
+        # Fast mode: single-handler flow (understand → todo.md → implement → summary)
+        if not use_planning and self.fast_handler:
+            logger.info(f"Executing task with Fast mode (type={task_type}, complexity={complexity})")
+            if self.console:
+                self.console.print("[bold cyan]> Fast Mode: Understand · Plan · Implement · Summarize[/bold cyan]")
+            try:
+                phase_result = await self.fast_handler.handle(context, self.loop_controller)
+                return {
+                    "success": phase_result.success,
+                    "output": phase_result.output or "Task complete.",
+                    "modified_files": context.modified_files,
+                    "artifacts": context.artifacts,
+                    "phase_results": [phase_result],
+                    "task_type": task_type,
+                    "complexity": complexity,
+                    "final_phase": "fast",
+                    "iterations": 1,
+                    "stop_reason": "task_complete" if phase_result.success else "error",
+                    "error": phase_result.error if not phase_result.success else None,
+                }
+            except Exception as e:
+                logger.exception(f"Fast mode execution failed: {e}")
+                return {
+                    "success": False,
+                    "output": f"Fast mode failed: {e}",
+                    "modified_files": [],
+                    "artifacts": {},
+                    "phase_results": [],
+                    "task_type": task_type,
+                    "complexity": complexity,
+                    "error": str(e),
+                }
+
+        # Full PEV mode (or EV without fast_handler)
+        initial_phase = "planning" if use_planning else "execution"
+        self.phase_manager.reset(initial_phase=initial_phase)
+
+        workflow = "PEV" if use_planning else "EV"
+        logger.info(f"Executing task with {workflow} workflow (type={task_type}, complexity={complexity})")
 
         context.metadata["task_type"] = task_type
         context.metadata["complexity"] = complexity

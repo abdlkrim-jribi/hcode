@@ -457,6 +457,9 @@ def chat_mode(provider, session, debug, autonomous):
 
     message_count = 0
 
+    # Planning mode: None = auto-detect by complexity, True = always plan, False = never plan
+    plan_mode: "Optional[bool]" = None
+
     # LiveTodoBar handles persistent display via callback system
     live_todo_bar = LiveTodoBar(console=console, height=6)
     chat_todos = []
@@ -705,6 +708,8 @@ def chat_mode(provider, session, debug, autonomous):
                     settings_help.add_column("Command", style=f"{palette.info}", min_width=15)
                     settings_help.add_column("Description", style=f"{palette.text_secondary}")
                     settings_help.add_column("Aliases", style=f"{palette.text_muted}")
+                    settings_help.add_row("/plan", "Enable planning mode (all tasks plan first)", "")
+                    settings_help.add_row("/fast", "Return to auto mode (plan only complex tasks)", "")
                     settings_help.add_row("/init", "Analyze codebase and generate hcode.md", "")
                     settings_help.add_row("/debug", "Toggle debug mode (verbose output)", "")
                     settings_help.add_row("/theme <name>", "Change color theme", "")
@@ -871,6 +876,20 @@ def chat_mode(provider, session, debug, autonomous):
                         console.print(f"[{palette.text_muted}]Claude Code-style minimal output[/]")
                     continue
 
+                elif command == "plan":
+                    # Activate planning mode — all subsequent tasks run through Planning → Execution → Verification
+                    plan_mode = True
+                    console.print(f"[bold {palette.primary}]{icons.SUCCESS} Plan mode ON[/bold {palette.primary}]")
+                    console.print(f"[{palette.text_muted}]All tasks will go through the full planning phase. Use /fast to return to auto mode.[/]")
+                    continue
+
+                elif command == "fast":
+                    # Return to auto mode — planning only for tasks auto-classified as complex
+                    plan_mode = None
+                    console.print(f"[bold {palette.success}]{icons.SUCCESS} Fast mode — auto planning[/bold {palette.success}]")
+                    console.print(f"[{palette.text_muted}]Planning runs only for complex tasks. Use /plan to force planning for all tasks.[/]")
+                    continue
+
                 elif command == "clear":
                     agent.context_manager.clear_context(keep_system=True)
                     chat_todos = []  # Clear todos too
@@ -1007,7 +1026,7 @@ def chat_mode(provider, session, debug, autonomous):
             live_todo_bar.pause()
 
             try:
-                result = asyncio.run(agent.execute_task(task=user_input, stream=True))
+                result = asyncio.run(agent.execute_task(task=user_input, stream=True, force_planning=plan_mode))
             finally:
                 # End thinking timer if it was running (safety)
                 hcode_display.end_thinking()

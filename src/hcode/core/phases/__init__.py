@@ -9,11 +9,13 @@ Each phase implements PhaseHandlerProtocol and is responsible for:
 
 from .base_handler import BasePhaseHandler
 from .execution_handler import ExecutionPhaseHandler
+from .fast_handler import FastModeHandler
 from .planning_handler import PlanningPhaseHandler
 from .verification_handler import VerificationPhaseHandler
 
 __all__ = [
     "BasePhaseHandler",
+    "FastModeHandler",
     "PlanningPhaseHandler",
     "ExecutionPhaseHandler",
     "VerificationPhaseHandler",
