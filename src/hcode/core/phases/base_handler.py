@@ -73,6 +73,40 @@ class BasePhaseHandler(PhaseHandlerProtocol):
 
     def _display(self, message: str, style: str = "default"):
         """Display message using HcodeDisplay or fallback to print."""
+        if self._hcode_display and hasattr(self._hcode_display, 'display_status'):
+            # Detect pattern: "[LABEL] message" or "      [LABEL] message"
+            # Support escaped brackets like \[FAIL\] which can occur in some terminal environments
+            match = re.search(r'\\?\[(OK|FAIL|ERROR|INFO|DONE|REJECT)\\?\]\s*(.*)', message)
+            if match:
+                label = match.group(1)
+                content = match.group(2).strip()
+            else:
+                label = None
+                content = message.strip()
+
+            # Map style to status
+            status_map = {
+                "success": "success",
+                "error": "error",
+                "info": "info",
+                "thinking": "info",
+            }
+            status = status_map.get(style, "info")
+
+            # Refine label and status based on content and style
+            if label:
+                if label in ("FAIL", "ERROR"):
+                    status = "error"
+                elif label == "OK":
+                    status = "success"
+                self._hcode_display.display_status(label, content, status=status)
+                return
+            elif style in ("success", "error"):
+                # Use default labels for specific success/error styles if no label found
+                default_label = "DONE" if style == "success" else "FAIL"
+                self._hcode_display.display_status(default_label, content, status=status)
+                return
+
         if self.console:
             # Escape square brackets to prevent Rich markup errors (e.g., checkbox markers [x], [/], [ ])
             safe_message = message.replace("[", r"\[").replace("]", r"\]")

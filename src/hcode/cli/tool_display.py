@@ -348,7 +348,7 @@ class HcodeToolDisplay:
         """Display MultiEdit tool execution - Status Gutter Style"""
         file_path = arguments.get("file_path", "unknown")
 
-        gutter_color = self.style.COLOR_EDIT
+        gutter_color = self.style.COLOR_BASH
         gutter = f"[{gutter_color}]{self.style.GUTTER}[/]"
 
         if result.success:

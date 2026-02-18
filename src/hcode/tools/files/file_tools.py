@@ -421,10 +421,10 @@ class WriteTool(BaseTool):
                     desc += " (Append Mode)"
 
                 # Show confirmation
-                result, feedback = confirmation.show_file_create_confirmation(
+                result, feedback = await confirmation.show_file_create_confirmation(
                     file_path=str(path.absolute()),
                     content=content,
-                    description=desc
+                    description=f"Creating/Writing {Path(file_path).name}"
                 )
 
                 if result == ConfirmationResult.REJECT:
@@ -434,7 +434,8 @@ class WriteTool(BaseTool):
                         error=f"Write rejected by user. Feedback: {feedback or 'No feedback provided.'}"
                     )
                 elif result == ConfirmationResult.SESSION_ALLOW:
-                    session_manager.grant_permission("Write", str(path.absolute()))
+                    # Grant global permission for Write tool
+                    session_manager.grant_permission("Write", None)
                 # If ALLOW, just proceed once
 
             # --- End Confirmation Loop ---
@@ -913,7 +914,7 @@ class EditTool(BaseTool):
             # --- Confirmation Loop ---
             if not session_manager.check_permission("Edit", str(path.absolute())):
                 # Show confirmation
-                result, feedback = confirmation.show_file_edit_confirmation(
+                result, feedback = await confirmation.show_file_edit_confirmation(
                     file_path=str(path.absolute()),
                     old_content=original_content,
                     new_content=new_content,
@@ -927,7 +928,8 @@ class EditTool(BaseTool):
                         error=f"Edit rejected by user. Feedback: {feedback or 'No feedback provided.'}"
                     )
                 elif result == ConfirmationResult.SESSION_ALLOW:
-                    session_manager.grant_permission("Edit", str(path.absolute()))
+                    # Grant global permission for Edit tool
+                    session_manager.grant_permission("Edit", None)
                 # If ALLOW, just proceed once
 
             # --- End Confirmation Loop ---
@@ -1142,6 +1144,10 @@ class MultiEditTool(BaseTool):
 
     async def execute(self, file_path: str, edits: List[Dict[str, Any]], **kwargs) -> ToolResult:
         """Apply multiple edits to a file"""
+        # Session & Confirmation Logic
+        session_manager = get_session_manager()
+        confirmation = get_confirmation_display()
+
         try:
             path = Path(file_path)
 
@@ -1203,6 +1209,29 @@ class MultiEditTool(BaseTool):
                         "new_length": len(new_string),
                     }
                 )
+
+            # --- Confirmation Loop ---
+            if not session_manager.check_permission("Edit", str(path.absolute())):
+                # Show confirmation
+                result, feedback = await confirmation.show_file_edit_confirmation(
+                    file_path=str(path.absolute()),
+                    old_content=original_content,
+                    new_content=content,
+                    description=f"Applying {len(edits)} batched edits"
+                )
+
+                if result == ConfirmationResult.REJECT:
+                    return ToolResult(
+                        success=False,
+                        output=None,
+                        error=f"Batch edit rejected by user. Feedback: {feedback or 'No feedback provided.'}"
+                    )
+                elif result == ConfirmationResult.SESSION_ALLOW:
+                    # Grant global permission for Edit tool (MultiEdit use Edit permission)
+                    session_manager.grant_permission("Edit", None)
+                # If ALLOW, just proceed once
+
+            # --- End Confirmation Loop ---
 
             # Write back only if changes were made
             if content != original_content:

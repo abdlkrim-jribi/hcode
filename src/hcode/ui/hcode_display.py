@@ -379,7 +379,7 @@ class HcodeDisplay:
                 # Let's try rendering Markdown in the second column.
                 # Rich Tables handle multiline content in cells automatically.
                 md_content = Markdown(content.strip())
-                grid.add_row("▍", md_content)
+                grid.add_row(self._icons.GUTTER_BAR, md_content)
 
         # Footer / Spacer
         # grid.add_row("▍", "") 
@@ -410,8 +410,6 @@ class HcodeDisplay:
                 gutter_color = "#39FF14"  # Green for done? Or keep orange?
                 # Actually typically execution is orange/yellow then success is green.
 
-            gutter = f"[{gutter_color}]┃[/]"  # Gutter symbol
-
             # Header
             header = Text()
             header.append("┃ ", style=f"{gutter_color}")
@@ -433,7 +431,8 @@ class HcodeDisplay:
             content_text = Text()
             for line in visible_lines:
                 # Add gutter to each line
-                content_text.append(f"{gutter}   ", style="")
+                content_text.append(self._icons.GUTTER_BAR, style=gutter_color)
+                content_text.append("   ", style="")
                 content_text.append(line, style="dim white")
                 if not line.endswith("\n"):
                     content_text.append("\n")
@@ -492,6 +491,37 @@ class HcodeDisplay:
         self.console.print()
         self.console.print(panel)
         self.console.print()
+
+    def display_status(self, label: str, message: str, status: str = "success") -> None:
+        """
+        Display a status message with gutter style.
+        
+        Args:
+            label: Short status label (e.g., OK, FAIL)
+            message: Detail message
+            status: Status for coloring
+        """
+        status_colors = {
+            "success": self._palette.success,
+            "error": self._palette.error,
+            "warning": self._palette.warning,
+            "info": self._palette.info,
+        }
+        color = status_colors.get(status, self._palette.text_primary)
+        
+        # Create Grid Layout (Borderless with Gutter)
+        grid = Table.grid(padding=(0, 1))
+        grid.add_column(style=f"{color}", width=2, justify="center") # Gutter column
+        grid.add_column() # Content column
+
+        # Build Status Text
+        status_text = Text()
+        status_text.append(f"{label:<5} ", style=f"bold {color}")
+        status_text.append(message, style=self._palette.text_primary)
+
+        grid.add_row(self._icons.GUTTER_BAR, status_text)
+
+        self.console.print(grid)
 
 
 # Singleton instance for global access
