@@ -16,17 +16,24 @@ IS_WINDOWS = sys.platform == "win32"
 def supports_unicode() -> bool:
     """Check if terminal supports Unicode."""
     if IS_WINDOWS:
-        # Check if encoding allows unicode
-        if hasattr(sys.stdout, "encoding") and sys.stdout.encoding:
-            encoding = sys.stdout.encoding.lower()
-            if encoding in ("cp1252", "cp437", "mbcs"):
-                return False
-
-        return (
+        # Check if we are in VS Code, Windows Terminal, or ConEmu
+        if (
                 os.environ.get("WT_SESSION") is not None
                 or os.environ.get("ConEmuANSI") == "ON"
                 or os.environ.get("TERM_PROGRAM") == "vscode"
-        )
+                or os.environ.get("TERM") in ("xterm-256color", "alacritty")
+        ):
+            return True
+
+        # Check if encoding allows unicode (UTF-8 is usually fine)
+        # sys.stdout.encoding is usually 'utf-8' in modern Windows Terminal/PowerShell
+        if hasattr(sys.stdout, "encoding") and sys.stdout.encoding:
+            encoding = sys.stdout.encoding.lower()
+            if "utf" in encoding or encoding == "cp65001":
+                return True
+
+        # Conservative fallback for legacy cmd.exe
+        return False
     return True
 
 
@@ -45,17 +52,17 @@ class Icons:
     # STATUS ICONS
     # ═══════════════════════════════════════════════════════════════
 
-    SUCCESS = "✔" if USE_UNICODE else "[OK]"
-    CHECK = "✔" if USE_UNICODE else "[OK]"  # Alias for SUCCESS
-    ERROR = "✖" if USE_UNICODE else "[X]"
-    WARNING = "⚠" if USE_UNICODE else "[!]"
-    INFO = "ℹ" if USE_UNICODE else "[i]"
-    LOADING = "◐" if USE_UNICODE else "[~]"
-    ONLINE = "◉" if USE_UNICODE else "[*]"
-    OFFLINE = "○" if USE_UNICODE else "[ ]"
-    PENDING = "○" if USE_UNICODE else "[ ]"
-    COMPLETE = "●" if USE_UNICODE else "[X]"
-    EXECUTING = "◈" if USE_UNICODE else "[>]"
+    SUCCESS = "✔" if USE_UNICODE else "OK"
+    CHECK = "✔" if USE_UNICODE else "OK"  # Alias for SUCCESS
+    ERROR = "✖" if USE_UNICODE else "X"
+    WARNING = "⚠" if USE_UNICODE else "!"
+    INFO = "ℹ" if USE_UNICODE else "i"
+    LOADING = "◐" if USE_UNICODE else "..."
+    ONLINE = "◉" if USE_UNICODE else "*"
+    OFFLINE = "○" if USE_UNICODE else " "
+    PENDING = "○" if USE_UNICODE else " "
+    COMPLETE = "●" if USE_UNICODE else "DONE"
+    EXECUTING = "◈" if USE_UNICODE else ">"
 
     # ═══════════════════════════════════════════════════════════════
     # TODO STATUS ICONS
