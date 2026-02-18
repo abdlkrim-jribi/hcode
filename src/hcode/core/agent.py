@@ -300,17 +300,14 @@ class HcodeAgent:
 
     def _should_use_pev_workflow(self, task: str, use_sub_agents: bool) -> bool:
         """
-        Determine if task should use the new PEV workflow.
-
-        IMPORTANT: PEV workflow is ALWAYS enforced for all tasks.
-        This ensures consistent quality through Planning → Execution → Verification.
+        Determine if task should use the PEV workflow (Execution + Verification).
 
         Args:
             task: User's task description
             use_sub_agents: Whether sub-agents are being used
 
         Returns:
-            True if PEV workflow should be used (almost always True)
+            True if PEV workflow should be used
         """
         # Don't use PEV with sub-agents (they have their own orchestration)
         if use_sub_agents:
@@ -327,9 +324,47 @@ class HcodeAgent:
         if self._pev_enabled is False:
             return False
 
-        # PEV is ALWAYS used for all tasks (default behavior)
-        # This ensures consistent Planning → Execution → Verification flow
         return True
+
+    def _needs_planning_phase(self, task: str) -> bool:
+        """
+        Determine if the task requires the planning phase.
+
+        Planning is activated when:
+        - The user explicitly uses /plan  → always plan, OR
+        - The task is classified as complex AND user did not use /fast
+
+        /fast explicitly opts out of planning regardless of complexity.
+
+        Args:
+            task: User's task description (may include /plan or /fast prefix)
+
+        Returns:
+            True if planning phase should run before execution
+        """
+        stripped = task.strip().lower()
+
+        # /fast always skips planning
+        if stripped.startswith("/fast"):
+            return False
+
+        # /plan always activates planning
+        if stripped.startswith("/plan"):
+            return True
+
+        # Complex tasks benefit from upfront planning
+        from .classification import TaskClassifier
+        classifier = TaskClassifier()
+        return classifier.requires_pev_workflow(task)
+
+    def _strip_mode_command(self, task: str) -> str:
+        """Strip /plan or /fast prefix from task if present."""
+        stripped = task.strip()
+        for prefix in ("/plan ", "/fast "):
+            if stripped.lower().startswith(prefix):
+                return stripped[len(prefix):].strip()
+        # bare /plan or /fast with no body — keep as-is
+        return stripped
 
     def _init_resilient_provider(
             self,
@@ -414,6 +449,7 @@ class HcodeAgent:
             task_type: TaskType = TaskType.CODE_GENERATION,
             stream: bool = True,
             use_sub_agents: bool = False,
+            force_planning: Optional[bool] = None,
     ) -> str:
         """
         Execute a task using the agent capabilities.
@@ -438,11 +474,20 @@ class HcodeAgent:
         self.analytics.start_conversation(self.context_manager.session_id)
         self._loop_controller.transition(Phase.PLANNING)
 
+        # Determine if planning phase is needed:
+        # - force_planning from CLI mode toggle takes precedence
+        # - otherwise detect from /plan//fast prefix or task complexity
+        task = self._strip_mode_command(task)
+        if force_planning is not None:
+            use_planning = force_planning
+        else:
+            use_planning = self._needs_planning_phase(task)
+
         # Initialize Hcode Display for task header
         from hcode.ui.hcode_display import get_hcode_display, TaskMode
         hcode_display = get_hcode_display(self.console)
-        # Determine initial mode based on whether sub-agents are used
-        initial_mode = TaskMode.EXECUTION if use_sub_agents else TaskMode.PLANNING
+        # Show PLANNING mode only when planning phase will actually run
+        initial_mode = TaskMode.EXECUTION if (use_sub_agents or not use_planning) else TaskMode.PLANNING
         hcode_display.start_task(task, initial_mode)
 
         try:
@@ -470,13 +515,15 @@ class HcodeAgent:
 
             # Check if we should use the new PEV workflow
             if self._should_use_pev_workflow(task, use_sub_agents):
-                self._debug_print("[dim]Using PEV workflow (SOLID architecture)[/dim]")
+                workflow_label = "PEV (planning+execution+verification)" if use_planning else "EV (execution+verification)"
+                self._debug_print(f"[dim]Using {workflow_label} workflow[/dim]")
                 pev_adapter = self._get_pev_adapter()
                 if pev_adapter:
                     # Execute via PEV workflow (Planning -> Execution -> Verification)
                     pev_result = await pev_adapter.execute_task(
                         task=task,
                         session_id=self.context_manager.session_id,
+                        use_planning=use_planning,
                     )
 
                     self._loop_controller.stop(StopReason.TASK_COMPLETE if pev_result.get("success") else StopReason.ERROR)

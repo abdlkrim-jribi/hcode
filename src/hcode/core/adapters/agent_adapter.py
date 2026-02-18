@@ -10,6 +10,7 @@ from typing import Any, Optional, Dict
 from ..classification import TaskClassifier
 from ..orchestration import PhaseManager, AgentOrchestrator
 from ..phases import (
+    FastModeHandler,
     PlanningPhaseHandler,
     ExecutionPhaseHandler,
     VerificationPhaseHandler,
@@ -59,7 +60,10 @@ class AgentAdapter:
             "verification": VerificationPhaseHandler(**handler_deps),
         }
 
-        # Create phase manager
+        # Fast mode handler — used when use_planning=False (bypasses PhaseManager)
+        self.fast_handler = FastModeHandler(**handler_deps)
+
+        # Create phase manager (PEV workflow)
         self.phase_manager = PhaseManager(self.handlers)
 
         # Create orchestrator
@@ -68,6 +72,7 @@ class AgentAdapter:
             task_classifier=self.task_classifier,
             working_dir=self.working_dir,
             console=self.console,
+            fast_handler=self.fast_handler,
         )
 
     async def execute_task(
@@ -75,35 +80,33 @@ class AgentAdapter:
             task: str,
             session_id: str,
             stream_callback: Optional[Any] = None,
+            use_planning: bool = True,
     ) -> Dict[str, Any]:
         """
-        Execute task through new PEV workflow.
+        Execute task through the EV or PEV workflow.
 
-        This is the main entry point that HcodeAgent can call.
+        Args:
+            use_planning: If True, start from planning phase (full PEV).
+                          If False, skip planning and start from execution (EV).
         """
         return await self.orchestrator.execute_task(
-            task, session_id, stream_callback
+            task, session_id, stream_callback, use_planning=use_planning
         )
 
     def should_use_pev_workflow(self, task: str) -> bool:
         """
-        Determine if task should use PEV workflow.
+        Determine if task should use the planning phase.
 
-        ALWAYS returns True because PEV workflow is mandatory for all tasks.
-        This ensures consistent quality through:
-        - Planning: Create task.md and implementation_plan.md
-        - Execution: Implement the plan using tools
-        - Verification: Test and create walkthrough.md
+        Returns True when the task is complex enough to need upfront planning
+        (i.e., classified as "complex" by the task classifier).
 
         Args:
-            task: User's task description (used for classification metadata only)
+            task: User's task description
 
         Returns:
-            Always True - PEV is enforced for all tasks
+            True if planning phase is needed
         """
-        # PEV is ALWAYS required - no exceptions
-        # Task classification is for metadata/optimization only, not workflow control
-        return True
+        return self.task_classifier.requires_pev_workflow(task)
 
     def get_task_classification(self, task: str) -> Dict[str, Any]:
         """
