@@ -1562,6 +1562,244 @@ def config_path():
     console.print(table)
 
 
+@cli.group(name="mcp", short_help="Manage MCP server connections")
+def mcp_group():
+    """
+    Manage Model Context Protocol (MCP) server connections.
+
+    \b
+    Commands:
+      hcode mcp list                        List configured MCP servers
+      hcode mcp add <id>                    Add an MCP server (from known templates or custom)
+      hcode mcp remove <id>                 Remove an MCP server
+      hcode mcp status                      Show connection status and available tools
+    """
+    pass
+
+
+@mcp_group.command(name="list")
+def mcp_list():
+    """
+    List all configured MCP servers and their connection status.
+
+    \b
+    Examples:
+      hcode mcp list
+    """
+    from pathlib import Path
+    from hcode.core.mcp import MCPConfigManager
+
+    config_manager = MCPConfigManager(root_dir=str(Path.cwd()))
+    servers = config_manager.list_all_servers()
+
+    if not servers:
+        console.print(
+            "[dim]No MCP servers configured. Use [bold]hcode mcp add[/bold] to add one.[/dim]"
+        )
+        return
+
+    table = Table(title="MCP Servers", box=box.ROUNDED)
+    table.add_column("", width=3)
+    table.add_column("ID", style="cyan")
+    table.add_column("Transport", style="dim")
+    table.add_column("Description")
+    table.add_column("Endpoint", style="dim")
+
+    for server in servers:
+        enabled_icon = EMOJI["check"] if server.enabled else EMOJI["cross"]
+        endpoint = server.url if server.transport == "http" else (
+            f"{server.command} {' '.join(server.args)}" if server.command else ""
+        )
+        table.add_row(
+            enabled_icon,
+            server.name if server.name != server.id else server.id,
+            server.transport,
+            server.description or "-",
+            endpoint,
+        )
+
+    console.print(table)
+
+
+@mcp_group.command(name="add")
+@click.argument("server_id")
+@click.option("--url", default=None, help="HTTP server URL (for http transport)")
+@click.option("--command", "cmd", default=None, help="Executable command (for stdio transport)")
+@click.option("--args", "extra_args", default=None, help="Space-separated arguments for stdio command")
+@click.option("--env", "env_pairs", multiple=True, metavar="KEY=VAL",
+              help="Environment variable (repeatable, e.g. --env GITHUB_TOKEN=xxx)")
+@click.option("--name", default=None, help="Display name (defaults to server_id)")
+@click.option("--description", "desc", default=None, help="Human-readable description")
+@click.option("--disable", is_flag=True, help="Add server in disabled state")
+def mcp_add(server_id, url, cmd, extra_args, env_pairs, name, desc, disable):
+    """
+    Add an MCP server to the project configuration.
+
+    If SERVER_ID matches a known template (filesystem, github, git, fetch, sqlite),
+    the template is used and options can override individual fields.
+
+    \b
+    Examples:
+      hcode mcp add github
+      hcode mcp add filesystem --args "/home/user/projects"
+      hcode mcp add myserver --url https://my-mcp-server.com/mcp
+      hcode mcp add myserver --command uvx --args "mcp-server-foo"
+      hcode mcp add github --env GITHUB_TOKEN=ghp_xxx
+    """
+    from pathlib import Path
+    from hcode.core.mcp import MCPConfigManager, MCPServerConfig, KNOWN_SERVERS
+
+    config_manager = MCPConfigManager(root_dir=str(Path.cwd()))
+
+    # Check for duplicate
+    existing = config_manager.get_server(server_id)
+    if existing:
+        console.print(
+            f"[yellow]{EMOJI['warning']} MCP server already configured: [bold]{server_id}[/bold][/yellow]"
+        )
+        return
+
+    # Parse env pairs: ["KEY=VAL", ...] -> dict
+    env: dict[str, str] = {}
+    for pair in env_pairs:
+        if "=" not in pair:
+            console.print(f"[red]{EMOJI['error']} Invalid --env format (expected KEY=VAL): {pair}[/red]")
+            return
+        k, v = pair.split("=", 1)
+        env[k.strip()] = v.strip()
+
+    # Start from known template if available
+    if server_id in KNOWN_SERVERS:
+        template = KNOWN_SERVERS[server_id]
+        transport = template.transport
+        resolved_cmd = cmd or template.command
+        resolved_url = url or template.url
+
+        # If extra_args provided, append to template args; otherwise keep template args
+        if extra_args is not None:
+            resolved_args = template.args + extra_args.split()
+        else:
+            resolved_args = list(template.args)
+
+        resolved_desc = desc or template.description
+        resolved_name = name or template.name
+    else:
+        # Custom server — infer transport from provided options
+        if url:
+            transport = "http"
+        elif cmd:
+            transport = "stdio"
+        else:
+            console.print(
+                f"[red]{EMOJI['error']} Unknown server id '[bold]{server_id}[/bold]'. "
+                "Provide --url (http) or --command (stdio), "
+                "or use a known id: "
+                + ", ".join(KNOWN_SERVERS) + "[/red]"
+            )
+            return
+
+        resolved_cmd = cmd
+        resolved_url = url
+        resolved_args = extra_args.split() if extra_args else []
+        resolved_desc = desc or ""
+        resolved_name = name or server_id
+
+    server = MCPServerConfig(
+        id=server_id,
+        name=resolved_name,
+        transport=transport,
+        command=resolved_cmd,
+        args=resolved_args,
+        url=resolved_url,
+        env=env,
+        enabled=not disable,
+        description=resolved_desc,
+    )
+
+    try:
+        config_manager.add_server(server)
+    except ValueError as exc:
+        console.print(f"[red]{EMOJI['error']} {exc}[/red]")
+        return
+
+    console.print(
+        f"[green]{EMOJI['success']} Added MCP server: [bold]{server_id}[/bold] ({transport})[/green]"
+    )
+
+
+@mcp_group.command(name="remove")
+@click.argument("server_id")
+def mcp_remove(server_id):
+    """
+    Remove an MCP server from the project configuration.
+
+    \b
+    Examples:
+      hcode mcp remove github
+      hcode mcp remove filesystem
+    """
+    from pathlib import Path
+    from hcode.core.mcp import MCPConfigManager
+
+    config_manager = MCPConfigManager(root_dir=str(Path.cwd()))
+
+    try:
+        config_manager.remove_server(server_id)
+        console.print(
+            f"[green]{EMOJI['success']} Removed MCP server: [bold]{server_id}[/bold][/green]"
+        )
+    except ValueError:
+        console.print(
+            f"[red]{EMOJI['error']} MCP server not found: [bold]{server_id}[/bold][/red]"
+        )
+
+
+@mcp_group.command(name="status")
+def mcp_status():
+    """
+    Show MCP connection status and available tools.
+
+    Instantiates a ToolManager to read the live MCP state (no actual
+    connections are opened — this reflects what is configured).
+
+    \b
+    Examples:
+      hcode mcp status
+    """
+    from pathlib import Path
+    from hcode.core.mcp import MCPConfigManager
+
+    config_manager = MCPConfigManager(root_dir=str(Path.cwd()))
+    servers = config_manager.list_all_servers()
+    enabled = [s for s in servers if s.enabled]
+    disabled = [s for s in servers if not s.enabled]
+
+    # Summary panel
+    lines = [
+        f"[bold]Configured servers:[/bold] {len(servers)} "
+        f"([green]{len(enabled)} enabled[/green], [dim]{len(disabled)} disabled[/dim])",
+        f"[bold]Connected servers:[/bold]  [dim](connect via agent startup)[/dim]",
+    ]
+    console.print(Panel("\n".join(lines), title="[bold]MCP Status[/bold]", border_style="blue"))
+
+    if not servers:
+        console.print("[dim]No servers configured. Use [bold]hcode mcp add[/bold] to add one.[/dim]")
+        return
+
+    # Server table
+    table = Table(box=box.SIMPLE, show_header=True)
+    table.add_column("Status", width=4)
+    table.add_column("ID", style="cyan")
+    table.add_column("Transport")
+    table.add_column("Description")
+
+    for server in servers:
+        status = f"[green]{EMOJI['check']}[/green]" if server.enabled else f"[dim]{EMOJI['cross']}[/dim]"
+        table.add_row(status, server.id, server.transport, server.description or "-")
+
+    console.print(table)
+
+
 def main():
     """Main entry point"""
     try:
