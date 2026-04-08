@@ -38,7 +38,7 @@ class SlashCommand:
 class Skill:
     """Represents a reusable skill"""
 
-    def __init__(self, name: str, description: str, prompt: str, category: Optional[str] = None):
+    def __init__(self, name: str, description: str, prompt: str, category: Optional[str] = None, folder_path=None):
         """
         Initialize skill.
 
@@ -47,15 +47,21 @@ class Skill:
             description: Skill description
             prompt: Skill prompt template
             category: Optional category
+            folder_path: Absolute path to skill folder (None for legacy flat-file skills)
         """
         self.name = name
         self.description = description
         self.prompt = prompt
         self.category = category
+        self.folder_path = folder_path
 
     def execute(self, context: Optional[Dict] = None) -> str:
         """Execute skill with context"""
         prompt = self.prompt
+
+        # Auto-inject skill folder path
+        if self.folder_path:
+            prompt = prompt.replace("{skill_dir}", str(self.folder_path))
 
         if context:
             # Handle string context (autofill if single placeholder or common keys)
@@ -137,34 +143,65 @@ class CommandRegistry:
                 name=cmd_name, description=description, prompt=prompt
             )
 
-    def _load_skills(self):
-        """Load skills from .hcode/skills directory"""
-        skills_dir = self.root_dir / ".hcode" / "skills"
+    def _load_single_skill(self, skill_file: Path, folder_path=None):
+        """Parse a single skill .md file and register it.
 
+        Args:
+            skill_file: Path to the .md file (SKILL.md or legacy flat file)
+            folder_path: If folder-based, path to the skill folder
+        """
+        try:
+            content = skill_file.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            return
+
+        if not content.startswith("---"):
+            return
+
+        parts = content.split("---", 2)
+        if len(parts) < 3:
+            return
+
+        try:
+            frontmatter = yaml.safe_load(parts[1])
+            if not isinstance(frontmatter, dict):
+                return
+        except yaml.YAMLError:
+            return
+
+        prompt = parts[2].strip()
+        skill_name = folder_path.name if folder_path else skill_file.stem
+
+        self.skills[skill_name] = Skill(
+            name=skill_name,
+            description=frontmatter.get("description", ""),
+            prompt=prompt,
+            category=frontmatter.get("category"),
+            folder_path=folder_path.resolve() if folder_path else None,
+        )
+
+    def _load_skills(self):
+        """Load skills from .hcode/skills directory.
+
+        Supports two formats:
+        1. Folder-based (preferred): .hcode/skills/<name>/SKILL.md
+        2. Legacy flat-file: .hcode/skills/<name>.md
+        """
+        skills_dir = self.root_dir / ".hcode" / "skills"
         if not skills_dir.exists():
             return
 
-        for skill_file in skills_dir.glob("*.md"):
-            with open(skill_file, "r", encoding="utf-8") as f:
-                content = f.read()
+        # Phase 1: folder-based skills
+        for entry in sorted(skills_dir.iterdir()):
+            if entry.is_dir():
+                skill_md = entry / "SKILL.md"
+                if skill_md.exists():
+                    self._load_single_skill(skill_md, folder_path=entry)
 
-            # Extract frontmatter
-            if content.startswith("---"):
-                parts = content.split("---", 2)
-                if len(parts) >= 3:
-                    try:
-                        frontmatter = yaml.safe_load(parts[1])
-                        prompt = parts[2].strip()
-
-                        skill_name = skill_file.stem
-                        self.skills[skill_name] = Skill(
-                            name=skill_name,
-                            description=frontmatter.get("description", ""),
-                            prompt=prompt,
-                            category=frontmatter.get("category"),
-                        )
-                    except:
-                        pass
+        # Phase 2: legacy flat-file skills (don't overwrite folder-based)
+        for skill_file in sorted(skills_dir.glob("*.md")):
+            if skill_file.stem not in self.skills:
+                self._load_single_skill(skill_file, folder_path=None)
 
     def get_command(self, name: str) -> Optional[SlashCommand]:
         """Get slash command by name"""
@@ -272,7 +309,8 @@ class SkillTool(BaseTool):
         skill_list = "\n\nAvailable Skills:"
         for skill in skills:
             desc = f" - {skill.description}" if skill.description else ""
-            skill_list += f"\n- {skill.name}{desc}"
+            folder_tag = " [folder]" if skill.folder_path else ""
+            skill_list += f"\n- {skill.name}{desc}{folder_tag}"
 
         return base_desc + skill_list
 
@@ -316,6 +354,7 @@ class SkillTool(BaseTool):
                     "skill": skill,
                     "category": skill_obj.category,
                     "description": skill_obj.description,
+                    "skill_dir": str(skill_obj.folder_path) if skill_obj.folder_path else None,
                     "executed_prompt": expanded_prompt if self.agent_orchestrator else None
                 },
             )
