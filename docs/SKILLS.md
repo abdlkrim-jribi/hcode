@@ -1,55 +1,88 @@
 # Hcode Skills System
 
-The Skills system in Hcode allows you to define reusable prompt templates that the agent can use to perform specific tasks. Skills are essentially instructions packaged with metadata, allowing the agent to "learn" new capabilities without modifying code.
+The Skills system in Hcode allows you to define reusable prompt templates that the agent can use to perform specific tasks. Skills are instructions packaged with metadata and optional auxiliary files, allowing the agent to "learn" new capabilities without modifying code.
 
 ## Directory Structure
 
-Skills are stored in the `.hcode/skills` directory in your project root.
+Skills support two formats. **Folder-based** is preferred for skills that need helper files:
 
 ```
 project_root/
   .hcode/
     skills/
-      hello.md
-      refactor.md
-      summarize.md
+      systematic-debugging/       ← Folder-based skill
+        SKILL.md                  ← Required entry point
+        scripts/                  ← Optional helper scripts
+        resources/                ← Optional data files, templates
+        examples/                 ← Optional usage examples
+      hello.md                    ← Legacy flat-file skill (still works)
 ```
 
-## Skill File Format
+### Folder-Based Skills (Preferred)
 
-Each skill is a Markdown file (`.md`) consisting of:
-1.  **YAML Frontmatter**: Metadata about the skill.
-2.  **Prompt Template**: The actual instructions passed to the AI.
+Each skill lives in its own folder under `.hcode/skills/`. The folder **must** contain a `SKILL.md` file. Optional subdirectories:
 
-### Example: `hello.md`
+| Directory | Purpose |
+|-----------|---------|
+| `scripts/` | Helper scripts the agent can execute |
+| `resources/` | Data files, templates, reference material |
+| `examples/` | Usage examples and sample inputs |
+
+### Legacy Flat-File Skills
+
+Simple skills can still be single `.md` files directly in `.hcode/skills/`. This is convenient for skills that are just a prompt template with no auxiliary files.
+
+## SKILL.md Format
+
+Every skill file (whether `SKILL.md` in a folder or a flat `.md` file) uses YAML frontmatter followed by the prompt template:
+
+### Example: `systematic-debugging/SKILL.md`
 
 ```markdown
 ---
-description: A friendly greeting skill
-category: communication
+description: Debug code systematically using a structured step-by-step approach
+category: coding
 ---
-Hello {name}, welcome to Hcode skills!
+
+# Systematic Debugging
+
+## Overview
+Random fixes waste time and create new bugs...
+
+Helper scripts are available at `{skill_dir}/scripts/` if needed.
 ```
 
 ### Frontmatter Fields
 
-- `description`: A brief explanation of what the skill does.
-- `category`: (Optional) logical grouping for the skill (e.g., `coding`, `analysis`, `communication`).
+- `description` — Brief explanation of what the skill does (shown in skill listings).
+- `category` — (Optional) Logical grouping (e.g., `coding`, `analysis`, `communication`).
 
-### Prompt Template
+### The `{skill_dir}` Placeholder
 
-The content after the frontmatter is the prompt. You can use placeholders like `{variable_name}` which will be replaced by values provided when the skill is executed.
+For folder-based skills, the `{skill_dir}` placeholder in the prompt is automatically replaced with the **absolute path** to the skill's folder. This allows the skill to reference its own scripts and resources:
+
+```markdown
+Use the helper script at `{skill_dir}/scripts/check.sh` to validate.
+Reference data is at `{skill_dir}/resources/patterns.json`.
+```
+
+> **Note:** For legacy flat-file skills, `{skill_dir}` is left as-is (not substituted) since there is no folder.
 
 ## How It Works
 
-1.  **Loading**: On startup, Hcode scans `.hcode/skills` and registers all valid `.md` files as skills.
-2.  **Execution**: The agent has access to a `SkillTool`. When the agent decides to use a skill (based on your request), it calls this tool with the skill name and required context variables.
-3.  **Expansion**: The system replaces placeholders in the prompt with the provided context and sends the result to the LLM or executes the defined logic.
+1. **Loading** — On startup, Hcode scans `.hcode/skills/`:
+   - **Phase 1:** Scans subdirectories for `SKILL.md` files (folder-based skills)
+   - **Phase 2:** Scans top-level `.md` files (legacy flat-file skills)
+   - If a folder and flat file share the same name, the folder-based skill takes priority.
+
+2. **Execution** — The agent has access to a `SkillTool`. When it decides to use a skill, it calls this tool with the skill name and context variables.
+
+3. **Expansion** — The system replaces `{skill_dir}` (for folder-based skills) and any context placeholders, then sends the result to the LLM.
 
 ## Usage
 
-To use a skill, simply ask the agent to perform the task described by the skill. For example, if you have a `summarize` skill, you can say:
+To use a skill, ask the agent to perform the task it describes. For example:
 
-> "Use the summarize skill on this file."
+> "Use the systematic-debugging skill to investigate this test failure."
 
-The agent will recognize the `summarize` skill, extract the necessary context (the file), and execute the skill.
+The agent will recognize the skill, provide context, and execute it. Folder-based skills will show a `[folder]` tag in the available skills listing.
