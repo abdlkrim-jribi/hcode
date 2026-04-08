@@ -42,6 +42,10 @@ from hcode.tools.system.command_system import (
     SlashCommand,
     Skill,
     HookSystem,
+    WorkflowTool,
+    WorkflowManager,
+    Workflow,
+    WorkflowStep,
 )
 from hcode.tools.terminal.bash_tools import BashTool, BashOutputTool, KillShellTool, LSTool, SearchOutputTool
 from hcode.tools.web.web_tools import WebFetchTool, WebSearchTool, WebScrapeTool
@@ -94,6 +98,11 @@ __all__ = [
     "SlashCommand",
     "Skill",
     "HookSystem",
+    # Workflow System
+    "WorkflowTool",
+    "WorkflowManager",
+    "Workflow",
+    "WorkflowStep",
     # Manager
     "ToolManager",
     # Manager
