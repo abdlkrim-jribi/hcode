@@ -1,0 +1,15 @@
+.vscode/**
+.vscode-test/**
+src/**
+test/**
+node_modules/**
+.gitignore
+.eslintrc.json
+tsconfig.json
+tsconfig.webview.json
+vite.config.ts
+jest.config.js
+**/*.map
+**/*.ts
+!dist/**
+!webview_build/**

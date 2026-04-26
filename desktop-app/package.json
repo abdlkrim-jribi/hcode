@@ -1,0 +1,14 @@
+{
+    "name": "hcode-desktop",
+    "private": true,
+    "version": "0.1.0",
+    "scripts": {
+        "dev": "tauri dev",
+        "build": "tauri build",
+        "ui:dev": "cd src-ui && npm run dev",
+        "ui:build": "cd src-ui && npm run build"
+    },
+    "devDependencies": {
+        "@tauri-apps/cli": "^2.2.0"
+    }
+}
