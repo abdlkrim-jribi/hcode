@@ -39,7 +39,7 @@ logger = logging.getLogger(__name__)
 
 class FastConfig:
     TEMPERATURE = 0.2
-    MAX_TOKENS = 16384
+    MAX_TOKENS = 2000
     MAX_ROUNDS = 50                # increased — allows deep exploration + full implementation
     EXPLORATION_BUDGET = 8         # rounds before todo.md must exist; urgency escalates after
     TIMEOUT_SECONDS = 1800  # 30 minutes

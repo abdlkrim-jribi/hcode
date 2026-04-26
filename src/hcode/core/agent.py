@@ -129,12 +129,14 @@ class HcodeAgent:
         self.autonomous_mode = autonomous_mode or self.config.get("autonomous_mode", False)
 
         # Initialize provider selector
+        import os
+        
         self.provider_selector = ProviderSelector(
-            anthropic_key=anthropic_key,
-            openai_key=openai_key,
-            openai_base_url=openai_base_url,
+            anthropic_key=anthropic_key or os.getenv("ANTHROPIC_API_KEY"),
+            openai_key=openai_key or os.getenv("OPENAI_API_KEY"),
+            openai_base_url=openai_base_url or os.getenv("OPENAI_BASE_URL"),
             anthropic_model=anthropic_model,
-            openai_model=openai_model,
+            openai_model=openai_model or os.getenv("OPENAI_MODEL"),
             preferences=preferences or ProviderPreferences(),
         )
 
