@@ -1,0 +1,21 @@
+{
+    "extends": "./tsconfig.json",
+    "compilerOptions": {
+        "types": [
+            "jest",
+            "mocha",
+            "node"
+        ],
+        "esModuleInterop": true,
+        "rootDir": "."
+    },
+    "include": [
+        "test/**/*.ts",
+        "src/**/*.ts"
+    ],
+    "exclude": [
+        "node_modules",
+        "dist",
+        "src/webview"
+    ]
+}
