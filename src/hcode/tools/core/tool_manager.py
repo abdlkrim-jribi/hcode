@@ -62,6 +62,9 @@ class ToolManager:
         # Initialize tools
         self._register_all_tools()
 
+        # MCP tool registry (set by HcodeAgent.connect_mcp_servers())
+        self.mcp_tool_registry = None
+
         # Track tool usage
         self.usage_stats: Dict[str, int] = {}
 
