@@ -246,8 +246,10 @@ class LiveTodoBar:
         # if self._active:
         #     self._render_status_bar()
 
+    def update_tokens(self, count: int) -> None:
+        """Update the displayed token count."""
         with self._lock:
-            self.token_count = token_count
+            self.token_count = count
 
     def _update_loop(self) -> None:
         """Background loop for time-based animation (seconds elapsed)."""
