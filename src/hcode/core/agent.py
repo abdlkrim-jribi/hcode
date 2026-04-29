@@ -277,6 +277,62 @@ class HcodeAgent:
         if self._is_debug_mode():
             self.console.print(message)
 
+    async def connect_mcp_servers(self) -> None:
+        """
+        Connect to all configured MCP servers and register their tools.
+
+        Reads server configurations from .hcode/mcp_config.json, connects to
+        each enabled server, discovers available tools, and registers them in
+        the ToolManager so they can be invoked like any other hcode tool.
+
+        Individual server failures are logged as warnings and do not prevent
+        other servers from connecting.
+        """
+        try:
+            from hcode.core.mcp.config import MCPConfigManager
+            from hcode.core.mcp.client import MCPClientManager
+            from hcode.core.mcp.bridge import MCPToolRegistry
+
+            config_manager = MCPConfigManager(root_dir=str(self.root_dir))
+
+            # Check if any servers are configured
+            servers = config_manager.list_servers()
+            if not servers:
+                self._debug_print("[dim]No MCP servers configured[/dim]")
+                return
+
+            self._debug_print(f"[dim]Connecting to {len(servers)} MCP server(s)...[/dim]")
+
+            # Connect to all enabled servers
+            client_manager = MCPClientManager(config_manager)
+            await client_manager.connect_all()
+
+            connected = client_manager.get_connected_servers()
+            if not connected:
+                self._debug_print("[dim yellow]No MCP servers connected successfully[/dim yellow]")
+                return
+
+            # Register MCP tools as native hcode tools
+            tool_registry = MCPToolRegistry(client_manager, self.tool_manager)
+            await tool_registry.register_all_mcp_tools()
+
+            # Store references for later cleanup
+            self._mcp_client_manager = client_manager
+            self._mcp_tool_registry = tool_registry
+            # Expose on ToolManager so _build_system_prompt / _execute_with_tools can access it
+            self.tool_manager.mcp_tool_registry = tool_registry
+
+            registered = tool_registry.list_registered_tools()
+            self._debug_print(
+                f"[dim green]MCP: {len(connected)} server(s) connected, "
+                f"{len(registered)} tool(s) registered[/dim green]"
+            )
+
+        except ImportError as e:
+            self._debug_print(f"[dim yellow]MCP module not available: {e}[/dim yellow]")
+        except Exception as e:
+            self.console.print(f"[dim yellow]MCP connection failed: {e}[/dim yellow]")
+
     def _get_pev_adapter(self) -> Optional[AgentAdapter]:
         """
         Get or create the PEV adapter for SOLID workflow.
@@ -708,6 +764,32 @@ class HcodeAgent:
         # Add tool documentation
         base_prompt += "\n\n" + tool_docs
 
+        # Inject MCP tool descriptions if any are registered
+        try:
+            mcp_tools = self.tool_manager.mcp_tool_registry.list_registered_tools()
+            if mcp_tools:
+                mcp_docs = "\n\n## MCP Tools (External Servers)\n"
+                mcp_docs += "The following tools are available via connected MCP servers.\n"
+                mcp_docs += "You MUST use these tools when the user asks about external services.\n\n"
+                all_tools = self.tool_manager.list_tools()
+                for tool_name in mcp_tools:
+                    tool = next((t for t in all_tools if t.name.lower() == tool_name), None)
+                    if tool:
+                        params = tool.get_parameters()
+                        param_str = ", ".join(
+                            f"{p.name}({'required' if p.required else 'optional'})"
+                            for p in params
+                        )
+                        mcp_docs += f"- **{tool.name}**: {tool.get_description()}\n"
+                        mcp_docs += f"  Parameters: {param_str}\n\n"
+                mcp_docs += "\nIMPORTANT: MCP tools are runtime-discovered. "
+                mcp_docs += "They do NOT exist in the codebase files. "
+                mcp_docs += "Do NOT search for them with grep or glob. "
+                mcp_docs += "Call them DIRECTLY using their exact name as shown above.\n"
+                base_prompt += mcp_docs
+        except Exception:
+            pass  # MCP not available, skip silently
+
         # INJECT PROJECT ROOT CONTEXT so model knows correct paths
         base_prompt += f"""
 <user_information>
@@ -839,6 +921,26 @@ When the user says things like "yes", "proceed", "continue", "do it", "ok", or s
             tool_schemas = tools_config.get_openai_schemas()
         else:
             tool_schemas = tools_config.get_anthropic_schemas()
+
+        # Add MCP tool schemas dynamically
+        try:
+            mcp_tool_names = self.tool_manager.mcp_tool_registry.list_registered_tools()
+            if mcp_tool_names:
+                all_tools = self.tool_manager.list_tools()
+                for tool_name in mcp_tool_names:
+                    tool = next((t for t in all_tools if t.name.lower() == tool_name), None)
+                    if tool:
+                        if provider_name == "openai":
+                            # Wrap in OpenAI function-calling envelope
+                            fn_schema = tool.to_function_schema()
+                            tool_schemas.append({
+                                "type": "function",
+                                "function": fn_schema,
+                            })
+                        else:
+                            tool_schemas.append(tool.to_anthropic_tool_schema())
+        except Exception:
+            pass
 
         # Initialize orchestration
         self._loop_controller.reset()

@@ -439,6 +439,9 @@ def chat_mode(provider, session, debug, autonomous):
         autonomous_mode=autonomous,
     )
 
+    # Connect MCP servers
+    asyncio.run(agent.connect_mcp_servers())
+
     palette = get_palette()
 
     # Show debug mode indicator if enabled
