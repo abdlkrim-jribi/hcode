@@ -30,7 +30,7 @@ from hcode.tools.notebook.interactive_tools import (
 )
 from hcode.tools.notebook.notebook_tools import NotebookEditTool, NotebookReadTool, NotebookExecuteTool
 from hcode.tools.system.agent_tools import TaskTool, ExitPlanModeTool
-from hcode.tools.system.command_system import SlashCommandTool, SkillTool, CommandRegistry
+from hcode.tools.system.command_system import SlashCommandTool, SkillTool, CommandRegistry, WorkflowTool
 from hcode.tools.system.hcode_tools import TaskBoundaryTool, NotifyUserTool
 from hcode.tools.terminal.bash_tools import BashTool, BashOutputTool, KillShellTool, LSTool, SearchOutputTool
 from hcode.tools.todo.todo_read import TodoReadTool
@@ -136,6 +136,7 @@ class ToolManager:
 
         self.tool_registry.register(SlashCommandTool(self.command_registry))
         self.tool_registry.register(SkillTool(self.command_registry))
+        self.tool_registry.register(WorkflowTool(self.command_registry))
 
         # Register Hcode Aliases
         # These aliases map the tool names used in the Hcode prompt to Hcode's actual tools
