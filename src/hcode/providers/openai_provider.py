@@ -141,6 +141,9 @@ class OpenAIProvider(AIProvider):
             verify_ssl_env = os.getenv("OPENAI_VERIFY_SSL", "true").lower()
             verify_ssl = verify_ssl_env not in ("false", "0", "no", "off")
 
+        # Clamp max_tokens to 2000 to avoid OpenRouter free-tier errors
+        max_tokens = min(max_tokens, 2000)
+
         super().__init__(api_key, model, max_tokens, temperature)
 
         self.timeout = timeout
@@ -253,6 +256,12 @@ class OpenAIProvider(AIProvider):
                 "temperature": self.temperature,
                 **kwargs,
             }
+
+            # Clamp max_tokens to avoid OpenRouter free-tier 402 errors.
+            # Phase handlers may pass large values (16384, 24576) via kwargs
+            # which override self.max_tokens — this ensures the final value
+            # sent to the API is always within budget.
+            request_params["max_tokens"] = min(request_params["max_tokens"], 2000)
 
             # Add functions if provided and model supports them
             if functions and self.supports_function_calling():

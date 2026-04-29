@@ -86,3 +86,10 @@ setup_cython.py
 # PyInstaller
 *.spec
 .hypothesis/
+  
+# Node.js  
+node_modules/  
+# Rust/Tauri  
+target/  
+# Build artifacts  
+*.tsbuildinfo 

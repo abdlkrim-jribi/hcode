@@ -21,7 +21,7 @@ class GenerationParams:
     temperature: float = 0.3
     top_p: float = 1.0
     top_k: int = 0
-    max_tokens: int = 16384
+    max_tokens: int = 2000
     frequency_penalty: float = 0.0
     presence_penalty: float = 0.0
     stop_sequences: List[str] = field(default_factory=list)
@@ -50,7 +50,7 @@ class ContextConfig:
     """Context window configuration"""
 
     max_context_tokens: int = 200000
-    reserve_output_tokens: int = 16384
+    reserve_output_tokens: int = 2000
     summarization_threshold: float = 0.85
     max_history_turns: int = 100
 
@@ -306,7 +306,7 @@ class ModelsConfig:
                 "temperature": 0.3,
                 "top_p": 1.0,
                 "top_k": 0,
-                "max_tokens": 4096,
+                "max_tokens": 2000,
                 "frequency_penalty": 0.0,
                 "presence_penalty": 0.0,
                 "stop_sequences": [],
@@ -347,7 +347,7 @@ class ModelsConfig:
             temperature=gen_config.get("temperature", 0.3),
             top_p=gen_config.get("top_p", 1.0),
             top_k=gen_config.get("top_k", 0),
-            max_tokens=gen_config.get("max_tokens", 16384),
+            max_tokens=gen_config.get("max_tokens", 2000),
             frequency_penalty=gen_config.get("frequency_penalty", 0.0),
             presence_penalty=gen_config.get("presence_penalty", 0.0),
             stop_sequences=gen_config.get("stop_sequences", []),
@@ -375,7 +375,7 @@ class ModelsConfig:
         ctx_data = self._models_data.get("context", {})
         return ContextConfig(
             max_context_tokens=ctx_data.get("max_context_tokens", 200000),
-            reserve_output_tokens=ctx_data.get("reserve_output_tokens", 16384),
+            reserve_output_tokens=ctx_data.get("reserve_output_tokens", 2000),
             summarization_threshold=ctx_data.get("summarization_threshold", 0.85),
             max_history_turns=ctx_data.get("max_history_turns", 100),
         )

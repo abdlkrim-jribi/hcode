@@ -15,8 +15,10 @@ from rich.prompt import Confirm
 from rich.syntax import Syntax
 from rich.text import Text
 
-from hcode.ui.components import CyberPanel
 from hcode.ui.theme import get_palette
+from hcode.ui.icons import Icons
+from hcode.ui.interactive_selector import select_option_async
+from rich.table import Table
 
 
 class ConfirmationResult(Enum):
@@ -110,30 +112,28 @@ class ConfirmationDisplay:
         deletions = sum(1 for line in diff_lines if line.startswith('-') and not line.startswith('---'))
         return additions, deletions
 
-    def _prompt_loop(self, prompt_text: str = "Select an option") -> Tuple[ConfirmationResult, Optional[str]]:
+    async def _prompt_loop(self, prompt_text: str = "Select an option") -> Tuple[ConfirmationResult, Optional[str]]:
         """
-        Display the 3-option prompt loop and get user choice.
+        Display the interactive option selection and get user choice.
         """
-        while True:
-            self.console.print()
-            palette = get_palette()
-
-            self.console.print(f"[{palette.warning} bold]{prompt_text}[/]")
-            self.console.print(f"  [{palette.success} bold][A]ccept[/]          - Authorize this action once")
-            self.console.print(f"  [{palette.info} bold][S]ession-Accept[/]  - Authorize for this session")
-            self.console.print(f"  [{palette.error} bold][C]ounter[/]         - Reject and provide feedback")
-
-            response = self.console.input("[bold] > [/bold]").strip().lower()
-
-            if response == 'a':
-                return ConfirmationResult.ALLOW, None
-            elif response == 's':
-                return ConfirmationResult.SESSION_ALLOW, None
-            elif response == 'c':
-                feedback = self.console.input("[bold red]Enter feedback:[/bold red] ")
-                return ConfirmationResult.REJECT, feedback
-            else:
-                self.console.print("[red]Invalid option. Please choose A, S, or C.[/red]")
+        options = [
+            ("allow", "Accept", "Authorize this action once"),
+            ("session", "Session-Accept", "Authorize for this session"),
+            ("counter", "Counter", "Reject and provide feedback")
+        ]
+        
+        choice = await select_option_async(options, title=prompt_text)
+        
+        if choice == "allow":
+            return ConfirmationResult.ALLOW, None
+        elif choice == "session":
+            return ConfirmationResult.SESSION_ALLOW, None
+        elif choice == "counter":
+            feedback = self.console.input("[bold red]Enter feedback:[/bold red] ")
+            return ConfirmationResult.REJECT, feedback
+        else:
+            # If aborted (Esc/Ctrl+C)
+            return ConfirmationResult.REJECT, "Operation aborted by user"
 
         # Import Icons locally to avoid circular import at top level
         try:
@@ -141,7 +141,7 @@ class ConfirmationDisplay:
         except ImportError:
             pass
 
-    def show_file_edit_confirmation(
+    async def show_file_edit_confirmation(
             self,
             file_path: str,
             old_content: str,
@@ -197,55 +197,51 @@ class ConfirmationDisplay:
         self.console.print()
 
         palette = get_palette()
-        panel = CyberPanel(
-            panel_content,
-            title=f"EDIT: {file_name}",
-            subtitle=stats.plain,  # CyberPanel expects string for subtitle, we might need to adjust or pass Text if supported
-            # Actually CyberPanel.render takes subtitle as str usually, checking implementation...
-            # It takes str. Let's provide a formatted string or modify CyberPanel if needed.
-            # Looking at CyberPanel code in previous step: subtitle: Optional[str] = None
-            # But line 135: subtitle_text = Text(self.subtitle, style=f"italic {palette.text_muted}")
-            # So passing a rich Text object might fail if it expects str.
-            # Let's pass a string representation for now or simple string.
-            # Stats line was: +5 / -2 lines.
+        
+        # Create Thinking-Style Header
+        header_title = Text()
+        header_title.append("EDIT: ", style="bold")
+        header_title.append(file_name, style=f"bold {palette.info}")
+        header_title.append(f" ({stats.plain})", style="dim")
 
-            border_color=palette.info,
-            glow_color=palette.info,
-            status="processing"
-        )
-        # We can manually inject the stats into the panel content or title if needed, 
-        # or just pass the string.
-        # Let's verify CyberPanel again. It creates a Text object from the string.
-        # So we should pass a string.
+        # Create Grid Layout (Borderless with Gutter like Thinking block)
+        grid = Table.grid(padding=(0, 1))
+        grid.add_column(style=f"{palette.info}", width=2, justify="center") # Gutter column
+        grid.add_column() # Content column
 
-        panel_obj = panel.render()
-        # Override subtitle to support colored stats if possible, or just print stats inside.
-        # Actually, let's just append stats to content or print above/below?
-        # Better: CyberPanel is flexible.
+        # Header Row
+        grid.add_row("▍", header_title)
+        
+        # Spacer
+        grid.add_row("▍", "")
 
-        self.console.print(panel_obj)
+        # Content Row
+        if description:
+            grid.add_row("▍", Text(description, style="italic dim"))
+            grid.add_row("▍", "")
 
-        # We want the stats to show up nicely. 
-        # Let's print stats below the header in the content?
-        # Or just use the subtitle string: "+5 / -2 lines"
+        grid.add_row("▍", diff_text)
 
-        return self._prompt_loop("Apply this change?")
+        self.console.print()
+        self.console.print(grid)
 
-    def show_command_confirmation(
+        return await self._prompt_loop("Apply this change?")
+
+    async def show_command_confirmation(
             self,
             command: str,
             description: str = "",
             working_dir: str = ""
-    ) -> bool:
-        """Show command execution confirmation.
+    ) -> Tuple[ConfirmationResult, Optional[str]]:
+        """Show command execution confirmation with session support.
         
         Args:
             command: Command to execute
-            description: Optional description of what command does
-            working_dir: Working directory for command
+            description: Optional description
+            working_dir: Working directory
             
         Returns:
-            True if user approved, False otherwise
+            Tuple of (ConfirmationResult, optional feedback)
         """
         # Icons
         try:
@@ -277,26 +273,42 @@ class ConfirmationDisplay:
 
         palette = get_palette()
 
-        # Use CyberPanel for command
-        panel = CyberPanel(
-            content,
-            title=f"BASH EXECUTION",
-            subtitle=working_dir if working_dir else None,
-            border_color=palette.warning,
-            glow_color=palette.warning,
-            status="ready"
-        )
+        # Create Thinking-Style Header
+        header_title = Text()
+        header_title.append("BASH EXECUTION", style=f"bold {palette.warning}")
 
-        self.console.print(panel.render())
+        # Grid with gutter
+        grid = Table.grid(padding=(0, 1))
+        grid.add_column(style=f"{palette.warning}", width=2, justify="center")
+        grid.add_column()
 
-        # Legacy confirmation for bash
-        return Confirm.ask(
-            "[bold yellow]Execute this command?[/bold yellow]",
-            console=self.console,
-            default=True
-        )
+        grid.add_row("▍", header_title)
+        grid.add_row("▍", "")
+        grid.add_row("▍", content)
 
-    def show_file_create_confirmation(
+        self.console.print()
+        self.console.print(grid)
+
+        # Use select_option_async with Session support
+        options = [
+            ("allow", "Execute", "Run this command once"),
+            ("session", "Session-Accept", "Authorize all commands for this session"),
+            ("counter", "Counter", "Reject and provide feedback")
+        ]
+        
+        choice = await select_option_async(options, title="Execute this command?")
+        
+        if choice == "allow":
+            return ConfirmationResult.ALLOW, None
+        elif choice == "session":
+            return ConfirmationResult.SESSION_ALLOW, None
+        elif choice == "counter":
+            feedback = self.console.input("[bold red]Enter feedback:[/bold red] ")
+            return ConfirmationResult.REJECT, feedback
+        else:
+            return ConfirmationResult.REJECT, "Operation aborted"
+
+    async def show_file_create_confirmation(
             self,
             file_path: str,
             content: str,
@@ -348,24 +360,33 @@ class ConfirmationDisplay:
 
         palette = get_palette()
 
-        panel = CyberPanel(
-            panel_content,
-            title=f"WRITE: {file_name}",
-            border_color=palette.success,
-            glow_color=palette.success,
-            status="processing"
-        )
+        # Create Thinking-Style Header
+        header_title = Text()
+        header_title.append("WRITE: ", style="bold")
+        header_title.append(file_name, style=f"bold {palette.success}")
 
-        self.console.print(panel.render())
+        # Grid with gutter
+        grid = Table.grid(padding=(0, 1))
+        grid.add_column(style=f"{palette.success}", width=2, justify="center")
+        grid.add_column()
 
-        # Show content preview
+        grid.add_row("▍", header_title)
+        grid.add_row("▍", "")
+        grid.add_row("▍", panel_content)
+
+        # Show content preview within the grid? 
+        # Actually Syntax might be better outside or also indented.
+        # Let's indent it too.
         try:
             syntax = Syntax(preview, lang, theme="monokai", line_numbers=True)
-            self.console.print(syntax)
+            grid.add_row("▍", syntax)
         except Exception:
-            self.console.print(preview)
+            grid.add_row("▍", preview)
 
-        return self._prompt_loop("Write this file?")
+        self.console.print()
+        self.console.print(grid)
+
+        return await self._prompt_loop("Write this file?")
 
 
 # Global instance for easy access

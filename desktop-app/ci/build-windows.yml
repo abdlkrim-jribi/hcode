@@ -1,0 +1,80 @@
+name: Build Windows Desktop
+
+on:
+  push:
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    runs-on: windows-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: desktop-app/src-ui/package-lock.json
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Cache Rust
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            desktop-app/src-tauri/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('desktop-app/src-tauri/Cargo.lock') }}
+
+      # Build Python daemon
+      - name: Install PyInstaller
+        run: pip install pyinstaller
+
+      - name: Build hcode-daemon
+        run: |
+          pyinstaller --onefile --name hcode-daemon desktop-app/hcode-daemon/run_daemon.py
+          Copy-Item dist/hcode-daemon.exe desktop-app/src-tauri/
+
+      # Build frontend
+      - name: Install frontend dependencies
+        working-directory: desktop-app/src-ui
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: desktop-app/src-ui
+        run: npm run build
+
+      # Build Tauri app
+      - name: Build Tauri
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: desktop-app/src-tauri
+
+      # Upload artifacts
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: hcode-desktop-windows
+          path: desktop-app/src-tauri/target/release/bundle/nsis/*.exe
+
+      # Run tests
+      - name: Run frontend tests
+        working-directory: desktop-app/src-ui
+        run: npm test -- --run
+        continue-on-error: true

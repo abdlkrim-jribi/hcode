@@ -1,0 +1,90 @@
+/* ── Hcode Design Tokens v2.0 ─────────────────────────────────────────────────
+   Unified token architecture for Desktop App and VS Code Extension.
+   Philosophy: Restrained depth. Premium = quiet confidence, not glow.
+───────────────────────────────────────────────────────────────────────────────── */
+
+:root {
+  /* ── Surface Layers (5 levels, same hue 228, decreasing saturation) ────── */
+  --surface-0: var(--vscode-editor-background, hsl(228 18% 7%));
+  --surface-1: var(--vscode-sideBar-background, hsl(228 16% 10%));
+  --surface-2: var(--vscode-editorWidget-background, hsl(228 14% 13%));
+  --surface-3: var(--vscode-dropdown-background, hsl(228 12% 16%));
+  --surface-4: var(--vscode-list-hoverBackground, hsl(228 12% 19%));
+
+  /* ── Foreground (3 levels) ─────────────────────────────────────────────── */
+  --fg-primary: var(--vscode-editor-foreground, hsl(220 20% 93%));
+  --fg-secondary: var(--vscode-descriptionForeground, hsl(220 14% 55%));
+  --fg-tertiary: var(--vscode-disabledForeground, hsl(220 10% 35%));
+
+  /* ── Brand & Accent ────────────────────────────────────────────────────── */
+  --accent: hsl(255 72% 58%);
+  --accent-hover: hsl(255 72% 52%);
+  --accent-subtle: hsl(255 50% 15%);
+
+  /* ── Semantic Colors ───────────────────────────────────────────────────── */
+  --semantic-success: hsl(152 60% 42%);
+  --semantic-warning: hsl(38 80% 52%);
+  --semantic-error: hsl(0 65% 52%);
+  --semantic-info: hsl(210 70% 55%);
+
+  /* ── Phase Colors ──────────────────────────────────────────────────────── */
+  --phase-thinking: hsl(265 65% 55%);
+  --phase-thinking-soft: hsla(265 65% 55% / 0.08);
+  --phase-planning: hsl(217 70% 55%);
+  --phase-planning-soft: hsla(217 70% 55% / 0.08);
+  --phase-executing: hsl(38 80% 52%);
+  --phase-executing-soft: hsla(38 80% 52% / 0.08);
+  --phase-verifying: hsl(152 60% 42%);
+  --phase-verifying-soft: hsla(152 60% 42% / 0.08);
+
+  /* ── Borders ───────────────────────────────────────────────────────────── */
+  --border-default: var(--vscode-panel-border, hsl(228 14% 16%));
+  --border-subtle: var(--vscode-widget-border, hsl(228 10% 13%));
+  --border-focus: var(--accent);
+
+  /* ── Diff Colors ───────────────────────────────────────────────────────── */
+  --diff-added-bg: hsla(152 50% 40% / 0.08);
+  --diff-added-border: hsla(152 50% 40% / 0.30);
+  --diff-removed-bg: hsla(0 50% 50% / 0.08);
+  --diff-removed-border: hsla(0 50% 50% / 0.30);
+  --diff-modified-bg: hsla(38 60% 50% / 0.08);
+
+  /* ── Spacing (4px base grid) ───────────────────────────────────────────── */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+
+  /* ── Border Radius ─────────────────────────────────────────────────────── */
+  --radius-xs: 3px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-full: 9999px;
+
+  /* ── Typography ────────────────────────────────────────────────────────── */
+  --font-ui: var(--vscode-font-family, 'Inter', -apple-system, 'Segoe UI', sans-serif);
+  --font-mono: var(--vscode-editor-font-family, 'JetBrains Mono', 'Cascadia Code', 'Fira Code', monospace);
+  --text-2xs: 10px;
+  --text-xs: 11px;
+  --text-sm: 12px;
+  --text-base: 13px;
+  --text-md: 14px;
+  --text-lg: 16px;
+  --text-xl: 20px;
+
+  /* ── Motion ────────────────────────────────────────────────────────────── */
+  --duration-fast: 100ms;
+  --duration-normal: 180ms;
+  --duration-slow: 300ms;
+  --ease-default: cubic-bezier(0.2, 0, 0, 1);
+
+  /* ── Shadows (minimal) ─────────────────────────────────────────────────── */
+  --shadow-sm: 0 1px 3px hsl(0 0% 0% / 0.15);
+  --shadow-md: 0 4px 12px hsl(0 0% 0% / 0.20);
+  --shadow-lg: 0 8px 24px hsl(0 0% 0% / 0.30);
+}

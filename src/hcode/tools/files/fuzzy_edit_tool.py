@@ -104,25 +104,42 @@ class FuzzyEditTool(BaseTool):
             # Reconstruct content - handle potential list of strings vs single string
             new_content = "".join(new_lines)
 
-            # Show confirmation with diff preview before writing
+            # Session management
             try:
-                from hcode.ui.confirmation_display import get_confirmation_display
+                from hcode.core.session_manager import get_session_manager
+                session_manager = get_session_manager()
+                
+                if session_manager.check_permission("Edit", str(path.absolute())):
+                    with open(path, "w", encoding="utf-8") as f:
+                        f.write(new_content)
+                    return ToolResult(
+                        success=True,
+                        output=f"Successfully applied fuzzy edit with similarity {best_ratio:.2f}",
+                        metadata={"similarity": best_ratio, "start_line": best_start + 1, "end_line": best_end + 1}
+                    )
+                
+                # Show confirmation with diff preview
+                from hcode.ui.confirmation_display import get_confirmation_display, ConfirmationResult
                 confirmation = get_confirmation_display()
 
-                # Ask user for confirmation with diff preview
-                approved = confirmation.show_file_edit_confirmation(
+                result, feedback = await confirmation.show_file_edit_confirmation(
                     file_path=str(path),
                     old_content=content,
                     new_content=new_content,
                     description=f"Fuzzy edit with {best_ratio:.0%} similarity match"
                 )
 
-                if not approved:
+                if result == ConfirmationResult.REJECT:
                     return ToolResult(
                         success=False,
                         output=None,
-                        error="Edit rejected by user"
+                        error=f"Edit rejected by user. {feedback if feedback else ''}"
                     )
+                
+                if result == ConfirmationResult.SESSION_ALLOW:
+                    # Grant global permission for Edit tool as per user request
+                    session_manager.grant_permission("Edit", None)
+                    
             except ImportError:
                 # If confirmation display not available, proceed without confirmation
                 pass

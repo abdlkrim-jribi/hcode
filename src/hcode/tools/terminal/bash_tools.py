@@ -211,32 +211,41 @@ class BashTool(BaseTool):
         # DEBUG: Log timeout value
         logger.info(f"[BASH] Executing with timeout={timeout}s: {command[:100]}")
 
-        # Show confirmation before executing command
+        # Session management
         try:
-            from hcode.ui.confirmation_display import get_confirmation_display
+            from hcode.core.session_manager import get_session_manager
+            session_manager = get_session_manager()
+            
+            if session_manager.check_permission("Bash", command):
+                return await self._execute_in_mode(command, timeout, run_in_background, description)
+            
+            # Show confirmation before executing command
+            from hcode.ui.confirmation_display import get_confirmation_display, ConfirmationResult
             confirmation = get_confirmation_display()
 
-            approved = confirmation.show_command_confirmation(
+            result, feedback = await confirmation.show_command_confirmation(
                 command=command,
                 description=description,
                 working_dir=str(self.root_dir)
             )
 
-            if not approved:
+            if result == ConfirmationResult.REJECT:
                 return ToolResult(
                     success=False,
                     output="",
-                    error="Command rejected by user"
+                    error=f"Command rejected by user. {feedback if feedback else ''}"
                 )
+            
+            if result == ConfirmationResult.SESSION_ALLOW:
+                # Grant global permission for Bash tool as per user request
+                session_manager.grant_permission("Bash", None)
+                
         except ImportError:
             # If confirmation display not available, proceed without confirmation
             pass
 
         try:
-            if run_in_background:
-                return await self._execute_background(command, description)
-            else:
-                return await self._execute_foreground(command, timeout, description)
+            return await self._execute_in_mode(command, timeout, run_in_background, description)
 
         except asyncio.TimeoutError:
             return ToolResult(
@@ -244,6 +253,15 @@ class BashTool(BaseTool):
             )
         except Exception as e:
             return ToolResult(success=False, output="", error=f"Command execution failed: {str(e)}")
+
+    async def _execute_in_mode(
+            self, command: str, timeout: float, run_in_background: bool, description: str
+    ) -> ToolResult:
+        """Helper to execute in foreground or background mode"""
+        if run_in_background:
+            return await self._execute_background(command, description)
+        else:
+            return await self._execute_foreground(command, timeout, description)
 
     async def _execute_foreground(
             self, command: str, timeout: float, description: str
