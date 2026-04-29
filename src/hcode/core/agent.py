@@ -279,6 +279,10 @@ class HcodeAgent:
         if self._is_debug_mode():
             self.console.print(message)
 
+    async def connect_mcp_servers(self):
+        """Connect MCP servers and make their tools available."""
+        await self.tool_manager.connect_mcp_servers()
+
     def _get_pev_adapter(self) -> Optional[AgentAdapter]:
         """
         Get or create the PEV adapter for SOLID workflow.

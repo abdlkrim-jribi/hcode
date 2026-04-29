@@ -36,6 +36,7 @@ from hcode.tools.terminal.bash_tools import BashTool, BashOutputTool, KillShellT
 from hcode.tools.todo.todo_read import TodoReadTool
 from hcode.tools.todo.todo_write import TodoWriteTool
 from hcode.tools.web.web_tools import WebFetchTool, WebSearchTool, WebScrapeTool
+from hcode.core.mcp import MCPClientManager, MCPToolRegistry, MCPConfigManager
 
 
 class ToolManager:
@@ -58,6 +59,9 @@ class ToolManager:
         # Initialize registries
         self.tool_registry = ToolRegistry()
         self.command_registry = CommandRegistry(root_dir=str(self.root_dir))
+        self.mcp_config_manager = MCPConfigManager(root_dir=str(self.root_dir))
+        self.mcp_client_manager = MCPClientManager(self.mcp_config_manager)
+        self.mcp_tool_registry = MCPToolRegistry(self.mcp_client_manager, self)
 
         # Initialize tools
         self._register_all_tools()
@@ -259,6 +263,18 @@ class ToolManager:
         skill_tool = self.get_tool("skilltool")
         if skill_tool:
             skill_tool.agent_orchestrator = agent_orchestrator
+
+    async def connect_mcp_servers(self):
+        """Connect all configured MCP servers and register their tools."""
+        await self.mcp_client_manager.connect_all()
+        await self.mcp_tool_registry.register_all_mcp_tools()
+
+    def get_mcp_status(self) -> dict:
+        """Return MCP connection status."""
+        return {
+            "connected_servers": self.mcp_client_manager.get_connected_servers(),
+            "mcp_tools": self.mcp_tool_registry.get_mcp_tool_names(),
+        }
 
     # =========================================================================
     # CHANGE PREVIEW METHODS (NEW)
