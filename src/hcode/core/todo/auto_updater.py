@@ -5,8 +5,11 @@ Simplified, intelligent todo management using semantic word matching
 instead of hardcoded keyword dictionaries.
 """
 
+import logging
 from pathlib import Path
 from typing import Dict, Any, Optional, Tuple
+
+logger = logging.getLogger(__name__)
 
 
 class TodoAutoUpdater:
@@ -35,8 +38,8 @@ class TodoAutoUpdater:
             tool = self.tool_manager.get_tool("TodoWrite")
             if tool and hasattr(tool, "todos"):
                 return tool.todos
-        except:
-            pass
+        except Exception as e:
+            logger.error(f"[auto_updater] failed to get todo list: {e}")
         return None
 
     def _get_info(self, todo) -> Tuple[str, str]:

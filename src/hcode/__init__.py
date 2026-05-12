@@ -5,13 +5,19 @@ Supports both Anthropic Claude and OpenAI GPT models for autonomous coding tasks
 A production-ready AI coding agent for your terminal.
 """
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 # Load environment variables from .env if present
 try:
     from dotenv import load_dotenv
 
     load_dotenv()
-except Exception:
+except ImportError:
     pass
+except Exception as e:
+    logger.error(f"[hcode] failed to load .env file: {e}")
 
 __version__ = "1.0.0"
 __author__ = "HCode Team"

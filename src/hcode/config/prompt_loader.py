@@ -28,11 +28,14 @@ Additional context: {{context}}
 Please help with the following...
 """
 
+import logging
 import os
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Callable
+
+logger = logging.getLogger(__name__)
 
 import yaml
 
@@ -380,8 +383,8 @@ class PromptLoader:
         for listener in self._listeners:
             try:
                 listener(name, prompt)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.error(f"[prompt_loader] listener notification failed: {e}")
 
     def add_listener(self, callback: Callable[[str, LoadedPrompt], None]) -> None:
         """Add a listener for prompt changes."""

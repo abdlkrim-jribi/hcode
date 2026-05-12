@@ -6,8 +6,11 @@ heuristics including explicit completion phrases, substantive answer
 detection, todo status, and action counts.
 """
 
+import logging
 import re
 from typing import Dict, Any, List
+
+logger = logging.getLogger(__name__)
 
 from hcode.core.todo import TodoManager
 from ..protocols import CompletionState
@@ -424,8 +427,8 @@ class TaskCompletionDetector:
                 content = todo.get("content", "").lower()
                 if any(kw in content for kw in self.SUMMARY_KEYWORDS):
                     return True
-        except Exception:
-            pass
+        except Exception as e:
+            logger.error(f"[completion_detector] failed to check pending todos: {e}")
         return False
 
     def _has_summary_structure(self, text: str) -> bool:

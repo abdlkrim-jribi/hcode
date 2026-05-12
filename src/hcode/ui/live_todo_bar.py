@@ -13,9 +13,12 @@ Key Features:
 - Cross-platform support via Rich
 """
 
+import logging
 import threading
 import time
 from datetime import datetime
+
+logger = logging.getLogger(__name__)
 from typing import List, Dict, Any, Optional
 
 from rich.console import Console, ConsoleOptions, RenderResult
@@ -284,8 +287,8 @@ class LiveTodoBar:
                     terminal_height = self.console.height
                     self.console.control(Control.move_to(0, terminal_height - self.height))
                     self.console.print(rendered, end="")
-            except Exception:
-                pass
+            except Exception as e:
+                logger.error(f"[live_todo_bar] failed to render todo bar: {e}")
 
     @property
     def is_active(self) -> bool:

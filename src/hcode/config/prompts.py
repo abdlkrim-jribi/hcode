@@ -5,11 +5,14 @@ This module provides centralized access to prompts and model parameters.
 Core prompts are now managed by CorePromptLoader in config/core_prompts/core/.
 """
 
+import logging
 import os
 from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path
 from typing import Dict, Any, Optional, List
+
+logger = logging.getLogger(__name__)
 
 import yaml
 
@@ -222,8 +225,8 @@ Guidelines:
                 if mem_path.is_file():
                     mem_content = mem_path.read_text()
                     prompt = f"{mem_content}\n\n{prompt}"
-            except Exception:
-                pass
+            except Exception as e:
+                logger.error(f"[prompts] failed to inject memory file into prompt: {e}")
 
         return prompt
 

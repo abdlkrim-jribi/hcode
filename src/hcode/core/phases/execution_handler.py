@@ -601,8 +601,8 @@ Artifacts directory: .hcode
             # If prompt loader fails, we fallback to inline
             # This is just a helper, actual loading done in _get_execution_system_prompt
             pass
-        except:
-            pass
+        except Exception as e:
+            logger.error(f"[execution_handler] prompt config load failed: {e}")
 
         try:
             # Basic file read attempt if module import fails
@@ -614,8 +614,8 @@ Artifacts directory: .hcode
 
             if protocol_path.exists():
                 return protocol_path.read_text(encoding="utf-8")
-        except Exception:
-            pass
+        except Exception as e:
+            logger.error(f"[execution_handler] failed to read execution_handler.md prompt file: {e}")
 
         return """# Hcode Execution Mode — 4-Phase Implementation Protocol
 
@@ -978,8 +978,8 @@ BEGIN Phase 0:
                             "implementation_plan.md", context
                         ) or ""
                 )
-            except Exception:
-                pass
+            except Exception as e:
+                logger.error(f"[execution_handler] failed to load implementation_plan.md: {e}")
             phase_msg = self._phase2_continuation(round_num, all_results, context, plan_content)
         elif current_phase == 'phase3':
             phase_msg = self._phase3_continuation(round_num, all_results)

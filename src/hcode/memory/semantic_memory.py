@@ -5,11 +5,14 @@ Uses SQLite with optional sqlite‑vec extension.
 """
 
 import json
+import logging
 import sqlite3
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 from typing import Optional, List, Dict, Any, Tuple
 
 import numpy as np
@@ -116,8 +119,8 @@ class SemanticMemory:
         if hasattr(self, "_conn") and self._conn is not None:
             try:
                 self._conn.close()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.error(f"[semantic_memory] failed to close SQLite connection: {e}")
             self._conn = None
 
     def __del__(self):
