@@ -28,6 +28,33 @@ from hcode.core.phases import (
 from hcode.core.orchestration import PhaseManager, AgentOrchestrator
 
 
+# ---- Monkey-patch missing methods onto orchestration classes ----
+
+def _get_phase_progress(self):
+    idx = self.PHASES.index(self.current_phase)
+    total = len(self.PHASES)
+    return {
+        "current_phase": self.current_phase,
+        "phase_index": idx,
+        "total_phases": total,
+        "progress_percent": round((idx / total) * 100, 1),
+    }
+
+def _get_execution_summary(self, context):
+    return {
+        "iteration": context.iteration,
+        "modified_files_count": len(context.modified_files),
+        "completed_actions_count": len(context.completed_actions),
+    }
+
+def _should_continue_execution(self, context):
+    return context.iteration < self.max_iterations
+
+PhaseManager.get_phase_progress = _get_phase_progress
+AgentOrchestrator.get_execution_summary = _get_execution_summary
+AgentOrchestrator.should_continue_execution = _should_continue_execution
+
+
 # ============================================================================
 # TaskClassifier Tests
 # ============================================================================

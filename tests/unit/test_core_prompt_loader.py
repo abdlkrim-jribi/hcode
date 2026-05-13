@@ -243,7 +243,7 @@ class TestPromptIntegration:
             )
 
             # Build unified planning prompt should work
-            prompt = handler._build_unified_planning_prompt(context, "file_index_here")
+            prompt = handler._build_unified_planning_prompt(context)
             assert "Test task" in prompt
             assert "PLANNING" in prompt or "5-Phase" in prompt
 
