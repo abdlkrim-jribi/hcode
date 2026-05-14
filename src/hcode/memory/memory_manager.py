@@ -4,10 +4,13 @@ Provides a single interface for the agent to interact with memory.
 """
 
 import hashlib
+import logging
 import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional, List, Dict, Any, Tuple
+
+logger = logging.getLogger(__name__)
 
 from hcode.memory.config import MemoryConfig
 from hcode.memory.file_memory import FileMemory
@@ -362,8 +365,8 @@ class MemoryManager:
         """Ensure semantic memory resources are released when the manager is garbage-collected."""
         try:
             self.semantic_memory.close()
-        except Exception:
-            pass
+        except Exception as e:
+            logger.error(f"[memory_manager] failed to close semantic memory: {e}")
 
     def update_file_memory(
             self, content: str, scope: str = "project", section: Optional[str] = None

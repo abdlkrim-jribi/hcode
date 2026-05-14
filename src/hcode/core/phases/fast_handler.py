@@ -467,8 +467,8 @@ Start by exploring the codebase, then write `.hcode/todo.md`.
                         fast_phase = "implementation"
                         logger.info("[fast] phase: exploration → implementation")
                         self._display("[Fast] Todo ready — starting implementation", style="info")
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.error(f"[fast_handler] failed to read todo file for phase transition: {e}")
 
             if fast_phase == "implementation" and self._todo_complete(context):
                 fast_phase = "summary"
@@ -530,8 +530,8 @@ Start by exploring the codebase, then write `.hcode/todo.md`.
                         fast_phase = "implementation"
                         logger.info("[fast] phase: exploration → implementation (post-tool)")
                         self._display("[Fast] Todo ready — starting implementation", style="info")
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.error(f"[fast_handler] failed to read todo file for post-tool phase transition: {e}")
 
             if fast_phase == "implementation" and self._todo_complete(context):
                 fast_phase = "summary"

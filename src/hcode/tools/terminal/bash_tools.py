@@ -514,8 +514,8 @@ class BashTool(BaseTool):
 
                 await asyncio.sleep(0.1)
 
-        except Exception:
-            pass
+        except Exception as e:
+            logger.error(f"[bash_tools] background shell output collection failed: {e}")
 
 
 class BashOutputTool(BaseTool):

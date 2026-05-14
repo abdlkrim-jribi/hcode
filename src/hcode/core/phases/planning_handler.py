@@ -229,8 +229,8 @@ Use LOWERCASE parameter names: pattern, file_path, content, path (not Pattern, A
                 try:
                     args_str = json.dumps(arguments, sort_keys=True)
                     last_three_calls.append((tool_name, args_str))
-                except:
-                    pass
+                except Exception as e:
+                    logger.error(f"[planning_handler] failed to serialize tool arguments: {e}")
 
         # Check for duplicate calls
         if len(last_three_calls) >= 2:
@@ -607,8 +607,8 @@ Status: Reads: {read_count}, Globs: {glob_count}, Greps: {grep_count}"""
                 _hcode_md = Path(context.working_dir) / ".hcode" / "hcode.md"
                 if _hcode_md.exists():
                     project_knowledge = _hcode_md.read_text(encoding='utf-8')
-            except Exception:
-                pass
+            except Exception as e:
+                logger.error(f"[planning_handler] failed to read hcode.md project knowledge: {e}")
 
             if project_knowledge:
                 pk_section = (

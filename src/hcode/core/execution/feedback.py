@@ -10,11 +10,14 @@ This module provides mechanisms for:
 Designed for continuous learning and adaptation during task execution.
 """
 
+import logging
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from typing import List, Dict, Optional, Any, Callable, Tuple
+
+logger = logging.getLogger(__name__)
 
 from hcode.core.reasoning import (
     StructuredReasoning,
@@ -828,8 +831,8 @@ class ThinkingExecutionFeedbackLoop:
         for listener in self.feedback_listeners:
             try:
                 listener(feedback)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.error(f"[feedback] feedback listener failed: {e}")
 
         # Check if revision needed
         if feedback.requires_replanning:
@@ -842,8 +845,8 @@ class ThinkingExecutionFeedbackLoop:
             for listener in self.revision_listeners:
                 try:
                     listener(revision)
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.error(f"[feedback] revision listener failed: {e}")
 
         return feedback
 

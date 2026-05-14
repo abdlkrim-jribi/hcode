@@ -5,7 +5,10 @@ No external API calls required - runs entirely locally.
 
 import hashlib
 import json
+import logging
 from typing import List, Optional, Union
+
+logger = logging.getLogger(__name__)
 
 import numpy as np
 
@@ -55,8 +58,8 @@ class EmbeddingModel:
             if len(serializable) <= 10000:
                 with open(self._cache_file, "w", encoding="utf-8") as f:
                     json.dump(serializable, f)
-        except Exception:
-            pass  # Cache save failure is not critical
+        except Exception as e:
+            logger.error(f"[embeddings] failed to save embedding cache to {self._cache_file}: {e}")
 
     def _get_model(self):
         """Lazy load the model on first use."""

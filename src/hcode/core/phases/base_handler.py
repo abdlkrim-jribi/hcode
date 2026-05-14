@@ -273,7 +273,8 @@ class BasePhaseHandler(PhaseHandlerProtocol):
                             return f"\n---\n\n## USER MEMORY (Cross-Session Learnings)\n\n{content.strip()}\n\n---\n"
                         break
             return ""
-        except Exception:
+        except Exception as e:
+            logger.error(f"[base_handler] failed to load user memory: {e}")
             return ""
 
     def _load_hcode_architecture(self, context: AgentContext) -> str:

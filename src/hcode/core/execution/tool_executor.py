@@ -6,9 +6,12 @@ confirmation prompts, and result display.
 """
 
 import asyncio
+import logging
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Any, Optional, Tuple
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -328,8 +331,8 @@ class ToolExecutor:
                     diff_lines.append(("remove", line))
                 if old_content.count("\n") > 20:
                     diff_lines.append(("info", f"... ({old_content.count(chr(10)) - 20} more lines removed)"))
-            except:
-                pass
+            except Exception as e:
+                logger.error(f"[tool_executor] failed to read existing file for diff: {e}")
 
         new_lines = content.split("\n")
         for line in new_lines[:30]:

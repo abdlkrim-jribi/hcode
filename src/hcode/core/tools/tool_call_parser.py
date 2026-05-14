@@ -7,8 +7,11 @@ Simplified, intelligent tool parsing with 2 main strategies:
 """
 
 import json
+import logging
 import re
 from typing import Dict, List, Optional, Any, Set
+
+logger = logging.getLogger(__name__)
 
 # Valid tool names
 VALID_TOOLS: Set[str] = {
@@ -149,8 +152,8 @@ class ToolCallParser:
                             "name": tc.function.name,
                             "arguments": json.loads(tc.function.arguments)
                         })
-                    except:
-                        pass
+                    except Exception as e:
+                        logger.error(f"[tool_call_parser] failed to parse tool call arguments: {e}")
 
         # Anthropic format
         elif hasattr(raw_response, "content"):
