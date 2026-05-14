@@ -27,6 +27,12 @@ from rich import box
 # Install rich traceback for beautiful error messages
 install_rich_traceback(show_locals=True)
 
+# Fix: RuntimeError: Event loop is closed on Windows Python 3.10
+# ProactorEventLoop has a bug with pending transport cleanup.
+# SelectorEventLoop handles cleanup correctly.
+if sys.platform == "win32" and sys.version_info < (3, 11):
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+
 from hcode.core import HcodeAgent
 from hcode.providers import ProviderPreferences, TaskComplexity, TaskType
 from hcode.utils.config import load_config
