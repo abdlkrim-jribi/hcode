@@ -6,5 +6,6 @@ classification strategies.
 """
 
 from .task_classifier import TaskClassifier
+from ...providers.provider_selector import TaskComplexity
 
-__all__ = ["TaskClassifier"]
+__all__ = ["TaskClassifier", "TaskComplexity"]

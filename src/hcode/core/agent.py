@@ -359,8 +359,12 @@ class HcodeAgent:
             return True
 
         # Complex tasks benefit from upfront planning
-        from .classification import TaskClassifier
+        from .classification import TaskClassifier, TaskComplexity
         classifier = TaskClassifier()
+        if classifier.classify(task) == TaskComplexity.TRIVIAL:
+            import logging
+            logging.getLogger(__name__).info("Trivial task detected — executing directly")
+            return False
         return classifier.requires_pev_workflow(task)
 
     def _strip_mode_command(self, task: str) -> str:
