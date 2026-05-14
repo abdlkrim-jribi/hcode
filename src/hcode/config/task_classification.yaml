@@ -188,6 +188,27 @@ complexity:
         weight: 0.6
     # No file/line limits - anything beyond moderate is complex
 
+trivial_patterns:
+  mcp_direct_call:
+    - "call mcp_"
+    - "use mcp_"
+    - "run mcp_"
+    - "invoke mcp_"
+  single_tool_call:
+    - "list branches"
+    - "list commits"
+    - "get file"
+    - "show file"
+    - "read file"
+    - "list files"
+    - "list repos"
+    - "list issues"
+    - "list prs"
+    - "list pull requests"
+    - "get issue"
+    - "get commit"
+  trivial_threshold: 0.0
+
 # Classification settings
 settings:
   # Minimum confidence to accept classification

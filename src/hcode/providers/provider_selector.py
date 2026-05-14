@@ -15,6 +15,7 @@ from hcode.providers.openai_provider import OpenAIProvider
 class TaskComplexity(Enum):
     """Task complexity levels"""
 
+    TRIVIAL = "trivial"  # Direct single-tool calls (MCP, list, get)
     SIMPLE = "simple"  # Documentation, simple fixes
     MODERATE = "moderate"  # Standard implementation
     COMPLEX = "complex"  # Architecture, refactoring
