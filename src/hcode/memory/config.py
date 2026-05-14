@@ -56,6 +56,7 @@ class MemoryConfig:
 
     # Pruning settings
     max_memories: int = 10000
+    max_context_tokens: int = 4096
 
     def __post_init__(self):
         """Ensure directories exist."""

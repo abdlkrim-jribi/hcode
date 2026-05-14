@@ -162,10 +162,10 @@ class TaskCompletionDetector:
         action_count = len(completed_actions) if completed_actions else 0
 
         # Get todo state
-        todos_state = self.todo_manager.get_completion_state()
-        has_todos = todos_state["total"] > 0
+        completed_todos, total_todos = self.todo_manager.get_completion_state()
+        has_todos = total_todos > 0
         all_todos_completed = (
-            todos_state["completed"] == todos_state["total"] if has_todos else True
+            completed_todos == total_todos if has_todos else True
         )
         has_pending_todos = has_todos and not all_todos_completed
 
@@ -176,9 +176,9 @@ class TaskCompletionDetector:
         if has_pending_todos and not has_substantive:
             pending_is_summary = self._check_pending_is_summary()
             if pending_is_summary:
-                reason = f"Pending summary task ({todos_state['completed']}/{todos_state['total']}) - need actual summary"
+                reason = f"Pending summary task ({completed_todos}/{total_todos}) - need actual summary"
             else:
-                reason = f"Pending todos ({todos_state['completed']}/{todos_state['total']}) - need substantive answer"
+                reason = f"Pending todos ({completed_todos}/{total_todos}) - need substantive answer"
             self._debug_print(f"[?] {reason}")
             return CompletionState(
                 is_complete=False,
