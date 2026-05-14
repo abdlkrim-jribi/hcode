@@ -523,6 +523,30 @@ class HcodeAgent:
 
             self.console.print(f"[bold green]Using {self.current_provider}[/bold green]")
 
+            # Path 2.5: TRIVIAL — bypass PEV entirely, execute directly
+            from .classification import TaskClassifier, TaskComplexity
+            classifier = TaskClassifier()
+            if classifier.is_trivial(task):
+                import logging as _logging
+                _logging.getLogger(__name__).info("Trivial task — executing directly without planning phases")
+                self._debug_print("[dim]DIRECT — trivial task, bypassing planning phases[/dim]")
+                self._maybe_clear_context_for_new_task(task)
+                system_prompt = self._build_system_prompt(query=task)
+                self.context_manager.set_system_prompt(system_prompt)
+                formatted_task = self._format_user_task(task)
+                self.context_manager.add_message(
+                    role="user", content=formatted_task, importance=1.0, provider=self.current_provider
+                )
+                result = await self._execute_with_tools(stream=stream)
+                self._loop_controller.stop(StopReason.TASK_COMPLETE)
+                self.analytics.end_conversation(
+                    self.context_manager.session_id,
+                    success=True,
+                    total_cost=self.current_provider.total_cost if self.current_provider else 0,
+                )
+                self.safety_guard.commit_transaction()
+                return result
+
             # Check if we should use the new PEV workflow
             if self._should_use_pev_workflow(task, use_sub_agents):
                 workflow_label = "PEV (planning+execution+verification)" if use_planning else "EV (execution+verification)"
