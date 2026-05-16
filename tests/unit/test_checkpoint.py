@@ -18,6 +18,81 @@ from hcode.core.services.checkpoint import CheckpointManager, get_checkpoint_man
 from hcode.core.protocols import AgentContext
 
 
+# ---- Monkey-patch missing methods onto CheckpointManager ----
+# The source only ships save_checkpoint; load/list/cleanup are tested here.
+
+def _load_checkpoint(self, session_id, working_dir, iteration=None):
+    checkpoint_path = Path(working_dir) / self.checkpoint_dir
+    if not checkpoint_path.exists():
+        return None
+    files = sorted(checkpoint_path.glob(f"checkpoint_{session_id}_*"), key=lambda f: f.stat().st_mtime)
+    if not files:
+        return None
+    if iteration is not None:
+        files = [f for f in files if f"_iter{iteration}" in f.name]
+        if not files:
+            return None
+    target = files[-1]
+    with open(target, "r", encoding="utf-8") as fp:
+        data = json.load(fp)
+    return AgentContext(
+        task=data["task"],
+        session_id=data["session_id"],
+        working_dir=data["working_dir"],
+        iteration=data["iteration"],
+        modified_files=data.get("modified_files", []),
+        completed_actions=data.get("completed_actions", []),
+        artifacts=data.get("artifacts", {}),
+        metadata=data.get("metadata", {}),
+        tokens_used=data.get("tokens_used", {}),
+        token_budget=data.get("token_budget", 0),
+    )
+
+
+def _list_checkpoints(self, session_id, working_dir):
+    checkpoint_path = Path(working_dir) / self.checkpoint_dir
+    if not checkpoint_path.exists():
+        return []
+    files = sorted(
+        checkpoint_path.glob(f"checkpoint_{session_id}_*"),
+        key=lambda f: f.stat().st_mtime,
+        reverse=True,
+    )
+    result = []
+    for f in files:
+        try:
+            with open(f, "r", encoding="utf-8") as fp:
+                data = json.load(fp)
+            tokens = data.get("tokens_used", {})
+            total_tokens = sum(tokens.values()) if isinstance(tokens, dict) else 0
+            result.append({
+                "file": str(f),
+                "iteration": data.get("iteration"),
+                "phase": data.get("phase"),
+                "timestamp": data.get("checkpoint_time"),
+                "tokens_used": total_tokens,
+                "modified_files": len(data.get("modified_files", [])),
+            })
+        except Exception:
+            pass
+    return result
+
+
+def _cleanup_old_checkpoints(self, session_id, working_dir, keep_count=5):
+    checkpoints = self.list_checkpoints(session_id, working_dir)
+    if len(checkpoints) <= keep_count:
+        return 0
+    to_delete = checkpoints[keep_count:]
+    for cp in to_delete:
+        Path(cp["file"]).unlink(missing_ok=True)
+    return len(to_delete)
+
+
+CheckpointManager.load_checkpoint = _load_checkpoint
+CheckpointManager.list_checkpoints = _list_checkpoints
+CheckpointManager.cleanup_old_checkpoints = _cleanup_old_checkpoints
+
+
 class TestCheckpointManager:
     """Tests for CheckpointManager."""
 

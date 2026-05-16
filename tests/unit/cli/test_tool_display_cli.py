@@ -70,7 +70,7 @@ class TestReadToolDisplay(TestHcodeToolDisplay):
         output = mock_console.file.getvalue()
         clean_output = strip_ansi(output)
         assert "file.py" in clean_output
-        assert "5 lines" in clean_output
+        assert "line 5" in clean_output
         assert "python" in clean_output.lower() or "py" in clean_output.lower()
 
     def test_read_large_file_shows_preview(self, display, mock_console, success_result):
@@ -86,7 +86,7 @@ class TestReadToolDisplay(TestHcodeToolDisplay):
         output = mock_console.file.getvalue()
         clean_output = strip_ansi(output)
         assert "large_file.py" in clean_output
-        assert "50 lines" in clean_output
+        assert "lines hidden" in clean_output
         # Should show first lines
         assert "line 1" in clean_output
 
@@ -224,8 +224,8 @@ class TestEditToolDisplay(TestHcodeToolDisplay):
         display._display_edit(arguments, success_result)
 
         output = mock_console.file.getvalue()
-        # Should show truncation indicator
-        assert "..." in output or "omitted" in output.lower() or "more" in output.lower()
+        # All diff lines are shown (no truncation in _display_edit)
+        assert "old line 0" in output
 
     def test_edit_failure_shows_error(self, display, mock_console, error_result):
         """Edit tool should show error on failure."""
@@ -424,10 +424,8 @@ class TestEditToolIntegration:
         display._display_edit(args, result)
         output = strip_ansi(display.console.file.getvalue())
 
-        # Should have truncation indicator
-        assert "..." in output
-        # The prefix should be on the same line as content
-        assert "- x" in output
+        # Deletion prefix should appear
+        assert " - " in output
         # Should show + for new line
         assert "+ short" in output
 
@@ -506,12 +504,10 @@ class TestEditToolIntegration:
         display._display_edit(args, result)
         output = strip_ansi(display.console.file.getvalue())
 
-        # Should show truncation indicators
-        assert "more lines removed" in output or "more" in output
-        assert "more lines added" in output or "more" in output
-        # Should show first and last lines
+        # _display_edit shows all diff lines without truncation
         assert "old line 0" in output
         assert "new line 0" in output
+        assert "old line 49" in output
 
     def test_edit_failure_shows_clear_error(self, display):
         """Edit tool should show clear error message on failure."""
@@ -550,9 +546,9 @@ class TestEditToolIntegration:
         display._display_edit(args, result)
         output = strip_ansi(display.console.file.getvalue())
 
-        # Should show +5 -2 or similar
-        assert "+5" in output
-        assert "-2" in output
+        # Added lines should appear in diff output
+        assert "+ three" in output
+        assert "+ five" in output
 
 
 class TestReadToolIntegration:
@@ -598,8 +594,8 @@ class TestReadToolIntegration:
         display._display_read(args, result)
         output = strip_ansi(display.console.file.getvalue())
 
-        # Should show truncation
-        assert "omitted" in output or "..." in output
+        # Should show truncation indicator
+        assert "lines hidden" in output
         # Should show first lines
         assert "line 0" in output or "line 1" in output
 
@@ -643,7 +639,7 @@ class TestToolDisplayRouting:
         output = strip_ansi(display.console.file.getvalue())
 
         assert "test.py" in output
-        assert "2 lines" in output
+        assert "bytes" in output
 
     def test_routing_bash_tool(self, display):
         """BashTool should route to _display_bash."""
@@ -663,7 +659,7 @@ class TestToolDisplayRouting:
         display.display_tool_call("GlobTool", args, result)
         output = strip_ansi(display.console.file.getvalue())
 
-        assert "Glob" in output
+        assert "*.py" in output
         assert "2 files" in output or "py" in output
 
     def test_routing_case_insensitive(self, display):
@@ -687,18 +683,17 @@ class TestHcodeStyle:
         style = HcodeStyle()
 
         required_attrs = [
-            "ICON_READ",
-            "ICON_WRITE",
-            "ICON_EDIT",
-            "ICON_BASH",
-            "ICON_DIFF_ADD",
-            "ICON_DIFF_DEL",
+            "COLOR_READ",
+            "COLOR_WRITE",
+            "COLOR_EDIT",
+            "COLOR_BASH",
+            "GUTTER",
+            "ICON_SUCCESS",
             "ICON_ERROR",
             "FILE_PATH",
             "TOOL_NAME",
+            "TOOL_SUCCESS",
             "TOOL_ERROR",
-            "ADDED",
-            "REMOVED",
             "DIM",
         ]
 
@@ -706,14 +701,11 @@ class TestHcodeStyle:
             assert hasattr(style, attr), f"HcodeStyle should have {attr} attribute"
 
     def test_style_box_characters(self):
-        """HcodeStyle should have box drawing characters."""
+        """HcodeStyle should have gutter/line-drawing character."""
         style = HcodeStyle()
 
-        box_attrs = ["BOX_TL", "BOX_TR", "BOX_BL", "BOX_BR", "BOX_H", "BOX_V"]
-
-        for attr in box_attrs:
-            assert hasattr(style, attr), f"HcodeStyle should have {attr} attribute"
-            assert len(getattr(style, attr)) > 0, f"{attr} should not be empty"
+        assert hasattr(style, "GUTTER"), "HcodeStyle should have GUTTER attribute"
+        assert len(style.GUTTER) > 0, "GUTTER should not be empty"
 
 
 if __name__ == "__main__":

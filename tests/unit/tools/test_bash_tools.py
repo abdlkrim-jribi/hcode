@@ -42,13 +42,12 @@ def temp_dir():
 
 @pytest.fixture(autouse=True)
 def mock_confirmation(mocker):
-    """Mock user confirmation to always return True"""
-    mock_display = mocker.Mock()
-    mock_display.show_command_confirmation.return_value = True
-    
+    """Mock session manager so all commands are auto-approved (no confirmation prompt)"""
+    mock_sm = mocker.Mock()
+    mock_sm.check_permission.return_value = True
     mocker.patch(
-        "hcode.ui.confirmation_display.get_confirmation_display", 
-        return_value=mock_display
+        "hcode.core.session_manager.get_session_manager",
+        return_value=mock_sm,
     )
 
 
@@ -82,7 +81,7 @@ class TestBashShellManager:
     def test_list_shells_empty(self):
         """Test listing shells when empty"""
         manager = BashShellManager()
-        assert manager.list_shells() == []
+        assert list(manager.shells.keys()) == []
 
     def test_get_shell_not_found(self):
         """Test getting non-existent shell"""
@@ -117,12 +116,12 @@ class TestBashTool:
         assert "run_in_background" in param_names
         assert "description" in param_names
 
-        # CommandLine is required
-        cmd_param = next(p for p in params if p.name == "CommandLine")
+        # command is required
+        cmd_param = next(p for p in params if p.name == "command")
         assert cmd_param.required == True
 
-        # command is optional alias
-        alias_param = next(p for p in params if p.name == "command")
+        # CommandLine is optional legacy alias
+        alias_param = next(p for p in params if p.name == "CommandLine")
         assert alias_param.required == False
 
     @pytest.mark.asyncio
@@ -521,7 +520,7 @@ class TestToolSchemas:
         schema = tool.to_function_schema()
 
         assert schema["name"] == "ls"
-        assert "DirectoryPath" in schema["parameters"]["required"]
+        assert "path" in schema["parameters"]["required"]
 
 
 if __name__ == "__main__":

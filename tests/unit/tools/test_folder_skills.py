@@ -19,6 +19,8 @@ _SRC = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", ".."
 
 def _load_module(module_name: str, file_path: str):
     """Load a single Python module from file, registering it in sys.modules."""
+    if module_name in sys.modules:
+        return sys.modules[module_name]
     spec = importlib.util.spec_from_file_location(module_name, file_path)
     mod = importlib.util.module_from_spec(spec)
     sys.modules[module_name] = mod

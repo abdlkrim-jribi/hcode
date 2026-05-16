@@ -199,7 +199,7 @@ class TestToolRegistryWithRealTools:
 
     def test_bash_tools_aliases(self):
         """Bash tools should be resolvable via aliases"""
-        from hcode.tools.bash_tools import BashTool, LSTool
+        from hcode.tools.terminal.bash_tools import BashTool, LSTool
 
         registry = ToolRegistry()
         registry.register(BashTool())
