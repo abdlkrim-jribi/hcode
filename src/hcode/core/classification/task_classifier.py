@@ -7,11 +7,12 @@ a YAML-based configuration system.
 
 import re
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Union
 
 import yaml
 
 from ..protocols import TaskClassifierProtocol
+from ...providers.provider_selector import TaskComplexity
 
 
 class TaskClassifier(TaskClassifierProtocol):
@@ -72,7 +73,7 @@ class TaskClassifier(TaskClassifierProtocol):
             }
         }
 
-    def classify(self, task: str, context: Optional[Dict[str, Any]] = None) -> str:
+    def classify(self, task: str, context: Optional[Dict[str, Any]] = None) -> Union[TaskComplexity, str]:
         """
         Classify task type.
 
@@ -81,8 +82,12 @@ class TaskClassifier(TaskClassifierProtocol):
             context: Optional context (not used yet)
 
         Returns:
-            Task type string
+            TaskComplexity.TRIVIAL for trivial tasks, otherwise a task type string
         """
+        # Check trivial first — skip all planning for direct tool calls
+        if self.is_trivial(task):
+            return TaskComplexity.TRIVIAL
+
         task_lower = task.lower().strip()
         task_types = self.config.get("task_types", {})
         scores: Dict[str, float] = {}
@@ -240,6 +245,36 @@ class TaskClassifier(TaskClassifierProtocol):
             "confidence": self.last_confidence,
             "all_types": list(self.config.get("task_types", {}).keys()),
         }
+
+    def is_trivial(self, task: str) -> bool:
+        """
+        Returns True if the task is a single direct tool call
+        that should skip all planning phases and execute immediately.
+
+        Trivial tasks are:
+        - Direct MCP tool calls (call mcp_xxx with ...)
+        - Simple single-tool operations (list branches, get file, etc.)
+        """
+        task_lower = task.lower().strip()
+
+        # Load trivial patterns from config
+        trivial_config = self.config.get("trivial_patterns", {})
+
+        # Check MCP direct call patterns
+        mcp_patterns = trivial_config.get("mcp_direct_call", [
+            "call mcp_", "use mcp_", "run mcp_", "invoke mcp_"
+        ])
+        for pattern in mcp_patterns:
+            if pattern.lower() in task_lower:
+                return True
+
+        # Check single tool call patterns
+        single_tool_patterns = trivial_config.get("single_tool_call", [])
+        for pattern in single_tool_patterns:
+            if pattern.lower() in task_lower:
+                return True
+
+        return False
 
     def requires_pev_workflow(self, task: str) -> bool:
         """
