@@ -3,9 +3,12 @@ Layer 1: File-based memory using markdown files.
 Mirrors Claude Code's hcode.md approach with hierarchical loading.
 """
 
+import logging
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional, List, Dict
+
+logger = logging.getLogger(__name__)
 
 from hcode.memory.config import config
 
@@ -90,8 +93,8 @@ class FileMemory:
                 files.append(
                     MemoryFile(path=global_file, content=content, priority=0, scope="global")
                 )
-            except Exception:
-                pass  # Skip if unreadable
+            except Exception as e:
+                logger.error(f"[file_memory] failed to read global memory file {global_file}: {e}")
 
         if self.project_root:
             # 2. Project memory
@@ -102,8 +105,8 @@ class FileMemory:
                     files.append(
                         MemoryFile(path=project_file, content=content, priority=1, scope="project")
                     )
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.error(f"[file_memory] failed to read project memory file {project_file}: {e}")
 
             # 3. Local project memory (gitignored)
             local_file = config.get_local_memory_path(self.project_root)
@@ -113,8 +116,8 @@ class FileMemory:
                     files.append(
                         MemoryFile(path=local_file, content=content, priority=2, scope="local")
                     )
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.error(f"[file_memory] failed to read local memory file {local_file}: {e}")
 
             # 4. Subdirectory memory files (between project root and current dir)
             try:
@@ -134,8 +137,8 @@ class FileMemory:
                                         scope="subdirectory",
                                     )
                                 )
-                            except Exception:
-                                pass
+                            except Exception as e:
+                                logger.error(f"[file_memory] failed to read subdirectory memory file {subdir_file}: {e}")
             except ValueError:
                 pass  # current_dir not relative to project_root
 

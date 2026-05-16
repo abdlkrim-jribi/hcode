@@ -4,12 +4,15 @@ TODO management system matching Claude Code exactly.
 Implements todo tracking, active form generation, and batch updates.
 """
 
+import logging
 import re
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from typing import List, Optional, Dict, Any, Callable, Tuple
+
+logger = logging.getLogger(__name__)
 
 
 class TodoStatus(Enum):
@@ -168,8 +171,8 @@ class TodoManager:
         for listener in self.listeners:
             try:
                 listener(self.todos)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.error(f"[todo_manager] listener notification failed: {e}")
 
     def batch_update(self, todos: List[Dict[str, Any]]):
         """

@@ -1,7 +1,10 @@
 import hashlib
+import logging
 import threading
 from collections import OrderedDict
 from typing import Any, Dict, Optional
+
+logger = logging.getLogger(__name__)
 
 
 # =============================================================================
@@ -66,13 +69,13 @@ class CachedTokenCounter:
         if self._tokenizer == "anthropic":
             try:
                 return self._anthropic_client.count_tokens(text)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.error(f"[token_counter] anthropic token count failed: {e}")
         elif self._tokenizer is not None:
             try:
                 return len(self._tokenizer.encode(text))
-            except Exception:
-                pass
+            except Exception as e:
+                logger.error(f"[token_counter] tokenizer encode failed: {e}")
         return int(len(text) / self._approx_ratio)
 
     def get_stats(self) -> Dict[str, Any]:

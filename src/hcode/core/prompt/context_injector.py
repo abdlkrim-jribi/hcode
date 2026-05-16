@@ -5,8 +5,11 @@ This module handles building system prompts with all necessary context
 including tool documentation, workspace info, memory, and task context.
 """
 
+import logging
 from pathlib import Path
 from typing import Optional, Any
+
+logger = logging.getLogger(__name__)
 
 from hcode.config.core_prompts.core import CorePromptLoader
 
@@ -117,8 +120,8 @@ class ContextInjector:
                 memory_text += "</relevant_memories>\n"
 
                 return prompt + memory_text
-        except Exception:
-            pass
+        except Exception as e:
+            logger.error(f"[context_injector] failed to inject memory context: {e}")
 
         return prompt
 
@@ -138,8 +141,8 @@ class ContextInjector:
                 task_content = task_file.read_text(encoding="utf-8")
                 if task_content.strip():
                     task_context += f"\n<current_task>\n{task_content}\n</current_task>\n"
-            except Exception:
-                pass
+            except Exception as e:
+                logger.error(f"[context_injector] failed to read task.md: {e}")
 
         # Read implementation_plan.md
         plan_file = hcode_dir / "implementation_plan.md"
@@ -148,8 +151,8 @@ class ContextInjector:
                 plan_content = plan_file.read_text(encoding="utf-8")
                 if plan_content.strip():
                     task_context += f"\n<implementation_plan>\n{plan_content}\n</implementation_plan>\n"
-            except Exception:
-                pass
+            except Exception as e:
+                logger.error(f"[context_injector] failed to read implementation_plan.md: {e}")
 
         return prompt + task_context
 

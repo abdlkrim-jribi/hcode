@@ -3,8 +3,11 @@ HCode CLI - Command-line interface with beautiful styling and all features.
 """
 
 import asyncio
+import logging
 import os
 import sys
+
+logger = logging.getLogger(__name__)
 
 import click
 from dotenv import load_dotenv
@@ -1148,8 +1151,8 @@ def chat_mode(provider, session, debug, autonomous):
                 # Update LiveTodoBar after interrupt (it shows persistently)
                 if chat_todos:
                     live_todo_bar.update_todos(chat_todos)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.error(f"[main_cli] failed to update todo display after interrupt: {e}")
             continue
         except EOFError:
             break

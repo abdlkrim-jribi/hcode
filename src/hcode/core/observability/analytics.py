@@ -10,10 +10,13 @@ Provides comprehensive analytics for:
 """
 
 import json
+import logging
 import statistics
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+
+logger = logging.getLogger(__name__)
 from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -448,8 +451,8 @@ class ExecutionAnalytics:
         try:
             report = self.export_report("json")
             self._persistence_path.write_text(report)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.error(f"[analytics] failed to save analytics to {self._persistence_path}: {e}")
 
 
 # =============================================================================

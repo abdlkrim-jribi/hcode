@@ -4,8 +4,11 @@ Integrates all features: tools, sub-agents, web capabilities, interactive featur
 """
 
 import asyncio
+import logging
 from pathlib import Path
 from typing import Dict, Any, List
+
+logger = logging.getLogger(__name__)
 
 from rich.markup import escape
 
@@ -588,8 +591,8 @@ class HcodeAgent:
                     self.memory_manager.add_message(
                         role="user", content=task, extract_memories=True
                     )
-                except Exception:
-                    pass  # Memory system is optional
+                except Exception as e:
+                    logger.error(f"[agent] failed to add user message to memory: {e}")
 
             # Execute with tool calling
             # self._loop_controller.transition(Phase.EXECUTION) # Transitions automatically based on activity
@@ -606,8 +609,8 @@ class HcodeAgent:
                     self.memory_manager.add_message(
                         role="assistant", content=response, extract_memories=True
                     )
-                except Exception:
-                    pass  # Memory system is optional
+                except Exception as e:
+                    logger.error(f"[agent] failed to add assistant response to memory: {e}")
 
             # End logging session
             self.logger.end_session(final_result=response)
@@ -1811,8 +1814,8 @@ START NOW - think first, then act:"""
                             fpath = arguments.get("file_path")
                             if fpath:
                                 hcode_display.track_file(fpath, FileAction.VIEWED)
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.error(f"[agent] failed to track file action in display: {e}")
 
                 # Add to context
                 tool_call_id = tool_calls[i].get("id") if i < len(tool_calls) else None

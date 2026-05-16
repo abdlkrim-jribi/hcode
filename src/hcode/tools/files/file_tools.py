@@ -3,9 +3,12 @@ File operation tools for Hcode.
 Includes Read, Write, Edit, Glob tools similar to Hcode.
 """
 
+import logging
 import os
 from pathlib import Path
 from typing import List, Optional, Dict, Any, TYPE_CHECKING
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     pass
@@ -377,8 +380,8 @@ class WriteTool(BaseTool):
                             output=f"File {path} already has this content (no change made).",
                             metadata={"bytes_written": 0, "verified": True}
                         )
-                except:
-                    pass
+                except Exception as e:
+                    logger.error(f"[file_tools] failed to read existing file for idempotency check: {e}")
 
             # Handle append mode for chunked writes
             if mode == "append":
@@ -489,8 +492,8 @@ class WriteTool(BaseTool):
             try:
                 if content:
                     self._partial_writes[str(Path(file_path).absolute())] = content
-            except:
-                pass
+            except Exception as inner_e:
+                logger.error(f"[file_tools] failed to save partial write buffer: {inner_e}")
             return ToolResult(success=False, output=None, error=str(e))
 
     async def _execute_with_preview(
@@ -1369,8 +1372,8 @@ class GlobTool(BaseTool):
                                 'workflow', 'pipeline', 'azure', 'build'
                             ]):
                                 subdirs.append(item.name)
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.error(f"[file_tools] failed to enumerate subdirectories for glob hints: {e}")
 
                 output = "No matches found"
                 if subdirs:
@@ -1565,8 +1568,8 @@ class GrepTool(BaseTool):
                                 'workflow', 'pipeline', 'azure', 'build'
                             ]):
                                 subdirs.append(item.name)
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.error(f"[file_tools] failed to enumerate subdirectories for grep hints: {e}")
 
                 if subdirs:
                     hints.append(f"Try searching in: {', '.join(subdirs)}")

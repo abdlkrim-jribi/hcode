@@ -15,8 +15,11 @@ Features:
 - Always shows latest 5 lines of command output
 """
 
+import logging
 import os
 from typing import Optional, Dict, Any, List, Tuple
+
+logger = logging.getLogger(__name__)
 
 from rich.console import Console
 from rich.markup import escape
@@ -184,8 +187,8 @@ class HcodeToolDisplay:
                 parent = Path(file_path).parent.name
                 if parent:
                     header.append(f" ({parent}/)", style=f"{self.style.TEXT_DIM}")
-            except:
-                pass
+            except Exception as e:
+                logger.error(f"[tool_display] failed to resolve parent path for read header: {e}")
             self.console.print(header)
 
             # 2. Spacer: ┃
@@ -281,8 +284,8 @@ class HcodeToolDisplay:
                 parent = Path(file_path).parent.name
                 if parent:
                     header.append(f" ({parent}/)", style=f"{self.style.TEXT_DIM}")
-            except:
-                pass
+            except Exception as e:
+                logger.error(f"[tool_display] failed to resolve parent path for write header: {e}")
             self.console.print(header)
 
             # 2. Spacer
