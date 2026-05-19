@@ -15,6 +15,7 @@ from dotenv import load_dotenv
 # Load environment variables from .env file
 load_dotenv()
 
+from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 from rich.markdown import Markdown
@@ -32,6 +33,13 @@ install_rich_traceback(show_locals=True)
 # SelectorEventLoop handles cleanup correctly.
 if sys.platform == "win32" and sys.version_info < (3, 11):
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+
+if sys.platform == "win32":
+    os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+    if sys.stdout.encoding != "utf-8":
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    if sys.stderr.encoding != "utf-8":
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 from hcode.core import HcodeAgent
 from hcode.providers import ProviderPreferences, TaskComplexity, TaskType
@@ -65,7 +73,7 @@ from hcode.core.response.thinking_processor import parse_thinking_block
 from hcode.core.reasoning import ReasoningParser, ReasoningToTodoIntegrator
 
 # Get themed console
-console = get_console()
+console = Console(force_terminal=True)
 
 # Get icons instance (Windows-safe)
 icons = Icons()
@@ -170,10 +178,14 @@ def cli(ctx, version):
     Examples:
       hcode run "add logging to main.py"
       hcode analyze src/
-      hcode debug "NullPointerException in line 42"
     """
     if version:
-        console.print(f"[bold cyan]Hcode[/bold cyan] version [green]0.1.0[/green]")
+        try:
+            from importlib.metadata import version as get_version
+            _version = get_version("hcode")
+        except Exception:
+            _version = "1.0.0"
+        console.print(f"[bold cyan]Hcode[/bold cyan] version [green]{_version}[/green]")
         console.print(
             f"{EMOJI['robot']} AI Providers: [cyan]Anthropic[/cyan] + [green]OpenAI[/green]"
         )
@@ -372,16 +384,17 @@ def run_task(task, provider, model, complexity, cost, session, stream, agents, a
 @click.option(
     "-p",
     "--provider",
-    type=click.Choice(["auto", "anthropic", "openai"]),
+    type=click.Choice(["auto", "anthropic", "openai", "claude", "gpt"]),
     default="auto",
     help="AI provider",
 )
 @click.option("-s", "--session", help="Session ID")
+@click.option("--model", "-m", default=None, help="Model to use (e.g. gpt-4o, claude-3-5-sonnet)")
 @click.option(
     "--debug", is_flag=True, help="Enable debug mode (show verbose output, thinking panels)"
 )
 @click.option("--autonomous/--no-autonomous", default=False, help="Run in autonomous mode (skip confirmation)")
-def chat_mode(provider, session, debug, autonomous):
+def chat_mode(provider, session, model, debug, autonomous):
     """
     Start an interactive chat session
 
@@ -423,6 +436,8 @@ def chat_mode(provider, session, debug, autonomous):
 
     if not anthropic_key and not openai_key:
         console.print("[red]No API keys found[/red]")
+        console.print("[yellow]Tip:[/yellow] Set your API key with: hcode config set api_key YOUR_KEY")
+        console.print("[dim]Or add it to your .env file: OPENAI_API_KEY=... or ANTHROPIC_API_KEY=...[/dim]")
         sys.exit(1)
 
     # Get provider preference from config if not specified
@@ -434,6 +449,9 @@ def chat_mode(provider, session, debug, autonomous):
     if "ui" not in config:
         config["ui"] = {}
     config["ui"]["debug_mode"] = debug
+
+    if model:
+        config["model"] = model
 
     preferences = ProviderPreferences(primary_provider=provider)
     agent = HcodeAgent(
@@ -916,7 +934,7 @@ def chat_mode(provider, session, debug, autonomous):
                     # Codebase initialization - agent-driven analysis
                     console.print(
                         Panel(
-                            f"[bold {palette.primary}]🚀 Initializing codebase analysis...[/bold {palette.primary}]\n\n"
+                            f"[bold {palette.primary}]{icons.ROCKET} Initializing codebase analysis...[/bold {palette.primary}]\n\n"
                             f"The agent will now comprehensively analyze your codebase using its tools:\n"
                             f"  • Glob to discover structure\n"
                             f"  • Read to understand code\n"
@@ -965,8 +983,8 @@ def chat_mode(provider, session, debug, autonomous):
                         if result.success:
                             console.print(
                                 Panel(
-                                    f"[bold {palette.success}]✅ Codebase initialization complete![/bold {palette.success}]\n\n"
-                                    f"📁 Documentation created: [cyan]{result.hcode_path}[/cyan]\n\n"
+                                    f"[bold {palette.success}]{icons.SUCCESS} Codebase initialization complete![/bold {palette.success}]\n\n"
+                                    f"{icons.FOLDER} Documentation created: [cyan]{result.hcode_path}[/cyan]\n\n"
                                     f"[{palette.text_muted}]The agent has analyzed your codebase and generated\n"
                                     f"comprehensive documentation that will guide all future\n"
                                     f"implementations. Use this as a reference for understanding\n"
@@ -979,7 +997,7 @@ def chat_mode(provider, session, debug, autonomous):
                         else:
                             console.print(
                                 Panel(
-                                    f"[bold {palette.warning}]⚠️ Analysis completed with issues[/bold {palette.warning}]\n\n"
+                                    f"[bold {palette.warning}]{icons.WARNING} Analysis completed with issues[/bold {palette.warning}]\n\n"
                                     f"Error: {result.error}\n\n"
                                     f"The agent completed its analysis but did not generate hcode.md.\n"
                                     f"Try running /init again or check the error above.",
@@ -1170,7 +1188,7 @@ def chat_mode(provider, session, debug, autonomous):
 @cli.command(name="analyze", short_help="Analyze code")
 @click.argument("path", required=False)
 @click.option(
-    "-p", "--provider", type=click.Choice(["auto", "anthropic", "openai"]), default="auto"
+    "-p", "--provider", type=click.Choice(["auto", "anthropic", "openai", "claude", "gpt"]), default="auto"
 )
 @click.option("--deep", is_flag=True, help="Deep analysis")
 def analyze_code(path, provider, deep):
@@ -1183,8 +1201,13 @@ def analyze_code(path, provider, deep):
       hcode analyze .
       hcode analyze --deep
     """
+    from pathlib import Path
     if not path:
         path = "."
+
+    if not Path(path).exists():
+        console.print(f"[red]Error:[/red] Path does not exist: {path}")
+        return
 
     console.print(
         Panel(
@@ -1210,20 +1233,27 @@ def analyze_code(path, provider, deep):
     ) as progress:
         task = progress.add_task("Analyzing code...", total=None)
 
-        result = asyncio.run(
-            agent.execute_task(
-                f"Analyze code in {path} for bugs, security issues, and improvements. "
-                f"{'Provide deep analysis with detailed recommendations.' if deep else ''}",
-                stream=False,
+        try:
+            result = asyncio.run(
+                agent.execute_task(
+                    f"Analyze code in {path} for bugs, security issues, and improvements. "
+                    f"{'Provide deep analysis with detailed recommendations.' if deep else ''}",
+                    stream=False,
+                )
             )
-        )
+        except KeyboardInterrupt:
+            console.print("\n[yellow]Analysis interrupted.[/yellow]")
+            return
+        except Exception as e:
+            console.print(f"[red]Error during analysis:[/red] {e}")
+            return
 
         progress.remove_task(task)
 
     console.print(
         Panel(
             Markdown(result),
-            title="[bold green]✓ Analysis Complete[/bold green]",
+            title=f"[bold green]{icons.SUCCESS} Analysis Complete[/bold green]",
             border_style="green",
         )
     )
@@ -1238,7 +1268,14 @@ def analyze_code(path, provider, deep):
     default="medium",
     help="Search thoroughness",
 )
-def explore_codebase(query, thoroughness):
+@click.option(
+    "-p",
+    "--provider",
+    type=click.Choice(["auto", "anthropic", "openai", "claude", "gpt"]),
+    default="auto",
+    help="AI provider",
+)
+def explore_codebase(query, thoroughness, provider):
     """
     Explore and search codebase
 
@@ -1259,21 +1296,29 @@ def explore_codebase(query, thoroughness):
         "api_key"
     )
 
-    agent = HcodeAgent(anthropic_key=anthropic_key, openai_key=openai_key)
+    preferences = ProviderPreferences(primary_provider=provider)
+    agent = HcodeAgent(anthropic_key=anthropic_key, openai_key=openai_key, preferences=preferences)
 
     with Progress(
             SpinnerColumn(), TextColumn("[progress.description]{task.description}"), console=console
     ) as progress:
         task = progress.add_task(f"Exploring ({thoroughness})...", total=None)
 
-        result = asyncio.run(agent.explore_codebase(query, thoroughness=thoroughness))
+        try:
+            result = asyncio.run(agent.explore_codebase(query, thoroughness=thoroughness))
+        except KeyboardInterrupt:
+            console.print("\n[yellow]Exploration interrupted.[/yellow]")
+            return
+        except Exception as e:
+            console.print(f"[red]Error during exploration:[/red] {e}")
+            return
 
         progress.remove_task(task)
 
     console.print(
         Panel(
             Markdown(result),
-            title="[bold cyan]🔍 Exploration Results[/bold cyan]",
+            title=f"[bold cyan]{icons.SEARCH} Exploration Results[/bold cyan]",
             border_style="cyan",
         )
     )
@@ -1378,6 +1423,17 @@ def config_set(key, value, is_global):
       hcode config set ui.theme dark
       hcode config set -g llm.anthropic_api_key sk-ant-...
     """
+    VALID_CONFIG_KEYS = {
+        "provider", "model", "api_key", "base_url",
+        "max_tokens", "temperature", "debug", "auto_save",
+        "timeout", "max_retries", "stream"
+    }
+
+    if key not in VALID_CONFIG_KEYS:
+        console.print(f"[red]Error:[/red] Unknown config key '{key}'.")
+        console.print(f"[dim]Valid keys: {', '.join(sorted(VALID_CONFIG_KEYS))}[/dim]")
+        return
+
     from pathlib import Path
     import yaml
 
@@ -1424,11 +1480,13 @@ def config_set(key, value, is_global):
     current[keys[-1]] = value
 
     # Save config
-    with open(config_file, "w", encoding="utf-8") as f:
-        yaml.dump(config, f, default_flow_style=False, sort_keys=False)
-
-    console.print(f"[green]{EMOJI['success']} Set {key} = {value}[/green]")
-    console.print(f"[dim]Config file: {config_file}[/dim]")
+    try:
+        with open(config_file, "w", encoding="utf-8") as f:
+            yaml.dump(config, f, default_flow_style=False, sort_keys=False)
+        console.print(f"[green]{EMOJI['success']} Set {key} = {value}[/green]")
+        console.print(f"[dim]Config file: {config_file}[/dim]")
+    except Exception as e:
+        console.print(f"[red]Error:[/red] Could not write config: {e}")
 
 
 @config_group.command(name="get")
@@ -1769,7 +1827,7 @@ def mcp_status():
     Show MCP connection status and available tools.
 
     Instantiates a ToolManager to read the live MCP state (no actual
-    connections are opened — this reflects what is configured).
+    connections are opened - this reflects what is configured).
 
     \b
     Examples:
